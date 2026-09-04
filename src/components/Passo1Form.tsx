@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { enviarPasso1 } from '../lib/partner';
 
 interface Passo1Props {
