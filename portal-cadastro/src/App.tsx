@@ -4,11 +4,15 @@ import Passo2Form from './components/Passo2Form';
 import AdminModeration from './components/AdminModeration';
 import GestaoFestas from './components/GestaoFestas';
 import GestaoCupons from './components/GestaoCupons';
+import { AdminLogin } from './components/AdminLogin';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'cadastro' | 'festas' | 'cupons' | 'admin'>('cadastro');
   const [step, setStep] = useState<1 | 2>(1);
   const [partnerId, setPartnerId] = useState<string | null>(null);
+  const [isAdminLogged, setIsAdminLogged] = useState<boolean>(() => {
+    return localStorage.getItem('admin_session') === 'true';
+  });
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 font-sans">
@@ -91,7 +95,13 @@ export default function App() {
 
         {activeTab === 'festas' && <GestaoFestas partnerId={partnerId || 'partner-demo'} />}
         {activeTab === 'cupons' && <GestaoCupons partnerId={partnerId || 'partner-demo'} />}
-        {activeTab === 'admin' && <AdminModeration />}
+        {activeTab === 'admin' && (
+          isAdminLogged ? (
+            <AdminModeration />
+          ) : (
+            <AdminLogin aoLogar={() => setIsAdminLogged(true)} />
+          )
+        )}
       </main>
     </div>
   );
