@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState, FormEvent } from 'react';
 
-interface Passo1Props {
+export interface Passo1Props {
   onSuccess: (partnerId: string) => void;
 }
 
@@ -9,7 +9,7 @@ export default function Passo1Form({ onSuccess }: Passo1Props) {
   const [documento, setDocumento] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setTimeout(() => {

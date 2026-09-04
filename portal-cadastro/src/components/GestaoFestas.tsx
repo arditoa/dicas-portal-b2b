@@ -1,4 +1,8 @@
-export default function GestaoFestas({ partnerId }: { partnerId: string }) {
+export interface GestaoFestasProps {
+  partnerId: string;
+}
+
+export default function GestaoFestas({ partnerId }: GestaoFestasProps) {
   return (
     <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700">
       <h2 className="text-xl font-bold text-white mb-2">🎉 Gestão de Festas & Eventos</h2>

@@ -1,7 +1,15 @@
 import { useState } from 'react';
 
+export interface Parceiro {
+  id: string;
+  nome: string;
+  responsavel: string;
+  status: string;
+  doc: string;
+}
+
 export default function AdminModeration() {
-  const [parceiros, setParceiros] = useState([
+  const [parceiros, setParceiros] = useState<Parceiro[]>([
     { id: '1', nome: 'Bar Acolhedor', responsavel: 'Alex Silva', status: 'PENDENTE', doc: '12.345.678/0001-90' },
     { id: '2', nome: 'Club Rainbow', responsavel: 'Carla Dias', status: 'PENDENTE', doc: '98.765.432/0001-10' },
   ]);

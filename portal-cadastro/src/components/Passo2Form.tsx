@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState, FormEvent } from 'react';
 
-interface Passo2Props {
+export interface Passo2Props {
   partnerId: string;
   onSuccess: () => void;
 }
@@ -10,7 +10,7 @@ export default function Passo2Form({ partnerId, onSuccess }: Passo2Props) {
   const [instagram, setInstagram] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setTimeout(() => {

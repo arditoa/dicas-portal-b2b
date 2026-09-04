@@ -1,4 +1,8 @@
-export default function GestaoCupons({ partnerId }: { partnerId: string }) {
+export interface GestaoCuponsProps {
+  partnerId: string;
+}
+
+export default function GestaoCupons({ partnerId }: GestaoCuponsProps) {
   return (
     <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700">
       <h2 className="text-xl font-bold text-white mb-2">🏷️ Gestão de Cupons de Desconto</h2>
