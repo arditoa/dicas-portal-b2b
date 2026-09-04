@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 interface Passo2Props {
   partnerId: string;
@@ -22,7 +22,7 @@ export default function Passo2Form({ partnerId, onSuccess }: Passo2Props) {
   return (
     <div className="max-w-md mx-auto bg-slate-800 p-6 rounded-2xl border border-slate-700">
       <h2 className="text-xl font-bold text-white mb-2">Detalhes do Espaço (Passo 2)</h2>
-      <p className="text-sm text-slate-400 mb-6">Complete as informações do seu perfil público.</p>
+      <p className="text-xs text-purple-400 mb-4">ID do Parceiro: {partnerId}</p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
