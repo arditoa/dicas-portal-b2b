@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import Passo1Form from './components/Passo1Form';
-import Passo2Form from './components/Passo2Form';
-import AdminModeration from './components/AdminModeration';
-import GestaoFestas from './components/GestaoFestas';
-import GestaoCupons from './components/GestaoCupons';
+import Passo1Form from '../portal-cadastro/src/components/Passo1Form';
+import Passo2Form from '../portal-cadastro/src/components/Passo2Form';
+import AdminModeration from '../portal-cadastro/src/components/AdminModeration';
+import GestaoFestas from '../portal-cadastro/src/components/GestaoFestas';
+import GestaoCupons from '../portal-cadastro/src/components/GestaoCupons';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'cadastro' | 'festas' | 'cupons' | 'admin'>('cadastro');
@@ -74,14 +74,14 @@ export default function App() {
           <div>
             {step === 1 ? (
               <Passo1Form
-                onSuccess={(id) => {
+                onSuccess={(id: string) => {
                   setPartnerId(id);
                   setStep(2);
                 }}
               />
             ) : (
               <Passo2Form
-                partnerId={partnerId!}
+                partnerId={partnerId || ''}
                 onSuccess={() => {
                   alert('Cadastro enviado com sucesso para moderação!');
                   setActiveTab('admin');
