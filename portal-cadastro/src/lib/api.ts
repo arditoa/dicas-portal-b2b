@@ -1,7 +1,6 @@
-// lib/api.ts
-// Chamadas para a API backend.
+// portal-cadastro/src/lib/api.ts
 
-const BASE_URL = 'https://dicas-portal-backend.onrender.com';
+const BASE_URL = 'https://dicas-portal-backend.onrender.com/api/partners';
 
 export interface CadastroParceiroPayload {
   documento: string;
@@ -20,23 +19,48 @@ export interface CadastroParceiroPayload {
   origemLead?: 'whatsapp' | 'portal';
 }
 
-export async function verificarDocumentoDuplicado(documento: string): Promise<boolean> {
-  const resposta = await fetch(`${BASE_URL}/check-duplicate?documento=${documento}`);
-  if (!resposta.ok) {
+// Verifica se o CPF/CNPJ já existe
+export async function verificarDocumentoDuplicado(
+  documento: string
+): Promise<boolean> {
+  try {
+    const resposta = await fetch(
+      `${BASE_URL}/check-duplicate?documento=${encodeURIComponent(documento)}`
+    );
+
+    if (!resposta.ok) {
+      return false;
+    }
+
+    const dados = await resposta.json();
+    return dados.exists || false;
+  } catch (error) {
+    console.error('Erro na verificação de documento:', error);
     return false;
   }
-  const dado = await resposta.json();
-  return Boolean(dado.existe);
 }
 
-export async function enviarCadastroParceiro(payload: CadastroParceiroPayload): Promise<{ id: string }> {
-  const resposta = await fetch(BASE_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  if (!resposta.ok) {
-    throw new Error(`Falha ao enviar cadastro (${resposta.status})`);
+// Função com o nome exato esperado pelo CadastroParceiroForm.tsx
+export async function enviarCadastroParceiro(
+  payload: CadastroParceiroPayload
+): Promise<{ success: boolean; message?: string }> {
+  try {
+    const resposta = await fetch(`${BASE_URL}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!resposta.ok) {
+      throw new Error(`Erro na API: ${resposta.status}`);
+    }
+
+    const dados = await resposta.json();
+    return { success: true, message: dados.message };
+  } catch (error) {
+    console.error('Falha ao enviar cadastro:', error);
+    return { success: false, message: 'Não foi possível conectar ao servidor.' };
   }
-  return resposta.json();
 }
