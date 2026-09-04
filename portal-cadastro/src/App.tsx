@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import Passo1Form from './components/Passo1Form';
-import Passo2Form from './components/Passo2Form';
+import FormUnicoCadastro from './components/FormUnicoCadastro';
 import AdminModeration from './components/AdminModeration';
 import GestaoFestas from './components/GestaoFestas';
 import GestaoCupons from './components/GestaoCupons';
@@ -8,8 +7,7 @@ import { AdminLogin } from './components/AdminLogin';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'cadastro' | 'festas' | 'cupons' | 'admin'>('cadastro');
-  const [step, setStep] = useState<1 | 2>(1);
-  const [partnerId, setPartnerId] = useState<string | null>(null);
+  const [partnerId] = useState<string | null>(null);
   const [isAdminLogged, setIsAdminLogged] = useState<boolean>(() => {
     return localStorage.getItem('admin_session') === 'true';
   });
@@ -72,27 +70,7 @@ export default function App() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-8">
-        {activeTab === 'cadastro' && (
-          <div>
-            {step === 1 ? (
-              <Passo1Form
-                onSuccess={(id: string) => {
-                  setPartnerId(id);
-                  setStep(2);
-                }}
-              />
-            ) : (
-              <Passo2Form
-                partnerId={partnerId || ''}
-                onSuccess={() => {
-                  alert('Cadastro enviado com sucesso para moderação!');
-                  setActiveTab('admin');
-                }}
-              />
-            )}
-          </div>
-        )}
-
+        {activeTab === 'cadastro' && <FormUnicoCadastro />}
         {activeTab === 'festas' && <GestaoFestas partnerId={partnerId || 'partner-demo'} />}
         {activeTab === 'cupons' && <GestaoCupons partnerId={partnerId || 'partner-demo'} />}
         {activeTab === 'admin' && (
