@@ -1,55 +1,64 @@
-import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { COLORS, RADIUS, TYPOGRAPHY } from '../constants/theme';
-import { RatingBadge } from './RatingBadge';
+import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 
-interface VenueCardProps {
+export interface VenueCardProps {
   id: string;
   name: string;
-  category: string;
-  neighborhood: string;
-  distance: string;
-  image: string;
-  deal?: string | null;
-  rating: number;
-  reviewCount: number;
-  onPress: () => void;
+  bio?: string;
+  coverImage?: string;
+  tagsPublicoVibe?: string[];
+  tagsComodidades?: string[];
+  onPress?: () => void;
 }
 
 export function VenueCard({
   name,
-  category,
-  neighborhood,
-  distance,
-  image,
-  deal,
-  rating,
-  reviewCount,
+  bio,
+  coverImage,
+  tagsPublicoVibe = [],
+  tagsComodidades = [],
   onPress,
 }: VenueCardProps) {
   return (
-    <TouchableOpacity
-      style={styles.card}
-      activeOpacity={0.85}
-      onPress={onPress}
-    >
-      <Image source={{ uri: image }} style={styles.thumb} />
-
-      <View style={styles.body}>
-        <View style={styles.headerRow}>
-          <Text style={styles.title} numberOfLines={1}>{name}</Text>
-          <RatingBadge rating={rating} reviewCount={reviewCount} />
+    <TouchableOpacity activeOpacity={0.85} onPress={onPress} style={styles.card}>
+      {coverImage ? (
+        <Image source={{ uri: coverImage }} style={styles.cover} resizeMode="cover" />
+      ) : (
+        <View style={[styles.cover, styles.placeholderCover]}>
+          <Text style={styles.placeholderText}>🌈 Dicas LGBT</Text>
         </View>
+      )}
 
-        <Text style={styles.subtitle} numberOfLines={1}>
-          {category.toUpperCase()} • {neighborhood} • {distance}
+      <View style={styles.content}>
+        <Text style={styles.title} numberOfLines={1}>
+          {name}
         </Text>
 
-        {deal && (
-          <View style={styles.dealTag}>
-            <Ionicons name="ticket-outline" size={13} color={COLORS.accent} />
-            <Text style={styles.dealText}>{deal}</Text>
+        {bio ? (
+          <Text style={styles.bio} numberOfLines={2}>
+            {bio}
+          </Text>
+        ) : null}
+
+        {/* Badges de Público & Vibe */}
+        {tagsPublicoVibe.length > 0 && (
+          <View style={styles.tagContainer}>
+            {tagsPublicoVibe.map((tag) => (
+              <View key={tag} style={styles.vibeBadge}>
+                <Text style={styles.vibeBadgeText}>{tag}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Badges de Comodidades */}
+        {tagsComodidades.length > 0 && (
+          <View style={styles.tagContainer}>
+            {tagsComodidades.map((item) => (
+              <View key={item} style={styles.comodidadeBadge}>
+                <Text style={styles.comodidadeBadgeText}>✓ {item}</Text>
+              </View>
+            ))}
           </View>
         )}
       </View>
@@ -59,34 +68,73 @@ export function VenueCard({
 
 const styles = StyleSheet.create({
   card: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.card,
-    marginBottom: 12,
-    padding: 10,
-    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    marginBottom: 16,
+    overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(182, 166, 190, 0.1)',
+    borderColor: '#F1F5F9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  thumb: {
-    width: 80,
-    height: 80,
-    borderRadius: RADIUS.card - 4,
-    backgroundColor: 'rgba(182, 166, 190, 0.15)',
+  cover: {
+    width: '100%',
+    height: 160,
   },
-  body: { flex: 1, marginLeft: 14, justifyContent: 'center' },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  title: { ...TYPOGRAPHY.venueName, flex: 1, marginRight: 8 },
-  subtitle: { ...TYPOGRAPHY.bodyMetadata, color: COLORS.textSecondary, marginBottom: 8 },
-  dealTag: {
-    flexDirection: 'row',
+  placeholderCover: {
+    backgroundColor: '#312E81',
+    justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 111, 160, 0.12)',
+  },
+  placeholderText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  content: {
+    padding: 16,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#0F172A',
+    marginBottom: 4,
+  },
+  bio: {
+    fontSize: 14,
+    color: '#64748B',
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  tagContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 6,
+  },
+  vibeBadge: {
+    backgroundColor: '#F3E8FF',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  vibeBadgeText: {
+    color: '#7E22CE',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  comodidadeBadge: {
+    backgroundColor: '#F1F5F9',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: RADIUS.pill,
-    alignSelf: 'flex-start',
-    gap: 4,
+    borderRadius: 8,
   },
-  dealText: { ...TYPOGRAPHY.captionTag, color: COLORS.accent, fontWeight: 'bold' },
+  comodidadeBadgeText: {
+    color: '#475569',
+    fontSize: 11,
+    fontWeight: '500',
+  },
 });
