@@ -6,6 +6,10 @@ export interface VenueCardProps {
   name: string;
   bio?: string;
   coverImage?: string;
+  image?: string; // Compatibilidade com near.tsx
+  category?: string; // Compatibilidade com near.tsx
+  neighborhood?: string; // Compatibilidade com near.tsx
+  distance?: string; // Compatibilidade com near.tsx
   tagsPublicoVibe?: string[];
   tagsComodidades?: string[];
   onPress?: () => void;
@@ -15,14 +19,20 @@ export function VenueCard({
   name,
   bio,
   coverImage,
+  image,
+  category,
+  neighborhood,
+  distance,
   tagsPublicoVibe = [],
   tagsComodidades = [],
   onPress,
 }: VenueCardProps) {
+  const displayImage = coverImage || image;
+
   return (
     <TouchableOpacity activeOpacity={0.85} onPress={onPress} style={styles.card}>
-      {coverImage ? (
-        <Image source={{ uri: coverImage }} style={styles.cover} resizeMode="cover" />
+      {displayImage ? (
+        <Image source={{ uri: displayImage }} style={styles.cover} resizeMode="cover" />
       ) : (
         <View style={[styles.cover, styles.placeholderCover]}>
           <Text style={styles.placeholderText}>🌈 Dicas LGBT</Text>
@@ -30,9 +40,18 @@ export function VenueCard({
       )}
 
       <View style={styles.content}>
-        <Text style={styles.title} numberOfLines={1}>
-          {name}
-        </Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.title} numberOfLines={1}>
+            {name}
+          </Text>
+          {category ? <Text style={styles.categoryBadge}>{category}</Text> : null}
+        </View>
+
+        {(neighborhood || distance) ? (
+          <Text style={styles.locationText}>
+            📍 {neighborhood || ''} {neighborhood && distance ? '•' : ''} {distance || ''}
+          </Text>
+        ) : null}
 
         {bio ? (
           <Text style={styles.bio} numberOfLines={2}>
@@ -97,17 +116,38 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
   },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   title: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#0F172A',
-    marginBottom: 4,
+    flex: 1,
+  },
+  categoryBadge: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#6D28D9',
+    backgroundColor: '#F3E8FF',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 8,
+  },
+  locationText: {
+    fontSize: 12,
+    color: '#64748B',
+    marginBottom: 8,
   },
   bio: {
     fontSize: 14,
     color: '#64748B',
     lineHeight: 20,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   tagContainer: {
     flexDirection: 'row',
