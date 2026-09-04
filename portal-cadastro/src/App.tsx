@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import Passo1Form from './components/Passo1Form';
 import Passo2Form from './components/Passo2Form';
 import AdminModeration from './components/AdminModeration';
