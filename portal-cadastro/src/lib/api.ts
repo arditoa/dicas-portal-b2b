@@ -1,7 +1,7 @@
 // lib/api.ts
 // Chamadas para a API backend.
 
-const BASE_URL = 'http://localhost:3333/api/partners';
+const BASE_URL = 'https://dicas-portal-backend.onrender.com';
 
 export interface CadastroParceiroPayload {
   documento: string;
