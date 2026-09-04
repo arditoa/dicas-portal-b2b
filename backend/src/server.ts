@@ -1,24 +1,19 @@
-import cors from '@fastify/cors'
-import Fastify from 'fastify'
-import { appRoutes } from './routes/routes.js'
+import cors from '@fastify/cors';
+import Fastify from 'fastify';
 
-const app = Fastify({
-  logger: true,
-})
+const app = Fastify({ logger: true });
 
-// Habilita o CORS para permitir requisições vindas do frontend (localhost:5173)
-await app.register(cors, {
-  origin: true,
-})
+// Configuração do CORS
+app.register(cors, {
+  origin: [
+    'https://dicas-portal-b2b.vercel.app', // Sua URL da Vercel em Produção
+    'http://localhost:3000',               // Para desenvolvimento local
+    'http://localhost:8081',               // Para Expo Web local (se aplicável)
+    /^https:\/\/dicas-portal-b2b-.*\.vercel\.app$/ // Suporta URLs de Preview/Branch da Vercel
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  credentials: true,
+});
 
-// Registra as rotas da aplicação
-await app.register(appRoutes)
-
-app
-  .listen({
-    port: 3333,
-    host: '0.0.0.0',
-  })
-  .then(() => {
-    console.log('🚀 Servidor rodando em http://localhost:3333')
-  })
+// Suas rotas continuam aqui...
