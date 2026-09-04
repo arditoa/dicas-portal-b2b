@@ -3,7 +3,7 @@ import {
     enviarDetalhesEspaco,
     TAGS_COMODIDADES,
     TAGS_PUBLICO_VIBE
-} from '../lib/venue.ts';
+} from '../lib/venue';
 
 interface Passo2Props {
   partnerId: string;
