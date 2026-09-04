@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { enviarPasso1 } from '../lib/partner';
 
 interface Passo1Props {
@@ -55,94 +55,85 @@ export function Passo1Form({ onSuccess }: Passo1Props) {
   };
 
   return (
-    <form onSubmit={handleSubmit} style={{ maxWidth: 500, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <h2>Passo 1: Identificação do Responsável</h2>
+    <div className="max-w-xl mx-auto bg-white p-8 rounded-2xl shadow-sm border border-slate-100">
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold text-slate-800">Passo 1: Identificação do Responsável</h2>
+        <p className="text-sm text-slate-500 mt-1">Preencha seus dados para iniciar o cadastro do seu espaço.</p>
+      </div>
 
       {erro && (
-        <div style={{ color: '#DC2626', backgroundColor: '#FEE2E2', padding: 12, borderRadius: 6, fontSize: 14 }}>
+        <div className="bg-red-50 text-red-700 p-4 rounded-xl text-sm font-medium mb-6 border border-red-100">
           {erro}
         </div>
       )}
 
       {veioDoWhatsapp && (
-        <div style={{ backgroundColor: '#DCFCE7', color: '#166534', padding: 12, borderRadius: 6, fontSize: 14 }}>
-          ✓ Número retornado do WhatsApp preenchido automaticamente!
+        <div className="bg-emerald-50 text-emerald-800 p-4 rounded-xl text-sm font-medium mb-6 border border-emerald-100 flex items-center gap-2">
+          <span className="text-lg">✓</span> Número retornado do WhatsApp preenchido automaticamente!
         </div>
       )}
 
-      <div>
-        <label style={{ display: 'block', fontWeight: 'bold', marginBottom: 4 }}>Nome do Responsável *</label>
-        <input
-          type="text"
-          required
-          value={nomeResponsavel}
-          onChange={e => setNomeResponsavel(e.target.value)}
-          placeholder="Seu nome completo"
-          style={{ width: '100%', padding: 10, borderRadius: 4, border: '1px solid #CCC' }}
-        />
-      </div>
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div>
+          <label className="block text-sm font-semibold text-slate-700 mb-2">Nome do Responsável *</label>
+          <input
+            type="text"
+            required
+            value={nomeResponsavel}
+            onChange={e => setNomeResponsavel(e.target.value)}
+            placeholder="Seu nome completo"
+            className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+          />
+        </div>
 
-      <div>
-        <label style={{ display: 'block', fontWeight: 'bold', marginBottom: 4 }}>CPF ou CNPJ *</label>
-        <input
-          type="text"
-          required
-          value={cpfCnpj}
-          onChange={e => setCpfCnpj(e.target.value)}
-          placeholder="123.456.789-00 ou 12.345.678/0001-90"
-          style={{ width: '100%', padding: 10, borderRadius: 4, border: '1px solid #CCC' }}
-        />
-      </div>
+        <div>
+          <label className="block text-sm font-semibold text-slate-700 mb-2">CPF ou CNPJ *</label>
+          <input
+            type="text"
+            required
+            value={cpfCnpj}
+            onChange={e => setCpfCnpj(e.target.value)}
+            placeholder="123.456.789-00 ou 12.345.678/0001-90"
+            className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+          />
+        </div>
 
-      <div>
-        <label style={{ display: 'block', fontWeight: 'bold', marginBottom: 4 }}>WhatsApp Comercial *</label>
-        <input
-          type="tel"
-          required
-          value={whatsapp}
-          readOnly={veioDoWhatsapp}
-          onChange={e => setWhatsapp(e.target.value)}
-          placeholder="11999999999"
-          style={{ 
-            width: '100%', 
-            padding: 10, 
-            borderRadius: 4, 
-            border: '1px solid #CCC',
-            backgroundColor: veioDoWhatsapp ? '#F3F4F6' : '#FFF',
-            cursor: veioDoWhatsapp ? 'not-allowed' : 'text'
-          }}
-        />
-      </div>
+        <div>
+          <label className="block text-sm font-semibold text-slate-700 mb-2">WhatsApp Comercial *</label>
+          <input
+            type="tel"
+            required
+            value={whatsapp}
+            readOnly={veioDoWhatsapp}
+            onChange={e => setWhatsapp(e.target.value)}
+            placeholder="11999999999"
+            className={`w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all ${
+              veioDoWhatsapp ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white'
+            }`}
+          />
+        </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-        <input
-          type="checkbox"
-          id="termos"
-          checked={aceitouTermos}
-          onChange={e => setAceitouTermos(e.target.checked)}
-          style={{ width: 18, height: 18, cursor: 'pointer' }}
-        />
-        <label htmlFor="termos" style={{ fontSize: 14, cursor: 'pointer' }}>
-          Li e aceito os Termos de Uso e Privacidade *
-        </label>
-      </div>
+        <div className="flex items-center gap-3 pt-2">
+          <input
+            type="checkbox"
+            id="termos"
+            checked={aceitouTermos}
+            onChange={e => setAceitouTermos(e.target.checked)}
+            className="w-5 h-5 rounded text-purple-600 focus:ring-purple-500 border-slate-300 cursor-pointer"
+          />
+          <label htmlFor="termos" className="text-sm text-slate-600 cursor-pointer select-none">
+            Li e aceito os <span className="font-semibold text-purple-600">Termos de Uso e Privacidade</span> *
+          </label>
+        </div>
 
-      <button 
-        type="submit" 
-        disabled={loading}
-        style={{ 
-          padding: '12px 24px', 
-          backgroundColor: '#7C3AED', 
-          color: '#FFF', 
-          border: 'none', 
-          borderRadius: 6, 
-          fontWeight: 'bold',
-          cursor: loading ? 'not-allowed' : 'pointer',
-          marginTop: 12 
-        }}
-      >
-        {loading ? 'Processando...' : 'Avançar para Detalhes do Espaço'}
-      </button>
-    </form>
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full py-3.5 px-6 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow-lg shadow-purple-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-4"
+        >
+          {loading ? 'Processando...' : 'Avançar para Detalhes do Espaço →'}
+        </button>
+      </form>
+    </div>
   );
 }

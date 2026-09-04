@@ -11,77 +11,52 @@ export function App() {
   const [partnerId, setPartnerId] = useState<string>('');
 
   return (
-    <div style={{ fontFamily: 'sans-serif', minHeight: '100vh', backgroundColor: '#F9FAFB' }}>
-      <header style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        padding: '12px 24px', 
-        backgroundColor: '#1E1B4B', 
-        color: '#FFF' 
-      }}>
-        <h1 style={{ fontSize: 18, margin: 0, fontWeight: 'bold' }}>Dicas LGBT — Portal</h1>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            onClick={() => setModo('cadastro')}
-            style={{
-              padding: '6px 12px',
-              borderRadius: 4,
-              border: 'none',
-              backgroundColor: modo === 'cadastro' ? '#6D28D9' : 'transparent',
-              color: '#FFF',
-              cursor: 'pointer',
-              fontWeight: modo === 'cadastro' ? 'bold' : 'normal'
-            }}
-          >
-            Formulário Cadastro
-          </button>
-          <button
-            onClick={() => setModo('festas')}
-            style={{
-              padding: '6px 12px',
-              borderRadius: 4,
-              border: 'none',
-              backgroundColor: modo === 'festas' ? '#EC4899' : 'transparent',
-              color: '#FFF',
-              cursor: 'pointer',
-              fontWeight: modo === 'festas' ? 'bold' : 'normal'
-            }}
-          >
-            🎉 Festas
-          </button>
-          <button
-            onClick={() => setModo('cupons')}
-            style={{
-              padding: '6px 12px',
-              borderRadius: 4,
-              border: 'none',
-              backgroundColor: modo === 'cupons' ? '#059669' : 'transparent',
-              color: '#FFF',
-              cursor: 'pointer',
-              fontWeight: modo === 'cupons' ? 'bold' : 'normal'
-            }}
-          >
-            🏷️ Cupons
-          </button>
-          <button
-            onClick={() => setModo('admin')}
-            style={{
-              padding: '6px 12px',
-              borderRadius: 4,
-              border: 'none',
-              backgroundColor: modo === 'admin' ? '#6D28D9' : 'transparent',
-              color: '#FFF',
-              cursor: 'pointer',
-              fontWeight: modo === 'admin' ? 'bold' : 'normal'
-            }}
-          >
-            Painel Admin
-          </button>
+    <div className="min-h-screen bg-slate-50 font-sans antialiased text-slate-900">
+      <header className="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-xl">🌈</span>
+            <h1 className="font-bold text-lg tracking-tight">Dicas LGBT <span className="text-purple-400 font-normal">| Portal</span></h1>
+          </div>
+
+          <nav className="flex items-center gap-1 bg-slate-800/60 p-1 rounded-xl border border-slate-700/50">
+            <button
+              onClick={() => setModo('cadastro')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                modo === 'cadastro' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Cadastro
+            </button>
+            <button
+              onClick={() => setModo('festas')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                modo === 'festas' ? 'bg-pink-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              🎉 Festas
+            </button>
+            <button
+              onClick={() => setModo('cupons')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                modo === 'cupons' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              🏷️ Cupons
+            </button>
+            <button
+              onClick={() => setModo('admin')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                modo === 'admin' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Admin
+            </button>
+          </nav>
         </div>
       </header>
 
-      <main style={{ padding: 20 }}>
+      <main className="max-w-6xl mx-auto px-6 py-10">
         {modo === 'admin' && <AdminModeration />}
 
         {modo === 'festas' && <GestaoFestas partnerId={partnerId} />}
@@ -107,21 +82,23 @@ export function App() {
             )}
 
             {etapa === 3 && (
-              <div style={{ textAlign: 'center', marginTop: 40 }}>
-                <h2>🎉 Cadastro Concluído!</h2>
-                <p>Seu perfil foi enviado para moderação.</p>
-                <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 16 }}>
+              <div className="max-w-md mx-auto bg-white p-8 rounded-2xl text-center shadow-sm border border-slate-100 space-y-4">
+                <div className="text-4xl">🎉</div>
+                <h2 className="text-2xl font-bold text-slate-800">Cadastro Concluído!</h2>
+                <p className="text-sm text-slate-500">Seu perfil foi enviado para moderação e em breve estará disponível no app.</p>
+                
+                <div className="pt-4 flex flex-col gap-2">
                   <button 
                     onClick={() => setModo('festas')}
-                    style={{ padding: '10px 20px', backgroundColor: '#EC4899', color: '#FFF', border: 'none', borderRadius: 4, cursor: 'pointer', fontWeight: 'bold' }}
+                    className="w-full py-3 bg-pink-600 hover:bg-pink-700 text-white font-bold rounded-xl shadow-lg shadow-pink-500/20 text-sm transition-all"
                   >
-                    Cadastrar Festa
+                    Cadastrar uma Festa
                   </button>
                   <button 
-                    onClick={() => setModo('cupons')}
-                    style={{ padding: '10px 20px', backgroundColor: '#059669', color: '#FFF', border: 'none', borderRadius: 4, cursor: 'pointer', fontWeight: 'bold' }}
+                    onClick={() => { setEtapa(1); setPartnerId(''); }}
+                    className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-sm transition-all"
                   >
-                    Criar Cupom
+                    Cadastrar outro espaço
                   </button>
                 </div>
               </div>

@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import {
-    aprovarParceiro,
-    listarParceirosPendentes,
-    PartnerPendente,
-    rejeitarParceiro
+import { 
+  listarParceirosPendentes, 
+  aprovarParceiro, 
+  rejeitarParceiro, 
+  PartnerPendente 
 } from '../lib/admin';
 
 export function AdminModeration() {
@@ -53,66 +53,82 @@ export function AdminModeration() {
   };
 
   if (loading) {
-    return <p style={{ textAlign: 'center', padding: 20 }}>Carregando fila de moderação...</p>;
+    return (
+      <div className="flex justify-center items-center py-20 text-slate-500 font-medium">
+        Carregando fila de moderação...
+      </div>
+    );
   }
 
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto', padding: 20 }}>
-      <h2>Painel de Moderação — Perfis Pendentes ({parceiros.length})</h2>
+    <div className="max-w-4xl mx-auto space-y-6">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-800">Painel de Moderação</h2>
+          <p className="text-sm text-slate-500">Analise e aprove novas solicitações de parceiros.</p>
+        </div>
+        <span className="bg-amber-100 text-amber-800 text-xs font-bold px-3 py-1.5 rounded-full">
+          {parceiros.length} PENDENTES
+        </span>
+      </div>
 
       {parceiros.length === 0 ? (
-        <p>Nenhum parceiro aguardando moderação no momento.</p>
+        <div className="bg-white p-12 rounded-2xl text-center border border-slate-100 text-slate-500">
+          🎉 Nenhum parceiro aguardando moderação no momento.
+        </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginTop: 20 }}>
+        <div className="space-y-4">
           {parceiros.map(p => (
-            <div key={p.id} style={{ border: '1px solid #E5E7EB', borderRadius: 8, padding: 16, backgroundColor: '#FFF' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+            <div key={p.id} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+              <div className="flex justify-between items-start">
                 <div>
-                  <h3 style={{ margin: 0 }}>{p.nome_responsavel}</h3>
-                  <span style={{ fontSize: 14, color: '#6B7280' }}>CPF/CNPJ: {p.cpf_ou_cnpj} | WhatsApp: {p.whatsapp_comercial}</span>
+                  <h3 className="text-lg font-bold text-slate-800">{p.nome_responsavel}</h3>
+                  <p className="text-sm text-slate-500 mt-0.5">
+                    CPF/CNPJ: {p.cpf_ou_cnpj} • WhatsApp: {p.whatsapp_comercial}
+                  </p>
                 </div>
-                <span style={{ backgroundColor: '#FEF3C7', color: '#92400E', padding: '4px 8px', borderRadius: 4, height: 'fit-content', fontSize: 12, fontWeight: 'bold' }}>
-                  PENDENTE
-                </span>
               </div>
 
               {p.venue && (
-                <div style={{ borderTop: '1px solid #F3F4F6', paddingTop: 12, marginTop: 12 }}>
+                <div className="pt-4 border-t border-slate-100 space-y-3">
                   {p.venue.foto_capa && (
-                    <img src={p.venue.foto_capa} alt="Capa" style={{ width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 6, marginBottom: 12 }} />
+                    <img src={p.venue.foto_capa} alt="Capa" className="w-full h-48 object-cover rounded-xl" />
                   )}
-                  <p><strong>Bio:</strong> {p.venue.bio || 'Sem descrição'}</p>
-                  <p><strong>Instagram:</strong> {p.venue.instagram || 'N/A'} | <strong>Site:</strong> {p.venue.website || 'N/A'}</p>
+                  <p className="text-sm text-slate-700"><strong className="text-slate-900">Bio:</strong> {p.venue.bio || 'Sem descrição'}</p>
+                  <p className="text-sm text-slate-700">
+                    <strong className="text-slate-900">Instagram:</strong> {p.venue.instagram || 'N/A'} • <strong className="text-slate-900">Site:</strong> {p.venue.website || 'N/A'}
+                  </p>
                   
-                  <div style={{ marginTop: 8 }}>
-                    <strong>Público & Vibe:</strong>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
-                      {p.venue.tags_publico_vibe?.map(tag => (
-                        <span key={tag} style={{ backgroundColor: '#EDE9FE', color: '#6D28D9', padding: '2px 8px', borderRadius: 12, fontSize: 12 }}>{tag}</span>
+                  {p.venue.tags_publico_vibe && p.venue.tags_publico_vibe.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {p.venue.tags_publico_vibe.map(tag => (
+                        <span key={tag} className="bg-purple-50 text-purple-700 text-xs font-medium px-2.5 py-1 rounded-lg">
+                          {tag}
+                        </span>
                       ))}
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
 
-              <div style={{ display: 'flex', gap: 12, marginTop: 16, borderTop: '1px solid #F3F4F6', paddingTop: 12 }}>
+              <div className="flex gap-3 pt-4 border-t border-slate-100">
                 <button 
                   onClick={() => handleAprovar(p.id)}
-                  style={{ backgroundColor: '#059669', color: '#FFF', border: 'none', padding: '8px 16px', borderRadius: 4, cursor: 'pointer', fontWeight: 'bold' }}
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-sm transition-all"
                 >
                   ✓ Aprovar Perfil
                 </button>
                 <button 
                   onClick={() => setModalRejeitarId(modalRejeitarId === p.id ? null : p.id)}
-                  style={{ backgroundColor: '#DC2626', color: '#FFF', border: 'none', padding: '8px 16px', borderRadius: 4, cursor: 'pointer' }}
+                  className="px-5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold rounded-xl text-sm transition-all"
                 >
                   ✕ Rejeitar
                 </button>
               </div>
 
               {modalRejeitarId === p.id && (
-                <div style={{ marginTop: 12, backgroundColor: '#FEF2F2', padding: 12, borderRadius: 6 }}>
-                  <label style={{ display: 'block', fontSize: 14, fontWeight: 'bold', marginBottom: 4, color: '#991B1B' }}>
+                <div className="p-4 bg-rose-50/50 rounded-xl border border-rose-100 space-y-3 mt-3">
+                  <label className="block text-xs font-bold text-rose-800">
                     Motivo da Rejeição *:
                   </label>
                   <input 
@@ -120,11 +136,11 @@ export function AdminModeration() {
                     placeholder="Ex: Foto de capa fora dos padrões do portal."
                     value={motivoRejeicao[p.id] || ''}
                     onChange={e => setMotivoRejeicao({ ...motivoRejeicao, [p.id]: e.target.value })}
-                    style={{ width: '100%', padding: 8, borderRadius: 4, border: '1px solid #FCA5A5', marginBottom: 8 }}
+                    className="w-full px-3 py-2 rounded-lg border border-rose-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500"
                   />
                   <button 
                     onClick={() => handleRejeitar(p.id)}
-                    style={{ backgroundColor: '#991B1B', color: '#FFF', border: 'none', padding: '6px 12px', borderRadius: 4, cursor: 'pointer' }}
+                    className="px-4 py-2 bg-rose-700 hover:bg-rose-800 text-white font-semibold rounded-lg text-xs"
                   >
                     Confirmar Rejeição
                   </button>
