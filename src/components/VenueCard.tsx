@@ -2,31 +2,37 @@ import React from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 
 export interface VenueCardProps {
-  id: string;
-  name: string;
+  id?: string;
+  name?: string;
+  title?: string;
   bio?: string;
   coverImage?: string;
-  image?: string; // Compatibilidade com near.tsx
-  category?: string; // Compatibilidade com near.tsx
-  neighborhood?: string; // Compatibilidade com near.tsx
-  distance?: string; // Compatibilidade com near.tsx
+  image?: string;
+  category?: string;
+  neighborhood?: string;
+  distance?: string;
   tagsPublicoVibe?: string[];
   tagsComodidades?: string[];
   onPress?: () => void;
+  [key: string]: any; // Permite propriedades adicionais passadas pelo near.tsx
 }
 
-export function VenueCard({
-  name,
-  bio,
-  coverImage,
-  image,
-  category,
-  neighborhood,
-  distance,
-  tagsPublicoVibe = [],
-  tagsComodidades = [],
-  onPress,
-}: VenueCardProps) {
+export function VenueCard(props: VenueCardProps) {
+  const {
+    name,
+    title,
+    bio,
+    coverImage,
+    image,
+    category,
+    neighborhood,
+    distance,
+    tagsPublicoVibe = [],
+    tagsComodidades = [],
+    onPress,
+  } = props;
+
+  const displayName = name || title || 'Espaço';
   const displayImage = coverImage || image;
 
   return (
@@ -42,7 +48,7 @@ export function VenueCard({
       <View style={styles.content}>
         <View style={styles.headerRow}>
           <Text style={styles.title} numberOfLines={1}>
-            {name}
+            {displayName}
           </Text>
           {category ? <Text style={styles.categoryBadge}>{category}</Text> : null}
         </View>
@@ -59,7 +65,6 @@ export function VenueCard({
           </Text>
         ) : null}
 
-        {/* Badges de Público & Vibe */}
         {tagsPublicoVibe.length > 0 && (
           <View style={styles.tagContainer}>
             {tagsPublicoVibe.map((tag) => (
@@ -70,7 +75,6 @@ export function VenueCard({
           </View>
         )}
 
-        {/* Badges de Comodidades */}
         {tagsComodidades.length > 0 && (
           <View style={styles.tagContainer}>
             {tagsComodidades.map((item) => (
