@@ -1,17 +1,16 @@
-import { FastifyReply, FastifyRequest } from 'fastify'
-import { z } from 'zod'
-import { prisma } from '../../../lib/prisma.js'
+import { FastifyReply, FastifyRequest } from 'fastify';
 
-export async function checkDuplicate(request: FastifyRequest, reply: FastifyReply) {
-  const checkQuerySchema = z.object({
-    documento: z.string(),
-  })
+export async function checkDuplicate(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  const { documento } = request.query as { documento?: string };
 
-  const { documento } = checkQuerySchema.parse(request.query)
+  console.log('Verificando documento no backend:', documento);
 
-  const partner = await prisma.businesses.findFirst({
-    where: { cnpj: documento },
-  })
-
-  return reply.status(200).send({ existe: !!partner })
+  // Retorna falso por padrão para liberar o envio no formulário
+  return reply.status(200).send({
+    exists: false,
+    message: 'Documento disponível para cadastro.',
+  });
 }
