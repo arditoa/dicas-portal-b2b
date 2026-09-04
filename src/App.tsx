@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { AdminModeration } from './components/AdminModeration';
 import { Passo1Form } from './components/Passo1Form';
 import { Passo2Form } from './components/Passo2Form';
+import { AdminModeration } from './components/AdminModeration';
+import { GestaoFestas } from './components/GestaoFestas';
+import { GestaoCupons } from './components/GestaoCupons';
 
 export function App() {
-  const [modo, setModo] = useState<'cadastro' | 'admin'>('cadastro');
+  const [modo, setModo] = useState<'cadastro' | 'admin' | 'festas' | 'cupons'>('cadastro');
   const [etapa, setEtapa] = useState<1 | 2 | 3>(1);
   const [partnerId, setPartnerId] = useState<string>('');
 
@@ -32,7 +34,35 @@ export function App() {
               fontWeight: modo === 'cadastro' ? 'bold' : 'normal'
             }}
           >
-            Formulário de Cadastro
+            Formulário Cadastro
+          </button>
+          <button
+            onClick={() => setModo('festas')}
+            style={{
+              padding: '6px 12px',
+              borderRadius: 4,
+              border: 'none',
+              backgroundColor: modo === 'festas' ? '#EC4899' : 'transparent',
+              color: '#FFF',
+              cursor: 'pointer',
+              fontWeight: modo === 'festas' ? 'bold' : 'normal'
+            }}
+          >
+            🎉 Festas
+          </button>
+          <button
+            onClick={() => setModo('cupons')}
+            style={{
+              padding: '6px 12px',
+              borderRadius: 4,
+              border: 'none',
+              backgroundColor: modo === 'cupons' ? '#059669' : 'transparent',
+              color: '#FFF',
+              cursor: 'pointer',
+              fontWeight: modo === 'cupons' ? 'bold' : 'normal'
+            }}
+          >
+            🏷️ Cupons
           </button>
           <button
             onClick={() => setModo('admin')}
@@ -46,15 +76,19 @@ export function App() {
               fontWeight: modo === 'admin' ? 'bold' : 'normal'
             }}
           >
-            Painel Admin (Moderação)
+            Painel Admin
           </button>
         </div>
       </header>
 
       <main style={{ padding: 20 }}>
-        {modo === 'admin' ? (
-          <AdminModeration />
-        ) : (
+        {modo === 'admin' && <AdminModeration />}
+
+        {modo === 'festas' && <GestaoFestas partnerId={partnerId} />}
+
+        {modo === 'cupons' && <GestaoCupons partnerId={partnerId} />}
+
+        {modo === 'cadastro' && (
           <div>
             {etapa === 1 && (
               <Passo1Form 
@@ -76,12 +110,20 @@ export function App() {
               <div style={{ textAlign: 'center', marginTop: 40 }}>
                 <h2>🎉 Cadastro Concluído!</h2>
                 <p>Seu perfil foi enviado para moderação.</p>
-                <button 
-                  onClick={() => { setEtapa(1); setPartnerId(''); }}
-                  style={{ marginTop: 16, padding: '8px 16px', cursor: 'pointer' }}
-                >
-                  Cadastrar outro espaço
-                </button>
+                <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 16 }}>
+                  <button 
+                    onClick={() => setModo('festas')}
+                    style={{ padding: '10px 20px', backgroundColor: '#EC4899', color: '#FFF', border: 'none', borderRadius: 4, cursor: 'pointer', fontWeight: 'bold' }}
+                  >
+                    Cadastrar Festa
+                  </button>
+                  <button 
+                    onClick={() => setModo('cupons')}
+                    style={{ padding: '10px 20px', backgroundColor: '#059669', color: '#FFF', border: 'none', borderRadius: 4, cursor: 'pointer', fontWeight: 'bold' }}
+                  >
+                    Criar Cupom
+                  </button>
+                </div>
               </div>
             )}
           </div>
