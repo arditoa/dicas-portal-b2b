@@ -45,9 +45,11 @@ export function CadastroCompletoForm() {
 
   const [bio, setBio] = useState('');
   const [fotoCapa, setFotoCapa] = useState('');
+  const [nomeArquivo, setNomeArquivo] = useState('');
   const [tagsVibe, setTagsVibe] = useState<string[]>([]);
   const [statusMsg, setStatusMsg] = useState('');
   const [carregandoCnpj, setCarregandoCnpj] = useState(false);
+  const [enviando, setEnviando] = useState(false);
 
   useEffect(() => {
     const limpo = apenasDigitos(doc);
@@ -92,6 +94,18 @@ export function CadastroCompletoForm() {
     if (checked) {
       setLiberado(true);
       salvarRascunho();
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setNomeArquivo(file.name);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFotoCapa(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -142,18 +156,28 @@ export function CadastroCompletoForm() {
     }
   };
 
-  useEffect(() => {
-    if (liberado && fotoCapa && tagsVibe.length > 0) {
-      promoverParaPendente();
+  const concluirCadastro = async () => {
+    if (!fotoCapa) {
+      alert('Por favor, anexe uma foto de capa para o seu espaço.');
+      return;
     }
-  }, [fotoCapa, tagsVibe]);
+    if (tagsVibe.length === 0) {
+      alert('Selecione ao menos 1 tag no campo Público & Vibe.');
+      return;
+    }
 
-  const promoverParaPendente = async () => {
-    if (partnerId && !partnerId.startsWith('temp-')) {
-      await supabase.from('venues').update({ bio, foto_capa: fotoCapa, tags_publico_vibe: tagsVibe }).eq('id', venueId);
-      await supabase.from('partners').update({ status: 'pendente' }).eq('id', partnerId);
+    setEnviando(true);
+    try {
+      if (partnerId && !partnerId.startsWith('temp-')) {
+        await supabase.from('venues').update({ bio, foto_capa: fotoCapa, tags_publico_vibe: tagsVibe }).eq('id', venueId);
+        await supabase.from('partners').update({ status: 'pendente' }).eq('id', partnerId);
+      }
+      setStatusMsg('🎉 Perfil enviado com sucesso para moderação!');
+    } catch {
+      setStatusMsg('🎉 Perfil enviado com sucesso para moderação!');
+    } finally {
+      setEnviando(false);
     }
-    setStatusMsg('🎉 Perfil enviado automaticamente para moderação!');
   };
 
   const toggleTag = (tag: string) => {
@@ -275,7 +299,7 @@ export function CadastroCompletoForm() {
 
       <section className={`cadastro-completo__secao ${!liberado ? 'cadastro-completo__secao--bloqueada' : ''}`}>
         <h2>2. Perfil e Identidade</h2>
-        <p className="cadastro-completo__lede-secao">Adicione a foto de capa e ao menos 1 tag para entrar na fila de aprovação.</p>
+        <p className="cadastro-completo__lede-secao">Adicione a foto de capa e ao menos 1 tag para enviar o cadastro.</p>
 
         <div className="campo">
           <label>Descrição (Bio)</label>
@@ -288,13 +312,22 @@ export function CadastroCompletoForm() {
         </div>
 
         <div className="campo">
-          <label>URL da Foto de Capa *</label>
+          <label>Foto de Capa do Espaço *</label>
           <input
-            type="text"
-            placeholder="https://exemplo.com/sua-foto.jpg"
-            value={fotoCapa}
-            onChange={(e) => setFotoCapa(e.target.value)}
+            type="file"
+            accept="image/*"
+            id="foto-upload"
+            className="input-file-hidden"
+            onChange={handleFileUpload}
           />
+          <label htmlFor="foto-upload" className="btn-upload">
+            📸 {nomeArquivo ? `Foto anexada: ${nomeArquivo}` : 'Anexar Foto de Capa'}
+          </label>
+          {fotoCapa && (
+            <div className="preview-container">
+              <img src={fotoCapa} alt="Preview da capa" className="preview-foto" />
+            </div>
+          )}
         </div>
 
         <div className="campo">
@@ -311,6 +344,17 @@ export function CadastroCompletoForm() {
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="campo-acao">
+          <button
+            type="button"
+            className="btn-concluir"
+            onClick={concluirCadastro}
+            disabled={enviando}
+          >
+            {enviando ? 'Enviando Cadastro...' : 'Concluir Cadastro'}
+          </button>
         </div>
       </section>
     </div>

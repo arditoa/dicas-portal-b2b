@@ -159,3 +159,68 @@
   color: #FFFFFF;
   border-color: #9333EA;
 }
+
+/* Upload e Preview de Imagem */
+.input-file-hidden {
+  display: none;
+}
+
+.btn-upload {
+  display: inline-block;
+  padding: 12px 18px;
+  background-color: #F1F5F9;
+  border: 2px dashed #CBD5E1;
+  border-radius: 8px;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-upload:hover {
+  background-color: #E2E8F0;
+  border-color: #9333EA;
+  color: #9333EA;
+}
+
+.preview-container {
+  margin-top: 12px;
+}
+
+.preview-foto {
+  width: 100%;
+  max-height: 200px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #E2E8F0;
+}
+
+/* Botao de Conclusao Manual */
+.campo-acao {
+  margin-top: 24px;
+}
+
+.btn-concluir {
+  width: 100%;
+  padding: 14px;
+  background-color: #9333EA;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(147, 51, 234, 0.25);
+  transition: background-color 0.2s ease;
+}
+
+.btn-concluir:hover {
+  background-color: #7E22CE;
+}
+
+.btn-concluir:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
