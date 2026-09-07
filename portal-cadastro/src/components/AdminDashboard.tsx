@@ -7,6 +7,10 @@ const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_q
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// Credenciais de acesso ao Admin
+const ADMIN_USER = 'admin@dicaslgbt.com';
+const ADMIN_PASS = 'DicasAdmin2026!';
+
 interface Solicitacao {
   partner_id: string;
   nome_responsavel: string;
@@ -28,13 +32,44 @@ interface Solicitacao {
 }
 
 export function AdminDashboard() {
+  const [autenticado, setAutenticado] = useState(false);
+  const [emailInput, setEmailInput] = useState('');
+  const [senhaInput, setSenhaInput] = useState('');
+  const [erroLogin, setErroLogin] = useState('');
+
   const [solicitacoes, setSolicitacoes] = useState<Solicitacao[]>([]);
-  const [carregando, setCarregando] = useState(true);
+  const [carregando, setCarregando] = useState(false);
   const [filtro, setFiltro] = useState<'pendente' | 'ativo' | 'todos'>('pendente');
 
   useEffect(() => {
-    carregarSolicitacoes();
-  }, [filtro]);
+    // Verifica se ja fez login nesta sessao
+    const sessao = sessionStorage.getItem('admin_auth');
+    if (sessao === 'true') {
+      setAutenticado(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (autenticado) {
+      carregarSolicitacoes();
+    }
+  }, [autenticado, filtro]);
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (emailInput.trim().toLowerCase() === ADMIN_USER && senhaInput === ADMIN_PASS) {
+      sessionStorage.setItem('admin_auth', 'true');
+      setAutenticado(true);
+      setErroLogin('');
+    } else {
+      setErroLogin('E-mail ou senha incorretos.');
+    }
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem('admin_auth');
+    setAutenticado(false);
+  };
 
   const carregarSolicitacoes = async () => {
     setCarregando(true);
@@ -106,10 +141,51 @@ export function AdminDashboard() {
     window.open(`https://wa.me/55${numero}?text=${msg}`, '_blank');
   };
 
+  // Se nao estiver logado, exibe a tela de login
+  if (!autenticado) {
+    return (
+      <div className="admin-login-wrapper">
+        <form className="admin-login-card" onSubmit={handleLogin}>
+          <h2>Acesso Restrito — Dicas LGBT</h2>
+          <p>Digite as credenciais da moderação para acessar o painel.</p>
+
+          {erroLogin && <div className="admin-login-erro">{erroLogin}</div>}
+
+          <div className="campo">
+            <label>E-mail de Usuário</label>
+            <input
+              type="email"
+              placeholder="admin@dicaslgbt.com"
+              value={emailInput}
+              onChange={(e) => setEmailInput(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="campo">
+            <label>Senha</label>
+            <input
+              type="password"
+              placeholder="••••••••"
+              value={senhaInput}
+              onChange={(e) => setSenhaInput(e.target.value)}
+              required
+            />
+          </div>
+
+          <button type="submit" className="btn-concluir">Entrar no Painel</button>
+        </form>
+      </div>
+    );
+  }
+
   return (
     <div className="admin-container">
       <header className="admin-header">
-        <h1>Painel de Moderação — Dicas LGBT</h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h1>Painel de Moderação — Dicas LGBT</h1>
+          <button className="admin-tab" onClick={handleLogout}>Sair</button>
+        </div>
         <p>Gerencie as solicitações de novos espaços e parceiros B2B.</p>
         
         <div className="admin-filtros">

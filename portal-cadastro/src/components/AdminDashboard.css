@@ -171,3 +171,49 @@
   background-color: #EF4444;
   color: #FFFFFF;
 }
+
+/* Tela de Login do Admin */
+.admin-login-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 80vh;
+  padding: 16px;
+}
+
+.admin-login-card {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 16px;
+  padding: 32px;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
+}
+
+.admin-login-card h2 {
+  font-size: 20px;
+  font-weight: 800;
+  color: #1E1526;
+  margin-top: 0;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.admin-login-card p {
+  font-size: 13px;
+  color: #64748B;
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.admin-login-erro {
+  background-color: #FEE2E2;
+  color: #DC2626;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 16px;
+}
