@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import './CadastroCompletoForm.css';
 import { formatarDocumento, validarDocumento, apenasDigitos } from '../lib/documento';
 import { formatarWhatsApp } from '../lib/whatsapp';
@@ -40,7 +40,6 @@ export function CadastroCompletoForm() {
   const [statusMsg, setStatusMsg] = useState('');
   const [carregandoCnpj, setCarregandoCnpj] = useState(false);
 
-  // Auto-busca CNPJ (BrasilAPI)
   useEffect(() => {
     const limpo = apenasDigitos(doc);
     if (limpo.length === 14) {
@@ -61,7 +60,6 @@ export function CadastroCompletoForm() {
     }
   }, [doc]);
 
-  // Auto-busca CEP (ViaCEP)
   useEffect(() => {
     const limpo = apenasDigitos(cep);
     if (limpo.length === 8 && !endereco) {
@@ -76,7 +74,6 @@ export function CadastroCompletoForm() {
     }
   }, [cep]);
 
-  // Criar Rascunho Automático
   useEffect(() => {
     if (validarDocumento(doc) && nomeResponsavel && whatsapp && nomeEspaco && endereco && aceitouTermos && !partnerId) {
       salvarRascunho();
@@ -116,7 +113,6 @@ export function CadastroCompletoForm() {
     }
   };
 
-  // Enviar para Moderação ao preencher capa e tag
   useEffect(() => {
     if (venueId && partnerId && fotoCapa && tagsVibe.length > 0) {
       promoverParaPendente();

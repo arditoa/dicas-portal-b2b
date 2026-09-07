@@ -2,6 +2,13 @@ export function apenasDigitos(valor: string): string {
   return valor.replace(/\D/g, '');
 }
 
+export function detectarTipoDocumento(valor: string): 'cpf' | 'cnpj' | null {
+  const d = apenasDigitos(valor);
+  if (d.length === 11) return 'cpf';
+  if (d.length === 14) return 'cnpj';
+  return null;
+}
+
 export function formatarDocumento(valor: string): string {
   const digitos = apenasDigitos(valor).slice(0, 14);
   if (digitos.length <= 11) {
