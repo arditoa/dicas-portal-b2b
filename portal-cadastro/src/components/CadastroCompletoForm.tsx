@@ -27,6 +27,7 @@ export function CadastroCompletoForm() {
   const [nomeResponsavel, setNomeResponsavel] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [nomeEspaco, setNomeEspaco] = useState('');
+  const [nomeFantasia, setNomeFantasia] = useState('');
   const [categoria, setCategoria] = useState('bar');
 
   const [cep, setCep] = useState('');
@@ -44,6 +45,8 @@ export function CadastroCompletoForm() {
   const [venueId, setVenueId] = useState<string | null>(null);
 
   const [bio, setBio] = useState('');
+  const [instagram, setInstagram] = useState('');
+  const [estiloMusical, setEstiloMusical] = useState('');
   const [fotoCapa, setFotoCapa] = useState('');
   const [nomeArquivo, setNomeArquivo] = useState('');
   const [tagsVibe, setTagsVibe] = useState<string[]>([]);
@@ -58,8 +61,11 @@ export function CadastroCompletoForm() {
       fetch(`https://brasilapi.com.br/api/cnpj/v1/${limpo}`)
         .then((res) => res.json())
         .then((data) => {
-          if (data.nome_fantasia || data.razao_social) {
-            setNomeEspaco(data.nome_fantasia || data.razao_social);
+          if (data.nome_fantasia) {
+            setNomeFantasia(data.nome_fantasia);
+            setNomeEspaco(data.nome_fantasia);
+          } else if (data.razao_social) {
+            setNomeEspaco(data.razao_social);
           }
           if (data.cep) setCep(data.cep);
           if (data.logradouro) setLogradouro(data.logradouro);
@@ -133,7 +139,7 @@ export function CadastroCompletoForm() {
           .from('venues')
           .insert({
             partner_id: partner.id,
-            nome: nomeEspaco || 'Espaço',
+            nome: nomeEspaco || nomeFantasia || 'Espaço',
             categoria,
             endereco: enderecoFormatado,
             cidade: cidade || 'São Paulo',
@@ -157,19 +163,17 @@ export function CadastroCompletoForm() {
   };
 
   const concluirCadastro = async () => {
-    if (!fotoCapa) {
-      alert('Por favor, anexe uma foto de capa para o seu espaço.');
-      return;
-    }
-    if (tagsVibe.length === 0) {
-      alert('Selecione ao menos 1 tag no campo Público & Vibe.');
-      return;
-    }
-
     setEnviando(true);
     try {
       if (partnerId && !partnerId.startsWith('temp-')) {
-        await supabase.from('venues').update({ bio, foto_capa: fotoCapa, tags_publico_vibe: tagsVibe }).eq('id', venueId);
+        await supabase.from('venues').update({
+          bio,
+          instagram,
+          estilo_musical: estiloMusical,
+          foto_capa: fotoCapa || null,
+          tags_publico_vibe: tagsVibe
+        }).eq('id', venueId);
+
         await supabase.from('partners').update({ status: 'pendente' }).eq('id', partnerId);
       }
       setStatusMsg('🎉 Perfil enviado com sucesso para moderação!');
@@ -226,12 +230,22 @@ export function CadastroCompletoForm() {
         </div>
 
         <div className="campo">
-          <label>Nome do Espaço *</label>
+          <label>Razão Social / Nome Oficial *</label>
           <input
             type="text"
-            placeholder="Ex: Bar da Esquina"
+            placeholder="Ex: Bar da Esquina LTDA"
             value={nomeEspaco}
             onChange={(e) => setNomeEspaco(e.target.value)}
+          />
+        </div>
+
+        <div className="campo">
+          <label>Nome Fantasia</label>
+          <input
+            type="text"
+            placeholder="Nome como o local é conhecido publicamente"
+            value={nomeFantasia}
+            onChange={(e) => setNomeFantasia(e.target.value)}
           />
         </div>
 
@@ -299,7 +313,27 @@ export function CadastroCompletoForm() {
 
       <section className={`cadastro-completo__secao ${!liberado ? 'cadastro-completo__secao--bloqueada' : ''}`}>
         <h2>2. Perfil e Identidade</h2>
-        <p className="cadastro-completo__lede-secao">Adicione a foto de capa e ao menos 1 tag para enviar o cadastro.</p>
+        <p className="cadastro-completo__lede-secao">Adicione detalhes do seu espaço e conclua o envio.</p>
+
+        <div className="campo">
+          <label>Instagram do Espaço</label>
+          <input
+            type="text"
+            placeholder="@seuespaco"
+            value={instagram}
+            onChange={(e) => setInstagram(e.target.value)}
+          />
+        </div>
+
+        <div className="campo">
+          <label>Estilo Musical Predominante</label>
+          <input
+            type="text"
+            placeholder="Ex: Pop, Eletrônico, Funk, MPB, Variado..."
+            value={estiloMusical}
+            onChange={(e) => setEstiloMusical(e.target.value)}
+          />
+        </div>
 
         <div className="campo">
           <label>Descrição (Bio)</label>
@@ -312,7 +346,7 @@ export function CadastroCompletoForm() {
         </div>
 
         <div className="campo">
-          <label>Foto de Capa do Espaço *</label>
+          <label>Foto de Capa do Espaço (Opcional)</label>
           <input
             type="file"
             accept="image/*"
@@ -331,7 +365,7 @@ export function CadastroCompletoForm() {
         </div>
 
         <div className="campo">
-          <label>Público & Vibe *</label>
+          <label>Público & Vibe</label>
           <div className="tag-grid">
             {TAGS_VIBE.map((tag) => (
               <button
