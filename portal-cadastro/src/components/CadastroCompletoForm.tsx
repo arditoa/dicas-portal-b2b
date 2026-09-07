@@ -4,9 +4,13 @@ import { formatarDocumento, validarDocumento, apenasDigitos } from '../lib/docum
 import { formatarWhatsApp } from '../lib/whatsapp';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-key';
-const supabase = createClient(supabaseUrl, supabaseKey);
+const getSupabaseClient = () => {
+  const url = import.meta.env.VITE_SUPABASE_URL || 'https://fyisfucgzpdwupjterlh.supabase.co';
+  const key = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+  return createClient(url, key);
+};
+
+const supabase = getSupabaseClient();
 
 const TAGS_VIBE = [
   'Geral / Todos bem-vindos',
@@ -95,12 +99,12 @@ export function CadastroCompletoForm() {
         .single();
 
       if (pErr) {
-        setStatusMsg('Aviso: Conexão Supabase pendente no ambiente.');
+        setStatusMsg(`Erro ao salvar no banco: ${pErr.message}`);
         return;
       }
 
       if (partner) {
-        const { data: venue } = await supabase
+        const { data: venue, error: vErr } = await supabase
           .from('venues')
           .insert({
             partner_id: partner.id,
@@ -111,14 +115,19 @@ export function CadastroCompletoForm() {
           .select()
           .single();
 
+        if (vErr) {
+          setStatusMsg(`Erro ao cadastrar espaço: ${vErr.message}`);
+          return;
+        }
+
         if (venue) {
           setPartnerId(partner.id);
           setVenueId(venue.id);
           setStatusMsg('Rascunho salvo! Continue preenchendo o perfil abaixo.');
         }
       }
-    } catch {
-      setStatusMsg('Aviso: Verifique as chaves do Supabase na Vercel.');
+    } catch (err: any) {
+      setStatusMsg(`Falha na conexão: ${err.message || 'Verifique o Supabase'}`);
     }
   };
 
