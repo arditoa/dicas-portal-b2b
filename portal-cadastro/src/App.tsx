@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import FormUnicoCadastro from './components/FormUnicoCadastro';
+import { CadastroCompletoForm } from './components/CadastroCompletoForm';
 import AdminModeration from './components/AdminModeration';
 import GestaoFestas from './components/GestaoFestas';
 import GestaoCupons from './components/GestaoCupons';
@@ -70,7 +70,7 @@ export default function App() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-8">
-        {activeTab === 'cadastro' && <FormUnicoCadastro />}
+        {activeTab === 'cadastro' && <CadastroCompletoForm />}
         {activeTab === 'festas' && <GestaoFestas partnerId={partnerId || 'partner-demo'} />}
         {activeTab === 'cupons' && <GestaoCupons partnerId={partnerId || 'partner-demo'} />}
         {activeTab === 'admin' && (
