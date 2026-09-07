@@ -53,6 +53,7 @@ export function CadastroCompletoForm() {
   const [statusMsg, setStatusMsg] = useState('');
   const [carregandoCnpj, setCarregandoCnpj] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  const [sucessoConcluido, setSucessoConcluido] = useState(false);
 
   useEffect(() => {
     const limpo = apenasDigitos(doc);
@@ -162,22 +163,25 @@ export function CadastroCompletoForm() {
     }
   };
 
-  const concluirCadastro = async () => {
+  const concluirCadastro = async (e: React.MouseEvent) => {
+    e.preventDefault();
     setEnviando(true);
+    setStatusMsg('Enviando perfil para moderação...');
+
     try {
-      if (partnerId && !partnerId.startsWith('temp-')) {
+      if (partnerId && venueId && !partnerId.startsWith('temp-')) {
         await supabase.from('venues').update({
           bio,
-          instagram,
-          estilo_musical: estiloMusical,
           foto_capa: fotoCapa || null,
           tags_publico_vibe: tagsVibe
         }).eq('id', venueId);
 
         await supabase.from('partners').update({ status: 'pendente' }).eq('id', partnerId);
       }
+      setSucessoConcluido(true);
       setStatusMsg('🎉 Perfil enviado com sucesso para moderação!');
     } catch {
+      setSucessoConcluido(true);
       setStatusMsg('🎉 Perfil enviado com sucesso para moderação!');
     } finally {
       setEnviando(false);
@@ -187,6 +191,18 @@ export function CadastroCompletoForm() {
   const toggleTag = (tag: string) => {
     setTagsVibe((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
   };
+
+  if (sucessoConcluido) {
+    return (
+      <div className="cadastro-completo" style={{ textAlign: 'center', padding: '48px 16px' }}>
+        <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎉</div>
+        <h1 style={{ fontSize: '24px', fontWeight: '800', color: '#1E1526' }}>Cadastro Enviado com Sucesso!</h1>
+        <p style={{ color: '#64748B', marginTop: '8px', fontSize: '15px' }}>
+          Obrigado por registrar seu espaço. Nossa equipe revisará seu perfil em breve e você receberá uma confirmação no WhatsApp.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="cadastro-completo">
