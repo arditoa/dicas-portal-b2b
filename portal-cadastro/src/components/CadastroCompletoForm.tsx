@@ -4,13 +4,11 @@ import { formatarDocumento, validarDocumento, apenasDigitos } from '../lib/docum
 import { formatarWhatsApp } from '../lib/whatsapp';
 import { createClient } from '@supabase/supabase-js';
 
-const getSupabaseClient = () => {
-  const url = import.meta.env.VITE_SUPABASE_URL || 'https://fyisfucgzpdwupjterlh.supabase.co';
-  const key = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
-  return createClient(url, key);
-};
+// URL e Publishable Key públicas do seu projeto Supabase
+const SUPABASE_URL = 'https://fyisfucgzpdwupjterlh.supabase.co';
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_qSAiGoo7ZEG0IboqClunQ_NyJ80';
 
-const supabase = getSupabaseClient();
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const TAGS_VIBE = [
   'Geral / Todos bem-vindos',
@@ -99,7 +97,7 @@ export function CadastroCompletoForm() {
         .single();
 
       if (pErr) {
-        setStatusMsg(`Erro ao salvar no banco: ${pErr.message}`);
+        setStatusMsg(`Erro no banco: ${pErr.message}`);
         return;
       }
 
@@ -116,18 +114,18 @@ export function CadastroCompletoForm() {
           .single();
 
         if (vErr) {
-          setStatusMsg(`Erro ao cadastrar espaço: ${vErr.message}`);
+          setStatusMsg(`Erro ao vincular espaço: ${vErr.message}`);
           return;
         }
 
         if (venue) {
           setPartnerId(partner.id);
           setVenueId(venue.id);
-          setStatusMsg('Rascunho salvo! Continue preenchendo o perfil abaixo.');
+          setStatusMsg('Rascunho salvo com sucesso! Continue o cadastro abaixo.');
         }
       }
     } catch (err: any) {
-      setStatusMsg(`Falha na conexão: ${err.message || 'Verifique o Supabase'}`);
+      setStatusMsg(`Erro ao conectar: ${err.message || 'Falha na requisição'}`);
     }
   };
 
