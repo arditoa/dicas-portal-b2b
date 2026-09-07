@@ -4,8 +4,8 @@ import { formatarDocumento, validarDocumento, apenasDigitos } from '../lib/docum
 import { formatarWhatsApp } from '../lib/whatsapp';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-key';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const TAGS_VIBE = [
@@ -81,35 +81,44 @@ export function CadastroCompletoForm() {
   }, [doc, nomeResponsavel, whatsapp, nomeEspaco, endereco, aceitouTermos]);
 
   const salvarRascunho = async () => {
-    setStatusMsg('Salvando rascunho...');
-    const { data: partner } = await supabase
-      .from('partners')
-      .insert({
-        nome_responsavel: nomeResponsavel,
-        cpf_ou_cnpj: apenasDigitos(doc),
-        whatsapp_comercial: apenasDigitos(whatsapp),
-        status: 'rascunho'
-      })
-      .select()
-      .single();
-
-    if (partner) {
-      const { data: venue } = await supabase
-        .from('venues')
+    try {
+      setStatusMsg('Salvando rascunho...');
+      const { data: partner, error: pErr } = await supabase
+        .from('partners')
         .insert({
-          partner_id: partner.id,
-          nome: nomeEspaco,
-          categoria,
-          endereco
+          nome_responsavel: nomeResponsavel,
+          cpf_ou_cnpj: apenasDigitos(doc),
+          whatsapp_comercial: apenasDigitos(whatsapp),
+          status: 'rascunho'
         })
         .select()
         .single();
 
-      if (venue) {
-        setPartnerId(partner.id);
-        setVenueId(venue.id);
-        setStatusMsg('Rascunho salvo! Continue preenchendo o perfil abaixo.');
+      if (pErr) {
+        setStatusMsg('Aviso: Conexão Supabase pendente no ambiente.');
+        return;
       }
+
+      if (partner) {
+        const { data: venue } = await supabase
+          .from('venues')
+          .insert({
+            partner_id: partner.id,
+            nome: nomeEspaco,
+            categoria,
+            endereco
+          })
+          .select()
+          .single();
+
+        if (venue) {
+          setPartnerId(partner.id);
+          setVenueId(venue.id);
+          setStatusMsg('Rascunho salvo! Continue preenchendo o perfil abaixo.');
+        }
+      }
+    } catch {
+      setStatusMsg('Aviso: Verifique as chaves do Supabase na Vercel.');
     }
   };
 
