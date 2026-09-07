@@ -4,8 +4,7 @@ import { formatarDocumento, validarDocumento, apenasDigitos } from '../lib/docum
 import { formatarWhatsApp } from '../lib/whatsapp';
 import { createClient } from '@supabase/supabase-js';
 
-// URL e Publishable Key públicas do seu projeto Supabase
-const SUPABASE_URL = 'https://fyisfucgzpdwupjterlh.supabase.co';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://fyisfucgzpdwupjterlh.supabase.co';
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_qSAiGoo7ZEG0IboqClunQ_NyJ80';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -29,8 +28,16 @@ export function CadastroCompletoForm() {
   const [whatsapp, setWhatsapp] = useState('');
   const [nomeEspaco, setNomeEspaco] = useState('');
   const [categoria, setCategoria] = useState('bar');
+
+  // Campos de Endereço Estruturados
   const [cep, setCep] = useState('');
-  const [endereco, setEndereco] = useState('');
+  const [logradouro, setLogradouro] = useState('');
+  const [numero, setNumero] = useState('');
+  const [complemento, setComplemento] = useState('');
+  const [bairro, setBairro] = useState('');
+  const [cidade, setCidade] = useState('');
+  const [uf, setUf] = useState('');
+
   const [aceitouTermos, setAceitouTermos] = useState(false);
 
   const [partnerId, setPartnerId] = useState<string | null>(null);
@@ -42,6 +49,7 @@ export function CadastroCompletoForm() {
   const [statusMsg, setStatusMsg] = useState('');
   const [carregandoCnpj, setCarregandoCnpj] = useState(false);
 
+  // Busca CNPJ automático via BrasilAPI
   useEffect(() => {
     const limpo = apenasDigitos(doc);
     if (limpo.length === 14) {
@@ -53,34 +61,51 @@ export function CadastroCompletoForm() {
             setNomeEspaco(data.nome_fantasia || data.razao_social);
           }
           if (data.cep) setCep(data.cep);
-          if (data.logradouro) {
-            setEndereco(`${data.logradouro}, ${data.bairro || ''} - ${data.municipio || ''}/${data.uf || ''}`);
-          }
+          if (data.logradouro) setLogradouro(data.logradouro);
+          if (data.bairro) setBairro(data.bairro);
+          if (data.municipio) setCidade(data.municipio);
+          if (data.uf) setUf(data.uf);
         })
-        .catch(() => {})
+        .catch((err) => console.warn('Erro na consulta CNPJ:', err))
         .finally(() => setCarregandoCnpj(false));
     }
   }, [doc]);
 
+  // Autopreenchimento por CEP via ViaCEP
   useEffect(() => {
     const limpo = apenasDigitos(cep);
-    if (limpo.length === 8 && !endereco) {
+    if (limpo.length === 8 && !logradouro) {
       fetch(`https://viacep.com.br/ws/${limpo}/json/`)
         .then((res) => res.json())
         .then((data) => {
           if (!data.erro) {
-            setEndereco(`${data.logradouro}, ${data.bairro} - ${data.localidade}/${data.uf}`);
+            setLogradouro(data.logradouro || '');
+            setBairro(data.bairro || '');
+            setCidade(data.localidade || '');
+            setUf(data.uf || '');
           }
         })
-        .catch(() => {});
+        .catch((err) => console.warn('Erro ao consultar ViaCEP:', err));
     }
   }, [cep]);
 
+  // Salvamento automático de rascunho
   useEffect(() => {
-    if (validarDocumento(doc) && nomeResponsavel && whatsapp && nomeEspaco && endereco && aceitouTermos && !partnerId) {
+    if (
+      validarDocumento(doc) &&
+      nomeResponsavel &&
+      whatsapp &&
+      nomeEspaco &&
+      logradouro &&
+      numero &&
+      cidade &&
+      uf &&
+      aceitouTermos &&
+      !partnerId
+    ) {
       salvarRascunho();
     }
-  }, [doc, nomeResponsavel, whatsapp, nomeEspaco, endereco, aceitouTermos]);
+  }, [doc, nomeResponsavel, whatsapp, nomeEspaco, logradouro, numero, cidade, uf, aceitouTermos]);
 
   const salvarRascunho = async () => {
     try {
@@ -97,35 +122,41 @@ export function CadastroCompletoForm() {
         .single();
 
       if (pErr) {
-        setStatusMsg(`Erro no banco: ${pErr.message}`);
+        console.warn('Erro ao salvar parceiro no banco:', pErr);
+        setStatusMsg('');
         return;
       }
 
       if (partner) {
+        const enderecoFormatado = `${logradouro}, ${numero}${complemento ? ' - ' + complemento : ''}, ${bairro} - ${cidade}/${uf}`;
         const { data: venue, error: vErr } = await supabase
           .from('venues')
           .insert({
             partner_id: partner.id,
             nome: nomeEspaco,
             categoria,
-            endereco
+            endereco: enderecoFormatado,
+            cidade: cidade,
+            uf: uf
           })
           .select()
           .single();
 
         if (vErr) {
-          setStatusMsg(`Erro ao vincular espaço: ${vErr.message}`);
+          console.warn('Erro ao salvar venue:', vErr);
+          setStatusMsg('');
           return;
         }
 
         if (venue) {
           setPartnerId(partner.id);
           setVenueId(venue.id);
-          setStatusMsg('Rascunho salvo com sucesso! Continue o cadastro abaixo.');
+          setStatusMsg('Rascunho salvo! Continue preenchendo o perfil abaixo.');
         }
       }
-    } catch (err: any) {
-      setStatusMsg(`Erro ao conectar: ${err.message || 'Falha na requisição'}`);
+    } catch (err) {
+      console.warn('Erro de conexao Supabase:', err);
+      setStatusMsg('');
     }
   };
 
@@ -206,6 +237,7 @@ export function CadastroCompletoForm() {
           </select>
         </div>
 
+        {/* Campos de Endereço Estruturados em Múltiplos Elementos */}
         <fieldset className="cadastro-completo__endereco">
           <legend>Endereço</legend>
           <div className="cadastro-completo__linha">
@@ -214,8 +246,34 @@ export function CadastroCompletoForm() {
               <input type="text" placeholder="00000-000" value={cep} onChange={(e) => setCep(e.target.value)} />
             </div>
             <div className="campo">
-              <label>Endereço Completo *</label>
-              <input type="text" placeholder="Rua, número, bairro" value={endereco} onChange={(e) => setEndereco(e.target.value)} />
+              <label>Logradouro / Rua *</label>
+              <input type="text" placeholder="Rua, Avenida, Praça..." value={logradouro} onChange={(e) => setLogradouro(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="cadastro-completo__linha">
+            <div className="campo campo--numero">
+              <label>Número *</label>
+              <input type="text" placeholder="123" value={numero} onChange={(e) => setNumero(e.target.value)} />
+            </div>
+            <div className="campo">
+              <label>Complemento</label>
+              <input type="text" placeholder="Apto, Sala, Bloco (opcional)" value={complemento} onChange={(e) => setComplemento(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="cadastro-completo__linha">
+            <div className="campo">
+              <label>Bairro *</label>
+              <input type="text" placeholder="Bairro" value={bairro} onChange={(e) => setBairro(e.target.value)} />
+            </div>
+            <div className="campo">
+              <label>Cidade *</label>
+              <input type="text" placeholder="Cidade" value={cidade} onChange={(e) => setCidade(e.target.value)} />
+            </div>
+            <div className="campo campo--uf">
+              <label>UF *</label>
+              <input type="text" placeholder="SP" maxLength={2} value={uf} onChange={(e) => setUf(e.target.value.toUpperCase())} />
             </div>
           </div>
         </fieldset>
