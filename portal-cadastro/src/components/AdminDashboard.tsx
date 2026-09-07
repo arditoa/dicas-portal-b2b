@@ -109,7 +109,7 @@ export function AdminDashboard() {
   return (
     <div className="admin-container">
       <header className="admin-header">
-        <h1>Painel de Moderacao — Dicas LGBT</h1>
+        <h1>Painel de Moderação — Dicas LGBT</h1>
         <p>Gerencie as solicitações de novos espaços e parceiros B2B.</p>
         
         <div className="admin-filtros">
@@ -140,67 +140,70 @@ export function AdminDashboard() {
         <div className="admin-vazio">Nenhuma solicitação encontrada para o filtro selecionado.</div>
       ) : (
         <div className="admin-grid">
-          {solicitacoes.map((item) => (
-            <div key={item.partner_id} className="admin-card">
-              {item.foto_capa && (
-                <div className="admin-card__capa">
-                  <img src={item.foto_capa} alt={item.nome_espaco || 'Capa'} />
-                </div>
-              )}
-              <div className="admin-card__conteudo">
-                <div className="admin-card__tag-status admin-card__tag-status--${item.status}">
-                  {item.status.toUpperCase()}
-                </div>
-                <h2>{item.nome_espaco || 'Espaço sem nome'}</h2>
-                <span className="admin-card__categoria">{item.categoria?.toUpperCase()}</span>
-
-                <div className="admin-card__info">
-                  <p><strong>Responsável:</strong> {item.nome_responsavel}</p>
-                  <p><strong>WhatsApp:</strong> {item.whatsapp_comercial}</p>
-                  <p><strong>Doc:</strong> {item.cpf_ou_cnpj}</p>
-                  <p><strong>Endereço:</strong> {item.endereco || `${item.cidade}/${item.uf}`}</p>
-                  {item.instagram && <p><strong>Instagram:</strong> {item.instagram}</p>}
-                  {item.estilo_musical && <p><strong>Som/Estilo:</strong> {item.estilo_musical}</p>}
-                  {item.bio && <p className="admin-card__bio">"{item.bio}"</p>}
-                </div>
-
-                {item.tags_publico_vibe.length > 0 && (
-                  <div className="admin-card__tags">
-                    {item.tags_publico_vibe.map((t) => (
-                      <span key={t} className="admin-chip">{t}</span>
-                    ))}
+          {solicitacoes.map((item) => {
+            const tags = item.tags_publico_vibe || [];
+            return (
+              <div key={item.partner_id} className="admin-card">
+                {item.foto_capa && (
+                  <div className="admin-card__capa">
+                    <img src={item.foto_capa} alt={item.nome_espaco || 'Capa'} />
                   </div>
                 )}
+                <div className="admin-card__conteudo">
+                  <div className={`admin-card__tag-status admin-card__tag-status--${item.status}`}>
+                    {item.status.toUpperCase()}
+                  </div>
+                  <h2>{item.nome_espaco || 'Espaço sem nome'}</h2>
+                  <span className="admin-card__categoria">{item.categoria?.toUpperCase()}</span>
 
-                <div className="admin-card__acoes">
-                  <button
-                    className="btn-admin btn-admin--wa"
-                    onClick={() => abrirWhatsapp(item.whatsapp_comercial, item.nome_espaco)}
-                  >
-                    💬 WhatsApp
-                  </button>
+                  <div className="admin-card__info">
+                    <p><strong>Responsável:</strong> {item.nome_responsavel}</p>
+                    <p><strong>WhatsApp:</strong> {item.whatsapp_comercial}</p>
+                    <p><strong>Doc:</strong> {item.cpf_ou_cnpj}</p>
+                    <p><strong>Endereço:</strong> {item.endereco || `${item.cidade || ''}/${item.uf || ''}`}</p>
+                    {item.instagram && <p><strong>Instagram:</strong> {item.instagram}</p>}
+                    {item.estilo_musical && <p><strong>Som/Estilo:</strong> {item.estilo_musical}</p>}
+                    {item.bio && <p className="admin-card__bio">"{item.bio}"</p>}
+                  </div>
 
-                  {item.status !== 'ativo' && (
-                    <button
-                      className="btn-admin btn-admin--aprovar"
-                      onClick={() => atualizarStatus(item.partner_id, 'ativo')}
-                    >
-                      Aprovar
-                    </button>
+                  {tags.length > 0 && (
+                    <div className="admin-card__tags">
+                      {tags.map((t) => (
+                        <span key={t} className="admin-chip">{t}</span>
+                      ))}
+                    </div>
                   )}
 
-                  {item.status !== 'rejeitado' && (
+                  <div className="admin-card__acoes">
                     <button
-                      className="btn-admin btn-admin--rejeitar"
-                      onClick={() => atualizarStatus(item.partner_id, 'rejeitado')}
+                      className="btn-admin btn-admin--wa"
+                      onClick={() => abrirWhatsapp(item.whatsapp_comercial, item.nome_espaco)}
                     >
-                      Rejeitar
+                      💬 WhatsApp
                     </button>
-                  )}
+
+                    {item.status !== 'ativo' && (
+                      <button
+                        className="btn-admin btn-admin--aprovar"
+                        onClick={() => atualizarStatus(item.partner_id, 'ativo')}
+                      >
+                        Aprovar
+                      </button>
+                    )}
+
+                    {item.status !== 'rejeitado' && (
+                      <button
+                        className="btn-admin btn-admin--rejeitar"
+                        onClick={() => atualizarStatus(item.partner_id, 'rejeitado')}
+                      >
+                        Rejeitar
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
