@@ -38,6 +38,7 @@ export function CadastroCompletoForm() {
   const [uf, setUf] = useState('');
 
   const [aceitouTermos, setAceitouTermos] = useState(false);
+  const [liberado, setLiberado] = useState(false);
 
   const [partnerId, setPartnerId] = useState<string | null>(null);
   const [venueId, setVenueId] = useState<string | null>(null);
@@ -88,20 +89,19 @@ export function CadastroCompletoForm() {
 
   const handleCheckboxChange = (checked: boolean) => {
     setAceitouTermos(checked);
-    if (checked && !partnerId) {
+    if (checked) {
+      setLiberado(true);
       salvarRascunho();
     }
   };
 
   const salvarRascunho = async () => {
-    try {
-      setStatusMsg('Salvando rascunho...');
-      
-      // Gera IDs locais caso o Supabase demore a responder ou falhe
-      const tempPartnerId = partnerId || `temp-partner-${Date.now()}`;
-      const tempVenueId = venueId || `temp-venue-${Date.now()}`;
+    setStatusMsg('Salvando rascunho...');
+    const tempPartnerId = partnerId || `temp-partner-${Date.now()}`;
+    const tempVenueId = venueId || `temp-venue-${Date.now()}`;
 
-      const { data: partner, error: pErr } = await supabase
+    try {
+      const { data: partner } = await supabase
         .from('partners')
         .insert({
           nome_responsavel: nomeResponsavel || 'Não informado',
@@ -128,34 +128,28 @@ export function CadastroCompletoForm() {
           .select()
           .single();
 
-        if (venue) {
-          setVenueId(venue.id);
-        } else {
-          setVenueId(tempVenueId);
-        }
+        if (venue) setVenueId(venue.id);
+        else setVenueId(tempVenueId);
       } else {
-        // Fallback imediato de UI se houver oscilacao na rede
         setPartnerId(tempPartnerId);
         setVenueId(tempVenueId);
       }
-
       setStatusMsg('Rascunho salvo! Continue preenchendo o perfil abaixo.');
     } catch {
-      // Libera a interface para o usuario continuar
-      setPartnerId(`temp-partner-${Date.now()}`);
-      setVenueId(`temp-venue-${Date.now()}`);
+      setPartnerId(tempPartnerId);
+      setVenueId(tempVenueId);
       setStatusMsg('Continue preenchendo o perfil abaixo.');
     }
   };
 
   useEffect(() => {
-    if (venueId && partnerId && fotoCapa && tagsVibe.length > 0) {
+    if (liberado && fotoCapa && tagsVibe.length > 0) {
       promoverParaPendente();
     }
   }, [fotoCapa, tagsVibe]);
 
   const promoverParaPendente = async () => {
-    if (!partnerId?.startsWith('temp-')) {
+    if (partnerId && !partnerId.startsWith('temp-')) {
       await supabase.from('venues').update({ bio, foto_capa: fotoCapa, tags_publico_vibe: tagsVibe }).eq('id', venueId);
       await supabase.from('partners').update({ status: 'pendente' }).eq('id', partnerId);
     }
@@ -279,7 +273,7 @@ export function CadastroCompletoForm() {
         </div>
       </section>
 
-      <section className={`cadastro-completo__secao ${!partnerId ? 'cadastro-completo__secao--bloqueada' : ''}`}>
+      <section className={`cadastro-completo__secao ${!liberado ? 'cadastro-completo__secao--bloqueada' : ''}`}>
         <h2>2. Perfil e Identidade</h2>
         <p className="cadastro-completo__lede-secao">Adicione a foto de capa e ao menos 1 tag para entrar na fila de aprovação.</p>
 
