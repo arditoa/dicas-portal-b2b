@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import './CadastroCompletoForm.css';
-import { formatarDocumento, validarDocumento, apenasDigitos } from '../lib/documento';
+import { formatarDocumento, apenasDigitos } from '../lib/documento';
 import { formatarWhatsApp } from '../lib/whatsapp';
 import { createClient } from '@supabase/supabase-js';
 
