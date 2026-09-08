@@ -1,13 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { AdminDashboard } from './components/AdminDashboard';
 import { CadastroCompletoForm } from './components/CadastroCompletoForm';
 import { CadastroCupomExpressForm } from './components/CadastroCupomExpressForm';
-import { AdminDashboard } from './components/AdminDashboard';
 
 export default function App() {
-  const [currentUrl, setCurrentUrl] = useState(window.location.href);
+  const [routePath, setRoutePath] = useState(() => 
+    window.location.pathname.toLowerCase() + window.location.hash.toLowerCase()
+  );
 
   useEffect(() => {
-    const handleUrlChange = () => setCurrentUrl(window.location.href);
+    const handleUrlChange = () => {
+      setRoutePath(window.location.pathname.toLowerCase() + window.location.hash.toLowerCase());
+    };
     window.addEventListener('popstate', handleUrlChange);
     window.addEventListener('hashchange', handleUrlChange);
     return () => {
@@ -16,14 +20,11 @@ export default function App() {
     };
   }, []);
 
-  const pathname = window.location.pathname.toLowerCase();
-  const hash = window.location.hash.toLowerCase();
-
-  if (pathname.includes('/cupom') || hash.includes('cupom')) {
+  if (routePath.includes('/cupom') || routePath.includes('cupom')) {
     return <CadastroCupomExpressForm />;
   }
 
-  if (pathname.includes('/admin') || hash.includes('admin')) {
+  if (routePath.includes('/admin') || routePath.includes('admin')) {
     return <AdminDashboard />;
   }
 
