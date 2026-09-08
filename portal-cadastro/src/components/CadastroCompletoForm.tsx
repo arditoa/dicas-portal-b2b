@@ -47,7 +47,9 @@ export function CadastroCompletoForm() {
   const [uf, setUf] = useState('');
 
   const [aceitouTermos, setAceitouTermos] = useState(false);
+  const [dataAceite, setDataAceite] = useState<string | null>(null);
   const [liberado, setLiberado] = useState(false);
+  const [modalTermosAberto, setModalTermosAberto] = useState(false);
 
   const [bio, setBio] = useState('');
   const [instagram, setInstagram] = useState('');
@@ -106,7 +108,10 @@ export function CadastroCompletoForm() {
   const handleCheckboxChange = (checked: boolean) => {
     setAceitouTermos(checked);
     if (checked) {
+      setDataAceite(new Date().toISOString());
       setLiberado(true);
+    } else {
+      setLiberado(false);
     }
   };
 
@@ -124,6 +129,12 @@ export function CadastroCompletoForm() {
 
   const concluirCadastro = async (e: React.MouseEvent) => {
     e.preventDefault();
+
+    if (!aceitouTermos) {
+      alert('Por favor, aceite os Termos de Adesão B2B e Política de Privacidade antes de continuar.');
+      return;
+    }
+
     setEnviando(true);
     setStatusMsg('Enviando perfil para moderação...');
 
@@ -306,14 +317,26 @@ export function CadastroCompletoForm() {
           </div>
         </fieldset>
 
-        <div className="campo campo--checkbox">
-          <label>
+        {/* COMPLIANCE JURÍDICO - B2B & LGPD */}
+        <div className="campo campo--checkbox" style={{ marginTop: '20px', padding: '16px', backgroundColor: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+          <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
             <input
               type="checkbox"
+              style={{ marginTop: '3px' }}
               checked={aceitouTermos}
               onChange={(e) => handleCheckboxChange(e.target.checked)}
             />
-            Li e aceito os termos de uso do Dicas LGBT
+            <span style={{ fontSize: '13px', color: '#334155', lineHeight: '1.4' }}>
+              Declaro que sou representante legal/autorizado do estabelecimento e <strong>aceito integralmente os</strong>{' '}
+              <button
+                type="button"
+                onClick={() => setModalTermosAberto(true)}
+                style={{ background: 'none', border: 'none', color: '#7C3AED', textDecoration: 'underline', padding: 0, font: 'inherit', cursor: 'pointer', fontWeight: 'bold' }}
+              >
+                Termos de Adesão B2B e Política de Privacidade (LGPD)
+              </button>
+              .
+            </span>
           </label>
         </div>
       </section>
@@ -404,6 +427,50 @@ export function CadastroCompletoForm() {
           </button>
         </div>
       </section>
+
+      {/* MODAL JURÍDICO INTERATIVO */}
+      {modalTermosAberto && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '16px' }}>
+          <div style={{ backgroundColor: '#FFF', borderRadius: '12px', maxWidth: '600px', width: '100%', maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+            <div style={{ padding: '20px', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '18px', color: '#0F172A' }}>Termos de Adesão B2B e Privacidade</h3>
+              <button onClick={() => setModalTermosAberto(false)} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#64748B' }}>✕</button>
+            </div>
+            
+            <div style={{ padding: '20px', overflowY: 'auto', fontSize: '13px', color: '#334155', lineHeight: '1.6' }}>
+              <h4 style={{ color: '#7C3AED', marginTop: 0 }}>1. Objeto e Natureza da Parceria</h4>
+              <p>O presente instrumento rege a adesão e inclusão voluntária do estabelecimento parceiro na plataforma Dicas LGBT. O cadastro concede direito não exclusivo para divulgação comercial do espaço e de suas atrações aos usuários do aplicativo mobile Dicas LGBT.</p>
+
+              <h4 style={{ color: '#7C3AED' }}>2. Veracidade e Representação Legal</h4>
+              <p>O declarante afirma, sob as penas da lei (Código Penal, art. 299), que possui plenos poderes para atuar em nome do estabelecimento comercial cadastrado e que todas as informações prestadas são autênticas e precisas.</p>
+
+              <h4 style={{ color: '#7C3AED' }}>3. Licença de Uso de Marca, Foto e Conteúdo</h4>
+              <p>O Parceiro concede à plataforma Dicas LGBT licença gratuita, não exclusiva e de âmbito territorial nacional para exibição, reprodução e divulgação do nome comercial, fotos, logotipos, descrições e links de redes sociais anexados ao cadastro, estritamente para promoção do estabelecimento no ecossistema Dicas LGBT.</p>
+
+              <h4 style={{ color: '#7C3AED' }}>4. Conformidade com a LGPD (Lei nº 13.709/2018)</h4>
+              <p>Os dados pessoais do responsável legal (nome, CPF, WhatsApp comercial) são coletados para a finalidade de execução de contrato/termo e verificação de segurança (Art. 7º, V da LGPD). Os dados do estabelecimento serão exibidos publicamente para viabilizar o direcionamento de clientes.</p>
+
+              <h4 style={{ color: '#7C3AED' }}>5. Moderação e Cancelamento</h4>
+              <p>A Dicas LGBT reserva-se o direito de moderar, suspender ou remover perfis que descumpram as diretrizes da plataforma ou que promovam discursos de ódio, discriminação ou ilegalidades. O parceiro poderá solicitar a exclusão de seu cadastro a qualquer momento via canal oficial de atendimento.</p>
+            </div>
+
+            <div style={{ padding: '16px', borderTop: '1px solid #E2E8F0', textAlign: 'right' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setAceitouTermos(true);
+                  setDataAceite(new Date().toISOString());
+                  setLiberado(true);
+                  setModalTermosAberto(false);
+                }}
+                style={{ backgroundColor: '#7C3AED', color: '#FFF', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}
+              >
+                Li e Concordo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
