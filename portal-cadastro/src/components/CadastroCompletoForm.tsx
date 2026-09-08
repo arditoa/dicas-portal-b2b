@@ -47,7 +47,6 @@ export function CadastroCompletoForm() {
   const [uf, setUf] = useState('');
 
   const [aceitouTermos, setAceitouTermos] = useState(false);
-  const [dataAceite, setDataAceite] = useState<string | null>(null);
   const [liberado, setLiberado] = useState(false);
   const [modalTermosAberto, setModalTermosAberto] = useState(false);
 
@@ -107,12 +106,7 @@ export function CadastroCompletoForm() {
 
   const handleCheckboxChange = (checked: boolean) => {
     setAceitouTermos(checked);
-    if (checked) {
-      setDataAceite(new Date().toISOString());
-      setLiberado(true);
-    } else {
-      setLiberado(false);
-    }
+    setLiberado(checked);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -196,281 +190,286 @@ export function CadastroCompletoForm() {
 
   if (sucessoConcluido) {
     return (
-      <div className="cadastro-completo" style={{ textAlign: 'center', padding: '48px 16px' }}>
-        <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎉</div>
-        <h1 style={{ fontSize: '24px', fontWeight: '800', color: '#1E1526' }}>Cadastro Enviado com Sucesso!</h1>
-        <p style={{ color: '#64748B', marginTop: '8px', fontSize: '15px' }}>
-          Obrigado por registrar seu espaço. Nossa equipe revisará seu perfil em breve e você receberá uma confirmação no WhatsApp.
+      <div className="cadastro-completo" style={{ textAlign: 'center', padding: '64px 16px' }}>
+        <div style={{ fontSize: '56px', marginBottom: '20px' }}>🎉</div>
+        <h1 style={{ fontSize: '26px', fontWeight: '800', color: '#FFFFFF' }}>Cadastro Enviado com Sucesso!</h1>
+        <p style={{ color: '#94A3B8', marginTop: '12px', fontSize: '15px' }}>
+          Obrigado por registrar seu espaço. Nossa equipe revisará seu perfil em breve e você receberá a confirmação no WhatsApp.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="cadastro-completo">
-      <div className="cadastro-completo__cabecalho">
-        <h1>Cadastre seu espaço no Dicas LGBT</h1>
-        <p>Leva menos de 2 minutos. É grátis para começar — sem cartão, sem compromisso.</p>
-        {statusMsg && <div className="cadastro-completo__retomada">{statusMsg}</div>}
-      </div>
+    <>
+      <header className="portal-header">
+        <img src="/logo.png" alt="Dicas LGBT+" className="portal-header__logo" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} />
+      </header>
 
-      <section className="cadastro-completo__secao">
-        <h2>1. Identificação do Espaço</h2>
-        <div className="campo">
-          <label>CPF ou CNPJ *</label>
-          <input
-            type="text"
-            placeholder="Digite seu CPF ou CNPJ"
-            value={doc}
-            onChange={(e) => setDoc(formatarDocumento(e.target.value))}
-          />
-          {carregandoCnpj && <p className="campo__status">Buscando dados do CNPJ...</p>}
+      <div className="cadastro-completo">
+        <div className="cadastro-completo__cabecalho">
+          <h1>Cadastre seu espaço no Dicas LGBT+</h1>
+          <p>Leva menos de 2 minutos. É grátis para começar — sem cartão, sem compromisso.</p>
+          {statusMsg && <div style={{ color: '#C084FC', marginTop: '12px', fontWeight: '600' }}>{statusMsg}</div>}
         </div>
 
-        <div className="campo">
-          <label>Nome do Responsável *</label>
-          <input
-            type="text"
-            placeholder="Seu nome completo"
-            value={nomeResponsavel}
-            onChange={(e) => setNomeResponsavel(e.target.value)}
-          />
-        </div>
-
-        <div className="campo">
-          <label>WhatsApp Comercial *</label>
-          <input
-            type="text"
-            placeholder="(11) 99999-9999"
-            value={whatsapp}
-            onChange={(e) => setWhatsapp(formatarWhatsApp(e.target.value))}
-          />
-        </div>
-
-        <div className="campo">
-          <label>Razão Social / Nome Oficial *</label>
-          <input
-            type="text"
-            placeholder="Ex: Bar da Esquina LTDA"
-            value={nomeEspaco}
-            onChange={(e) => setNomeEspaco(e.target.value)}
-          />
-        </div>
-
-        <div className="campo">
-          <label>Nome Fantasia</label>
-          <input
-            type="text"
-            placeholder="Nome como o local é conhecido publicamente"
-            value={nomeFantasia}
-            onChange={(e) => setNomeFantasia(e.target.value)}
-          />
-        </div>
-
-        <div className="campo">
-          <label>Categoria *</label>
-          <select value={categoria} onChange={(e) => setCategoria(e.target.value)}>
-            <option value="bar">Bar</option>
-            <option value="balada">Balada</option>
-            <option value="comer">Restaurante / Comer</option>
-            <option value="roteiro">Roteiro Cultural</option>
-          </select>
-        </div>
-
-        <fieldset className="cadastro-completo__endereco">
-          <legend>Endereço</legend>
-          <div className="cadastro-completo__linha">
-            <div className="campo campo--numero">
-              <label>CEP *</label>
-              <input type="text" placeholder="00000-000" value={cep} onChange={(e) => setCep(e.target.value)} />
-            </div>
-            <div className="campo">
-              <label>Logradouro / Rua *</label>
-              <input type="text" placeholder="Rua, Avenida, Praça..." value={logradouro} onChange={(e) => setLogradouro(e.target.value)} />
-            </div>
-          </div>
-
-          <div className="cadastro-completo__linha">
-            <div className="campo campo--numero">
-              <label>Número *</label>
-              <input type="text" placeholder="123" value={numero} onChange={(e) => setNumero(e.target.value)} />
-            </div>
-            <div className="campo">
-              <label>Complemento</label>
-              <input type="text" placeholder="Apto, Sala, Bloco (opcional)" value={complemento} onChange={(e) => setComplemento(e.target.value)} />
-            </div>
-          </div>
-
-          <div className="cadastro-completo__linha">
-            <div className="campo">
-              <label>Bairro *</label>
-              <input type="text" placeholder="Bairro" value={bairro} onChange={(e) => setBairro(e.target.value)} />
-            </div>
-            <div className="campo">
-              <label>Cidade *</label>
-              <input type="text" placeholder="Cidade" value={cidade} onChange={(e) => setCidade(e.target.value)} />
-            </div>
-            <div className="campo campo--uf">
-              <label>UF *</label>
-              <input type="text" placeholder="SP" maxLength={2} value={uf} onChange={(e) => setUf(e.target.value.toUpperCase())} />
-            </div>
-          </div>
-        </fieldset>
-
-        {/* COMPLIANCE JURÍDICO - B2B & LGPD */}
-        <div className="campo campo--checkbox" style={{ marginTop: '20px', padding: '16px', backgroundColor: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-          <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+        <section className="cadastro-completo__secao">
+          <h2>1. Identificação do Espaço</h2>
+          <div className="campo">
+            <label>CPF ou CNPJ *</label>
             <input
-              type="checkbox"
-              style={{ marginTop: '3px' }}
-              checked={aceitouTermos}
-              onChange={(e) => handleCheckboxChange(e.target.checked)}
+              type="text"
+              placeholder="Digite seu CPF ou CNPJ"
+              value={doc}
+              onChange={(e) => setDoc(formatarDocumento(e.target.value))}
             />
-            <span style={{ fontSize: '13px', color: '#334155', lineHeight: '1.4' }}>
-              Declaro que sou representante legal/autorizado do estabelecimento e <strong>aceito integralmente os</strong>{' '}
-              <button
-                type="button"
-                onClick={() => setModalTermosAberto(true)}
-                style={{ background: 'none', border: 'none', color: '#7C3AED', textDecoration: 'underline', padding: 0, font: 'inherit', cursor: 'pointer', fontWeight: 'bold' }}
-              >
-                Termos de Adesão B2B e Política de Privacidade (LGPD)
-              </button>
-              .
-            </span>
-          </label>
-        </div>
-      </section>
-
-      <section className={`cadastro-completo__secao ${!liberado ? 'cadastro-completo__secao--bloqueada' : ''}`}>
-        <h2>2. Perfil e Identidade</h2>
-        <p className="cadastro-completo__lede-secao">Adicione detalhes do seu espaço e conclua o envio.</p>
-
-        <div className="campo">
-          <label>Instagram do Espaço</label>
-          <input
-            type="text"
-            placeholder="@seuespaco"
-            value={instagram}
-            onChange={(e) => setInstagram(e.target.value)}
-          />
-        </div>
-
-        <div className="campo">
-          <label>Estilo Musical Predominante</label>
-          <div className="tag-grid">
-            {ESTILOS_MUSICAIS.map((estilo) => (
-              <button
-                key={estilo}
-                type="button"
-                className={`tag-chip ${estiloMusical === estilo ? 'tag-chip--marcado' : ''}`}
-                onClick={() => setEstiloMusical(estilo)}
-              >
-                {estilo}
-              </button>
-            ))}
+            {carregandoCnpj && <p style={{ fontSize: '12px', color: '#A855F7', marginTop: '6px' }}>Buscando dados do CNPJ...</p>}
           </div>
-        </div>
 
-        <div className="campo">
-          <label>Descrição (Bio)</label>
-          <textarea
-            maxLength={500}
-            placeholder="Conte um pouco sobre a atmosfera do seu espaço..."
-            value={bio}
-            onChange={(e) => setBio(e.target.value)}
-          />
-        </div>
-
-        <div className="campo">
-          <label>Foto de Capa do Espaço (Opcional)</label>
-          <input
-            type="file"
-            accept="image/*"
-            id="foto-upload"
-            className="input-file-hidden"
-            onChange={handleFileUpload}
-          />
-          <label htmlFor="foto-upload" className="btn-upload">
-            📸 {nomeArquivo ? `Foto anexada: ${nomeArquivo}` : 'Anexar Foto de Capa'}
-          </label>
-          {fotoCapa && (
-            <div className="preview-container">
-              <img src={fotoCapa} alt="Preview da capa" className="preview-foto" />
-            </div>
-          )}
-        </div>
-
-        <div className="campo">
-          <label>Público & Vibe</label>
-          <div className="tag-grid">
-            {TAGS_VIBE.map((tag) => (
-              <button
-                key={tag}
-                type="button"
-                className={`tag-chip ${tagsVibe.includes(tag) ? 'tag-chip--marcado' : ''}`}
-                onClick={() => toggleTag(tag)}
-              >
-                {tag}
-              </button>
-            ))}
+          <div className="campo">
+            <label>Nome do Responsável *</label>
+            <input
+              type="text"
+              placeholder="Seu nome completo"
+              value={nomeResponsavel}
+              onChange={(e) => setNomeResponsavel(e.target.value)}
+            />
           </div>
-        </div>
 
-        <div className="campo-acao">
-          <button
-            type="button"
-            className="btn-concluir"
-            onClick={concluirCadastro}
-            disabled={enviando}
-          >
-            {enviando ? 'Enviando Cadastro...' : 'Concluir Cadastro'}
-          </button>
-        </div>
-      </section>
+          <div className="campo">
+            <label>WhatsApp Comercial *</label>
+            <input
+              type="text"
+              placeholder="(11) 99999-9999"
+              value={whatsapp}
+              onChange={(e) => setWhatsapp(formatarWhatsApp(e.target.value))}
+            />
+          </div>
 
-      {/* MODAL JURÍDICO INTERATIVO */}
-      {modalTermosAberto && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '16px' }}>
-          <div style={{ backgroundColor: '#FFF', borderRadius: '12px', maxWidth: '600px', width: '100%', maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
-            <div style={{ padding: '20px', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ margin: 0, fontSize: '18px', color: '#0F172A' }}>Termos de Adesão B2B e Privacidade</h3>
-              <button onClick={() => setModalTermosAberto(false)} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#64748B' }}>✕</button>
+          <div className="campo">
+            <label>Razão Social / Nome Oficial *</label>
+            <input
+              type="text"
+              placeholder="Ex: Bar da Esquina LTDA"
+              value={nomeEspaco}
+              onChange={(e) => setNomeEspaco(e.target.value)}
+            />
+          </div>
+
+          <div className="campo">
+            <label>Nome Fantasia</label>
+            <input
+              type="text"
+              placeholder="Nome como o local é conhecido publicamente"
+              value={nomeFantasia}
+              onChange={(e) => setNomeFantasia(e.target.value)}
+            />
+          </div>
+
+          <div className="campo">
+            <label>Categoria *</label>
+            <select value={categoria} onChange={(e) => setCategoria(e.target.value)}>
+              <option value="bar">Bar</option>
+              <option value="balada">Balada</option>
+              <option value="comer">Restaurante / Comer</option>
+              <option value="roteiro">Roteiro Cultural</option>
+            </select>
+          </div>
+
+          <fieldset className="cadastro-completo__endereco">
+            <legend>Endereço</legend>
+            <div className="cadastro-completo__linha">
+              <div className="campo" style={{ flex: '0 0 120px' }}>
+                <label>CEP *</label>
+                <input type="text" placeholder="00000-000" value={cep} onChange={(e) => setCep(e.target.value)} />
+              </div>
+              <div className="campo" style={{ flex: 1 }}>
+                <label>Logradouro / Rua *</label>
+                <input type="text" placeholder="Rua, Avenida, Praça..." value={logradouro} onChange={(e) => setLogradouro(e.target.value)} />
+              </div>
             </div>
-            
-            <div style={{ padding: '20px', overflowY: 'auto', fontSize: '13px', color: '#334155', lineHeight: '1.6' }}>
-              <h4 style={{ color: '#7C3AED', marginTop: 0 }}>1. Objeto e Natureza da Parceria</h4>
-              <p>O presente instrumento rege a adesão e inclusão voluntária do estabelecimento parceiro na plataforma Dicas LGBT. O cadastro concede direito não exclusivo para divulgação comercial do espaço e de suas atrações aos usuários do aplicativo mobile Dicas LGBT.</p>
 
-              <h4 style={{ color: '#7C3AED' }}>2. Veracidade e Representação Legal</h4>
-              <p>O declarante afirma, sob as penas da lei (Código Penal, art. 299), que possui plenos poderes para atuar em nome do estabelecimento comercial cadastrado e que todas as informações prestadas são autênticas e precisas.</p>
-
-              <h4 style={{ color: '#7C3AED' }}>3. Licença de Uso de Marca, Foto e Conteúdo</h4>
-              <p>O Parceiro concede à plataforma Dicas LGBT licença gratuita, não exclusiva e de âmbito territorial nacional para exibição, reprodução e divulgação do nome comercial, fotos, logotipos, descrições e links de redes sociais anexados ao cadastro, estritamente para promoção do estabelecimento no ecossistema Dicas LGBT.</p>
-
-              <h4 style={{ color: '#7C3AED' }}>4. Conformidade com a LGPD (Lei nº 13.709/2018)</h4>
-              <p>Os dados pessoais do responsável legal (nome, CPF, WhatsApp comercial) são coletados para a finalidade de execução de contrato/termo e verificação de segurança (Art. 7º, V da LGPD). Os dados do estabelecimento serão exibidos publicamente para viabilizar o direcionamento de clientes.</p>
-
-              <h4 style={{ color: '#7C3AED' }}>5. Moderação e Cancelamento</h4>
-              <p>A Dicas LGBT reserva-se o direito de moderar, suspender ou remover perfis que descumpram as diretrizes da plataforma ou que promovam discursos de ódio, discriminação ou ilegalidades. O parceiro poderá solicitar a exclusão de seu cadastro a qualquer momento via canal oficial de atendimento.</p>
+            <div className="cadastro-completo__linha">
+              <div className="campo" style={{ flex: '0 0 100px' }}>
+                <label>Número *</label>
+                <input type="text" placeholder="123" value={numero} onChange={(e) => setNumero(e.target.value)} />
+              </div>
+              <div className="campo" style={{ flex: 1 }}>
+                <label>Complemento</label>
+                <input type="text" placeholder="Apto, Sala, Bloco (opcional)" value={complemento} onChange={(e) => setComplemento(e.target.value)} />
+              </div>
             </div>
 
-            <div style={{ padding: '16px', borderTop: '1px solid #E2E8F0', textAlign: 'right' }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setAceitouTermos(true);
-                  setDataAceite(new Date().toISOString());
-                  setLiberado(true);
-                  setModalTermosAberto(false);
-                }}
-                style={{ backgroundColor: '#7C3AED', color: '#FFF', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}
-              >
-                Li e Concordo
-              </button>
+            <div className="cadastro-completo__linha">
+              <div className="campo" style={{ flex: 1 }}>
+                <label>Bairro *</label>
+                <input type="text" placeholder="Bairro" value={bairro} onChange={(e) => setBairro(e.target.value)} />
+              </div>
+              <div className="campo" style={{ flex: 1 }}>
+                <label>Cidade *</label>
+                <input type="text" placeholder="Cidade" value={cidade} onChange={(e) => setCidade(e.target.value)} />
+              </div>
+              <div className="campo" style={{ flex: '0 0 70px' }}>
+                <label>UF *</label>
+                <input type="text" placeholder="SP" maxLength={2} value={uf} onChange={(e) => setUf(e.target.value.toUpperCase())} />
+              </div>
+            </div>
+          </fieldset>
+
+          <div style={{ marginTop: '20px', padding: '16px', backgroundColor: 'rgba(255, 255, 255, 0.03)', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+            <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+              <input
+                type="checkbox"
+                style={{ marginTop: '4px', accentColor: '#A855F7' }}
+                checked={aceitouTermos}
+                onChange={(e) => handleCheckboxChange(e.target.checked)}
+              />
+              <span style={{ fontSize: '13px', color: '#94A3B8', lineHeight: '1.5' }}>
+                Declaro que sou representante legal/autorizado do estabelecimento e <strong>aceito integralmente os</strong>{' '}
+                <button
+                  type="button"
+                  onClick={() => setModalTermosAberto(true)}
+                  style={{ background: 'none', border: 'none', color: '#C084FC', textDecoration: 'underline', padding: 0, font: 'inherit', cursor: 'pointer', fontWeight: 'bold' }}
+                >
+                  Termos de Adesão B2B e Política de Privacidade (LGPD)
+                </button>
+                .
+              </span>
+            </label>
+          </div>
+        </section>
+
+        <section className={`cadastro-completo__secao ${!liberado ? 'cadastro-completo__secao--bloqueada' : ''}`}>
+          <h2>2. Perfil e Identidade</h2>
+          <p style={{ color: '#94A3B8', fontSize: '14px', marginTop: '-12px', marginBottom: '20px' }}>
+            Adicione detalhes do seu espaço e conclua o envio.
+          </p>
+
+          <div className="campo">
+            <label>Instagram do Espaço</label>
+            <input
+              type="text"
+              placeholder="@seuespaco"
+              value={instagram}
+              onChange={(e) => setInstagram(e.target.value)}
+            />
+          </div>
+
+          <div className="campo">
+            <label>Estilo Musical Predominante</label>
+            <div className="tag-grid">
+              {ESTILOS_MUSICAIS.map((estilo) => (
+                <button
+                  key={estilo}
+                  type="button"
+                  className={`tag-chip ${estiloMusical === estilo ? 'tag-chip--marcado' : ''}`}
+                  onClick={() => setEstiloMusical(estilo)}
+                >
+                  {estilo}
+                </button>
+              ))}
             </div>
           </div>
-        </div>
-      )}
-    </div>
+
+          <div className="campo">
+            <label>Descrição (Bio)</label>
+            <textarea
+              maxLength={500}
+              placeholder="Conte um pouco sobre a atmosfera do seu espaço..."
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+            />
+          </div>
+
+          <div className="campo">
+            <label>Foto de Capa do Espaço (Opcional)</label>
+            <input
+              type="file"
+              accept="image/*"
+              id="foto-upload"
+              className="input-file-hidden"
+              onChange={handleFileUpload}
+            />
+            <label htmlFor="foto-upload" className="btn-upload">
+              📸 {nomeArquivo ? `Foto anexada: ${nomeArquivo}` : 'Anexar Foto de Capa'}
+            </label>
+            {fotoCapa && (
+              <div style={{ marginTop: '12px' }}>
+                <img src={fotoCapa} alt="Preview da capa" style={{ width: '100%', maxHeight: '200px', objectFit: 'cover', borderRadius: '10px' }} />
+              </div>
+            )}
+          </div>
+
+          <div className="campo">
+            <label>Público & Vibe</label>
+            <div className="tag-grid">
+              {TAGS_VIBE.map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  className={`tag-chip ${tagsVibe.includes(tag) ? 'tag-chip--marcado' : ''}`}
+                  onClick={() => toggleTag(tag)}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ marginTop: '32px' }}>
+            <button
+              type="button"
+              className="btn-concluir"
+              onClick={concluirCadastro}
+              disabled={enviando}
+            >
+              {enviando ? 'Enviando Cadastro...' : 'Concluir Cadastro'}
+            </button>
+          </div>
+        </section>
+
+        {modalTermosAberto && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '16px' }}>
+            <div style={{ backgroundColor: '#181420', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: '16px', maxWidth: '600px', width: '100%', maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}>
+              <div style={{ padding: '20px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ margin: 0, fontSize: '18px', color: '#FFFFFF' }}>Termos de Adesão B2B e Privacidade</h3>
+                <button onClick={() => setModalTermosAberto(false)} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#94A3B8' }}>✕</button>
+              </div>
+              
+              <div style={{ padding: '20px', overflowY: 'auto', fontSize: '13px', color: '#CBD5E1', lineHeight: '1.6' }}>
+                <h4 style={{ color: '#C084FC', marginTop: 0 }}>1. Objeto e Natureza da Parceria</h4>
+                <p>O presente instrumento rege a adesão e inclusão voluntária do estabelecimento parceiro na plataforma Dicas LGBT. O cadastro concede direito não exclusivo para divulgação comercial do espaço e de suas atrações aos usuários do aplicativo mobile Dicas LGBT.</p>
+
+                <h4 style={{ color: '#C084FC' }}>2. Veracidade e Representação Legal</h4>
+                <p>O declarante afirma, sob as penas da lei (Código Penal, art. 299), que possui plenos poderes para atuar em nome do estabelecimento comercial cadastrado e que todas as informações prestadas são autênticas e precisas.</p>
+
+                <h4 style={{ color: '#C084FC' }}>3. Licença de Uso de Marca, Foto e Conteúdo</h4>
+                <p>O Parceiro concede à plataforma Dicas LGBT licença gratuita, não exclusiva e de âmbito territorial nacional para exibição, reprodução e divulgação do nome comercial, fotos, logotipos, descrições e links de redes sociais anexados ao cadastro, estritamente para promoção do estabelecimento no ecossistema Dicas LGBT.</p>
+
+                <h4 style={{ color: '#C084FC' }}>4. Conformidade com a LGPD (Lei nº 13.709/2018)</h4>
+                <p>Os dados pessoais do responsável legal (nome, CPF, WhatsApp comercial) são coletados para a finalidade de execução de contrato/termo e verificação de segurança (Art. 7º, V da LGPD). Os dados do estabelecimento serão exibidos publicamente para viabilizar o direcionamento de clientes.</p>
+
+                <h4 style={{ color: '#C084FC' }}>5. Moderação e Cancelamento</h4>
+                <p>A Dicas LGBT reserva-se o direito de moderar, suspender ou remover perfis que descumpram as diretrizes da plataforma ou que promovam discursos de ódio, discriminação ou ilegalidades. O parceiro poderá solicitar a exclusão de seu cadastro a qualquer momento via canal oficial de atendimento.</p>
+              </div>
+
+              <div style={{ padding: '16px', borderTop: '1px solid rgba(255, 255, 255, 0.1)', textAlign: 'right' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAceitouTermos(true);
+                    setLiberado(true);
+                    setModalTermosAberto(false);
+                  }}
+                  style={{ background: 'linear-gradient(135deg, #7C3AED 0%, #A855F7 100%)', color: '#FFF', border: 'none', padding: '10px 24px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}
+                >
+                  Li e Concordo
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
