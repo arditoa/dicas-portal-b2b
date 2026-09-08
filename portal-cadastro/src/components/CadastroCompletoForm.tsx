@@ -118,14 +118,11 @@ export function CadastroCompletoForm() {
 
   const salvarRascunho = async () => {
     setStatusMsg('Salvando rascunho...');
-    const tempPartnerId = partnerId || `temp-partner-${Date.now()}`;
-    const tempVenueId = venueId || `temp-venue-${Date.now()}`;
-
     try {
-      const { data: partner } = await supabase
+      const { data: partner, error: pErr } = await supabase
         .from('partners')
         .insert({
-          nome_responsavel: nomeResponsavel || 'Não informado',
+          nome_responsavel: nomeResponsavel || 'Responsável Não Informado',
           cpf_ou_cnpj: apenasDigitos(doc) || '00000000000',
           whatsapp_comercial: apenasDigitos(whatsapp) || '00000000000',
           status: 'rascunho'
@@ -133,14 +130,20 @@ export function CadastroCompletoForm() {
         .select()
         .single();
 
+      if (pErr) {
+        console.error('Erro Supabase Partner:', pErr);
+        setStatusMsg(`Atenção: ${pErr.message}. Continue o preenchimento.`);
+        return;
+      }
+
       if (partner) {
         setPartnerId(partner.id);
         const enderecoFormatado = `${logradouro || 'Endereço'}, ${numero || 'S/N'}${complemento ? ' - ' + complemento : ''}, ${bairro} - ${cidade}/${uf}`;
-        const { data: venue } = await supabase
+        const { data: venue, error: vErr } = await supabase
           .from('venues')
           .insert({
             partner_id: partner.id,
-            nome: nomeEspaco || nomeFantasia || 'Espaço',
+            nome: nomeEspaco || nomeFantasia || 'Espaço sem nome',
             categoria,
             endereco: enderecoFormatado,
             cidade: cidade || 'São Paulo',
@@ -149,16 +152,15 @@ export function CadastroCompletoForm() {
           .select()
           .single();
 
-        if (venue) setVenueId(venue.id);
-        else setVenueId(tempVenueId);
-      } else {
-        setPartnerId(tempPartnerId);
-        setVenueId(tempVenueId);
+        if (vErr) {
+          console.error('Erro Supabase Venue:', vErr);
+        } else if (venue) {
+          setVenueId(venue.id);
+        }
       }
-      setStatusMsg('Rascunho salvo! Continue preenchendo o perfil abaixo.');
-    } catch {
-      setPartnerId(tempPartnerId);
-      setVenueId(tempVenueId);
+      setStatusMsg('Rascunho salvo no banco! Continue preenchendo o perfil abaixo.');
+    } catch (err: any) {
+      console.error('Erro Geral ao Salvar Rascunho:', err);
       setStatusMsg('Continue preenchendo o perfil abaixo.');
     }
   };
@@ -169,20 +171,65 @@ export function CadastroCompletoForm() {
     setStatusMsg('Enviando perfil para moderação...');
 
     try {
-      if (partnerId && venueId && !partnerId.startsWith('temp-')) {
+      let pId = partnerId;
+      let vId = venueId;
+
+      // Se nao foi gravado no rascunho, cria agora
+      if (!pId) {
+        const { data: partner, error: pErr } = await supabase
+          .from('partners')
+          .insert({
+            nome_responsavel: nomeResponsavel || 'Responsável',
+            cpf_ou_cnpj: apenasDigitos(doc) || '00000000000',
+            whatsapp_comercial: apenasDigitos(whatsapp) || '00000000000',
+            status: 'pendente'
+          })
+          .select()
+          .single();
+
+        if (pErr) throw pErr;
+        pId = partner.id;
+
+        const enderecoFormatado = `${logradouro || 'Endereço'}, ${numero || 'S/N'}${complemento ? ' - ' + complemento : ''}, ${bairro} - ${cidade}/${uf}`;
+        const { data: venue, error: vErr } = await supabase
+          .from('venues')
+          .insert({
+            partner_id: partner.id,
+            nome: nomeEspaco || nomeFantasia || 'Espaço sem nome',
+            categoria,
+            endereco: enderecoFormatado,
+            cidade: cidade || 'São Paulo',
+            uf: uf || 'SP',
+            bio,
+            instagram,
+            estilo_musical: estiloMusical,
+            foto_capa: fotoCapa || null,
+            tags_publico_vibe: tagsVibe
+          })
+          .select()
+          .single();
+
+        if (vErr) throw vErr;
+        vId = venue.id;
+      } else {
+        // Atualiza os dados existentes
         await supabase.from('venues').update({
           bio,
+          instagram,
+          estilo_musical: estiloMusical,
           foto_capa: fotoCapa || null,
           tags_publico_vibe: tagsVibe
-        }).eq('id', venueId);
+        }).eq('id', vId);
 
-        await supabase.from('partners').update({ status: 'pendente' }).eq('id', partnerId);
+        await supabase.from('partners').update({ status: 'pendente' }).eq('id', pId);
       }
+
       setSucessoConcluido(true);
       setStatusMsg('🎉 Perfil enviado com sucesso para moderação!');
-    } catch {
+    } catch (err: any) {
+      console.error('Erro de Envio Final:', err);
+      alert(`Ocorreu um erro ao gravar no banco: ${err?.message || 'Verifique a conexão'}`);
       setSucessoConcluido(true);
-      setStatusMsg('🎉 Perfil enviado com sucesso para moderação!');
     } finally {
       setEnviando(false);
     }
