@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
-import './CadastroCompletoForm.css';
-import { supabase } from '../lib/supabase';
+import { useEffect, useState } from 'react';
 import { apenasDigitos } from '../lib/documento';
+import { supabase } from '../lib/supabase';
+import './CadastroCompletoForm.css';
 
 const WHATSAPP_SUPORTE = '5511942922028';
 
