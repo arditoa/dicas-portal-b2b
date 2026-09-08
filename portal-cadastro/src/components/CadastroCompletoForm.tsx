@@ -47,6 +47,9 @@ export function CadastroCompletoForm() {
   const [enviando, setEnviando] = useState(false);
   const [sucessoConcluido, setSucessoConcluido] = useState(false);
 
+  // Guarda o ID do parceiro se ja tiver sido criado no banco
+  const [partnerIdCriado, setPartnerIdCriado] = useState<string | null>(null);
+
   useEffect(() => {
     const limpo = apenasDigitos(doc);
     if (limpo.length === 14) {
@@ -113,20 +116,27 @@ export function CadastroCompletoForm() {
     setStatusMsg('Enviando perfil para moderação...');
 
     try {
-      // 1. Grava o partner
-      const { data: partner, error: pErr } = await supabase
-        .from('partners')
-        .insert({
-          nome_responsavel: nomeResponsavel || 'Responsável Não Informado',
-          cpf_ou_cnpj: apenasDigitos(doc) || `00${Date.now()}`,
-          whatsapp_comercial: apenasDigitos(whatsapp) || '00000000000',
-          status: 'pendente'
-        })
-        .select()
-        .single();
+      let currentPartnerId = partnerIdCriado;
 
-      if (pErr) {
-        throw new Error(`Erro ao criar parceiro: ${pErr.message}`);
+      // 1. Cria o partner APENAS se ainda nao foi criado nesta sessao
+      if (!currentPartnerId) {
+        const { data: partner, error: pErr } = await supabase
+          .from('partners')
+          .insert({
+            nome_responsavel: nomeResponsavel || 'Responsável Não Informado',
+            cpf_ou_cnpj: apenasDigitos(doc) || `00${Date.now()}`,
+            whatsapp_comercial: apenasDigitos(whatsapp) || '00000000000',
+            status: 'pendente'
+          })
+          .select()
+          .single();
+
+        if (pErr) {
+          throw new Error(`Erro ao criar parceiro: ${pErr.message}`);
+        }
+
+        currentPartnerId = partner.id;
+        setPartnerIdCriado(partner.id); // Guarda para reuso em caso de nova tentativa
       }
 
       const enderecoFormatado = `${logradouro || 'Endereço'}, ${numero || 'S/N'}${complemento ? ' - ' + complemento : ''}, ${bairro} - ${cidade}/${uf}`;
@@ -135,7 +145,7 @@ export function CadastroCompletoForm() {
       const { error: vErr } = await supabase
         .from('venues')
         .insert({
-          partner_id: partner.id,
+          partner_id: currentPartnerId,
           nome: nomeEspaco || nomeFantasia || 'Espaço sem nome',
           categoria,
           endereco: enderecoFormatado,
@@ -147,7 +157,7 @@ export function CadastroCompletoForm() {
         });
 
       if (vErr) {
-        throw new Error(`Erro ao criar local/venue: ${vErr.message}`);
+        throw new Error(`Erro ao criar local: ${vErr.message}`);
       }
 
       setSucessoConcluido(true);
