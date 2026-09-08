@@ -113,21 +113,25 @@ export function CadastroCompletoForm() {
     setStatusMsg('Enviando perfil para moderação...');
 
     try {
+      // 1. Grava o partner
       const { data: partner, error: pErr } = await supabase
         .from('partners')
         .insert({
           nome_responsavel: nomeResponsavel || 'Responsável Não Informado',
-          cpf_ou_cnpj: apenasDigitos(doc) || '00000000000',
+          cpf_ou_cnpj: apenasDigitos(doc) || `00${Date.now()}`,
           whatsapp_comercial: apenasDigitos(whatsapp) || '00000000000',
           status: 'pendente'
         })
         .select()
         .single();
 
-      if (pErr) throw pErr;
+      if (pErr) {
+        throw new Error(`Erro ao criar parceiro: ${pErr.message}`);
+      }
 
       const enderecoFormatado = `${logradouro || 'Endereço'}, ${numero || 'S/N'}${complemento ? ' - ' + complemento : ''}, ${bairro} - ${cidade}/${uf}`;
       
+      // 2. Grava o venue obrigatoriamente
       const { error: vErr } = await supabase
         .from('venues')
         .insert({
@@ -142,12 +146,14 @@ export function CadastroCompletoForm() {
           tags_publico_vibe: tagsVibe
         });
 
-      if (vErr) throw vErr;
+      if (vErr) {
+        throw new Error(`Erro ao criar local/venue: ${vErr.message}`);
+      }
 
       setSucessoConcluido(true);
     } catch (err: any) {
       console.error('Erro de Envio Final:', err);
-      alert(`Ocorreu um erro ao gravar no banco: ${err?.message || 'Verifique a conexão'}`);
+      alert(err?.message || 'Ocorreu um erro ao gravar os dados.');
     } finally {
       setEnviando(false);
     }
