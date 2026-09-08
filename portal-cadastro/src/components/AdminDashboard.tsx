@@ -1,11 +1,6 @@
 import { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import './AdminDashboard.css';
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://fyisfucgzpdwupjterlh.supabase.co';
-const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_qSAiGoo7ZEG0IboqClunQ_NyJ80';
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+import { supabase } from '../lib/supabase';
 
 const ADMIN_USER = 'admin@dicaslgbt.com';
 const ADMIN_PASS = 'DicasAdmin2026!';
@@ -75,7 +70,6 @@ export function AdminDashboard() {
       let query = supabase.from('partners').select('*').order('created_at', { ascending: false });
 
       if (filtro === 'pendente') {
-        // Busca tanto rascunho quanto pendente
         query = query.in('status', ['pendente', 'rascunho']);
       } else if (filtro === 'ativo') {
         query = query.eq('status', 'ativo');

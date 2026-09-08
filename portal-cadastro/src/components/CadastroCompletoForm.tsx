@@ -2,12 +2,7 @@ import { useState, useEffect } from 'react';
 import './CadastroCompletoForm.css';
 import { formatarDocumento, apenasDigitos } from '../lib/documento';
 import { formatarWhatsApp } from '../lib/whatsapp';
-import { createClient } from '@supabase/supabase-js';
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://fyisfucgzpdwupjterlh.supabase.co';
-const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_qSAiGoo7ZEG0IboqClunQ_NyJ80';
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+import { supabase } from '../lib/supabase';
 
 const TAGS_VIBE = [
   'Geral / Todos bem-vindos',
@@ -100,7 +95,6 @@ export function CadastroCompletoForm() {
     setAceitouTermos(checked);
     if (checked) {
       setLiberado(true);
-      salvarRascunho();
     }
   };
 
@@ -116,8 +110,11 @@ export function CadastroCompletoForm() {
     }
   };
 
-  const salvarRascunho = async () => {
-    setStatusMsg('Salvando rascunho...');
+  const concluirCadastro = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    setEnviando(true);
+    setStatusMsg('Enviando perfil para moderação...');
+
     try {
       const { data: partner, error: pErr } = await supabase
         .from('partners')
@@ -125,111 +122,37 @@ export function CadastroCompletoForm() {
           nome_responsavel: nomeResponsavel || 'Responsável Não Informado',
           cpf_ou_cnpj: apenasDigitos(doc) || '00000000000',
           whatsapp_comercial: apenasDigitos(whatsapp) || '00000000000',
-          status: 'rascunho'
+          status: 'pendente'
         })
         .select()
         .single();
 
-      if (pErr) {
-        console.error('Erro Supabase Partner:', pErr);
-        setStatusMsg(`Atenção: ${pErr.message}. Continue o preenchimento.`);
-        return;
-      }
+      if (pErr) throw pErr;
 
-      if (partner) {
-        setPartnerId(partner.id);
-        const enderecoFormatado = `${logradouro || 'Endereço'}, ${numero || 'S/N'}${complemento ? ' - ' + complemento : ''}, ${bairro} - ${cidade}/${uf}`;
-        const { data: venue, error: vErr } = await supabase
-          .from('venues')
-          .insert({
-            partner_id: partner.id,
-            nome: nomeEspaco || nomeFantasia || 'Espaço sem nome',
-            categoria,
-            endereco: enderecoFormatado,
-            cidade: cidade || 'São Paulo',
-            uf: uf || 'SP'
-          })
-          .select()
-          .single();
-
-        if (vErr) {
-          console.error('Erro Supabase Venue:', vErr);
-        } else if (venue) {
-          setVenueId(venue.id);
-        }
-      }
-      setStatusMsg('Rascunho salvo no banco! Continue preenchendo o perfil abaixo.');
-    } catch (err: any) {
-      console.error('Erro Geral ao Salvar Rascunho:', err);
-      setStatusMsg('Continue preenchendo o perfil abaixo.');
-    }
-  };
-
-  const concluirCadastro = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    setEnviando(true);
-    setStatusMsg('Enviando perfil para moderação...');
-
-    try {
-      let pId = partnerId;
-      let vId = venueId;
-
-      // Se nao foi gravado no rascunho, cria agora
-      if (!pId) {
-        const { data: partner, error: pErr } = await supabase
-          .from('partners')
-          .insert({
-            nome_responsavel: nomeResponsavel || 'Responsável',
-            cpf_ou_cnpj: apenasDigitos(doc) || '00000000000',
-            whatsapp_comercial: apenasDigitos(whatsapp) || '00000000000',
-            status: 'pendente'
-          })
-          .select()
-          .single();
-
-        if (pErr) throw pErr;
-        pId = partner.id;
-
-        const enderecoFormatado = `${logradouro || 'Endereço'}, ${numero || 'S/N'}${complemento ? ' - ' + complemento : ''}, ${bairro} - ${cidade}/${uf}`;
-        const { data: venue, error: vErr } = await supabase
-          .from('venues')
-          .insert({
-            partner_id: partner.id,
-            nome: nomeEspaco || nomeFantasia || 'Espaço sem nome',
-            categoria,
-            endereco: enderecoFormatado,
-            cidade: cidade || 'São Paulo',
-            uf: uf || 'SP',
-            bio,
-            instagram,
-            estilo_musical: estiloMusical,
-            foto_capa: fotoCapa || null,
-            tags_publico_vibe: tagsVibe
-          })
-          .select()
-          .single();
-
-        if (vErr) throw vErr;
-        vId = venue.id;
-      } else {
-        // Atualiza os dados existentes
-        await supabase.from('venues').update({
+      const enderecoFormatado = `${logradouro || 'Endereço'}, ${numero || 'S/N'}${complemento ? ' - ' + complemento : ''}, ${bairro} - ${cidade}/${uf}`;
+      
+      const { error: vErr } = await supabase
+        .from('venues')
+        .insert({
+          partner_id: partner.id,
+          nome: nomeEspaco || nomeFantasia || 'Espaço sem nome',
+          categoria,
+          endereco: enderecoFormatado,
+          cidade: cidade || 'São Paulo',
+          uf: uf || 'SP',
           bio,
           instagram,
           estilo_musical: estiloMusical,
           foto_capa: fotoCapa || null,
           tags_publico_vibe: tagsVibe
-        }).eq('id', vId);
+        });
 
-        await supabase.from('partners').update({ status: 'pendente' }).eq('id', pId);
-      }
+      if (vErr) throw vErr;
 
       setSucessoConcluido(true);
-      setStatusMsg('🎉 Perfil enviado com sucesso para moderação!');
     } catch (err: any) {
       console.error('Erro de Envio Final:', err);
       alert(`Ocorreu um erro ao gravar no banco: ${err?.message || 'Verifique a conexão'}`);
-      setSucessoConcluido(true);
     } finally {
       setEnviando(false);
     }
