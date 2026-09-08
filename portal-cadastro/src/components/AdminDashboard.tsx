@@ -7,7 +7,6 @@ const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_q
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// Credenciais de acesso ao Admin
 const ADMIN_USER = 'admin@dicaslgbt.com';
 const ADMIN_PASS = 'DicasAdmin2026!';
 
@@ -42,7 +41,6 @@ export function AdminDashboard() {
   const [filtro, setFiltro] = useState<'pendente' | 'ativo' | 'todos'>('pendente');
 
   useEffect(() => {
-    // Verifica se ja fez login nesta sessao
     const sessao = sessionStorage.getItem('admin_auth');
     if (sessao === 'true') {
       setAutenticado(true);
@@ -76,8 +74,11 @@ export function AdminDashboard() {
     try {
       let query = supabase.from('partners').select('*').order('created_at', { ascending: false });
 
-      if (filtro !== 'todos') {
-        query = query.eq('status', filtro);
+      if (filtro === 'pendente') {
+        // Busca tanto rascunho quanto pendente
+        query = query.in('status', ['pendente', 'rascunho']);
+      } else if (filtro === 'ativo') {
+        query = query.eq('status', 'ativo');
       }
 
       const { data: partners, error: pErr } = await query;
@@ -141,7 +142,6 @@ export function AdminDashboard() {
     window.open(`https://wa.me/55${numero}?text=${msg}`, '_blank');
   };
 
-  // Se nao estiver logado, exibe a tela de login
   if (!autenticado) {
     return (
       <div className="admin-login-wrapper">
