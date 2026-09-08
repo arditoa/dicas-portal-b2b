@@ -16,8 +16,6 @@ interface Solicitacao {
   nome_espaco?: string;
   categoria?: string;
   endereco?: string;
-  cidade?: string;
-  uf?: string;
   instagram?: string;
   estilo_musical?: string;
   bio?: string;
@@ -100,8 +98,6 @@ export function AdminDashboard() {
             nome_espaco: v?.nome,
             categoria: v?.categoria,
             endereco: v?.endereco,
-            cidade: v?.cidade,
-            uf: v?.uf,
             instagram: v?.instagram,
             estilo_musical: v?.estilo_musical,
             bio: v?.bio,
@@ -230,9 +226,9 @@ export function AdminDashboard() {
                     <p><strong>Responsável:</strong> {item.nome_responsavel}</p>
                     <p><strong>WhatsApp:</strong> {item.whatsapp_comercial}</p>
                     <p><strong>Doc:</strong> {item.cpf_ou_cnpj}</p>
-                    <p><strong>Endereço:</strong> {item.endereco || `${item.cidade || ''}/${item.uf || ''}`}</p>
+                    <p><strong>Endereço:</strong> {item.endereco || 'Endereço não informado'}</p>
                     {item.instagram && <p><strong>Instagram:</strong> {item.instagram}</p>}
-                    {item.estilo_musical && <p><strong>Som/Estilo:</strong> {item.estilo_musical}</p>}
+                    {item.estilo_musical && <p><strong>Estilo Musical:</strong> {item.estilo_musical}</p>}
                     {item.bio && <p className="admin-card__bio">"{item.bio}"</p>}
                   </div>
 
