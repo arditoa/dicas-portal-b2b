@@ -31,7 +31,7 @@ export function AdminDashboard() {
 
   const [solicitacoes, setSolicitacoes] = useState<Solicitacao[]>([]);
   const [carregando, setCarregando] = useState(false);
-  const [filtro, setFiltro] = useState<'pendente' | 'ativo' | 'todos'>('pendente');
+  const [filtro, setFiltro] = useState<'pendente' | 'ativo' | 'todos'>('todos');
 
   useEffect(() => {
     const sessao = sessionStorage.getItem('admin_auth');
@@ -68,9 +68,9 @@ export function AdminDashboard() {
       let query = supabase.from('partners').select('*').order('created_at', { ascending: false });
 
       if (filtro === 'pendente') {
-        query = query.in('status', ['pendente', 'rascunho']);
+        query = query.in('status', ['pendente', 'rascunho', 'PENDENTE']);
       } else if (filtro === 'ativo') {
-        query = query.eq('status', 'ativo');
+        query = query.in('status', ['ativo', 'APROVADO', 'aprovado']);
       }
 
       const { data: partners, error: pErr } = await query;
@@ -89,15 +89,15 @@ export function AdminDashboard() {
           const v = venues?.find((vItem) => vItem.partner_id === p.id);
           return {
             partner_id: p.id,
-            nome_responsavel: p.nome_responsavel,
-            whatsapp_comercial: p.whatsapp_comercial,
-            cpf_ou_cnpj: p.cpf_ou_cnpj,
-            status: p.status,
+            nome_responsavel: p.nome_responsavel || 'Não informado',
+            whatsapp_comercial: p.whatsapp_comercial || 'Sem WhatsApp',
+            cpf_ou_cnpj: p.cpf_ou_cnpj || 'Sem documento',
+            status: (p.status || 'pendente').toLowerCase(),
             created_at: p.created_at,
             venue_id: v?.id,
-            nome_espaco: v?.nome,
-            categoria: v?.categoria,
-            endereco: v?.endereco,
+            nome_espaco: v?.nome || 'Local Não Preenchido',
+            categoria: v?.categoria || 'N/A',
+            endereco: v?.endereco || 'Endereço pendente',
             instagram: v?.instagram,
             estilo_musical: v?.estilo_musical,
             bio: v?.bio,
@@ -111,7 +111,7 @@ export function AdminDashboard() {
         setSolicitacoes([]);
       }
     } catch (err) {
-      console.error('Erro geral:', err);
+      console.error('Erro geral ao carregar:', err);
     } finally {
       setCarregando(false);
     }
@@ -120,16 +120,17 @@ export function AdminDashboard() {
   const atualizarStatus = async (partnerId: string, novoStatus: 'ativo' | 'rejeitado') => {
     const { error } = await supabase.from('partners').update({ status: novoStatus }).eq('id', partnerId);
     if (!error) {
-      setSolicitacoes((prev) => prev.filter((item) => item.partner_id !== partnerId));
-      alert(`Parceiro ${novoStatus === 'ativo' ? 'Aprovado' : 'Rejeitado'} com sucesso!`);
+      carregarSolicitacoes();
+      alert(`Status atualizado para: ${novoStatus.toUpperCase()}`);
     } else {
       alert(`Erro ao atualizar status: ${error.message}`);
     }
   };
 
   const abrirWhatsapp = (numero: string, nomeEspaco?: string) => {
+    const numLimpo = numero.replace(/\D/g, '');
     const msg = encodeURIComponent(`Olá! Falamos da equipe Dicas LGBT sobre o cadastro do ${nomeEspaco || 'seu espaço'}.`);
-    window.open(`https://wa.me/55${numero}?text=${msg}`, '_blank');
+    window.open(`https://wa.me/55${numLimpo}?text=${msg}`, '_blank');
   };
 
   if (!autenticado) {
@@ -180,6 +181,12 @@ export function AdminDashboard() {
         
         <div className="admin-filtros">
           <button
+            className={`admin-tab ${filtro === 'todos' ? 'admin-tab--ativo' : ''}`}
+            onClick={() => setFiltro('todos')}
+          >
+            Todos ({solicitacoes.length})
+          </button>
+          <button
             className={`admin-tab ${filtro === 'pendente' ? 'admin-tab--ativo' : ''}`}
             onClick={() => setFiltro('pendente')}
           >
@@ -191,19 +198,13 @@ export function AdminDashboard() {
           >
             Aprovados
           </button>
-          <button
-            className={`admin-tab ${filtro === 'todos' ? 'admin-tab--ativo' : ''}`}
-            onClick={() => setFiltro('todos')}
-          >
-            Todos
-          </button>
         </div>
       </header>
 
       {carregando ? (
-        <div className="admin-carregando">Carregando solicitações...</div>
+        <div className="admin-carregando">Carregando dados do banco...</div>
       ) : solicitacoes.length === 0 ? (
-        <div className="admin-vazio">Nenhuma solicitação encontrada para o filtro selecionado.</div>
+        <div className="admin-vazio">Nenhum cadastro encontrado. Faça um envio pelo formulário do portal para visualizar aqui.</div>
       ) : (
         <div className="admin-grid">
           {solicitacoes.map((item) => {
@@ -219,14 +220,14 @@ export function AdminDashboard() {
                   <div className={`admin-card__tag-status admin-card__tag-status--${item.status}`}>
                     {item.status.toUpperCase()}
                   </div>
-                  <h2>{item.nome_espaco || 'Espaço sem nome'}</h2>
+                  <h2>{item.nome_espaco}</h2>
                   <span className="admin-card__categoria">{item.categoria?.toUpperCase()}</span>
 
                   <div className="admin-card__info">
                     <p><strong>Responsável:</strong> {item.nome_responsavel}</p>
                     <p><strong>WhatsApp:</strong> {item.whatsapp_comercial}</p>
                     <p><strong>Doc:</strong> {item.cpf_ou_cnpj}</p>
-                    <p><strong>Endereço:</strong> {item.endereco || 'Endereço não informado'}</p>
+                    <p><strong>Endereço:</strong> {item.endereco}</p>
                     {item.instagram && <p><strong>Instagram:</strong> {item.instagram}</p>}
                     {item.estilo_musical && <p><strong>Estilo Musical:</strong> {item.estilo_musical}</p>}
                     {item.bio && <p className="admin-card__bio">"{item.bio}"</p>}
