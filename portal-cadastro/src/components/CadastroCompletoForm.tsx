@@ -17,6 +17,19 @@ const TAGS_VIBE = [
   'Fetiche'
 ];
 
+const ESTILOS_MUSICAIS = [
+  'Pop',
+  'Eletrônico / House / Techno',
+  'Funk',
+  'Samba / Pagode',
+  'MPB / Brasilidades',
+  'Sertanejo',
+  'Rock / Indie',
+  'Hip-Hop / R&B / Trap',
+  'Axé / Forró',
+  'Variado / Sem Música'
+];
+
 export function CadastroCompletoForm() {
   const [doc, setDoc] = useState('');
   const [nomeResponsavel, setNomeResponsavel] = useState('');
@@ -47,7 +60,6 @@ export function CadastroCompletoForm() {
   const [enviando, setEnviando] = useState(false);
   const [sucessoConcluido, setSucessoConcluido] = useState(false);
 
-  // Guarda o ID do parceiro se ja tiver sido criado no banco
   const [partnerIdCriado, setPartnerIdCriado] = useState<string | null>(null);
 
   useEffect(() => {
@@ -118,7 +130,6 @@ export function CadastroCompletoForm() {
     try {
       let currentPartnerId = partnerIdCriado;
 
-      // 1. Cria o partner APENAS se ainda nao foi criado nesta sessao
       if (!currentPartnerId) {
         const { data: partner, error: pErr } = await supabase
           .from('partners')
@@ -136,12 +147,11 @@ export function CadastroCompletoForm() {
         }
 
         currentPartnerId = partner.id;
-        setPartnerIdCriado(partner.id); // Guarda para reuso em caso de nova tentativa
+        setPartnerIdCriado(partner.id);
       }
 
       const enderecoFormatado = `${logradouro || 'Endereço'}, ${numero || 'S/N'}${complemento ? ' - ' + complemento : ''}, ${bairro} - ${cidade}/${uf}`;
       
-      // 2. Grava o venue obrigatoriamente
       const { error: vErr } = await supabase
         .from('venues')
         .insert({
@@ -324,12 +334,18 @@ export function CadastroCompletoForm() {
 
         <div className="campo">
           <label>Estilo Musical Predominante</label>
-          <input
-            type="text"
-            placeholder="Ex: Pop, Eletrônico, Funk, MPB, Variado..."
-            value={estiloMusical}
-            onChange={(e) => setEstiloMusical(e.target.value)}
-          />
+          <div className="tag-grid">
+            {ESTILOS_MUSICAIS.map((estilo) => (
+              <button
+                key={estilo}
+                type="button"
+                className={`tag-chip ${estiloMusical === estilo ? 'tag-chip--marcado' : ''}`}
+                onClick={() => setEstiloMusical(estilo)}
+              >
+                {estilo}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="campo">
