@@ -4,6 +4,8 @@ import { formatarDocumento, apenasDigitos } from '../lib/documento';
 import { formatarWhatsApp } from '../lib/whatsapp';
 import { supabase } from '../lib/supabase';
 
+const WHATSAPP_SUPORTE = '5511942922028';
+
 const TAGS_VIBE = [
   'Geral / Todos bem-vindos',
   'Gay',
@@ -188,6 +190,15 @@ export function CadastroCompletoForm() {
     setTagsVibe((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
   };
 
+  const abrirWhatsappSuporte = (opcao?: string) => {
+    let msgTexto = "Olá! Vim pelo portal Dicas LGBT+.\n\n1️⃣ Quero cadastrar meu local\n2️⃣ Tenho dúvida no cadastro\n3️⃣ Quero falar com atendente";
+    if (opcao) {
+      msgTexto = `Olá! Vim pelo portal Dicas LGBT+.\n\nOpção escolhida: ${opcao}`;
+    }
+    const msg = encodeURIComponent(msgTexto);
+    window.open(`https://wa.me/${WHATSAPP_SUPORTE}?text=${msg}`, '_blank');
+  };
+
   if (sucessoConcluido) {
     return (
       <div className="cadastro-completo" style={{ textAlign: 'center', padding: '80px 16px' }}>
@@ -196,6 +207,12 @@ export function CadastroCompletoForm() {
         <p style={{ color: '#94A3B8', marginTop: '12px', fontSize: '16px', maxWidth: '480px', margin: '12px auto 0' }}>
           Obrigado por registrar seu espaço. Nossa equipe revisará o perfil em breve e ativará o local no aplicativo Dicas LGBT+.
         </p>
+        <button
+          onClick={() => abrirWhatsappSuporte('Cadastro Concluído - Aguardando Ativação')}
+          style={{ marginTop: '28px', backgroundColor: '#25D366', color: '#FFF', border: 'none', padding: '14px 28px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '15px' }}
+        >
+          💬 Falar no WhatsApp Oficial
+        </button>
       </div>
     );
   }
@@ -447,6 +464,32 @@ export function CadastroCompletoForm() {
             🔒 Dados protegidos por criptografia de ponta a ponta e em conformidade com a LGPD.
           </div>
         </section>
+
+        {/* BOTAO FLUTUANTE DE ATENDIMENTO WHATSAPP OFICIAL */}
+        <button
+          type="button"
+          onClick={() => abrirWhatsappSuporte()}
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            backgroundColor: '#25D366',
+            color: '#FFFFFF',
+            border: 'none',
+            borderRadius: '99px',
+            padding: '12px 20px',
+            fontWeight: 'bold',
+            fontSize: '14px',
+            boxShadow: '0 8px 24px rgba(37, 211, 102, 0.4)',
+            cursor: 'pointer',
+            display: 'flex',
+            align-items: 'center',
+            gap: '8px',
+            zIndex: 900
+          }}
+        >
+          💬 Atendimento WhatsApp
+        </button>
 
         {modalTermosAberto && (
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '16px' }}>
