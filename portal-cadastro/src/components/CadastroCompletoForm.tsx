@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
-import './CadastroCompletoForm.css';
-import { formatarDocumento, apenasDigitos } from '../lib/documento';
-import { formatarWhatsApp } from '../lib/whatsapp';
+import { useEffect, useState } from 'react';
+import { apenasDigitos, formatarDocumento } from '../lib/documento';
 import { supabase } from '../lib/supabase';
+import { formatarWhatsApp } from '../lib/whatsapp';
+import './CadastroCompletoForm.css';
 
 const WHATSAPP_SUPORTE = '5511942922028';
 
@@ -208,6 +208,7 @@ export function CadastroCompletoForm() {
           Obrigado por registrar seu espaço. Nossa equipe revisará o perfil em breve e ativará o local no aplicativo Dicas LGBT+.
         </p>
         <button
+          type="button"
           onClick={() => abrirWhatsappSuporte('Cadastro Concluído - Aguardando Ativação')}
           style={{ marginTop: '28px', backgroundColor: '#25D366', color: '#FFF', border: 'none', padding: '14px 28px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '15px' }}
         >
@@ -467,8 +468,25 @@ export function CadastroCompletoForm() {
 
         <button
           type="button"
-          className="btn-whatsapp-flutuante"
           onClick={() => abrirWhatsappSuporte()}
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            backgroundColor: '#25D366',
+            color: '#FFFFFF',
+            border: 'none',
+            borderRadius: '99px',
+            padding: '12px 20px',
+            fontWeight: 'bold',
+            fontSize: '14px',
+            boxShadow: '0 8px 24px rgba(37, 211, 102, 0.4)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            zIndex: 900
+          }}
         >
           💬 Atendimento WhatsApp
         </button>
