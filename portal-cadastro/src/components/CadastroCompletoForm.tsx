@@ -135,8 +135,6 @@ export function CadastroCompletoForm() {
           nome: nomeEspaco || nomeFantasia || 'Espaço sem nome',
           categoria,
           endereco: enderecoFormatado,
-          cidade: cidade || 'São Paulo',
-          uf: uf || 'SP',
           bio,
           instagram,
           estilo_musical: estiloMusical,
