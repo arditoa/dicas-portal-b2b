@@ -190,11 +190,11 @@ export function CadastroCompletoForm() {
 
   if (sucessoConcluido) {
     return (
-      <div className="cadastro-completo" style={{ textAlign: 'center', padding: '64px 16px' }}>
-        <div style={{ fontSize: '56px', marginBottom: '20px' }}>🎉</div>
-        <h1 style={{ fontSize: '26px', fontWeight: '800', color: '#FFFFFF' }}>Cadastro Enviado com Sucesso!</h1>
-        <p style={{ color: '#94A3B8', marginTop: '12px', fontSize: '15px' }}>
-          Obrigado por registrar seu espaço. Nossa equipe revisará seu perfil em breve e você receberá a confirmação no WhatsApp.
+      <div className="cadastro-completo" style={{ textAlign: 'center', padding: '80px 16px' }}>
+        <div style={{ fontSize: '64px', marginBottom: '20px' }}>🎉</div>
+        <h1 style={{ fontSize: '28px', fontWeight: '800', color: '#FFFFFF' }}>Cadastro Enviado para Moderação!</h1>
+        <p style={{ color: '#94A3B8', marginTop: '12px', fontSize: '16px', maxWidth: '480px', margin: '12px auto 0' }}>
+          Obrigado por registrar seu espaço. Nossa equipe revisará o perfil em breve e ativará o local no aplicativo Dicas LGBT+.
         </p>
       </div>
     );
@@ -203,13 +203,29 @@ export function CadastroCompletoForm() {
   return (
     <>
       <header className="portal-header">
-        <img src="/logo.png" alt="Dicas LGBT+" className="portal-header__logo" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} />
+        <div className="portal-header__brand">
+          <svg width="32" height="32" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="rainbowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#FF4B4B" />
+                <stop offset="25%" stopColor="#FFA000" />
+                <stop offset="50%" stopColor="#22C55E" />
+                <stop offset="75%" stopColor="#3B82F6" />
+                <stop offset="100%" stopColor="#A855F7" />
+              </linearGradient>
+            </defs>
+            <path d="M50 5C27.9 5 10 22.9 10 45C10 68 50 95 50 95C50 95 90 68 90 45C90 22.9 72.1 5 50 5ZM50 60C41.7 60 35 53.3 35 45C35 36.7 41.7 30 50 30C58.3 30 65 36.7 65 45C65 53.3 58.3 60 50 60Z" fill="url(#rainbowGrad)" />
+          </svg>
+          <div className="portal-header__title">
+            DICAS <span>LGBT+</span>
+          </div>
+        </div>
       </header>
 
       <div className="cadastro-completo">
         <div className="cadastro-completo__cabecalho">
           <h1>Cadastre seu espaço no Dicas LGBT+</h1>
-          <p>Leva menos de 2 minutos. É grátis para começar — sem cartão, sem compromisso.</p>
+          <p>Seja visto por milhares de clientes na maior plataforma de locais e roteiros inclusivos.</p>
           {statusMsg && <div style={{ color: '#C084FC', marginTop: '12px', fontWeight: '600' }}>{statusMsg}</div>}
         </div>
 
@@ -342,7 +358,7 @@ export function CadastroCompletoForm() {
         <section className={`cadastro-completo__secao ${!liberado ? 'cadastro-completo__secao--bloqueada' : ''}`}>
           <h2>2. Perfil e Identidade</h2>
           <p style={{ color: '#94A3B8', fontSize: '14px', marginTop: '-12px', marginBottom: '20px' }}>
-            Adicione detalhes do seu espaço e conclua o envio.
+            Adicione detalhes do seu espaço para personalizar como ele aparecerá no app.
           </p>
 
           <div className="campo">
@@ -395,7 +411,7 @@ export function CadastroCompletoForm() {
             </label>
             {fotoCapa && (
               <div style={{ marginTop: '12px' }}>
-                <img src={fotoCapa} alt="Preview da capa" style={{ width: '100%', maxHeight: '200px', objectFit: 'cover', borderRadius: '10px' }} />
+                <img src={fotoCapa} alt="Preview da capa" style={{ width: '100%', maxHeight: '200px', objectFit: 'cover', borderRadius: '12px' }} />
               </div>
             )}
           </div>
@@ -426,11 +442,15 @@ export function CadastroCompletoForm() {
               {enviando ? 'Enviando Cadastro...' : 'Concluir Cadastro'}
             </button>
           </div>
+
+          <div className="selo-seguranca">
+            🔒 Dados protegidos por criptografia de ponta a ponta e em conformidade com a LGPD.
+          </div>
         </section>
 
         {modalTermosAberto && (
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '16px' }}>
-            <div style={{ backgroundColor: '#181420', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: '16px', maxWidth: '600px', width: '100%', maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}>
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '16px' }}>
+            <div style={{ backgroundColor: '#181420', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: '20px', maxWidth: '600px', width: '100%', maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.6)' }}>
               <div style={{ padding: '20px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h3 style={{ margin: 0, fontSize: '18px', color: '#FFFFFF' }}>Termos de Adesão B2B e Privacidade</h3>
                 <button onClick={() => setModalTermosAberto(false)} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#94A3B8' }}>✕</button>
@@ -438,19 +458,19 @@ export function CadastroCompletoForm() {
               
               <div style={{ padding: '20px', overflowY: 'auto', fontSize: '13px', color: '#CBD5E1', lineHeight: '1.6' }}>
                 <h4 style={{ color: '#C084FC', marginTop: 0 }}>1. Objeto e Natureza da Parceria</h4>
-                <p>O presente instrumento rege a adesão e inclusão voluntária do estabelecimento parceiro na plataforma Dicas LGBT. O cadastro concede direito não exclusivo para divulgação comercial do espaço e de suas atrações aos usuários do aplicativo mobile Dicas LGBT.</p>
+                <p>O presente instrumento rege a adesão e inclusão voluntária do estabelecimento parceiro na plataforma Dicas LGBT+. O cadastro concede direito não exclusivo para divulgação comercial do espaço e de suas atrações aos usuários do aplicativo mobile.</p>
 
                 <h4 style={{ color: '#C084FC' }}>2. Veracidade e Representação Legal</h4>
                 <p>O declarante afirma, sob as penas da lei (Código Penal, art. 299), que possui plenos poderes para atuar em nome do estabelecimento comercial cadastrado e que todas as informações prestadas são autênticas e precisas.</p>
 
                 <h4 style={{ color: '#C084FC' }}>3. Licença de Uso de Marca, Foto e Conteúdo</h4>
-                <p>O Parceiro concede à plataforma Dicas LGBT licença gratuita, não exclusiva e de âmbito territorial nacional para exibição, reprodução e divulgação do nome comercial, fotos, logotipos, descrições e links de redes sociais anexados ao cadastro, estritamente para promoção do estabelecimento no ecossistema Dicas LGBT.</p>
+                <p>O Parceiro concede à plataforma Dicas LGBT+ licença gratuita, não exclusiva e de âmbito territorial nacional para exibição, reprodução e divulgação do nome comercial, fotos, logotipos, descrições e links de redes sociais anexados ao cadastro, estritamente para promoção do estabelecimento no ecossistema.</p>
 
                 <h4 style={{ color: '#C084FC' }}>4. Conformidade com a LGPD (Lei nº 13.709/2018)</h4>
                 <p>Os dados pessoais do responsável legal (nome, CPF, WhatsApp comercial) são coletados para a finalidade de execução de contrato/termo e verificação de segurança (Art. 7º, V da LGPD). Os dados do estabelecimento serão exibidos publicamente para viabilizar o direcionamento de clientes.</p>
 
                 <h4 style={{ color: '#C084FC' }}>5. Moderação e Cancelamento</h4>
-                <p>A Dicas LGBT reserva-se o direito de moderar, suspender ou remover perfis que descumpram as diretrizes da plataforma ou que promovam discursos de ódio, discriminação ou ilegalidades. O parceiro poderá solicitar a exclusão de seu cadastro a qualquer momento via canal oficial de atendimento.</p>
+                <p>A Dicas LGBT+ reserva-se o direito de moderar, suspender ou remover perfis que descumpram as diretrizes da plataforma ou que promovam discursos de ódio, discriminação ou ilegalidades. O parceiro poderá solicitar a exclusão de seu cadastro a qualquer momento via canal oficial de atendimento.</p>
               </div>
 
               <div style={{ padding: '16px', borderTop: '1px solid rgba(255, 255, 255, 0.1)', textAlign: 'right' }}>
@@ -461,7 +481,7 @@ export function CadastroCompletoForm() {
                     setLiberado(true);
                     setModalTermosAberto(false);
                   }}
-                  style={{ background: 'linear-gradient(135deg, #7C3AED 0%, #A855F7 100%)', color: '#FFF', border: 'none', padding: '10px 24px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}
+                  style={{ background: 'linear-gradient(135deg, #7C3AED 0%, #C084FC 100%)', color: '#FFF', border: 'none', padding: '12px 28px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}
                 >
                   Li e Concordo
                 </button>
