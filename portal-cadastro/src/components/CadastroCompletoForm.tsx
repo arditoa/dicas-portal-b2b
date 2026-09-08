@@ -36,9 +36,6 @@ export function CadastroCompletoForm() {
   const [aceitouTermos, setAceitouTermos] = useState(false);
   const [liberado, setLiberado] = useState(false);
 
-  const [partnerId, setPartnerId] = useState<string | null>(null);
-  const [venueId, setVenueId] = useState<string | null>(null);
-
   const [bio, setBio] = useState('');
   const [instagram, setInstagram] = useState('');
   const [estiloMusical, setEstiloMusical] = useState('');
