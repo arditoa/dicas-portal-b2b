@@ -465,28 +465,10 @@ export function CadastroCompletoForm() {
           </div>
         </section>
 
-        {/* BOTAO FLUTUANTE DE ATENDIMENTO WHATSAPP OFICIAL */}
         <button
           type="button"
+          className="btn-whatsapp-flutuante"
           onClick={() => abrirWhatsappSuporte()}
-          style={{
-            position: 'fixed',
-            bottom: '24px',
-            right: '24px',
-            backgroundColor: '#25D366',
-            color: '#FFFFFF',
-            border: 'none',
-            borderRadius: '99px',
-            padding: '12px 20px',
-            fontWeight: 'bold',
-            fontSize: '14px',
-            boxShadow: '0 8px 24px rgba(37, 211, 102, 0.4)',
-            cursor: 'pointer',
-            display: 'flex',
-            align-items: 'center',
-            gap: '8px',
-            zIndex: 900
-          }}
         >
           💬 Atendimento WhatsApp
         </button>
