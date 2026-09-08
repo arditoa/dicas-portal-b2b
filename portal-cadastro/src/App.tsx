@@ -4,19 +4,26 @@ import { CadastroCupomExpressForm } from './components/CadastroCupomExpressForm'
 import { AdminDashboard } from './components/AdminDashboard';
 
 export default function App() {
-  const [path, setPath] = useState(window.location.pathname);
+  const [currentUrl, setCurrentUrl] = useState(window.location.href);
 
   useEffect(() => {
-    const handlePopState = () => setPath(window.location.pathname);
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
+    const handleUrlChange = () => setCurrentUrl(window.location.href);
+    window.addEventListener('popstate', handleUrlChange);
+    window.addEventListener('hashchange', handleUrlChange);
+    return () => {
+      window.removeEventListener('popstate', handleUrlChange);
+      window.removeEventListener('hashchange', handleUrlChange);
+    };
   }, []);
 
-  if (path.startsWith('/cupom')) {
+  const pathname = window.location.pathname.toLowerCase();
+  const hash = window.location.hash.toLowerCase();
+
+  if (pathname.includes('/cupom') || hash.includes('cupom')) {
     return <CadastroCupomExpressForm />;
   }
 
-  if (path.startsWith('/admin')) {
+  if (pathname.includes('/admin') || hash.includes('admin')) {
     return <AdminDashboard />;
   }
 
