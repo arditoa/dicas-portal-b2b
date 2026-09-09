@@ -35,6 +35,11 @@ export function CadastroCupomExpressForm() {
     }
   }, []);
 
+  const abrirWhatsappSuporte = () => {
+    const msg = encodeURIComponent("Olá! Preciso de ajuda para cadastrar um cupom no portal Dicas LGBT+.");
+    window.open(`https://wa.me/${WHATSAPP_SUPORTE}?text=${msg}`, '_blank');
+  };
+
   const buscarEspaco = async (e: React.FormEvent) => {
     e.preventDefault();
     setErroMsg('');
@@ -117,6 +122,7 @@ export function CadastroCupomExpressForm() {
         </p>
         <div style={{ marginTop: '32px', display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
           <button
+            type="button"
             onClick={() => {
               setSucesso(false);
               setTitulo('');
@@ -258,6 +264,31 @@ export function CadastroCupomExpressForm() {
             </form>
           </section>
         )}
+
+        <button
+          type="button"
+          onClick={abrirWhatsappSuporte}
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            backgroundColor: '#25D366',
+            color: '#FFFFFF',
+            border: 'none',
+            borderRadius: '99px',
+            padding: '12px 20px',
+            fontWeight: 'bold',
+            fontSize: '14px',
+            boxShadow: '0 8px 24px rgba(37, 211, 102, 0.4)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            zIndex: 900
+          }}
+        >
+          💬 Suporte WhatsApp
+        </button>
       </div>
     </div>
   );
