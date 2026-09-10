@@ -1,28 +1,33 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { COLORS, RADIUS, TYPOGRAPHY } from '../constants/theme';
+import { View, Text, StyleSheet } from 'react-native';
+import { THEME } from '@/constants/theme';
 
-export function HighlightBadge() {
+interface HighlightBadgeProps {
+  label: string;
+  color?: string;
+}
+
+export default function HighlightBadge({ label, color }: HighlightBadgeProps) {
+  const badgeColor = color || THEME?.pink || '#E1306C';
+
   return (
-    <View style={styles.badge}>
-      <Text style={styles.text}>🌟 Destaque Dicas</Text>
+    <View style={[styles.badge, { backgroundColor: badgeColor + '20', borderColor: badgeColor }]}>
+      <Text style={[styles.label, { color: badgeColor }]}>{label}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   badge: {
-    backgroundColor: 'rgba(255, 111, 160, 0.15)',
-    borderColor: COLORS.accent,
-    borderWidth: 1,
-    borderRadius: RADIUS.pill,
     paddingHorizontal: 10,
-    paddingVertical: 3,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
     alignSelf: 'flex-start',
   },
-  text: {
-    ...TYPOGRAPHY.captionTag,
-    color: COLORS.accent,
-    fontWeight: 'bold',
+  label: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
 });

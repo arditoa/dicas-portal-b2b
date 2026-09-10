@@ -1,67 +1,73 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
-import React from 'react';
-import { COLORS, TYPOGRAPHY } from '../../constants/theme';
 
 export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: COLORS.accent,
-        tabBarInactiveTintColor: COLORS.textSecondary,
+        tabBarActiveTintColor: '#E1306C',
+        tabBarInactiveTintColor: '#606070',
         tabBarStyle: {
-          backgroundColor: COLORS.surface,
-          borderTopColor: 'rgba(182, 166, 190, 0.1)',
-          borderTopWidth: 1,
-          height: 64,
-          paddingBottom: 10,
+          backgroundColor: '#1C1B26',
+          borderTopColor: '#2D2B3D',
+          height: 60,
+          paddingBottom: 8,
           paddingTop: 8,
-        },
-        tabBarLabelStyle: {
-          ...TYPOGRAPHY.captionTag,
-          fontWeight: '600',
         },
       }}
     >
+      {/* 1. Início */}
       <Tabs.Screen
         name="index"
         options={{
           title: 'Início',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'home' : 'home-outline'} size={22} color={color} />
-          ),
+          tabBarIcon: ({ color, size }) => <Feather name="home" size={size} color={color} />,
         }}
       />
+
+      {/* 2. Explorar */}
       <Tabs.Screen
-        name="categories"
+        name="explore"
         options={{
           title: 'Explorar',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'compass' : 'compass-outline'} size={22} color={color} />
-          ),
+          tabBarIcon: ({ color, size }) => <Feather name="map-pin" size={size} color={color} />,
         }}
       />
+
+      {/* 3. Agenda */}
       <Tabs.Screen
         name="events"
         options={{
           title: 'Agenda',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'calendar' : 'calendar-outline'} size={22} color={color} />
-          ),
+          tabBarIcon: ({ color, size }) => <Feather name="calendar" size={size} color={color} />,
         }}
       />
+
+      {/* 4. Perfil */}
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Perfil',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'person' : 'person-outline'} size={22} color={color} />
-          ),
+          tabBarIcon: ({ color, size }) => <Feather name="user" size={size} color={color} />,
+        }}
+      />
+
+      {/* Abas OCULTAS do Rodapé */}
+      <Tabs.Screen
+        name="rewards"
+        options={{
+          href: null,
         }}
       />
       <Tabs.Screen
-        name="rewards"
+        name="tourism"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="categories"
         options={{
           href: null,
         }}

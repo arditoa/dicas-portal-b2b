@@ -1,27 +1,21 @@
-import React, { useEffect, useState } from 'react';
-import {
-    ActivityIndicator,
-    Image,
-    Linking,
-    Modal, RefreshControl,
-    SafeAreaView,
-    ScrollView,
-    Share,
-    StyleSheet, Text,
-    TextInput,
-    TouchableOpacity,
-    View
+import React, { useState, useEffect } from 'react';
+import { 
+  StyleSheet, Text, View, TextInput, ScrollView, 
+  TouchableOpacity, SafeAreaView, Linking, ActivityIndicator, Modal, RefreshControl, Image, Share 
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
+import { COLORS } from '../constants/theme';
 
 const TYPEBOT_URL = 'https://typebot.co/my-typebot-quqw854';
 
 export default function HomeScreen() {
+  const router = useRouter();
+  
   const [businesses, setBusinesses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedBusiness, setSelectedBusiness] = useState(null);
   const [selectedItinerary, setSelectedItinerary] = useState(null);
   
@@ -33,6 +27,16 @@ export default function HomeScreen() {
   const [showOnlyPromos, setShowOnlyPromos] = useState(false);
   const [showOnlyOpen, setShowOnlyOpen] = useState(false);
   const [showOnlyBenefits, setShowOnlyBenefits] = useState(false);
+
+  // 6 Categorias Principais
+  const gridCategories = [
+    { id: 'lugares', icon: '📍', label: 'Lugares', type: 'tab', target: 'map' },
+    { id: 'gastronomia', icon: '🍽️', label: 'Gastronomia', type: 'screen', categoryParam: 'gastronomia' },
+    { id: 'cultura', icon: '🎭', label: 'Cultura', type: 'screen', categoryParam: 'cultura' },
+    { id: 'eventos', icon: '🪩', label: 'Eventos', type: 'tab', target: 'agenda' },
+    { id: 'turismo', icon: '✈️', label: 'Turismo', type: 'screen', categoryParam: 'turismo' },
+    { id: 'servicos', icon: '💼', label: 'Serviços', type: 'screen', categoryParam: 'servicos' },
+  ];
 
   // Roteiros Prontos (Dicas Trip)
   const itineraries = [
@@ -81,6 +85,17 @@ export default function HomeScreen() {
     fetchBusinesses();
   };
 
+  const handleCategoryPress = (cat) => {
+    if (cat.type === 'tab') {
+      router.push(`/(tabs)/${cat.target}`);
+    } else {
+      router.push({
+        pathname: '/category',
+        params: { category: cat.categoryParam, title: cat.label }
+      });
+    }
+  };
+
   const toggleFavorite = (id) => {
     if (favorites.includes(id)) {
       setFavorites(favorites.filter(favId => favId !== id));
@@ -125,9 +140,8 @@ export default function HomeScreen() {
     Linking.openURL(url);
   };
 
-  // Lógica de Filtros Combinados
+  // Lógica de Filtros
   const filteredBusinesses = businesses.filter((b) => {
-    const matchesCategory = !selectedCategory || b.category?.toLowerCase().includes(selectedCategory.toLowerCase());
     const matchesSearch = !searchQuery || 
       b.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
       b.neighborhood?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -136,20 +150,12 @@ export default function HomeScreen() {
     const matchesOpen = !showOnlyOpen || b.is_open === true;
     const matchesBenefits = !showOnlyBenefits || (b.benefit && b.benefit.trim() !== '');
 
-    return matchesCategory && matchesSearch && matchesFavorites && matchesPromos && matchesOpen && matchesBenefits;
+    return matchesSearch && matchesFavorites && matchesPromos && matchesOpen && matchesBenefits;
   });
 
-  const premiumPlaces = filteredBusinesses.filter(b => b.plan === 'ouro' || b.plan === 'divina');
+  const vipPlaces = filteredBusinesses.filter(b => b.plan === 'ouro' || b.plan === 'divina' || b.is_vip);
   const eventsAndParties = filteredBusinesses.filter(b => b.category?.toLowerCase() === 'festa' || b.category?.toLowerCase() === 'evento');
   const tripDestinations = filteredBusinesses.filter(b => b.category?.toLowerCase() === 'hospedagem' || b.category?.toLowerCase() === 'turismo');
-
-  const categories = [
-    { id: 'bar', icon: '🍻', label: 'Bares' },
-    { id: 'restaurante', icon: '🍽️', label: 'Restaurantes' },
-    { id: 'festa', icon: '🪩', label: 'Festas' },
-    { id: 'hospedagem', icon: '🛌', label: 'Hotéis' },
-    { id: 'turismo', icon: '🗺️', label: 'Passeios' },
-  ];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -163,6 +169,8 @@ export default function HomeScreen() {
           <Text style={styles.sloganText}>Descubra. Viva. Conecte-se.</Text>
         </View>
         <TouchableOpacity 
+          accessibilityRole="button"
+          accessibilityLabel="Filtrar por Favoritos"
           style={[styles.favFilterBtn, showOnlyFavorites && styles.favFilterBtnActive]}
           onPress={() => setShowOnlyFavorites(!showOnlyFavorites)}
         >
@@ -174,22 +182,25 @@ export default function HomeScreen() {
 
       <ScrollView 
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#EC4899" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.pink} />}
       >
         {/* Campo de Busca */}
         <View style={styles.searchSection}>
           <TextInput 
             placeholder="Buscar por nome, bairro ou cidade..." 
-            placeholderTextColor="#64748B"
+            placeholderTextColor={COLORS.textMuted}
             style={styles.searchInput}
             value={searchQuery}
             onChangeText={setSearchQuery}
+            accessibilityLabel="Campo de busca por nome, bairro ou cidade"
           />
         </View>
 
         {/* Filtros Rápidos */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.quickFiltersScroll}>
           <TouchableOpacity 
+            accessibilityRole="button"
+            accessibilityLabel="Filtrar com Benefício"
             style={[styles.quickChip, showOnlyBenefits && styles.quickChipActive]}
             onPress={() => setShowOnlyBenefits(!showOnlyBenefits)}
           >
@@ -199,6 +210,8 @@ export default function HomeScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity 
+            accessibilityRole="button"
+            accessibilityLabel="Filtrar Só Promoções"
             style={[styles.quickChip, showOnlyPromos && styles.quickChipActive]}
             onPress={() => setShowOnlyPromos(!showOnlyPromos)}
           >
@@ -208,6 +221,8 @@ export default function HomeScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity 
+            accessibilityRole="button"
+            accessibilityLabel="Filtrar Aberto Agora"
             style={[styles.quickChip, showOnlyOpen && styles.quickChipActive]}
             onPress={() => setShowOnlyOpen(!showOnlyOpen)}
           >
@@ -217,31 +232,24 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </ScrollView>
 
-        {/* Categorias */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriesScroll}>
-          {categories.map((cat) => (
+        {/* GRADE DE 6 CATEGORIAS */}
+        <View style={styles.gridContainer}>
+          {gridCategories.map((cat) => (
             <TouchableOpacity 
               key={cat.id} 
-              style={[
-                styles.categoryItem, 
-                selectedCategory === cat.id && styles.categoryItemActive
-              ]}
-              onPress={() => setSelectedCategory(selectedCategory === cat.id ? '' : cat.id)}
+              accessibilityRole="button"
+              accessibilityLabel={`Categoria ${cat.label}`}
+              style={styles.gridCard}
+              onPress={() => handleCategoryPress(cat)}
             >
-              <Text style={[
-                styles.categoryIcon,
-                selectedCategory === cat.id && styles.categoryIconActive
-              ]}>{cat.icon}</Text>
-              <Text style={[
-                styles.categoryLabel,
-                selectedCategory === cat.id && styles.categoryLabelActive
-              ]}>{cat.label}</Text>
+              <Text style={styles.gridIcon}>{cat.icon}</Text>
+              <Text style={styles.gridLabel}>{cat.label}</Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </View>
 
         {loading ? (
-          <ActivityIndicator size="large" color="#EC4899" style={{ marginTop: 40 }} />
+          <ActivityIndicator size="large" color={COLORS.pink} style={{ marginTop: 40 }} />
         ) : (
           <>
             {/* ROTEIROS DICAS TRIP */}
@@ -253,6 +261,8 @@ export default function HomeScreen() {
                 {itineraries.map((it) => (
                   <TouchableOpacity 
                     key={it.id} 
+                    accessibilityRole="button"
+                    accessibilityLabel={`Roteiro ${it.title}`}
                     style={styles.itineraryCard} 
                     onPress={() => setSelectedItinerary(it)}
                   >
@@ -264,15 +274,17 @@ export default function HomeScreen() {
               </ScrollView>
             </View>
 
-            {/* SEÇÃO 1: EM DESTAQUE */}
+            {/* SEÇÃO 1: DESTAQUES VIP */}
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Em Destaque 🌟</Text>
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {premiumPlaces.length > 0 ? premiumPlaces.map((item) => (
+                {vipPlaces.length > 0 ? vipPlaces.map((item) => (
                   <TouchableOpacity key={item.id} style={styles.highlightCard} onPress={() => setSelectedBusiness(item)}>
                     <TouchableOpacity 
+                      accessibilityRole="button"
+                      accessibilityLabel="Favoritar local"
                       style={styles.heartBtn} 
                       onPress={() => toggleFavorite(item.id)}
                     >
@@ -283,13 +295,13 @@ export default function HomeScreen() {
                       <Image source={{ uri: item.image_url }} style={styles.cardImage} />
                     ) : (
                       <View style={styles.imagePlaceholder}>
-                        <Text style={{color: '#475569', fontSize: 24}}>🌈</Text>
+                        <Text style={{color: COLORS.textMuted, fontSize: 24}}>🌈</Text>
                       </View>
                     )}
                     
                     <View style={styles.titleRow}>
                       <Text style={styles.cardTitle} numberOfLines={1}>{item.name}</Text>
-                      {item.plan === 'divina' && <Text style={styles.verifiedBadge}>✔</Text>}
+                      <Text style={styles.vipBadge}>VIP</Text>
                     </View>
                     
                     <Text style={styles.cardSub}>{item.neighborhood || 'Localização'}</Text>
@@ -307,7 +319,7 @@ export default function HomeScreen() {
                     )}
                   </TouchableOpacity>
                 )) : (
-                  <Text style={styles.emptyTextHorizontal}>Nenhum local encontrado.</Text>
+                  <Text style={styles.emptyTextHorizontal}>Nenhum local VIP no momento.</Text>
                 )}
               </ScrollView>
             </View>
@@ -341,12 +353,14 @@ export default function HomeScreen() {
                   <View style={styles.cardInfo}>
                     <View style={styles.titleRow}>
                       <Text style={styles.cardTitle}>{item.name}</Text>
-                      {item.plan === 'divina' && <Text style={styles.verifiedBadge}>✔</Text>}
+                      {item.is_vip && <Text style={styles.vipBadge}>VIP</Text>}
                     </View>
                     <Text style={styles.cardSub}>📍 {item.neighborhood || 'Bairro'}</Text>
                   </View>
                   
                   <TouchableOpacity 
+                    accessibilityRole="button"
+                    accessibilityLabel="Favoritar festa"
                     style={styles.heartListBtn} 
                     onPress={() => toggleFavorite(item.id)}
                   >
@@ -359,7 +373,12 @@ export default function HomeScreen() {
             </View>
 
             {/* Banner para Empresas */}
-            <TouchableOpacity style={styles.businessBanner} onPress={() => Linking.openURL(TYPEBOT_URL)}>
+            <TouchableOpacity 
+              accessibilityRole="button"
+              accessibilityLabel="Cadastre seu estabelecimento"
+              style={styles.businessBanner} 
+              onPress={() => Linking.openURL(TYPEBOT_URL)}
+            >
               <Text style={styles.businessBannerTitle}>É dono de um estabelecimento?</Text>
               <Text style={styles.businessBannerSub}>Clique aqui para cadastrar seu local no app.</Text>
             </TouchableOpacity>
@@ -377,14 +396,14 @@ export default function HomeScreen() {
             <Text style={styles.modalText}>📝 {selectedItinerary?.description}</Text>
 
             <View style={{marginVertical: 12}}>
-              <Text style={{color: '#38BDF8', fontWeight: 'bold', marginBottom: 6}}>Paradas sugeridas:</Text>
+              <Text style={{color: COLORS.verified, fontWeight: 'bold', marginBottom: 6}}>Paradas sugeridas:</Text>
               {selectedItinerary?.stops.map((stop, idx) => (
-                <Text key={idx} style={{color: '#CBD5E1', fontSize: 13, marginBottom: 2}}>• {stop}</Text>
+                <Text key={idx} style={{color: COLORS.textSecondary, fontSize: 13, marginBottom: 2}}>• {stop}</Text>
               ))}
             </View>
 
             <TouchableOpacity 
-              style={[styles.actionBtn, {backgroundColor: '#EC4899', marginTop: 10}]}
+              style={[styles.actionBtn, {backgroundColor: COLORS.pink, marginTop: 10}]}
               onPress={() => requestLeadInfo(selectedItinerary?.title)}
             >
               <Text style={styles.actionBtnText}>📩 Tenho Interesse / Personalizar</Text>
@@ -404,8 +423,8 @@ export default function HomeScreen() {
             <View style={styles.modalHeaderRow}>
               <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
                 <Text style={styles.modalTitle}>{selectedBusiness?.name}</Text>
-                {selectedBusiness?.plan === 'divina' && (
-                  <Text style={[styles.verifiedBadge, {marginLeft: 6}]}>✔ Verificado</Text>
+                {selectedBusiness?.is_vip && (
+                  <Text style={[styles.vipBadge, {marginLeft: 6}]}>VIP</Text>
                 )}
               </View>
               <TouchableOpacity onPress={() => selectedBusiness && toggleFavorite(selectedBusiness.id)}>
@@ -479,97 +498,83 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0F172A', paddingTop: 40 },
+  container: { flex: 1, backgroundColor: COLORS.background, paddingTop: 40 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 20 },
   brandBox: {
-    backgroundColor: '#0F172A',
+    backgroundColor: COLORS.background,
     paddingVertical: 5,
     paddingHorizontal: 10,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#EC4899',
+    borderColor: COLORS.pink,
     alignItems: 'center',
   },
-  brandTitle: {
-    color: '#FFF',
-    fontSize: 13,
-    fontWeight: '900',
-    letterSpacing: 0.8,
-  },
-  brandSubtitle: {
-    color: '#EC4899',
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-  sloganText: {
-    color: '#94A3B8',
-    fontSize: 12,
-    fontWeight: '600',
-    fontStyle: 'italic',
-  },
-  favFilterBtn: { backgroundColor: '#1E293B', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20, borderWidth: 1, borderColor: '#334155' },
-  favFilterBtnActive: { backgroundColor: '#EC4899', borderColor: '#EC4899' },
-  favFilterBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 12 },
+  brandTitle: { color: COLORS.textPrimary, fontSize: 13, fontWeight: '900', letterSpacing: 0.8 },
+  brandSubtitle: { color: COLORS.pink, fontSize: 11, fontWeight: 'bold' },
+  sloganText: { color: COLORS.textSecondary, fontSize: 12, fontWeight: '600', fontStyle: 'italic' },
+  favFilterBtn: { backgroundColor: COLORS.cardBg, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20, borderWidth: 1, borderColor: COLORS.border },
+  favFilterBtnActive: { backgroundColor: COLORS.pink, borderColor: COLORS.pink },
+  favFilterBtnText: { color: COLORS.textPrimary, fontWeight: 'bold', fontSize: 12 },
   searchSection: { paddingHorizontal: 20, marginBottom: 12 },
-  searchInput: { backgroundColor: '#1E293B', color: '#FFF', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#334155' },
+  searchInput: { backgroundColor: COLORS.cardBg, color: COLORS.textPrimary, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border },
   quickFiltersScroll: { paddingLeft: 20, marginBottom: 20, flexGrow: 0 },
-  quickChip: { backgroundColor: '#1E293B', paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1, borderColor: '#334155', marginRight: 10 },
-  quickChipActive: { backgroundColor: '#EC4899', borderColor: '#EC4899' },
-  quickChipText: { color: '#94A3B8', fontSize: 12, fontWeight: '600' },
-  quickChipTextActive: { color: '#FFF', fontWeight: 'bold' },
-  categoriesScroll: { paddingLeft: 20, marginBottom: 25, flexGrow: 0 },
-  categoryItem: { alignItems: 'center', marginRight: 20 },
-  categoryIcon: { fontSize: 22, backgroundColor: '#1E293B', padding: 14, borderRadius: 20, borderWidth: 1, borderColor: '#334155' },
-  categoryIconActive: { backgroundColor: '#EC4899', borderColor: '#EC4899' },
-  categoryLabel: { color: '#94A3B8', fontSize: 11, marginTop: 6, fontWeight: '600' },
-  categoryLabelActive: { color: '#EC4899', fontWeight: 'bold' },
+  quickChip: { backgroundColor: COLORS.cardBg, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1, borderColor: COLORS.border, marginRight: 10 },
+  quickChipActive: { backgroundColor: COLORS.pink, borderColor: COLORS.pink },
+  quickChipText: { color: COLORS.textSecondary, fontSize: 12, fontWeight: '600' },
+  quickChipTextActive: { color: COLORS.textPrimary, fontWeight: 'bold' },
+  
+  // Grade de Categorias (6 Cards)
+  gridContainer: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 15, justifyContent: 'space-between', marginBottom: 25 },
+  gridCard: { backgroundColor: COLORS.cardBg, width: '31%', paddingVertical: 16, borderRadius: 16, alignItems: 'center', marginBottom: 12, borderWidth: 1, borderColor: COLORS.border },
+  gridIcon: { fontSize: 26, marginBottom: 6 },
+  gridLabel: { color: COLORS.textPrimary, fontSize: 12, fontWeight: 'bold' },
+
   section: { marginBottom: 25 },
   sectionHeader: { paddingHorizontal: 20, marginBottom: 12 },
-  sectionTitle: { color: '#F8FAFC', fontSize: 18, fontWeight: 'bold' },
-  itineraryCard: { backgroundColor: '#1E1B4B', width: 220, borderRadius: 16, padding: 14, marginLeft: 20, borderWidth: 1, borderColor: '#6366F1' },
+  sectionTitle: { color: COLORS.textPrimary, fontSize: 18, fontWeight: 'bold' },
+  itineraryCard: { backgroundColor: '#1E1B4B', width: 220, borderRadius: 16, padding: 14, marginLeft: 20, borderWidth: 1, borderColor: COLORS.violet },
   itineraryBadge: { color: '#818CF8', fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 4 },
-  itineraryTitle: { color: '#FFF', fontSize: 15, fontWeight: 'bold', marginBottom: 6 },
-  itinerarySub: { color: '#94A3B8', fontSize: 12 },
-  highlightCard: { backgroundColor: '#1E293B', width: 200, borderRadius: 16, padding: 12, marginLeft: 20, borderWidth: 1, borderColor: '#334155', position: 'relative' },
+  itineraryTitle: { color: COLORS.textPrimary, fontSize: 15, fontWeight: 'bold', marginBottom: 6 },
+  itinerarySub: { color: COLORS.textSecondary, fontSize: 12 },
+  highlightCard: { backgroundColor: COLORS.cardBg, width: 200, borderRadius: 16, padding: 12, marginLeft: 20, borderWidth: 1, borderColor: COLORS.border, position: 'relative' },
   heartBtn: { position: 'absolute', top: 18, right: 18, zIndex: 10, backgroundColor: 'rgba(15, 23, 42, 0.7)', padding: 6, borderRadius: 20 },
   cardImage: { width: '100%', height: 100, borderRadius: 10, marginBottom: 10 },
-  imagePlaceholder: { backgroundColor: '#0F172A', height: 100, borderRadius: 10, marginBottom: 10, justifyContent: 'center', alignItems: 'center' },
+  imagePlaceholder: { backgroundColor: COLORS.background, height: 100, borderRadius: 10, marginBottom: 10, justifyContent: 'center', alignItems: 'center' },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  cardTitle: { color: '#F8FAFC', fontSize: 15, fontWeight: 'bold', flexShrink: 1 },
-  verifiedBadge: { backgroundColor: '#38BDF8', color: '#0F172A', fontSize: 10, fontWeight: 'bold', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, overflow: 'hidden' },
-  cardSub: { color: '#94A3B8', fontSize: 12, marginTop: 4 },
-  benefitBadge: { backgroundColor: '#059669', padding: 5, borderRadius: 6, marginTop: 6 },
-  benefitText: { color: '#FFF', fontSize: 11, fontWeight: 'bold' },
-  promoBadge: { backgroundColor: '#EC4899', padding: 6, borderRadius: 8, marginTop: 6 },
-  promoBadgeModal: { backgroundColor: '#EC4899', padding: 10, borderRadius: 10, marginVertical: 8 },
-  promoText: { color: '#FFF', fontSize: 12, fontWeight: 'bold' },
+  cardTitle: { color: COLORS.textPrimary, fontSize: 15, fontWeight: 'bold', flexShrink: 1 },
+  vipBadge: { backgroundColor: COLORS.gold, color: '#0F172A', fontSize: 10, fontWeight: '900', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, overflow: 'hidden' },
+  cardSub: { color: COLORS.textSecondary, fontSize: 12, marginTop: 4 },
+  benefitBadge: { backgroundColor: COLORS.benefit, padding: 5, borderRadius: 6, marginTop: 6 },
+  benefitText: { color: COLORS.textPrimary, fontSize: 11, fontWeight: 'bold' },
+  promoBadge: { backgroundColor: COLORS.promo, padding: 6, borderRadius: 8, marginTop: 6 },
+  promoBadgeModal: { backgroundColor: COLORS.promo, padding: 10, borderRadius: 10, marginVertical: 8 },
+  promoText: { color: COLORS.textPrimary, fontSize: 12, fontWeight: 'bold' },
   benefitBoxModal: { backgroundColor: '#065F46', borderWidth: 1, borderColor: '#10B981', padding: 12, borderRadius: 12, marginVertical: 10 },
   benefitBoxTitle: { color: '#34D399', fontWeight: 'bold', fontSize: 13, marginBottom: 4 },
-  benefitBoxText: { color: '#FFF', fontSize: 15, fontWeight: 'bold' },
+  benefitBoxText: { color: COLORS.textPrimary, fontSize: 15, fontWeight: 'bold' },
   tripCard: { backgroundColor: '#0284C7', width: 220, height: 100, borderRadius: 16, padding: 16, marginLeft: 20, justifyContent: 'flex-end' },
-  emptyCard: { backgroundColor: '#1E293B', width: 240, height: 100, borderRadius: 16, marginLeft: 20, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#334155', borderStyle: 'dashed' },
-  listCard: { backgroundColor: '#1E293B', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, marginHorizontal: 20, marginBottom: 10, borderRadius: 16, borderWidth: 1, borderColor: '#334155' },
+  emptyCard: { backgroundColor: COLORS.cardBg, width: 240, height: 100, borderRadius: 16, marginLeft: 20, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: COLORS.border, borderStyle: 'dashed' },
+  listCard: { backgroundColor: COLORS.cardBg, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, marginHorizontal: 20, marginBottom: 10, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border },
   cardInfo: { flex: 1 },
   heartListBtn: { padding: 8 },
-  emptyText: { color: '#64748B', paddingHorizontal: 20, fontSize: 13 },
-  emptyTextHorizontal: { color: '#64748B', marginLeft: 20, fontSize: 13 },
-  businessBanner: { backgroundColor: '#1E293B', marginHorizontal: 20, padding: 18, borderRadius: 16, borderWidth: 1, borderColor: '#EC4899', alignItems: 'center' },
-  businessBannerTitle: { color: '#FFF', fontSize: 15, fontWeight: 'bold', marginBottom: 4 },
-  businessBannerSub: { color: '#94A3B8', fontSize: 12 },
+  emptyText: { color: COLORS.textMuted, paddingHorizontal: 20, fontSize: 13 },
+  emptyTextHorizontal: { color: COLORS.textMuted, marginLeft: 20, fontSize: 13 },
+  businessBanner: { backgroundColor: COLORS.cardBg, marginHorizontal: 20, padding: 18, borderRadius: 16, borderWidth: 1, borderColor: COLORS.pink, alignItems: 'center' },
+  businessBannerTitle: { color: COLORS.textPrimary, fontSize: 15, fontWeight: 'bold', marginBottom: 4 },
+  businessBannerSub: { color: COLORS.textSecondary, fontSize: 12 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  modalContent: { backgroundColor: '#1E293B', width: '100%', padding: 24, borderRadius: 20, borderWidth: 1, borderColor: '#334155' },
+  modalContent: { backgroundColor: COLORS.cardBg, width: '100%', padding: 24, borderRadius: 20, borderWidth: 1, borderColor: COLORS.border },
   modalHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   modalImage: { width: '100%', height: 140, borderRadius: 12, marginBottom: 15 },
-  modalTitle: { color: '#F8FAFC', fontSize: 20, fontWeight: 'bold', marginRight: 6 },
-  modalText: { color: '#CBD5E1', fontSize: 14, marginBottom: 6 },
+  modalTitle: { color: COLORS.textPrimary, fontSize: 20, fontWeight: 'bold', marginRight: 6 },
+  modalText: { color: COLORS.textSecondary, fontSize: 14, marginBottom: 6 },
   actionButtonsContainer: { marginTop: 10, gap: 8 },
   actionBtn: { padding: 12, borderRadius: 10, alignItems: 'center' },
-  actionBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 13 },
-  shareBtn: { backgroundColor: '#8B5CF6' },
+  actionBtnText: { color: COLORS.textPrimary, fontWeight: 'bold', fontSize: 13 },
+  shareBtn: { backgroundColor: COLORS.violet },
   whatsappBtn: { backgroundColor: '#22C55E' },
   instagramBtn: { backgroundColor: '#E1306C' },
-  mapBtn: { backgroundColor: '#38BDF8' },
-  closeBtn: { backgroundColor: '#334155', marginTop: 15, padding: 12, borderRadius: 10, alignItems: 'center' },
-  closeBtnText: { color: '#FFF', fontWeight: 'bold' },
+  mapBtn: { backgroundColor: COLORS.verified },
+  closeBtn: { backgroundColor: COLORS.border, marginTop: 15, padding: 12, borderRadius: 10, alignItems: 'center' },
+  closeBtnText: { color: COLORS.textPrimary, fontWeight: 'bold' },
 });
-

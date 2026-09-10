@@ -1,89 +1,62 @@
 import { THEME } from '@/constants/theme';
 import { Feather } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-// Mapeamento completo das categorias e suas subcategorias
-const CATEGORY_CONFIG: Record<
-  string,
-  {
-    title: string;
-    icon: keyof typeof Feather.glyphMap;
-    iconColor: string;
-    subCategories: { id: string; name: string }[];
-  }
-> = {
-  gastronomy: {
-    title: 'Gastronomia',
-    icon: 'coffee',
-    iconColor: '#FFB74D',
-    subCategories: [
-      { id: 'all', name: 'Tudo' },
-      { id: 'bares', name: 'Bares' },
-      { id: 'cafes', name: 'Cafés' },
-      { id: 'restaurantes', name: 'Restaurantes' },
-    ],
-  },
-  culture: {
-    title: 'Cultura',
-    icon: 'home',
-    iconColor: '#7E57C2',
-    subCategories: [
-      { id: 'all', name: 'Tudo' },
-      { id: 'teatros', name: 'Teatros' },
-      { id: 'galerias', name: 'Galerias' },
-      { id: 'feiras', name: 'Feiras Independência' },
-    ],
-  },
-  tourism: {
-    title: 'Turismo',
-    icon: 'send',
-    iconColor: '#5C6BC0',
-    subCategories: [
-      { id: 'all', name: 'Tudo' },
-      { id: 'pousadas', name: 'Pousadas' },
-      { id: 'hoteis', name: 'Hotéis' },
-      { id: 'agencias', name: 'Agências de Turismo' },
-      { id: 'roteiros', name: 'Roteiros' },
-    ],
-  },
-};
-
-const MOCK_ITEMS = [
-  // Gastronomia
-  { id: 'bar-castro', categoryId: 'gastronomy', subCategory: 'bares', name: 'Bar Castro', typeLabel: 'Bar', neighborhood: 'Consolação', distance: '800m', rating: '4.9', coupon: 'Double chopp para membros', badge: 'LGBT+ Friendly', instagram: '@barcastrosp', color: '#E1306C' },
-  { id: 'cafe-safado', categoryId: 'gastronomy', subCategory: 'cafes', name: 'Café Safado', typeLabel: 'Café', neighborhood: 'Frei Caneca', distance: '1.2km', rating: '4.8', badge: 'LGBT+ Friendly', instagram: '@cafesafado', color: '#FFB74D' },
-  { id: 'bistro-cores', categoryId: 'gastronomy', subCategory: 'restaurantes', name: 'Bistrô das Cores', typeLabel: 'Restaurante', neighborhood: 'Pinheiros', distance: '2.1km', rating: '5.0', coupon: '10% OFF no prato principal', badge: 'LGBT+ Friendly', instagram: '@bistrodascores', color: '#4FC3F7' },
-
-  // Cultura
-  { id: 'teatro-rainbow', categoryId: 'culture', subCategory: 'teatros', name: 'Teatro Rainbow', typeLabel: 'Teatro', neighborhood: 'Consolação', distance: '2km', rating: '4.4', instagram: '@teatrorainbowsp', color: '#7E57C2' },
-  { id: 'galeria-pride', categoryId: 'culture', subCategory: 'galerias', name: 'Galeria Pride Art', typeLabel: 'Galeria', neighborhood: 'Vila Madalena', distance: '1.8km', rating: '4.9', badge: 'LGBT+ Friendly', instagram: '@galeriaprideart', color: '#E1306C' },
-  { id: 'feira-miolo', categoryId: 'culture', subCategory: 'feiras', name: 'Feira Miolo Independência', typeLabel: 'Feira Independência', neighborhood: 'Centro', distance: '3.1km', rating: '4.8', coupon: 'Desconto para membros', badge: 'LGBT+ Friendly', instagram: '@feiramiolo', color: '#81C784' },
-
-  // Turismo
-  { id: 'pousada-vista-verde', categoryId: 'tourism', subCategory: 'pousadas', name: 'Pousada Vista Verde', typeLabel: 'Pousada', neighborhood: 'Vila Madalena', distance: '2.4km', rating: '4.6', badge: 'LGBT+ Friendly', instagram: '@pousadavistaverde', color: '#D81B60' },
-  { id: 'hotel-aurora', categoryId: 'tourism', subCategory: 'hoteis', name: 'Hotel Aurora Pinheiros', typeLabel: 'Hotel', neighborhood: 'Pinheiros', distance: '900m', rating: '4.8', coupon: 'Cupom de 15% para membros', badge: 'LGBT+ Friendly', instagram: '@hotelaurorapinheiros', color: '#9C27B0' },
-  { id: 'rota-livre', categoryId: 'tourism', subCategory: 'agencias', name: 'Rota Livre Turismo', typeLabel: 'Agência de Turismo', neighborhood: 'Centro', distance: '3km', rating: '4.7', coupon: 'Pacotes com desconto', badge: 'LGBT+ Friendly', instagram: '@rotalivreturismo', color: '#7E57C2' },
+const SUB_CATEGORIES = [
+  { id: 'all', name: 'Tudo' },
+  { id: 'teatros', name: 'Teatros' },
+  { id: 'galerias', name: 'Galerias' },
+  { id: 'feiras', name: 'Feiras Independência' },
 ];
 
-export default function CategoryScreen() {
+const CULTURE_DATA = [
+  {
+    id: 'teatro-rainbow',
+    name: 'Teatro Rainbow',
+    category: 'teatros',
+    typeLabel: 'Teatro',
+    neighborhood: 'Consolação',
+    distance: '2km',
+    rating: '4.4',
+    instagram: '@teatrorainbowsp',
+    color: '#7E57C2',
+  },
+  {
+    id: 'galeria-pride-art',
+    name: 'Galeria Pride Art',
+    category: 'galerias',
+    typeLabel: 'Galeria',
+    neighborhood: 'Vila Madalena',
+    distance: '1.8km',
+    rating: '4.9',
+    badge: 'LGBT+ Friendly',
+    instagram: '@galeriaprideart',
+    color: '#E1306C',
+  },
+  {
+    id: 'feira-independente',
+    name: 'Feira Miolo Independência',
+    category: 'feiras',
+    typeLabel: 'Feira Independência',
+    neighborhood: 'Centro',
+    distance: '3.1km',
+    rating: '4.8',
+    coupon: 'Desconto em publicações de autores LGBT+',
+    badge: 'LGBT+ Friendly',
+    instagram: '@feiramiolo',
+    color: '#81C784',
+  },
+];
+
+export default function CultureCategoryScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
   const [selectedSub, setSelectedSub] = useState('all');
 
-  const categoryKey = (id || 'gastronomy').toLowerCase();
-  const currentConfig = CATEGORY_CONFIG[categoryKey] || {
-    title: id ? id.charAt(0).toUpperCase() + id.slice(1) : 'Categoria',
-    icon: 'grid',
-    iconColor: THEME.pink,
-    subCategories: [{ id: 'all', name: 'Tudo' }],
-  };
-
-  const categoryItems = MOCK_ITEMS.filter(item => item.categoryId === categoryKey);
   const filteredData = selectedSub === 'all'
-    ? categoryItems
-    : categoryItems.filter(item => item.subCategory === selectedSub);
+    ? CULTURE_DATA
+    : CULTURE_DATA.filter(item => item.category === selectedSub);
 
   return (
     <View style={styles.container}>
@@ -94,16 +67,16 @@ export default function CategoryScreen() {
         </TouchableOpacity>
         <View style={styles.titleRow}>
           <View style={styles.categoryIconBadge}>
-            <Feather name={currentConfig.icon} size={16} color={currentConfig.iconColor} />
+            <Feather name="home" size={16} color="#7E57C2" />
           </View>
-          <Text style={styles.headerTitle}>{currentConfig.title}</Text>
+          <Text style={styles.headerTitle}>Cultura</Text>
         </View>
       </View>
 
-      {/* Chips de Subcategorias (Filtros) */}
+      {/* Chips de Subcategorias (Filtro Horizontal) */}
       <View style={styles.chipsContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScroll}>
-          {currentConfig.subCategories.map((sub) => {
+          {SUB_CATEGORIES.map((sub) => {
             const isSelected = selectedSub === sub.id;
             return (
               <TouchableOpacity
@@ -140,10 +113,10 @@ export default function CategoryScreen() {
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.resultCount}>
-        {filteredData.length} resultados em {currentConfig.title}
-      </Text>
+      {/* Contador de resultados */}
+      <Text style={styles.resultCount}>{filteredData.length} resultados em Cultura</Text>
 
+      {/* Lista de Cards */}
       <FlatList
         data={filteredData}
         keyExtractor={(item) => item.id}
@@ -152,7 +125,7 @@ export default function CategoryScreen() {
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.card}
-            onPress={() => router.push(`/venue/${item.id}`)}
+            onPress={() => router.push(`/business/${item.id}`)}
             activeOpacity={0.88}
           >
             <View style={styles.cardContent}>

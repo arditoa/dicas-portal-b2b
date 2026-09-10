@@ -7,8 +7,11 @@ const WHATSAPP_SUPORTE = '5511942922028';
 
 export function CadastroCupomExpressForm() {
   const [buscaDoc, setBuscaDoc] = useState('');
+  const [pinDigitado, setPinDigitado] = useState('');
   const [carregandoBusca, setCarregandoBusca] = useState(false);
-  const [venueEncontrado, setVenueEncontrado] = useState<{ id: string; nome: string } | null>(null);
+  
+  // Estado do local autenticado via PIN
+  const [venueEncontrado, setVenueEncontrado] = useState<{ id: string; nome: string; partnerId: string } | null>(null);
 
   const [titulo, setTitulo] = useState('');
   const [codigo, setCodigo] = useState('');
@@ -26,21 +29,21 @@ export function CadastroCupomExpressForm() {
     if (vId) {
       supabase
         .from('venues')
-        .select('id, nome')
+        .select('id, nome, partner_id')
         .eq('id', vId)
         .single()
         .then(({ data }) => {
-          if (data) setVenueEncontrado(data);
+          if (data) setVenueEncontrado({ id: data.id, nome: data.nome, partnerId: data.partner_id });
         });
     }
   }, []);
 
   const abrirWhatsappSuporte = () => {
-    const msg = encodeURIComponent("Olá! Preciso de ajuda para cadastrar um cupom no portal Dicas LGBT+.");
+    const msg = encodeURIComponent("Olá! Preciso de ajuda com meu PIN de segurança para cadastrar um cupom no Dicas LGBT+.");
     window.open(`https://wa.me/${WHATSAPP_SUPORTE}?text=${msg}`, '_blank');
   };
 
-  const buscarEspaco = async (e: React.FormEvent) => {
+  const buscarEspacoEValidarPin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErroMsg('');
     const limpo = apenasDigitos(buscaDoc);
@@ -50,23 +53,31 @@ export function CadastroCupomExpressForm() {
       return;
     }
 
+    if (!pinDigitado || pinDigitado.length < 4) {
+      setErroMsg('Por favor, informe seu PIN de segurança (4 dígitos).');
+      return;
+    }
+
     setCarregandoBusca(true);
 
     try {
+      // 1. Busca parceiro validando Documento/WhatsApp E o PIN de Segurança
       const { data: partners, error: pErr } = await supabase
         .from('partners')
-        .select('id')
-        .or(`cpf_ou_cnpj.eq.${limpo},whatsapp_comercial.eq.${limpo}`);
+        .select('id, pin_seguranca')
+        .or(`cpf_ou_cnpj.eq.${limpo},whatsapp_comercial.eq.${limpo}`)
+        .eq('pin_seguranca', pinDigitado);
 
       if (pErr || !partners || partners.length === 0) {
-        throw new Error('Nenhum cadastro encontrado com este documento/WhatsApp.');
+        throw new Error('Documento ou PIN de segurança incorreto. Verifique e tente novamente.');
       }
 
       const partnerIds = partners.map((p) => p.id);
 
+      // 2. Busca o local vinculado ao parceiro autenticado
       const { data: venues, error: vErr } = await supabase
         .from('venues')
-        .select('id, nome')
+        .select('id, nome, partner_id')
         .in('partner_id', partnerIds)
         .limit(1);
 
@@ -74,9 +85,9 @@ export function CadastroCupomExpressForm() {
         throw new Error('Nenhum local cadastrado encontrado para este parceiro.');
       }
 
-      setVenueEncontrado(venues[0]);
+      setVenueEncontrado({ id: venues[0].id, nome: venues[0].nome, partnerId: venues[0].partner_id });
     } catch (err: any) {
-      setErroMsg(err?.message || 'Erro ao localizar estabelecimento.');
+      setErroMsg(err?.message || 'Erro ao autenticar estabelecimento.');
     } finally {
       setCarregandoBusca(false);
     }
@@ -170,8 +181,8 @@ export function CadastroCupomExpressForm() {
 
         {!venueEncontrado ? (
           <section className="cadastro-completo__secao">
-            <h2>1. Localize seu Estabelecimento</h2>
-            <form onSubmit={buscarEspaco}>
+            <h2>1. Autenticação do Estabelecimento</h2>
+            <form onSubmit={buscarEspacoEValidarPin}>
               <div className="campo">
                 <label>CNPJ, CPF ou WhatsApp Cadastrado *</label>
                 <input
@@ -179,13 +190,26 @@ export function CadastroCupomExpressForm() {
                   placeholder="Digite CNPJ, CPF ou telefone do cadastro"
                   value={buscaDoc}
                   onChange={(e) => setBuscaDoc(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="campo">
+                <label>PIN de Segurança (4 dígitos) *</label>
+                <input
+                  type="password"
+                  maxLength={6}
+                  placeholder="**** (Padrão inicial: 1234)"
+                  value={pinDigitado}
+                  onChange={(e) => setPinDigitado(e.target.value)}
+                  required
                 />
               </div>
 
               {erroMsg && <p style={{ color: '#FF4B4B', fontSize: '13px', marginBottom: '16px' }}>{erroMsg}</p>}
 
               <button type="submit" className="btn-concluir" disabled={carregandoBusca}>
-                {carregandoBusca ? 'Buscando Local...' : 'Buscar Meu Local'}
+                {carregandoBusca ? 'Verificando PIN...' : '🔓 Autenticar e Acessar'}
               </button>
             </form>
           </section>
@@ -193,15 +217,18 @@ export function CadastroCupomExpressForm() {
           <section className="cadastro-completo__secao">
             <div style={{ padding: '12px 16px', backgroundColor: 'rgba(168, 85, 247, 0.15)', border: '1px solid #A855F7', borderRadius: '12px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <span style={{ fontSize: '12px', color: '#CBD5E1', display: 'block' }}>Espaço Identificado:</span>
+                <span style={{ fontSize: '12px', color: '#CBD5E1', display: 'block' }}>Espaço Autenticado:</span>
                 <strong style={{ fontSize: '16px', color: '#FFFFFF' }}>{venueEncontrado.nome}</strong>
               </div>
               <button
                 type="button"
-                onClick={() => setVenueEncontrado(null)}
+                onClick={() => {
+                  setVenueEncontrado(null);
+                  setPinDigitado('');
+                }}
                 style={{ background: 'none', border: 'none', color: '#C084FC', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline' }}
               >
-                Trocar Local
+                🔒 Sair / Trocar Local
               </button>
             </div>
 
@@ -287,7 +314,7 @@ export function CadastroCupomExpressForm() {
             zIndex: 900
           }}
         >
-          💬 Suporte WhatsApp
+          💬 Esqueci meu PIN / Suporte
         </button>
       </div>
     </div>

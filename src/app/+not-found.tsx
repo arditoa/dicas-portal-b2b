@@ -1,15 +1,21 @@
+import { Feather } from '@expo/vector-icons';
 import { Link, Stack } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
-import { theme } from '../constants/theme';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { THEME } from '../constants/theme';
 
 export default function NotFoundScreen() {
   return (
     <>
-      <Stack.Screen options={{ title: 'Ops!' }} />
+      <Stack.Screen options={{ title: 'Página Não Encontrada', headerShown: false }} />
       <View style={styles.container}>
-        <Text style={styles.title}>Esta tela não existe ou não foi mapeada.</Text>
-        <Link href="/" style={styles.link}>
-          <Text style={styles.linkText}>Voltar para a Início</Text>
+        <Feather name="alert-circle" size={48} color={THEME.pinkSoft} style={{ marginBottom: 16 }} />
+        <Text style={styles.title}>Esta tela não existe.</Text>
+        <Text style={styles.subtitle}>O link que você seguiu pode estar quebrado ou a tela foi movida.</Text>
+
+        <Link href="/(tabs)/" asChild>
+          <TouchableOpacity style={styles.button}>
+            <Text style={styles.buttonText}>Voltar para o Início</Text>
+          </TouchableOpacity>
         </Link>
       </View>
     </>
@@ -19,23 +25,33 @@ export default function NotFoundScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: THEME.bg,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
-    backgroundColor: theme.colors.background,
   },
   title: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: theme.colors.textPrimary,
-    textAlign: 'center',
+    fontSize: 20,
+    fontWeight: '800',
+    color: THEME.text,
+    marginBottom: 8,
   },
-  link: {
-    marginTop: 15,
-    paddingVertical: 15,
-  },
-  linkText: {
+  subtitle: {
     fontSize: 14,
-    color: theme.colors.accent,
+    color: THEME.textDim,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+  button: {
+    backgroundColor: THEME.pink,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

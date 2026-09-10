@@ -1,152 +1,212 @@
-import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '@/lib/authContext';
+import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { COLORS, LAYOUT, RADIUS, TYPOGRAPHY } from '../../constants/theme';
+import {
+  Image,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function ProfileScreen() {
   const router = useRouter();
-
-  const handlePrivacyNotice = () => {
-    Alert.alert(
-      'Política de Privacidade (LGPD)',
-      'Seus dados de navegação são totalmente anônimos. Apenas coletamos dados de contato ao resgatar um cupom ou ao cadastrar um espaço.',
-      [{ text: 'Entendi', style: 'default' }]
-    );
-  };
+  const insets = useSafeAreaInsets();
+  const { user, signOut } = useAuth();
 
   return (
     <View style={styles.container}>
-      <Text style={[TYPOGRAPHY.screenTitle, styles.headerTitle]}>Perfil</Text>
+      <StatusBar barStyle="light-content" />
+      
+      {/* Header com a Logo Linear sem fundo e alinhamento sincronizado */}
+      <View style={[styles.headerRow, { paddingTop: insets.top + 8 }]}>
+        <Image
+          source={require('@/assets/images/logolinear-semfundo.png')}
+          style={styles.logoLinear}
+          resizeMode="contain"
+        />
+      </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.userCard}>
-          <View style={styles.avatarPlaceholder}>
-            <Ionicons name="person" size={22} color={COLORS.textSecondary} />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+
+        {/* Card Dinâmico: Navegação Anônima VS Usuário Autenticado */}
+        {!user ? (
+          <View style={styles.anonCard}>
+            <View style={styles.anonHeaderRow}>
+              <View style={styles.avatarCircle}>
+                <Feather name="user" size={20} color="#A0A0B0" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.anonTitle}>Navegação Anônima</Text>
+                <Text style={styles.anonDesc}>
+                  Seus dados estão protegidos enquanto você explora. Você pode favoritar locais e ver o mapa sem criar conta.
+                </Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.loginBtn}
+              onPress={() => router.push('/login')}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.loginBtnText}>Entrar / Cadastrar</Text>
+            </TouchableOpacity>
           </View>
-          <View style={styles.userInfo}>
-            <Text style={TYPOGRAPHY.venueName} numberOfLines={1}>
-              Navegação Anônima
-            </Text>
-            <Text style={TYPOGRAPHY.bodyMetadata} numberOfLines={1}>
-              Seus dados estão protegidos
-            </Text>
+        ) : (
+          <View style={styles.anonCard}>
+            <View style={styles.anonHeaderRow}>
+              <View style={[styles.avatarCircle, { backgroundColor: 'rgba(225, 48, 108, 0.15)' }]}>
+                <Feather name="check-circle" size={20} color="#E1306C" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.anonTitle}>Conta Conectada</Text>
+                <Text style={styles.anonDesc}>{user.email}</Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.logoutBtn}
+              onPress={signOut}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.logoutBtnText}>Sair da Conta</Text>
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity style={styles.btnLogin} activeOpacity={0.8}>
-            <Text style={styles.btnLoginText}>Entrar / Cadastrar</Text>
+        )}
+
+        {/* BLOCO INSTITUCIONAL: SELO DICAS & CANAL DE SEGURANÇA */}
+        <View style={styles.institutionalCard}>
+          <View style={styles.instHeaderRow}>
+            <View style={styles.instIconBox}>
+              <Feather name="award" size={18} color="#E1306C" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.instTitle}>Selo Dicas LGBT+</Text>
+              <Text style={styles.instSub}>Curadoria e garantia de ambientes acolhedores</Text>
+            </View>
+          </View>
+          <Text style={styles.instDesc}>
+            Locais selecionados para garantir experiências seguras e inclusivas para nossa comunidade.
+          </Text>
+          
+          <TouchableOpacity
+            style={styles.denounceRowBtn}
+            onPress={() => router.push('/denunciar')}
+            activeOpacity={0.8}
+          >
+            <Feather name="shield" size={14} color="#E1306C" />
+            <Text style={styles.denounceBtnText}>Canal Seguro de Denúncia & Acolhimento</Text>
+            <Feather name="chevron-right" size={14} color="#E1306C" />
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.sectionTitle}>MINHAS ATIVIDADES</Text>
+        {/* Seção: Minhas Atividades */}
+        <Text style={styles.sectionHeader}>MINHAS ATIVIDADES</Text>
         <View style={styles.groupCard}>
-          <TouchableOpacity style={styles.menuItem} activeOpacity={0.7}>
-            <Ionicons name="bookmark-outline" size={20} color={COLORS.accent} />
+          <TouchableOpacity style={styles.menuRow} onPress={() => router.push('/favorites')} activeOpacity={0.7}>
+            <View style={styles.iconBox}><Feather name="bookmark" size={16} color="#E1306C" /></View>
             <Text style={styles.menuText}>Meus Favoritos</Text>
-            <Ionicons name="chevron-forward" size={18} color={COLORS.textSecondary} />
+            <Feather name="chevron-right" size={16} color="#606070" />
           </TouchableOpacity>
+
           <View style={styles.divider} />
-          <TouchableOpacity
-            style={styles.menuItem}
-            activeOpacity={0.7}
-            onPress={() => router.push('/rewards')}
-          >
-            <Ionicons name="ticket-outline" size={20} color={COLORS.accent} />
+
+          <TouchableOpacity style={styles.menuRow} onPress={() => router.push('/coupons')} activeOpacity={0.7}>
+            <View style={styles.iconBox}><Feather name="tag" size={16} color="#E1306C" /></View>
             <Text style={styles.menuText}>Meus Cupons & Listas VIP</Text>
-            <Ionicons name="chevron-forward" size={18} color={COLORS.textSecondary} />
+            <Feather name="chevron-right" size={16} color="#606070" />
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.sectionTitle}>PRIVACIDADE</Text>
+        {/* Seção: Privacidade */}
+        <Text style={styles.sectionHeader}>PRIVACIDADE</Text>
         <View style={styles.groupCard}>
-          <TouchableOpacity style={styles.menuItem} activeOpacity={0.7} onPress={handlePrivacyNotice}>
-            <Ionicons name="shield-checkmark-outline" size={20} color={COLORS.positive} />
+          <TouchableOpacity style={styles.menuRow} onPress={() => router.push('/privacy')} activeOpacity={0.7}>
+            <View style={styles.iconBox}><Feather name="shield" size={16} color="#81C784" /></View>
             <Text style={styles.menuText}>Política de Privacidade (LGPD)</Text>
-            <Ionicons name="chevron-forward" size={18} color={COLORS.textSecondary} />
+            <Feather name="chevron-right" size={16} color="#606070" />
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.sectionTitle}>COMUNIDADE</Text>
+        {/* Seção: Comunidade */}
+        <Text style={styles.sectionHeader}>COMUNIDADE</Text>
         <View style={styles.groupCard}>
-          <TouchableOpacity
-            style={styles.menuItem}
-            activeOpacity={0.7}
-            onPress={() => router.push('/business/advertise?origem=perfil')}
-          >
-            <Ionicons name="megaphone-outline" size={20} color={COLORS.sponsor} />
-            <Text style={[styles.menuText, { color: COLORS.sponsor, fontWeight: 'bold' }]}>
-              Anuncie seu espaço
-            </Text>
-            <Ionicons name="chevron-forward" size={18} color={COLORS.sponsor} />
+          <TouchableOpacity style={styles.menuRow} onPress={() => router.push('/business/advertise')} activeOpacity={0.7}>
+            <View style={styles.iconBox}><Feather name="volume-2" size={16} color="#FFB74D" /></View>
+            <Text style={styles.menuText}>Anuncie seu espaço</Text>
+            <Feather name="chevron-right" size={16} color="#606070" />
           </TouchableOpacity>
+
           <View style={styles.divider} />
-          <TouchableOpacity style={styles.menuItem} activeOpacity={0.7}>
-            <Ionicons name="add-circle-outline" size={20} color={COLORS.textSecondary} />
+
+          <TouchableOpacity style={styles.menuRow} onPress={() => router.push('/indicar')} activeOpacity={0.7}>
+            <View style={styles.iconBox}><Feather name="plus-circle" size={16} color="#4FC3F7" /></View>
             <Text style={styles.menuText}>Indicar um Local ou Festa</Text>
-            <Ionicons name="chevron-forward" size={18} color={COLORS.textSecondary} />
+            <Feather name="chevron-right" size={16} color="#606070" />
           </TouchableOpacity>
+
           <View style={styles.divider} />
-          <TouchableOpacity style={styles.menuItem} activeOpacity={0.7}>
-            <Ionicons name="people-outline" size={20} color={COLORS.textSecondary} />
+
+          <TouchableOpacity style={styles.menuRow} onPress={() => router.push('/indicar-amigo')} activeOpacity={0.7}>
+            <View style={styles.iconBox}><Feather name="users" size={16} color="#7E57C2" /></View>
             <Text style={styles.menuText}>Indique um Amigo</Text>
-            <Ionicons name="chevron-forward" size={18} color={COLORS.textSecondary} />
+            <Feather name="chevron-right" size={16} color="#606070" />
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.sectionTitle}>SUPORTE</Text>
+        {/* Seção: Suporte */}
+        <Text style={styles.sectionHeader}>SUPORTE</Text>
         <View style={styles.groupCard}>
-          <TouchableOpacity style={styles.menuItem} activeOpacity={0.7}>
-            <Ionicons name="help-circle-outline" size={20} color={COLORS.textSecondary} />
-            <Text style={styles.menuText}>Obtenha ajuda</Text>
-            <Ionicons name="chevron-forward" size={18} color={COLORS.textSecondary} />
+          <TouchableOpacity style={styles.menuRow} onPress={() => router.push('/denunciar')} activeOpacity={0.7}>
+            <View style={styles.iconBox}><Feather name="help-circle" size={16} color="#A0A0B0" /></View>
+            <Text style={styles.menuText}>Obtenha Ajuda & Denunciar</Text>
+            <Feather name="chevron-right" size={16} color="#606070" />
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.footerVersion}>Dicas LGBT v1.1.0 • Privacy First</Text>
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background, paddingTop: 50 },
-  headerTitle: { paddingHorizontal: 20, marginBottom: 16 },
+  container: { flex: 1, backgroundColor: '#0B0B0E' },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 16,
+  },
+  logoLinear: { width: 150, height: 36 },
   scrollContent: { paddingHorizontal: 20, paddingBottom: 40 },
-  userCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.card,
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-    gap: 10,
-  },
-  avatarPlaceholder: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(182, 166, 190, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  userInfo: { flex: 1, marginRight: 4 },
-  btnLogin: {
-    backgroundColor: COLORS.accent,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: RADIUS.pill,
-  },
-  btnLoginText: { color: '#FFF', fontWeight: 'bold', fontSize: 11 },
-  sectionTitle: { ...TYPOGRAPHY.captionTag, color: COLORS.textSecondary, marginBottom: 8, marginTop: 14, fontWeight: 'bold' },
-  groupCard: { backgroundColor: COLORS.surface, borderRadius: RADIUS.card, overflow: 'hidden' },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    gap: 12,
-    minHeight: LAYOUT.minTouchTarget,
-  },
-  menuText: { flex: 1, ...TYPOGRAPHY.bodyMetadata, color: COLORS.textPrimary },
-  divider: { height: 1, backgroundColor: 'rgba(182, 166, 190, 0.08)', marginLeft: 48 },
-  footerVersion: { textAlign: 'center', ...TYPOGRAPHY.captionTag, color: COLORS.textSecondary, marginTop: 28 },
+  
+  anonCard: { backgroundColor: '#1C1B26', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#2D2B3D', marginBottom: 16 },
+  anonHeaderRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
+  avatarCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#282836', justifyContent: 'center', alignItems: 'center' },
+  anonTitle: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', marginBottom: 4 },
+  anonDesc: { fontSize: 12, color: '#A0A0B0', lineHeight: 18 },
+  loginBtn: { backgroundColor: '#E1306C', height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  loginBtnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  
+  logoutBtn: { backgroundColor: '#232230', height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#3D3D4E' },
+  logoutBtnText: { color: '#E1306C', fontSize: 14, fontWeight: '700' },
+
+  institutionalCard: { backgroundColor: '#161520', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: 'rgba(225, 48, 108, 0.3)', marginBottom: 24 },
+  instHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 },
+  instIconBox: { width: 32, height: 32, borderRadius: 10, backgroundColor: 'rgba(225, 48, 108, 0.15)', justifyContent: 'center', alignItems: 'center' },
+  instTitle: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
+  instSub: { fontSize: 10, color: '#A0A0B2' },
+  instDesc: { fontSize: 11, color: '#A0A0B2', lineHeight: 16, marginBottom: 12 },
+  denounceRowBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(225, 48, 108, 0.1)', paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(225, 48, 108, 0.2)' },
+  denounceBtnText: { fontSize: 12, fontWeight: '700', color: '#E1306C', flex: 1, marginLeft: 8 },
+
+  sectionHeader: { fontSize: 11, fontWeight: '700', color: '#606070', marginBottom: 8, marginLeft: 4, letterSpacing: 0.5 },
+  groupCard: { backgroundColor: '#1C1B26', borderRadius: 16, borderWidth: 1, borderColor: '#2D2B3D', marginBottom: 20 },
+  menuRow: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
+  iconBox: { width: 32, height: 32, borderRadius: 10, backgroundColor: '#282836', justifyContent: 'center', alignItems: 'center' },
+  menuText: { flex: 1, fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
+  divider: { height: 1, backgroundColor: '#262632', marginLeft: 58 },
 });

@@ -1,48 +1,50 @@
-export const COLORS = {
-  background: '#15111C',
-  surface: '#1D1726',
-  accent: '#FF6FA0',
-  sponsor: '#E0B064',
-  critical: '#FF9080',
-  positive: '#92C09B',
-  textPrimary: '#FFFFFF',
-  textSecondary: '#B6A6BE',
-  whatsapp: '#25D366',
-} as const;
-
-export const RADIUS = {
-  card: 14,
-  pill: 20,
-} as const;
-
-export const LAYOUT = {
-  minTouchTarget: 48,
-} as const;
-
-export const TYPOGRAPHY = {
-  screenTitle: { fontSize: 24, fontWeight: '600' as const, color: COLORS.textPrimary },
-  venueName: { fontSize: 16, fontWeight: '600' as const, color: COLORS.textPrimary },
-  bodyMetadata: { fontSize: 13, fontWeight: '400' as const, color: COLORS.textSecondary },
-  captionTag: { fontSize: 11, fontWeight: '500' as const },
-} as const;
-
-// Aliases em letras minúsculas
-export const colors = COLORS;
-export const radius = RADIUS;
-export const layout = LAYOUT;
-export const typography = TYPOGRAPHY;
-
-// Objeto de tema unificado
-export const theme = {
-  COLORS,
-  colors: COLORS,
-  RADIUS,
-  radius: RADIUS,
-  LAYOUT,
-  layout: LAYOUT,
-  TYPOGRAPHY,
-  typography: TYPOGRAPHY,
-  ...COLORS,
+export const THEME = {
+  bg: '#0F0F12',
+  surface: '#1A1A22',
+  surface2: '#262632',
+  card: '#1A1A22',
+  border: '#2E2E3D',
+  text: '#FFFFFF',
+  textDim: '#A0A0B0',
+  textFaint: '#606070',
+  pink: '#E1306C',
+  pinkSoft: '#FF5A8D',
+  green: '#3FA772',
+  gold: '#C8853C',
+  teal: '#3FA0A7',
+  violet: '#8A2BE2',
+  blue: '#007AFF',
+  terracotta: '#E07A5F',
+  pill: '#262632',
 };
 
-export default theme;
+export const COLORS = {
+  ...THEME,
+  primary: THEME.pink,
+  secondary: THEME.pinkSoft,
+  background: THEME.bg,
+};
+
+export const SPACING = {
+  minTouchTarget: 44,
+  xs: 4,
+  sm: 8,
+  md: 16,
+  lg: 24,
+  xl: 32,
+  pill: 8,
+};
+
+export const BADGES = {
+  pill: {
+    backgroundColor: '#262632',
+    color: '#FFFFFF',
+  },
+};
+
+export default {
+  THEME,
+  COLORS,
+  SPACING,
+  BADGES,
+};

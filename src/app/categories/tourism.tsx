@@ -1,89 +1,65 @@
 import { THEME } from '@/constants/theme';
 import { Feather } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-// Mapeamento completo das categorias e suas subcategorias
-const CATEGORY_CONFIG: Record<
-  string,
-  {
-    title: string;
-    icon: keyof typeof Feather.glyphMap;
-    iconColor: string;
-    subCategories: { id: string; name: string }[];
-  }
-> = {
-  gastronomy: {
-    title: 'Gastronomia',
-    icon: 'coffee',
-    iconColor: '#FFB74D',
-    subCategories: [
-      { id: 'all', name: 'Tudo' },
-      { id: 'bares', name: 'Bares' },
-      { id: 'cafes', name: 'Cafés' },
-      { id: 'restaurantes', name: 'Restaurantes' },
-    ],
-  },
-  culture: {
-    title: 'Cultura',
-    icon: 'home',
-    iconColor: '#7E57C2',
-    subCategories: [
-      { id: 'all', name: 'Tudo' },
-      { id: 'teatros', name: 'Teatros' },
-      { id: 'galerias', name: 'Galerias' },
-      { id: 'feiras', name: 'Feiras Independência' },
-    ],
-  },
-  tourism: {
-    title: 'Turismo',
-    icon: 'send',
-    iconColor: '#5C6BC0',
-    subCategories: [
-      { id: 'all', name: 'Tudo' },
-      { id: 'pousadas', name: 'Pousadas' },
-      { id: 'hoteis', name: 'Hotéis' },
-      { id: 'agencias', name: 'Agências de Turismo' },
-      { id: 'roteiros', name: 'Roteiros' },
-    ],
-  },
-};
-
-const MOCK_ITEMS = [
-  // Gastronomia
-  { id: 'bar-castro', categoryId: 'gastronomy', subCategory: 'bares', name: 'Bar Castro', typeLabel: 'Bar', neighborhood: 'Consolação', distance: '800m', rating: '4.9', coupon: 'Double chopp para membros', badge: 'LGBT+ Friendly', instagram: '@barcastrosp', color: '#E1306C' },
-  { id: 'cafe-safado', categoryId: 'gastronomy', subCategory: 'cafes', name: 'Café Safado', typeLabel: 'Café', neighborhood: 'Frei Caneca', distance: '1.2km', rating: '4.8', badge: 'LGBT+ Friendly', instagram: '@cafesafado', color: '#FFB74D' },
-  { id: 'bistro-cores', categoryId: 'gastronomy', subCategory: 'restaurantes', name: 'Bistrô das Cores', typeLabel: 'Restaurante', neighborhood: 'Pinheiros', distance: '2.1km', rating: '5.0', coupon: '10% OFF no prato principal', badge: 'LGBT+ Friendly', instagram: '@bistrodascores', color: '#4FC3F7' },
-
-  // Cultura
-  { id: 'teatro-rainbow', categoryId: 'culture', subCategory: 'teatros', name: 'Teatro Rainbow', typeLabel: 'Teatro', neighborhood: 'Consolação', distance: '2km', rating: '4.4', instagram: '@teatrorainbowsp', color: '#7E57C2' },
-  { id: 'galeria-pride', categoryId: 'culture', subCategory: 'galerias', name: 'Galeria Pride Art', typeLabel: 'Galeria', neighborhood: 'Vila Madalena', distance: '1.8km', rating: '4.9', badge: 'LGBT+ Friendly', instagram: '@galeriaprideart', color: '#E1306C' },
-  { id: 'feira-miolo', categoryId: 'culture', subCategory: 'feiras', name: 'Feira Miolo Independência', typeLabel: 'Feira Independência', neighborhood: 'Centro', distance: '3.1km', rating: '4.8', coupon: 'Desconto para membros', badge: 'LGBT+ Friendly', instagram: '@feiramiolo', color: '#81C784' },
-
-  // Turismo
-  { id: 'pousada-vista-verde', categoryId: 'tourism', subCategory: 'pousadas', name: 'Pousada Vista Verde', typeLabel: 'Pousada', neighborhood: 'Vila Madalena', distance: '2.4km', rating: '4.6', badge: 'LGBT+ Friendly', instagram: '@pousadavistaverde', color: '#D81B60' },
-  { id: 'hotel-aurora', categoryId: 'tourism', subCategory: 'hoteis', name: 'Hotel Aurora Pinheiros', typeLabel: 'Hotel', neighborhood: 'Pinheiros', distance: '900m', rating: '4.8', coupon: 'Cupom de 15% para membros', badge: 'LGBT+ Friendly', instagram: '@hotelaurorapinheiros', color: '#9C27B0' },
-  { id: 'rota-livre', categoryId: 'tourism', subCategory: 'agencias', name: 'Rota Livre Turismo', typeLabel: 'Agência de Turismo', neighborhood: 'Centro', distance: '3km', rating: '4.7', coupon: 'Pacotes com desconto', badge: 'LGBT+ Friendly', instagram: '@rotalivreturismo', color: '#7E57C2' },
+const SUB_CATEGORIES = [
+  { id: 'all', name: 'Tudo' },
+  { id: 'pousadas', name: 'Pousadas' },
+  { id: 'hoteis', name: 'Hotéis' },
+  { id: 'agencias', name: 'Agências de Turismo' },
+  { id: 'roteiros', name: 'Roteiros' },
 ];
 
-export default function CategoryScreen() {
+const TOURISM_DATA = [
+  {
+    id: 'hotel-aurora',
+    name: 'Hotel Aurora Pinheiros',
+    category: 'hoteis',
+    typeLabel: 'Hotel',
+    neighborhood: 'Pinheiros',
+    distance: '900m',
+    rating: '4.8',
+    coupon: 'Cupom de 15% para membros',
+    badge: 'LGBT+ Friendly',
+    instagram: '@hotelaurorapinheiros',
+    color: '#9C27B0',
+  },
+  {
+    id: 'pousada-vista-verde',
+    name: 'Pousada Vista Verde',
+    category: 'pousadas',
+    typeLabel: 'Pousada',
+    neighborhood: 'Vila Madalena',
+    distance: '2.4km',
+    rating: '4.6',
+    badge: 'LGBT+ Friendly',
+    instagram: '@pousadavistaverde',
+    color: '#D81B60',
+  },
+  {
+    id: 'rota-livre-turismo',
+    name: 'Rota Livre Turismo',
+    category: 'agencias',
+    typeLabel: 'Agência de Turismo',
+    neighborhood: 'Centro',
+    distance: '3km',
+    rating: '4.7',
+    coupon: 'Pacotes com desconto para membros',
+    badge: 'LGBT+ Friendly',
+    instagram: '@rotalivreturismo',
+    color: '#7E57C2',
+  },
+];
+
+export default function TourismCategoryScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
   const [selectedSub, setSelectedSub] = useState('all');
 
-  const categoryKey = (id || 'gastronomy').toLowerCase();
-  const currentConfig = CATEGORY_CONFIG[categoryKey] || {
-    title: id ? id.charAt(0).toUpperCase() + id.slice(1) : 'Categoria',
-    icon: 'grid',
-    iconColor: THEME.pink,
-    subCategories: [{ id: 'all', name: 'Tudo' }],
-  };
-
-  const categoryItems = MOCK_ITEMS.filter(item => item.categoryId === categoryKey);
   const filteredData = selectedSub === 'all'
-    ? categoryItems
-    : categoryItems.filter(item => item.subCategory === selectedSub);
+    ? TOURISM_DATA
+    : TOURISM_DATA.filter(item => item.category === selectedSub);
 
   return (
     <View style={styles.container}>
@@ -94,16 +70,16 @@ export default function CategoryScreen() {
         </TouchableOpacity>
         <View style={styles.titleRow}>
           <View style={styles.categoryIconBadge}>
-            <Feather name={currentConfig.icon} size={16} color={currentConfig.iconColor} />
+            <Feather name="send" size={16} color="#5C6BC0" />
           </View>
-          <Text style={styles.headerTitle}>{currentConfig.title}</Text>
+          <Text style={styles.headerTitle}>Turismo</Text>
         </View>
       </View>
 
-      {/* Chips de Subcategorias (Filtros) */}
+      {/* Chips de Subcategorias (Filtro Horizontal) */}
       <View style={styles.chipsContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScroll}>
-          {currentConfig.subCategories.map((sub) => {
+          {SUB_CATEGORIES.map((sub) => {
             const isSelected = selectedSub === sub.id;
             return (
               <TouchableOpacity
@@ -121,7 +97,7 @@ export default function CategoryScreen() {
         </ScrollView>
       </View>
 
-      {/* Filtros Secundários */}
+      {/* Filtros Secundários (Distância, Estrelas, Opções) */}
       <View style={styles.secondaryFilters}>
         <TouchableOpacity style={styles.filterBtn}>
           <Feather name="map-pin" size={13} color={THEME.textDim} style={{ marginRight: 6 }} />
@@ -140,10 +116,10 @@ export default function CategoryScreen() {
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.resultCount}>
-        {filteredData.length} resultados em {currentConfig.title}
-      </Text>
+      {/* Contador de resultados */}
+      <Text style={styles.resultCount}>{filteredData.length} resultados em Turismo</Text>
 
+      {/* Lista de Cards */}
       <FlatList
         data={filteredData}
         keyExtractor={(item) => item.id}
@@ -152,12 +128,14 @@ export default function CategoryScreen() {
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.card}
-            onPress={() => router.push(`/venue/${item.id}`)}
+            onPress={() => router.push(`/business/${item.id}`)}
             activeOpacity={0.88}
           >
             <View style={styles.cardContent}>
+              {/* Imagem / Avatar do Local */}
               <View style={[styles.imagePlaceholder, { backgroundColor: item.color }]} />
 
+              {/* Informações Principais */}
               <View style={styles.infoCol}>
                 <View style={styles.cardHeaderRow}>
                   <Text style={styles.cardTitle}>{item.name}</Text>
@@ -171,6 +149,7 @@ export default function CategoryScreen() {
                   {item.typeLabel} • {item.neighborhood} • {item.distance}
                 </Text>
 
+                {/* Cupom (se existir) */}
                 {item.coupon && (
                   <View style={styles.couponTag}>
                     <Feather name="tag" size={10} color="#FFD54F" style={{ marginRight: 4 }} />
@@ -178,21 +157,19 @@ export default function CategoryScreen() {
                   </View>
                 )}
 
-                {item.badge && (
-                  <View style={styles.badgeRow}>
-                    <View style={styles.friendlyBadge}>
-                      <Feather name="shield" size={10} color="#81C784" style={{ marginRight: 4 }} />
-                      <Text style={styles.friendlyText}>{item.badge}</Text>
-                    </View>
+                {/* Badge LGBT+ Friendly */}
+                <View style={styles.badgeRow}>
+                  <View style={styles.friendlyBadge}>
+                    <Feather name="shield" size={10} color="#81C784" style={{ marginRight: 4 }} />
+                    <Text style={styles.friendlyText}>{item.badge}</Text>
                   </View>
-                )}
+                </View>
 
-                {item.instagram && (
-                  <View style={styles.instaRow}>
-                    <Feather name="camera" size={11} color={THEME.textDim} style={{ marginRight: 4 }} />
-                    <Text style={styles.instaText}>Instagram • {item.instagram}</Text>
-                  </View>
-                )}
+                {/* Instagram */}
+                <View style={styles.instaRow}>
+                  <Feather name="camera" size={11} color={THEME.textDim} style={{ marginRight: 4 }} />
+                  <Text style={styles.instaText}>Instagram • {item.instagram}</Text>
+                </View>
               </View>
             </View>
           </TouchableOpacity>
@@ -229,7 +206,7 @@ const styles = StyleSheet.create({
   ratingRow: { flexDirection: 'row', alignItems: 'center' },
   ratingText: { fontSize: 12, fontWeight: '700', color: '#FFFFFF' },
   subtitleText: { fontSize: 12, color: '#A0A0B0' },
-  couponTag: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', backgroundColor: '#332A15', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12 },
+  couponTag: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', backgroundColor: '#332A15', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, borderWidth: 1, borderColor: '#FFD54F50' },
   couponText: { fontSize: 10, color: '#FFD54F', fontWeight: '600' },
   badgeRow: { flexDirection: 'row', marginTop: 2 },
   friendlyBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1B2E1E', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12 },

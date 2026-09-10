@@ -1,268 +1,372 @@
-import { Ionicons } from '@expo/vector-icons';
+import { supabase } from '@/lib/supabase';
+import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  Alert,
+  ActivityIndicator,
+  FlatList,
+  Image,
   Linking,
-  Platform,
   SafeAreaView,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { theme } from '../../constants/theme';
-import { useApp } from '../../context/AppContext';
-import { Coupon } from '../../types/database';
-import { triggerImpact } from '../../utils/haptics';
 
-export default function VenueDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+const CATEGORY_NAMES: Record<string, string> = {
+  bares: 'Bares & Vida Noturna',
+  places: 'Bares & Vida Noturna',
+  gastronomia: 'Gastronomia',
+  gastronomy: 'Gastronomia',
+  festas: 'Festas & Eventos',
+  events: 'Festas & Eventos',
+  cultura: 'Cultura & Lazer',
+  culture: 'Cultura & Lazer',
+  tourism: 'Dicas Trip (Turismo)',
+  turismo: 'Dicas Trip (Turismo)',
+  beleza: 'Beleza & Bem-Estar',
+  '18plus': 'Espaços 18+',
+  mais18: 'Espaços 18+',
+  lojas: 'Lojas & Compras',
+  servicos: 'Serviços Inclusivos',
+  lazer: 'Lazer & Atividades',
+  all: 'Todos os Locais',
+};
+
+const SUBCATEGORIES: Record<string, string[]> = {
+  bares: ['Todas', 'Pubs', 'Speakeasy', 'Rooftops', 'Karaokê', 'Happy Hour'],
+  gastronomia: ['Todas', 'Restaurantes', 'Cafés', 'Padarias', 'Hamburguerias', 'Docerias', 'Vegano'],
+  festas: ['Todas', 'Baladas', 'Festivais', 'Open Bar', 'Drag Shows', 'Sunsets'],
+  cultura: ['Todas', 'Teatros', 'Centros Culturais', 'Cinemas', 'Exposições', 'Museus'],
+  tourism: ['Todas', 'Hotéis', 'Pousadas', 'Roteiros Guiados', 'Pontos Turísticos'],
+};
+
+const DISTANCE_FILTERS = [
+  { id: 'all_dist', label: 'Todas as distâncias', icon: 'compass', maxKm: 999 },
+  { id: '1km', label: 'Até 1 km', icon: 'navigation', maxKm: 1 },
+  { id: '5km', label: 'Até 5 km', icon: 'map-pin', maxKm: 5 },
+];
+
+interface BusinessItem {
+  id: string;
+  name: string;
+  category: string;
+  subcategory?: string;
+  neighborhood?: string;
+  distance?: string;
+  is_featured?: boolean;
+}
+
+export default function BusinessDetailOrCategoryScreen() {
   const router = useRouter();
+  const { id } = useLocalSearchParams<{ id: string }>();
   
-  const { venues, favorites, toggleFavorite, claimCoupon, claimedCoupons } = useApp();
+  const currentSlug = (id || '').toLowerCase();
+  
+  const knownCategories = [
+    'bares', 'places', 'gastronomia', 'gastronomy',
+    'festas', 'events', 'cultura', 'culture',
+    'tourism', 'turismo', 'beleza', '18plus', 'mais18',
+    'lojas', 'servicos', 'lazer', 'all'
+  ];
+  
+  const isCategory = knownCategories.includes(currentSlug);
 
-  const venue = useMemo(() => venues.find((v) => v.id === id), [venues, id]);
-  const isFav = favorites.includes(venue?.id || '');
+  const [loading, setLoading] = useState(true);
+  const [detailItem, setDetailItem] = useState<BusinessItem | null>(null);
+  const [categoryItems, setCategoryItems] = useState<BusinessItem[]>([]);
+  const [featuredItems, setFeaturedItems] = useState<BusinessItem[]>([]);
+  
+  const [selectedSubcategory, setSelectedSubcategory] = useState('Todas');
+  const [selectedDistance, setSelectedDistance] = useState('all_dist');
 
-  const availableCoupon = useMemo(() => {
-    if (!venue?.isSponsored) return null;
-    return {
-      id: `cupom-${venue.id}`,
-      title: 'Drink Duplo na Entrada',
-      description: 'Apresente este cupom no caixa até as 23h para ganhar um drink duplo.',
-      venueName: venue.name,
-      expiresAt: new Date(Date.now() + 86400000).toISOString(),
-      code: Math.random().toString(36).substring(2, 8).toUpperCase(),
-    };
-  }, [venue]);
+  useEffect(() => {
+    async function loadData() {
+      setLoading(true);
+      if (isCategory) {
+        try {
+          const { data } = await supabase
+            .from('businesses')
+            .select('*')
+            .ilike('category', `%${currentSlug}%`);
 
-  // Proteção adicionada (?. e || false) para evitar que a tela quebre caso o array esteja vazio inicialmente
-  const hasClaimedCoupon = claimedCoupons?.some((c: Coupon) => c.id === availableCoupon?.id) || false;
+          if (data && data.length > 0) {
+            setCategoryItems(data as BusinessItem[]);
+            setFeaturedItems(data.filter((b: any) => b.is_featured || b.plan_id === 'premium'));
+          } else {
+            const mockData: BusinessItem[] = [
+              { id: 'm1', name: `${CATEGORY_NAMES[currentSlug] || 'Local'} VIP`, category: currentSlug, subcategory: 'Destaque', neighborhood: 'Jardins', distance: '1.2 km', is_featured: true },
+              { id: 'm2', name: 'Espaço Parceiro Premium', category: currentSlug, subcategory: 'Destaque', neighborhood: 'Pinheiros', distance: '2.5 km', is_featured: true },
+              { id: 'm3', name: 'Local Acolhedor 1', category: currentSlug, subcategory: 'Geral', neighborhood: 'Centro', distance: '3.0 km' },
+              { id: 'm4', name: 'Local Acolhedor 2', category: currentSlug, subcategory: 'Geral', neighborhood: 'Vila Madalena', distance: '4.8 km' },
+            ];
+            setCategoryItems(mockData);
+            setFeaturedItems(mockData.filter((b) => b.is_featured));
+          }
+        } catch (e) {
+          setCategoryItems([]);
+          setFeaturedItems([]);
+        }
+      } else {
+        try {
+          const { data } = await supabase.from('businesses').select('*').eq('id', currentSlug).single();
+          if (data) setDetailItem(data as BusinessItem);
+        } catch (e) {
+          setDetailItem(null);
+        }
+      }
+      setLoading(false);
+    }
 
-  if (!venue) {
+    loadData();
+  }, [currentSlug]);
+
+  if (loading) {
     return (
-      <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center' }]}>
-        <Ionicons name="alert-circle-outline" size={48} color={theme.colors.textSecondary} />
-        <Text style={{ color: theme.colors.textSecondary, marginTop: 12 }}>Local não encontrado.</Text>
-        <TouchableOpacity style={styles.backBtnFallback} onPress={() => router.back()}>
-          <Text style={styles.backBtnText}>Voltar</Text>
-        </TouchableOpacity>
-      </SafeAreaView>
+      <View style={[styles.container, styles.center]}>
+        <ActivityIndicator size="large" color="#E1306C" />
+      </View>
     );
   }
 
-  const handleToggleFav = async () => {
-    triggerImpact('light');
-    await toggleFavorite(venue.id);
-  };
+  if (isCategory) {
+    const subList = SUBCATEGORIES[currentSlug] || SUBCATEGORIES['bares'];
 
-  const handleOpenMaps = () => {
-    triggerImpact('light');
-    const url = Platform.OS === 'ios'
-      ? `https://maps.apple.com/?q=${venue.latitude},${venue.longitude}`
-      : `https://maps.google.com/?q=${venue.latitude},${venue.longitude}`;
-    Linking.openURL(url);
-  };
-
-  const handleOpenUber = () => {
-    triggerImpact('light');
-    const uberUrl = `https://m.uber.com/ul/?action=setPickup&dropoff[latitude]=${venue.latitude}&dropoff[longitude]=${venue.longitude}&dropoff[nickname]=${encodeURIComponent(venue.name)}`;
-    Linking.openURL(uberUrl).catch(() => {
-      Alert.alert('Uber', 'Não foi possível abrir o aplicativo da Uber.');
+    const filteredItems = categoryItems.filter((biz) => {
+      const bizSub = (biz.subcategory || '').toLowerCase();
+      return selectedSubcategory === 'Todas' || bizSub.includes(selectedSubcategory.toLowerCase());
     });
-  };
 
-  const handleShare = async () => {
-    triggerImpact('light');
-    try {
-      await Share.share({
-        message: `Bora pro ${venue.name}? É um espaço ${venue.category} super legal em ${venue.city}! Veja no Dicas LGBT. 🌈`,
-      });
-    } catch (error) {
-      console.log(error);
-    }
-  };
+    return (
+      <View style={styles.container}>
+        <SafeAreaView style={styles.safeArea}>
+          
+          {/* Topo / Header com Ícone */}
+          <View style={styles.headerRow}>
+            <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
+              <Feather name="chevron-left" size={20} color="#FFF" />
+            </TouchableOpacity>
+            
+            <Image
+              source={require('@/assets/images/logo-icon.png')}
+              style={styles.headerIconSquare}
+              resizeMode="contain"
+            />
+          </View>
 
-  const handleClaimCoupon = async () => {
-    if (!availableCoupon) return;
-    triggerImpact('medium');
-    await claimCoupon(availableCoupon);
-    Alert.alert('Cupom Resgatado!', 'Você pode acessá-lo na sua aba de Perfil > Meus Cupons.');
-  };
+          {/* Nome da Categoria em destaque na linha de baixo */}
+          <View style={styles.categoryTitleContainer}>
+            <Text style={styles.categoryTitleText}>{CATEGORY_NAMES[currentSlug] || 'Categoria'}</Text>
+          </View>
+
+          <ScrollView contentContainerStyle={styles.scrollCategoryContent} showsVerticalScrollIndicator={false}>
+
+            {/* Subcategorias */}
+            {subList && subList.length > 0 && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
+                {subList.map((sub) => {
+                  const isSelected = selectedSubcategory === sub;
+                  return (
+                    <TouchableOpacity
+                      key={sub}
+                      style={[styles.chip, isSelected && styles.chipActive]}
+                      onPress={() => setSelectedSubcategory(sub)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>{sub}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
+
+            {/* Filtros de Distância */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
+              {DISTANCE_FILTERS.map((dist) => {
+                const isSelected = selectedDistance === dist.id;
+                return (
+                  <TouchableOpacity
+                    key={dist.id}
+                    style={[styles.distanceChip, isSelected && styles.distanceChipActive]}
+                    onPress={() => setSelectedDistance(dist.id)}
+                    activeOpacity={0.8}
+                  >
+                    <Feather name={dist.icon as any} size={12} color={isSelected ? '#FFF' : '#8A8A9E'} style={{ marginRight: 6 }} />
+                    <Text style={[styles.distanceChipText, isSelected && styles.distanceChipTextActive]}>{dist.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            {/* Bloco Em Alta */}
+            {featuredItems.length > 0 && (
+              <View style={styles.emAltaSection}>
+                <View style={styles.emAltaHeader}>
+                  <Feather name="trending-up" size={16} color="#FFD54F" />
+                  <Text style={styles.emAltaTitle}>Em alta</Text>
+                </View>
+                <FlatList
+                  data={featuredItems}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  keyExtractor={(item) => item.id}
+                  contentContainerStyle={styles.emAltaPadding}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={styles.emAltaCard}
+                      onPress={() => router.push(`/business/${item.id}`)}
+                      activeOpacity={0.85}
+                    >
+                      <View style={styles.emAltaBadge}>
+                        <Feather name="star" size={10} color="#E1306C" />
+                        <Text style={styles.emAltaBadgeText}>PATROCINADO</Text>
+                      </View>
+                      <Text style={styles.emAltaCardNome} numberOfLines={1}>{item.name}</Text>
+                      <Text style={styles.emAltaCardSub}>{item.neighborhood || 'São Paulo'} • {item.distance || 'Prox.'}</Text>
+                    </TouchableOpacity>
+                  )}
+                />
+              </View>
+            )}
+
+            {/* Lista Principal */}
+            <View style={styles.mainListArea}>
+              <Text style={styles.sectionTitle}>Todos os Locais</Text>
+
+              {filteredItems.length === 0 ? (
+                <View style={styles.emptyCard}>
+                  <View style={styles.emptyIconCircle}>
+                    <Feather name="info" size={22} color="#7E57C2" />
+                  </View>
+                  <Text style={styles.emptyText}>
+                    Nenhum local cadastrado nesta subcategoria ainda.
+                  </Text>
+                </View>
+              ) : (
+                filteredItems.map((biz) => (
+                  <TouchableOpacity
+                    key={biz.id}
+                    style={styles.card}
+                    onPress={() => router.push(`/business/${biz.id}`)}
+                    activeOpacity={0.88}
+                  >
+                    <View style={styles.cardThumb} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.cardTitle}>{biz.name}</Text>
+                      <Text style={styles.cardSubtext}>{biz.subcategory || 'Local'} • {biz.neighborhood || 'SP'} • {biz.distance || 'Prox.'}</Text>
+                    </View>
+                    <Feather name="chevron-right" size={18} color="#606070" />
+                  </TouchableOpacity>
+                ))
+              )}
+            </View>
+
+          </ScrollView>
+
+        </SafeAreaView>
+      </View>
+    );
+  }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
-        {/* HERO IMAGE */}
-        <View style={styles.heroImageContainer}>
-          <View style={styles.imagePlaceholder}>
-            <Ionicons name="images-outline" size={48} color={theme.colors.border} />
-            <Text style={styles.imagePlaceholderText}>Foto do Estabelecimento</Text>
-          </View>
-          
-          <TouchableOpacity style={styles.absoluteBackBtn} onPress={() => router.back()}>
-            <Ionicons name="chevron-back" size={24} color={theme.colors.textPrimary} />
+    <View style={styles.container}>
+      <SafeAreaView style={styles.safeArea}>
+        <ScrollView contentContainerStyle={styles.scrollDetail}>
+          <TouchableOpacity style={styles.backBtnAbsolute} onPress={() => router.back()}>
+            <Feather name="chevron-left" size={22} color="#FFF" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.absoluteFavBtn} onPress={handleToggleFav}>
-            <Ionicons name={isFav ? 'bookmark' : 'bookmark-outline'} size={22} color={isFav ? theme.colors.accent : theme.colors.textPrimary} />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.contentContainer}>
-          
-          {/* HEADER INFO */}
-          <View style={styles.headerInfo}>
-            <Text style={styles.venueName}>{venue.name}</Text>
-            <View style={styles.venueMetaRow}>
-              <Text style={styles.venueMetaText}>{venue.category.toUpperCase()} • {venue.neighborhood}, {venue.city}</Text>
-              <View style={styles.ratingBadge}>
-                <Ionicons name="star" size={12} color={theme.colors.sponsor} />
-                <Text style={styles.ratingText}>{venue.rating.toFixed(1)} ({venue.reviewCount})</Text>
-              </View>
+          <View style={styles.heroBanner}>
+            <View style={styles.safeBadge}>
+              <Feather name="shield" size={12} color="#4CAF7D" style={{ marginRight: 4 }} />
+              <Text style={styles.safeBadgeText}>Espaço Seguro LGBT+</Text>
             </View>
           </View>
 
-          {/* QUICK ACTIONS */}
-          <View style={styles.quickActionsRow}>
-            <TouchableOpacity style={styles.actionBtn} onPress={handleOpenUber}>
-              <View style={[styles.actionIconCircle, { backgroundColor: 'rgba(255, 255, 255, 0.1)' }]}>
-                <Ionicons name="car" size={22} color={theme.colors.textPrimary} />
-              </View>
-              <Text style={styles.actionLabel}>Pedir Uber</Text>
+          <View style={styles.detailBody}>
+            <Text style={styles.detailTitle}>{detailItem?.name || 'Local Parceiro'}</Text>
+            <Text style={styles.detailSubtext}>{detailItem?.category} • {detailItem?.neighborhood || 'São Paulo'}</Text>
+
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={() => Linking.openURL('https://instagram.com')}
+            >
+              <Feather name="instagram" size={18} color="#FFF" style={{ marginRight: 8 }} />
+              <Text style={styles.actionBtnText}>Ver no Instagram</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionBtn} onPress={handleOpenMaps}>
-              <View style={[styles.actionIconCircle, { backgroundColor: 'rgba(52, 152, 219, 0.15)' }]}>
-                <Ionicons name="map" size={22} color="#3498DB" />
-              </View>
-              <Text style={styles.actionLabel}>Rota</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.actionBtn} onPress={handleShare}>
-              <View style={[styles.actionIconCircle, { backgroundColor: 'rgba(46, 204, 113, 0.15)' }]}>
-                <Ionicons name="share-social" size={22} color="#2ECC71" />
-              </View>
-              <Text style={styles.actionLabel}>Compartilhar</Text>
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.mapBtn]}
+              onPress={() => router.push('/(tabs)/explore')}
+            >
+              <Feather name="map-pin" size={18} color="#FFF" style={{ marginRight: 8 }} />
+              <Text style={styles.actionBtnText}>Ver no Mapa Interativo</Text>
             </TouchableOpacity>
           </View>
-
-          {/* TAGS */}
-          <View style={styles.tagsSection}>
-            <Text style={styles.sectionTitle}>Público & Vibe</Text>
-            <View style={styles.tagsGrid}>
-              {venue.audienceTags.map((tag) => (
-                <View key={tag} style={styles.tagBadge}>
-                  <Text style={styles.tagText}>{tag.toUpperCase()}</Text>
-                </View>
-              ))}
-              {venue.musicTags?.map((tag) => (
-                <View key={tag} style={[styles.tagBadge, { borderColor: theme.colors.sponsor }]}>
-                  <Text style={[styles.tagText, { color: theme.colors.sponsor }]}>♪ {tag.toUpperCase()}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-
-          {/* SAFE SPACE */}
-          {venue.isSafeSpace && (
-            <View style={styles.safeSpaceCard}>
-              <View style={styles.safeSpaceHeader}>
-                <Ionicons name="shield-checkmark" size={24} color={theme.colors.accent} />
-                <Text style={styles.safeSpaceTitle}>Local Verificado: Safe Space</Text>
-              </View>
-              <Text style={styles.safeSpaceText}>
-                Este estabelecimento assinou o termo de compromisso de tolerância zero contra preconceitos e possui equipe treinada para acolher a comunidade LGBTQIAPN+.
-              </Text>
-            </View>
-          )}
-
-          {/* CUPOM */}
-          {availableCoupon && (
-            <View style={styles.couponSection}>
-              <View style={styles.couponHeader}>
-                <Ionicons name="ticket" size={20} color={theme.colors.positive} />
-                <Text style={styles.sectionTitle}>Benefício Exclusivo</Text>
-              </View>
-              
-              <View style={styles.couponCard}>
-                <View style={styles.couponContent}>
-                  <Text style={styles.couponTitle}>{availableCoupon.title}</Text>
-                  <Text style={styles.couponDesc}>{availableCoupon.description}</Text>
-                </View>
-                
-                <TouchableOpacity 
-                  style={[styles.claimBtn, hasClaimedCoupon && styles.claimedBtn]} 
-                  onPress={handleClaimCoupon}
-                  disabled={hasClaimedCoupon}
-                >
-                  <Text style={[styles.claimBtnText, hasClaimedCoupon && styles.claimedBtnText]}>
-                    {hasClaimedCoupon ? 'Resgatado' : 'Resgatar'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-
-          {/* SOBRE */}
-          <View style={styles.aboutSection}>
-            <Text style={styles.sectionTitle}>Sobre o Local</Text>
-            <Text style={styles.aboutText}>
-              {venue.description || 
-              `O ${venue.name} é um dos locais mais movimentados da região de ${venue.neighborhood}. Perfeito para quem busca experiências autênticas, boa música e um ambiente totalmente acolhedor.`}
-            </Text>
-          </View>
-
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: theme.colors.background },
-  scrollContent: { paddingBottom: 40 },
-  heroImageContainer: { width: '100%', height: 260, backgroundColor: theme.colors.surface, position: 'relative' },
-  imagePlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center', opacity: 0.5 },
-  imagePlaceholderText: { color: theme.colors.textSecondary, marginTop: 8, fontSize: 12, fontWeight: 'bold' },
-  absoluteBackBtn: { position: 'absolute', top: Platform.OS === 'ios' ? 10 : 20, left: 16, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(24, 21, 36, 0.7)', justifyContent: 'center', alignItems: 'center' },
-  absoluteFavBtn: { position: 'absolute', top: Platform.OS === 'ios' ? 10 : 20, right: 16, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(24, 21, 36, 0.7)', justifyContent: 'center', alignItems: 'center' },
-  contentContainer: { padding: 20, gap: 24 },
-  headerInfo: { gap: 6 },
-  venueName: { fontSize: 26, fontWeight: '900', color: theme.colors.textPrimary },
-  venueMetaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  venueMetaText: { fontSize: 13, fontWeight: 'bold', color: theme.colors.textSecondary },
-  ratingBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(224, 176, 100, 0.15)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-  ratingText: { fontSize: 12, fontWeight: 'bold', color: theme.colors.sponsor },
-  quickActionsRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingVertical: 8 },
-  actionBtn: { alignItems: 'center', gap: 8 },
-  actionIconCircle: { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center' },
-  actionLabel: { fontSize: 12, fontWeight: '600', color: theme.colors.textPrimary },
-  tagsSection: { gap: 12 },
-  sectionTitle: { fontSize: 16, fontWeight: 'bold', color: theme.colors.textPrimary },
-  tagsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  tagBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border },
-  tagText: { fontSize: 11, fontWeight: 'bold', color: theme.colors.textSecondary },
-  safeSpaceCard: { backgroundColor: 'rgba(255, 111, 160, 0.1)', padding: 16, borderRadius: theme.borderRadius.card, borderWidth: 1, borderColor: 'rgba(255, 111, 160, 0.3)', gap: 8 },
-  safeSpaceHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  safeSpaceTitle: { fontSize: 14, fontWeight: 'bold', color: theme.colors.accent },
-  safeSpaceText: { fontSize: 12, color: theme.colors.textSecondary, lineHeight: 18 },
-  couponSection: { gap: 12 },
-  couponHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  couponCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.surface, padding: 14, borderRadius: theme.borderRadius.card, borderWidth: 1, borderColor: theme.colors.positive, borderStyle: 'dashed' },
-  couponContent: { flex: 1, paddingRight: 12, gap: 4 },
-  couponTitle: { fontSize: 15, fontWeight: 'bold', color: theme.colors.textPrimary },
-  couponDesc: { fontSize: 12, color: theme.colors.textSecondary },
-  claimBtn: { backgroundColor: theme.colors.positive, paddingHorizontal: 16, paddingVertical: 10, borderRadius: theme.borderRadius.button },
-  claimBtnText: { fontSize: 12, fontWeight: 'bold', color: theme.colors.background },
-  claimedBtn: { backgroundColor: theme.colors.background, borderWidth: 1, borderColor: theme.colors.border },
-  claimedBtnText: { color: theme.colors.textSecondary },
-  aboutSection: { gap: 8 },
-  aboutText: { fontSize: 14, color: theme.colors.textSecondary, lineHeight: 22 },
-  backBtnFallback: { marginTop: 24, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: theme.colors.surface, borderRadius: theme.borderRadius.button },
-  backBtnText: { color: theme.colors.textPrimary, fontWeight: 'bold' },
+  container: { flex: 1, backgroundColor: '#0B0B0E' },
+  center: { justifyContent: 'center', alignItems: 'center' },
+  safeArea: { flex: 1 },
+  
+  headerRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 },
+  backBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: '#161520', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#232230', marginRight: 12 },
+  headerIconSquare: { width: 32, height: 32 },
+  
+  categoryTitleContainer: { paddingHorizontal: 16, marginBottom: 12 },
+  categoryTitleText: { fontSize: 22, fontWeight: '800', color: '#FFF' },
+
+  backBtnAbsolute: { position: 'absolute', top: 16, left: 16, zIndex: 10, width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  
+  scrollCategoryContent: { paddingBottom: 40 },
+  chipsRow: { paddingHorizontal: 16, gap: 8, marginBottom: 12 },
+  chip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230' },
+  chipActive: { backgroundColor: '#E1306C', borderColor: '#E1306C' },
+  chipText: { fontSize: 12, fontWeight: '600', color: '#A0A0B2' },
+  chipTextActive: { color: '#FFFFFF' },
+
+  distanceChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 18, backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230' },
+  distanceChipActive: { backgroundColor: '#7E57C2', borderColor: '#7E57C2' },
+  distanceChipText: { fontSize: 12, fontWeight: '600', color: '#8A8A9E' },
+  distanceChipTextActive: { color: '#FFFFFF' },
+
+  emAltaSection: { marginTop: 8, marginBottom: 20 },
+  emAltaHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, marginBottom: 10 },
+  emAltaTitle: { fontSize: 15, fontWeight: '800', color: '#FFD54F' },
+  emAltaPadding: { paddingHorizontal: 16, gap: 12 },
+  emAltaCard: { width: 180, height: 100, backgroundColor: '#161520', borderRadius: 16, padding: 12, justifyContent: 'space-between', borderWidth: 1, borderColor: '#232230' },
+  emAltaBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  emAltaBadgeText: { fontSize: 9, fontWeight: '800', color: '#E1306C' },
+  emAltaCardNome: { fontSize: 14, fontWeight: '700', color: '#FFF' },
+  emAltaCardSub: { fontSize: 11, color: '#A0A0B2' },
+
+  mainListArea: { paddingHorizontal: 16 },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#FFF', marginBottom: 12 },
+  
+  emptyCard: { height: 200, backgroundColor: '#161520', borderRadius: 20, borderWidth: 1, borderColor: '#232230', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 30 },
+  emptyIconCircle: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(126, 87, 194, 0.15)', justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
+  emptyText: { fontSize: 13, color: '#A0A0B2', textAlign: 'center' },
+
+  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#161520', padding: 12, borderRadius: 16, borderWidth: 1, borderColor: '#232230', gap: 12, marginBottom: 10 },
+  cardThumb: { width: 48, height: 48, borderRadius: 12, backgroundColor: '#1A1926' },
+  cardTitle: { fontSize: 15, fontWeight: '700', color: '#FFF' },
+  cardSubtext: { fontSize: 12, color: '#A0A0B2', marginTop: 2 },
+
+  scrollDetail: { paddingBottom: 40 },
+  heroBanner: { height: 180, backgroundColor: '#E1306C', justifyContent: 'flex-end', padding: 16 },
+  safeBadge: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(76, 175, 125, 0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  safeBadgeText: { fontSize: 11, fontWeight: '700', color: '#4CAF7D' },
+  detailBody: { padding: 20 },
+  detailTitle: { fontSize: 24, fontWeight: '900', color: '#FFF', marginBottom: 4 },
+  detailSubtext: { fontSize: 13, color: '#A0A0B2', marginBottom: 20 },
+  actionBtn: { flexDirection: 'row', height: 48, backgroundColor: '#E1306C', borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
+  mapBtn: { backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230' },
+  actionBtnText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
 });

@@ -1,167 +1,246 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Image, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { HighlightBadge } from '../../components/HighlightBadge';
-import { RatingBadge } from '../../components/RatingBadge';
-import { COLORS, RADIUS, TYPOGRAPHY } from '../../constants/theme';
+import { useState } from 'react';
+import {
+  Alert,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const HIGHLIGHTED_VENUES = [
-  {
-    id: 'bar-exemplo-id',
-    name: 'Vezpa Bar',
-    neighborhood: 'Pinheiros',
-    image: 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=800',
-    deal: '20% OFF',
-    rating: 5.0,
-    reviewCount: 34,
-  },
-  {
-    id: 'zig-club',
-    name: 'Zig Club',
-    neighborhood: 'Vila Madalena',
-    image: 'https://images.unsplash.com/photo-1566737236500-c8ac43014a67?w=800',
-    deal: 'VIP Pass',
-    rating: 4.8,
-    reviewCount: 86,
-  },
+const COLORS = {
+  background: '#0B0B0E',
+  card: '#161520',
+  border: '#232230',
+  textPrimary: '#FFFFFF',
+  textSecondary: '#A0A0B2',
+  textMuted: '#626274',
+  pink: '#E1306C',
+  purple: '#7E57C2',
+  safeSpace: '#4CAF7D',
+  gold: '#FFD54F',
+};
+
+export interface CategoriaConfig {
+  slug: string;
+  label: string;
+  icon: keyof typeof Feather.glyphMap;
+  color: string;
+  emBreve?: boolean;
+}
+
+const CATEGORIES: Record<string, CategoriaConfig> = {
+  bares: { slug: 'bares', label: 'Bares', icon: 'moon', color: '#E1306C' },
+  gastronomia: { slug: 'gastronomia', label: 'Gastronomia', icon: 'coffee', color: '#FFD54F' },
+  festas: { slug: 'festas', label: 'Festas', icon: 'music', color: '#FFB74D' },
+  cultura: { slug: 'cultura', label: 'Cultura', icon: 'film', color: '#4FC3F7' },
+  turismo: { slug: 'tourism', label: 'Dicas Trip', icon: 'compass', color: '#81C784' },
+  beleza: { slug: 'beleza', label: 'Beleza', icon: 'scissors', color: '#E1306C', emBreve: true },
+  mais18: { slug: '18plus', label: 'Espaços 18+', icon: 'lock', color: '#7E57C2', emBreve: true },
+  lojas: { slug: 'lojas', label: 'Lojas', icon: 'shopping-bag', color: '#E1306C', emBreve: true },
+  servicos: { slug: 'servicos', label: 'Serviços', icon: 'briefcase', color: '#7E57C2', emBreve: true },
+  lazer: { slug: 'lazer', label: 'Lazer', icon: 'smile', color: '#4FC3F7', emBreve: true },
+};
+
+const CATEGORY_ORDER = [
+  'bares',
+  'gastronomia',
+  'festas',
+  'cultura',
+  'turismo',
+  'beleza',
+  'mais18',
+  'lojas',
+  'servicos',
+  'lazer',
 ];
 
-const MAIN_VENUES = [
-  {
-    id: 'bar-da-gra',
-    name: 'Bar da Gra',
-    category: 'Bares',
-    neighborhood: 'Pinheiros',
-    distance: '450m',
-    image: 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=800',
-    deal: null,
-    rating: 5.0,
-    reviewCount: 18,
-  },
-  {
-    id: 'castro-bar',
-    name: 'Castro Bar',
-    category: 'Bares',
-    neighborhood: 'Consolação',
-    distance: '1.2km',
-    image: 'https://images.unsplash.com/photo-1572116469696-31de0f17cc34?w=800',
-    deal: 'Drink Duplo',
-    rating: 4.9,
-    reviewCount: 42,
-  },
-  {
-    id: 'blue-space',
-    name: 'Blue Space',
-    category: 'Baladas',
-    neighborhood: 'Barra Funda',
-    distance: '3.5km',
-    image: 'https://images.unsplash.com/photo-1566737236500-c8ac43014a67?w=800',
-    deal: 'VIP até 23h',
-    rating: 4.7,
-    reviewCount: 215,
-  },
+const EXPERIENCIAS = [
+  'Date', 'Rolê com amigos', 'Dançar', 'Música ao vivo',
+  'Karaokê', 'Drag show', 'Comer bem', 'Happy hour',
+  'Cultura', 'Relaxar', 'Conhecer pessoas', 'Passear',
+  'Aniversário', 'Aula de dança', 'Aula de forró'
+];
+
+const BANNERS_PRINCIPAIS = [
+  { id: 'b1', tag: 'DICAS TRIP', titulo: 'Destinos e Roteiros LGBT+', sub: 'Apresentação Oficial na Conferência de Turismo', cor: '#81C784' },
+  { id: 'b2', tag: 'MEMBRO FUNDADOR', titulo: 'Vezpa Bar & Zig Club', sub: 'Conheça os espaços que constroem nossa comunidade', cor: '#FFD54F' },
+  { id: 'b3', tag: 'PATROCINADO', titulo: 'Barbearia Prisma & Café Aurora', sub: 'Experiências exclusivas e atendimento acolhedor', cor: '#E1306C' },
 ];
 
 export default function HomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const [busca, setBusca] = useState('');
+
+  const handleCategoryPress = (cat: CategoriaConfig) => {
+    if (cat.emBreve) return;
+    router.push(`/business/${cat.slug}`);
+  };
 
   return (
     <View style={styles.container}>
-      {/* Header Card sem Engrenagem e Alinhado à Esquerda */}
-      <View style={styles.headerCard}>
-        <Image
-          source={require('../../context/logo.jpg')}
-          style={styles.logoImage}
-          resizeMode="contain"
-        />
-        <Text style={styles.logoSubtitle}>
-          O seu guia de experiências e espaços seguros
-        </Text>
+      {/* Header com Logo Linear */}
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <View style={styles.headerEsquerda}>
+          <Image
+            source={require('@/assets/images/logolinear-semfundo.png')}
+            style={styles.logoLinear}
+            resizeMode="contain"
+          />
+          <Text style={styles.appSubtitulo}>Conexões e Experiências LGBT+</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.profileBtn}
+          onPress={() => router.push('/(tabs)/profile')}
+          activeOpacity={0.8}
+        >
+          <Feather name="user" size={18} color="#D0D0E0" />
+        </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
-        {/* Dicas da Semana */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Dicas da Semana</Text>
+        {/* Busca e Localização */}
+        <View style={styles.buscaContainer}>
+          <Feather name="search" size={18} color={COLORS.textMuted} />
+          <TextInput
+            value={busca}
+            onChangeText={setBusca}
+            placeholder="Buscar por nome, bairro ou local (ex: São Paulo)..."
+            placeholderTextColor={COLORS.textMuted}
+            style={styles.buscaInput}
+          />
         </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
-          {HIGHLIGHTED_VENUES.map((venue) => (
-            <TouchableOpacity
-              key={venue.id}
-              style={styles.squareCard}
-              activeOpacity={0.85}
-              onPress={() => router.push(`/venue/${venue.id}`)}
-            >
-              <Image source={{ uri: venue.image }} style={styles.cardImage} />
-              <View style={[styles.cardOverlay, { backgroundColor: 'rgba(21, 17, 28, 0.65)' }]} />
-              
-              <View style={styles.cardContent}>
-                <View style={styles.badgeRow}>
-                  <HighlightBadge />
-                </View>
-
-                <View style={styles.venueInfoBottom}>
-                  <Text style={styles.venueTitle} numberOfLines={1}>{venue.name}</Text>
-                  
-                  <View style={styles.iconTextRow}>
-                    <Ionicons name="location-outline" size={12} color="#b6a6be" />
-                    <Text style={styles.venueSub} numberOfLines={1}>{venue.neighborhood}</Text>
-                  </View>
-                  
-                  <View style={styles.ratingContainer}>
-                    <RatingBadge rating={venue.rating} reviewCount={venue.reviewCount} />
-                  </View>
-                </View>
+        {/* 02. Banner Principal (Carrossel Único) */}
+        <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} style={styles.bannerScrollView}>
+          {BANNERS_PRINCIPAIS.map((b) => (
+            <View key={b.id} style={styles.bannerCard}>
+              <View style={[styles.bannerTag, { backgroundColor: b.cor }]}>
+                <Text style={styles.bannerTagText}>{b.tag}</Text>
               </View>
-            </TouchableOpacity>
+              <Text style={styles.bannerTitle}>{b.titulo}</Text>
+              <Text style={styles.bannerSub}>{b.sub}</Text>
+            </View>
           ))}
         </ScrollView>
 
-        {/* Em Alta na Cidade */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Em Alta na Cidade</Text>
+        {/* 03. Categorias (Carrossel Horizontal Sem Cortar Nomes) */}
+        <View style={styles.secaoBloco}>
+          <Text style={styles.sectionTituloPadrao}>Categorias</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriaScrollContent}>
+            {CATEGORY_ORDER.map((slug) => {
+              const cat = CATEGORIES[slug];
+              return (
+                <TouchableOpacity
+                  key={slug}
+                  style={styles.categoriaHorizontalItem}
+                  onPress={() => handleCategoryPress(cat)}
+                  activeOpacity={cat.emBreve ? 1 : 0.7}
+                >
+                  <View style={[styles.categoriaCircle, cat.emBreve && styles.categoriaDisabled]}>
+                    <Feather name={cat.icon as any} size={22} color={cat.emBreve ? COLORS.purple : cat.color} />
+                    {cat.emBreve && (
+                      <View style={styles.emBreveBadge}>
+                        <Text style={styles.emBreveTexto}>Em breve</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={[styles.categoriaLabel, cat.emBreve && { color: COLORS.textMuted }]}>
+                    {cat.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
         </View>
 
-        {MAIN_VENUES.map((item) => (
-          <TouchableOpacity
-            key={item.id}
-            style={styles.horizontalCard}
-            activeOpacity={0.85}
-            onPress={() => router.push(`/venue/${item.id}`)}
-          >
-            <Image source={{ uri: item.image }} style={styles.squareThumb} />
-
-            <View style={styles.horizontalBody}>
-              <View style={styles.cardHeaderRow}>
-                <Text style={styles.listTitle} numberOfLines={1}>{item.name}</Text>
-                <RatingBadge rating={item.rating} reviewCount={item.reviewCount} />
+        {/* 04. O que fazer hoje */}
+        <View style={styles.secaoBloco}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitulo}>O que fazer hoje</Text>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/events')}>
+              <Text style={styles.sectionVerTudo}>Ver tudo</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carrosselPadding}>
+            <TouchableOpacity style={styles.agendaCard} onPress={() => router.push('/(tabs)/events')}>
+              <View style={styles.agendaImageArea}><Feather name="calendar" size={24} color={COLORS.textMuted} /></View>
+              <View style={styles.agendaContent}>
+                <Text style={styles.agendaHorario}>22:00 • Centro</Text>
+                <Text style={styles.agendaTitulo}>Sunset Sessions</Text>
+                <Text style={styles.agendaDiferencial}>Karaokê & Drinks</Text>
               </View>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.agendaCard} onPress={() => router.push('/(tabs)/events')}>
+              <View style={styles.agendaImageArea}><Feather name="calendar" size={24} color={COLORS.textMuted} /></View>
+              <View style={styles.agendaContent}>
+                <Text style={styles.agendaHorario}>23:30 • Pinheiros</Text>
+                <Text style={styles.agendaTitulo}>Drag Cabaré Show</Text>
+                <Text style={styles.agendaDiferencial}>Performance ao vivo</Text>
+              </View>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
 
-              <Text style={styles.listSubtitle} numberOfLines={1}>
-                {item.category.toUpperCase()} • {item.neighborhood} • {item.distance}
-              </Text>
-
-              {item.deal && (
-                <View style={styles.dealTag}>
-                  <Ionicons name="ticket-outline" size={12} color={COLORS.accent} />
-                  <Text style={styles.dealText}>{item.deal}</Text>
-                </View>
-              )}
+        {/* 05. Dicas Trip em Destaque */}
+        <View style={styles.secaoBloco}>
+          <View style={styles.sectionHeaderRow}>
+            <View>
+              <Text style={styles.sectionTitulo}>Dicas Trip</Text>
+              <Text style={styles.sectionSubtitulo}>Destinos, hospedagens e roteiros LGBT+</Text>
             </View>
-          </TouchableOpacity>
-        ))}
+            <TouchableOpacity onPress={() => router.push('/business/tourism')}>
+              <Text style={styles.sectionVerTudo}>Explorar Turismo</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carrosselPadding}>
+            <TouchableOpacity style={styles.turismoCard} onPress={() => router.push('/business/tourism')}>
+              <Feather name="map-pin" size={18} color={COLORS.safeSpace} />
+              <Text style={styles.turismoTitulo}>Destinos em Destaque</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.turismoCard} onPress={() => router.push('/business/tourism')}>
+              <Feather name="home" size={18} color={COLORS.safeSpace} />
+              <Text style={styles.turismoTitulo}>Onde se Hospedar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.turismoCard} onPress={() => router.push('/business/tourism')}>
+              <Feather name="compass" size={18} color={COLORS.safeSpace} />
+              <Text style={styles.turismoTitulo}>Roteiros Recomendados</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
 
-        {/* Rodapé com Ícone PNG */}
-        <View style={styles.footerContainer}>
-          <View style={styles.footerLine} />
-          <Image 
-            source={require('../../context/logo-icon.png')} 
-            style={styles.footerIcon} 
-            resizeMode="contain"
-          />
-          <Text style={styles.footerText}>Feito com orgulho.</Text>
+        {/* 07. Escolha pela experiência (Direcionando para /experience/[tag]) */}
+        <View style={styles.secaoBloco}>
+          <Text style={styles.sectionTituloPadrao}>Escolha pela experiência</Text>
+          <View style={styles.experienciasGrid}>
+            {EXPERIENCIAS.map((exp) => (
+              <TouchableOpacity
+                key={exp}
+                style={styles.expChip}
+                onPress={() => router.push(`/experience/${encodeURIComponent(exp)}`)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.expChipText}>{exp}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* 08. Carnaval LGBT+ 2027 */}
+        <View style={styles.carnavalCard}>
+          <View style={styles.carnavalBadge}><Text style={styles.carnavalBadgeText}>EM BREVE</Text></View>
+          <Text style={styles.carnavalTitle}>Carnaval LGBT+ 2027</Text>
+          <Text style={styles.carnavalSub}>Guias, agenda de blocos e ativação oficial de notificações.</Text>
+          <TouchableOpacity style={styles.carnavalBtn} onPress={() => Alert.alert('Notificações', 'Você receberá as novidades do Carnaval 2027!')}>
+            <Text style={styles.carnavalBtnText}>Quero receber novidades</Text>
+          </TouchableOpacity>
         </View>
 
       </ScrollView>
@@ -170,117 +249,75 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background, paddingTop: Platform.OS === 'ios' ? 50 : 40 },
-  
-  headerCard: {
-    backgroundColor: '#000000',
-    marginHorizontal: 20,
-    marginBottom: 20,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    borderRadius: RADIUS.card,
-    alignItems: 'flex-start',
-    
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.6,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  logoImage: {
-    width: 200, // Logo ainda mais amplo e destacado
-    height: 62,
-    marginLeft: -16, // Encosta totalmente na borda esquerda útil da caixinha
-  },
-  logoSubtitle: {
-    ...TYPOGRAPHY.bodyMetadata,
-    color: '#a095a8',
-    marginTop: 2,
-    fontSize: 12,
-  },
+  container: { flex: 1, backgroundColor: COLORS.background },
+  scrollContent: { paddingBottom: 40 },
 
-  scrollContent: { paddingBottom: 60 },
-  
-  sectionHeader: { paddingHorizontal: 20, marginBottom: 14, marginTop: 4 },
-  sectionTitle: { ...TYPOGRAPHY.venueName, fontSize: 19 },
-  
-  carouselContainer: { paddingHorizontal: 20, gap: 14, marginBottom: 24 },
-  squareCard: {
-    width: 170,
-    height: 170,
-    borderRadius: RADIUS.card,
-    overflow: 'hidden',
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: 'rgba(182, 166, 190, 0.15)',
-  },
-  cardImage: { width: '100%', height: '100%', position: 'absolute' },
-  cardOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
-  cardContent: { flex: 1, padding: 14, justifyContent: 'space-between' },
-  badgeRow: { alignItems: 'flex-start' },
-  venueInfoBottom: { justifyContent: 'flex-end' },
-  venueTitle: { ...TYPOGRAPHY.venueName, fontSize: 17, color: '#FFF', marginBottom: 4 },
-  iconTextRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8 },
-  venueSub: { ...TYPOGRAPHY.captionTag, color: '#e0dce4', flex: 1 },
-  ratingContainer: { alignSelf: 'flex-start' },
-
-  horizontalCard: {
+  header: {
     flexDirection: 'row',
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.card,
-    marginHorizontal: 20,
-    marginBottom: 14,
-    padding: 12,
+    justifyContent: 'space-between',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(182, 166, 190, 0.15)',
-  },
-  squareThumb: {
-    width: 86,
-    height: 86,
-    borderRadius: RADIUS.card - 4,
-    backgroundColor: 'rgba(182, 166, 190, 0.15)',
-  },
-  horizontalBody: { flex: 1, marginLeft: 16, justifyContent: 'center' },
-  cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  listTitle: { ...TYPOGRAPHY.venueName, fontSize: 16, flex: 1, marginRight: 8 },
-  listSubtitle: { ...TYPOGRAPHY.bodyMetadata, color: COLORS.textSecondary, marginBottom: 10, fontSize: 12 },
-  dealTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 111, 160, 0.12)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: RADIUS.pill,
-    alignSelf: 'flex-start',
-    gap: 6,
-  },
-  dealText: { ...TYPOGRAPHY.captionTag, color: COLORS.accent, fontWeight: 'bold' },
-
-  footerContainer: {
-    alignItems: 'center',
-    marginTop: 30,
-    marginBottom: 20,
-    paddingHorizontal: 40,
-  },
-  footerLine: {
-    width: 40,
-    height: 2,
-    backgroundColor: 'rgba(182, 166, 190, 0.2)',
+    paddingHorizontal: 16,
     marginBottom: 16,
-    borderRadius: 1,
   },
-  footerIcon: {
-    width: 48,
-    height: 48,
-    opacity: 0.8,
-    marginBottom: 8,
+  headerEsquerda: { justifyContent: 'center' },
+  logoLinear: { width: 150, height: 36 },
+  appSubtitulo: { fontSize: 11, fontWeight: '500', color: COLORS.textSecondary, marginTop: 2 },
+  profileBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  footerText: {
-    ...TYPOGRAPHY.captionTag,
-    color: COLORS.textSecondary,
-    fontStyle: 'italic',
-  }
+
+  buscaContainer: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginBottom: 16, paddingHorizontal: 14, height: 44, borderRadius: 12, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
+  buscaInput: { flex: 1, color: COLORS.textPrimary, fontSize: 13 },
+
+  bannerScrollView: { marginBottom: 24, paddingLeft: 16 },
+  bannerCard: { width: 320, backgroundColor: COLORS.card, borderRadius: 16, padding: 16, marginRight: 12, borderWidth: 1, borderColor: COLORS.border },
+  bannerTag: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginBottom: 8 },
+  bannerTagText: { fontSize: 10, fontWeight: '800', color: '#000' },
+  bannerTitle: { fontSize: 16, fontWeight: '800', color: COLORS.textPrimary, marginBottom: 4 },
+  bannerSub: { fontSize: 12, color: COLORS.textSecondary },
+
+  secaoBloco: { marginBottom: 24 },
+  sectionTituloPadrao: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary, paddingHorizontal: 16, marginBottom: 12 },
+  sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 12 },
+  sectionTitulo: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary },
+  sectionSubtitulo: { fontSize: 11, color: COLORS.textSecondary, marginTop: 2 },
+  sectionVerTudo: { fontSize: 12, fontWeight: '600', color: COLORS.pink },
+
+  categoriaScrollContent: { paddingHorizontal: 16, gap: 12 },
+  categoriaHorizontalItem: { alignItems: 'center', width: 84 },
+  categoriaCircle: { width: 52, height: 52, borderRadius: 26, backgroundColor: COLORS.card, justifyContent: 'center', alignItems: 'center', marginBottom: 6, borderWidth: 1, borderColor: COLORS.border },
+  categoriaDisabled: { opacity: 0.5 },
+  emBreveBadge: { position: 'absolute', bottom: -4, backgroundColor: COLORS.purple, paddingHorizontal: 4, paddingVertical: 1, borderRadius: 4 },
+  emBreveTexto: { fontSize: 6, fontWeight: '800', color: '#FFF' },
+  categoriaLabel: { fontSize: 11, fontWeight: '600', color: COLORS.textPrimary, textAlign: 'center' },
+
+  carrosselPadding: { paddingHorizontal: 16, gap: 12 },
+  agendaCard: { width: 170, borderRadius: 14, backgroundColor: COLORS.card, overflow: 'hidden', borderWidth: 1, borderColor: COLORS.border },
+  agendaImageArea: { height: 80, backgroundColor: '#1A1926', justifyContent: 'center', alignItems: 'center' },
+  agendaContent: { padding: 10 },
+  agendaHorario: { fontSize: 11, fontWeight: '700', color: COLORS.pink, marginBottom: 2 },
+  agendaTitulo: { fontSize: 13, fontWeight: '700', color: COLORS.textPrimary },
+  agendaDiferencial: { fontSize: 11, color: COLORS.textSecondary, marginTop: 2 },
+
+  turismoCard: { width: 130, height: 95, borderRadius: 14, backgroundColor: COLORS.card, padding: 12, justifyContent: 'space-between', borderWidth: 1, borderColor: COLORS.border },
+  turismoTitulo: { fontSize: 12, fontWeight: '600', color: COLORS.textPrimary },
+
+  experienciasGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16 },
+  expChip: { backgroundColor: COLORS.card, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border },
+  expChipText: { fontSize: 12, fontWeight: '600', color: COLORS.purple },
+
+  carnavalCard: { marginHorizontal: 16, padding: 16, borderRadius: 16, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
+  carnavalBadge: { alignSelf: 'flex-start', backgroundColor: 'rgba(126, 87, 194, 0.2)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginBottom: 8 },
+  carnavalBadgeText: { fontSize: 9, fontWeight: '800', color: COLORS.purple },
+  carnavalTitle: { fontSize: 16, fontWeight: '800', color: COLORS.textPrimary, marginBottom: 4 },
+  carnavalSub: { fontSize: 12, color: COLORS.textSecondary, marginBottom: 12 },
+  carnavalBtn: { height: 40, backgroundColor: COLORS.purple, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  carnavalBtnText: { fontSize: 12, fontWeight: '700', color: '#FFF' },
 });
