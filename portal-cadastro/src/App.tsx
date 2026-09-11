@@ -1,87 +1,89 @@
-import { useEffect, useState } from 'react';
-import { AdminDashboard } from './components/AdminDashboard';
+import React, { useEffect, useState } from 'react';
+import AdminDashboard from './components/AdminDashboard';
+import AdminLogin from './components/AdminLogin';
 import { CadastroCompletoForm } from './components/CadastroCompletoForm';
-import { CadastroCupomExpressForm } from './components/CadastroCupomExpressForm';
+import { supabase } from './lib/supabase';
+// @ts-ignore
+import './App.css';
 
 export default function App() {
-  const [currentUrl, setCurrentUrl] = useState(() => window.location.href.toLowerCase());
+  const [currentView, setCurrentView] = useState<'form' | 'login' | 'admin'>('form');
+  const [session, setSession] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const handleUrlChange = () => {
-      setCurrentUrl(window.location.href.toLowerCase());
-    };
-    window.addEventListener('popstate', handleUrlChange);
-    window.addEventListener('hashchange', handleUrlChange);
-    return () => {
-      window.removeEventListener('popstate', handleUrlChange);
-      window.removeEventListener('hashchange', handleUrlChange);
-    };
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setLoading(false);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const isCupom = currentUrl.includes('/cupom') || currentUrl.includes('#/cupom') || currentUrl.includes('cupom');
-  const isAdmin = currentUrl.includes('/admin') || currentUrl.includes('#/admin') || currentUrl.includes('admin');
+  const handleNavigateToAdmin = () => {
+    if (session) {
+      setCurrentView('admin');
+    } else {
+      setCurrentView('login');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#09090b', color: '#FFF' }}>
+        <p>Carregando Portal B2B...</p>
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <nav style={{
-        backgroundColor: '#0B0A10',
-        borderBottom: '1px solid rgba(255,255,255,0.1)',
-        padding: '10px 16px',
-        display: 'flex',
-        justifyContent: 'center',
-        gap: '12px',
-        position: 'sticky',
-        top: 0,
-        zIndex: 1000
-      }}>
-        <a 
-          href="/" 
-          onClick={(e) => { e.preventDefault(); window.history.pushState({}, '', '/'); setCurrentUrl(window.location.href); }}
-          style={{
-            color: (!isCupom && !isAdmin) ? '#C084FC' : '#94A3B8',
-            fontWeight: (!isCupom && !isAdmin) ? 'bold' : 'normal',
-            textDecoration: 'none',
-            fontSize: '13px',
-            padding: '6px 12px',
-            borderRadius: '8px',
-            backgroundColor: (!isCupom && !isAdmin) ? 'rgba(124, 58, 237, 0.2)' : 'transparent'
-          }}
-        >
-          📝 Cadastro B2B
-        </a>
-        <a 
-          href="/cupom" 
-          onClick={(e) => { e.preventDefault(); window.history.pushState({}, '', '/cupom'); setCurrentUrl(window.location.href); }}
-          style={{
-            color: isCupom ? '#C084FC' : '#94A3B8',
-            fontWeight: isCupom ? 'bold' : 'normal',
-            textDecoration: 'none',
-            fontSize: '13px',
-            padding: '6px 12px',
-            borderRadius: '8px',
-            backgroundColor: isCupom ? 'rgba(124, 58, 237, 0.2)' : 'transparent'
-          }}
-        >
-          ⚡ Cupons Express
-        </a>
-        <a 
-          href="/admin" 
-          onClick={(e) => { e.preventDefault(); window.history.pushState({}, '', '/admin'); setCurrentUrl(window.location.href); }}
-          style={{
-            color: isAdmin ? '#C084FC' : '#94A3B8',
-            fontWeight: isAdmin ? 'bold' : 'normal',
-            textDecoration: 'none',
-            fontSize: '13px',
-            padding: '6px 12px',
-            borderRadius: '8px',
-            backgroundColor: isAdmin ? 'rgba(124, 58, 237, 0.2)' : 'transparent'
-          }}
-        >
-          🔐 Admin
-        </a>
+    <div className="App" style={{ minHeight: '100vh', backgroundColor: '#09090b' }}>
+      <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 24px', backgroundColor: '#18181b', borderBottom: '1px solid #27272a' }}>
+        <div style={{ cursor: 'pointer', fontWeight: 'bold', color: '#FFF' }} onClick={() => setCurrentView('form')}>
+          📍 Portal Parceiros B2B
+        </div>
+        <div>
+          {currentView === 'form' && (
+            <button
+              onClick={handleNavigateToAdmin}
+              style={{ background: 'transparent', border: '1px solid #3f3f46', color: '#a1a1aa', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}
+            >
+              Área Administrativa 🔒
+            </button>
+          )}
+          {currentView !== 'form' && (
+            <button
+              onClick={() => setCurrentView('form')}
+              style={{ background: '#8257e5', border: 'none', color: '#FFF', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}
+            >
+              ← Voltar ao Cadastro
+            </button>
+          )}
+        </div>
       </nav>
 
-      {isCupom ? <CadastroCupomExpressForm /> : isAdmin ? <AdminDashboard /> : <CadastroCompletoForm />}
+      <main style={{ paddingBottom: '40px' }}>
+        {currentView === 'form' && <CadastroCompletoForm />}
+        {currentView === 'login' && (
+          <AdminLogin
+            onLoginSuccess={() => setCurrentView('admin')}
+          />
+        )}
+        {currentView === 'admin' && (
+          <AdminDashboard
+            onLogout={() => {
+              supabase.auth.signOut();
+              setCurrentView('form');
+            }}
+          />
+        )}
+      </main>
     </div>
   );
 }

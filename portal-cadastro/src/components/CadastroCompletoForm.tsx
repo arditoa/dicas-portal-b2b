@@ -1,12 +1,12 @@
 import { supabase } from '@/lib/supabase';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { apenasDigitos, formatarDocumento } from '../lib/documento';
 import { formatarWhatsApp } from '../lib/whatsapp';
 import './CadastroCompletoForm.css';
 
 const WHATSAPP_SUPORTE = '5511942922028';
 
-// Categorias Principais (Sincronizadas)
+// Categorias Principais (Sincronizadas com o App)
 const CATEGORIAS_B2B = [
   'Bares & Vida Noturna',
   'Gastronomia',
@@ -20,7 +20,7 @@ const CATEGORIAS_B2B = [
   'Lazer'
 ];
 
-// Subcategorias Atualizadas
+// Subcategorias Atualizadas com Música ao vivo, Rooftops, Karaokês, Happy Hours e Parklet
 const SUBCATEGORIAS_B2B: Record<string, string[]> = {
   'Bares & Vida Noturna': ['Música ao vivo', 'Rooftops', 'Karaokês', 'Happy Hours', 'Parklet'],
   'Gastronomia': ['Restaurantes', 'Cafés', 'Padarias', 'Hamburguerias', 'Docerias', 'Vegano'],
@@ -29,7 +29,7 @@ const SUBCATEGORIAS_B2B: Record<string, string[]> = {
   'Dicas Trip (Turismo)': ['Hotéis', 'Pousadas', 'Roteiros Guiados', 'Pontos Turísticos']
 };
 
-// Preset de Experiências & Infraestrutura
+// Preset de Tags de Experiência e Infraestrutura
 const EXPERIENCIAS_PRESET = [
   'Date', 'Rolê com amigos', 'Dançar', 'Música ao vivo', 'Karaokê',
   'Drag show', 'Comer bem', 'Happy hour', 'Relaxar', 'Conhecer pessoas',
@@ -44,12 +44,13 @@ export function CadastroCompletoForm() {
   const [nomeEspaco, setNomeEspaco] = useState('');
   const [nomeFantasia, setNomeFantasia] = useState('');
 
-  // Taxonomia Sincronizada
+  // Taxonomia Sincronizada & Tags
   const [categoria, setCategoria] = useState('');
   const [subcategoria, setSubcategoria] = useState('');
   const [tagsSelecionadas, setTagsSelecionadas] = useState<string[]>([]);
   const [customTagInput, setCustomTagInput] = useState('');
 
+  // Endereço
   const [cep, setCep] = useState('');
   const [logradouro, setLogradouro] = useState('');
   const [numero, setNumero] = useState('');
@@ -58,6 +59,7 @@ export function CadastroCompletoForm() {
   const [cidade, setCidade] = useState('');
   const [uf, setUf] = useState('');
 
+  // Estados de Controle e Interface
   const [aceitouTermos, setAceitouTermos] = useState(false);
   const [liberado, setLiberado] = useState(false);
   const [modalTermosAberto, setModalTermosAberto] = useState(false);
@@ -73,7 +75,7 @@ export function CadastroCompletoForm() {
 
   const [partnerIdCriado, setPartnerIdCriado] = useState<string | null>(null);
 
-  // Consulta CNPJ Automática
+  // Consulta Automática de CNPJ (BrasilAPI)
   useEffect(() => {
     const limpo = apenasDigitos(doc);
     if (limpo.length === 14) {
@@ -98,7 +100,7 @@ export function CadastroCompletoForm() {
     }
   }, [doc]);
 
-  // Consulta CEP Automática
+  // Consulta Automática de CEP (ViaCEP)
   useEffect(() => {
     const limpo = apenasDigitos(cep);
     if (limpo.length === 8 && !logradouro) {
@@ -160,6 +162,7 @@ export function CadastroCompletoForm() {
     try {
       let currentPartnerId = partnerIdCriado;
 
+      // 1. Grava Lead Comercial primeiro (Partner)
       if (!currentPartnerId) {
         const { data: partner, error: pErr } = await supabase
           .from('partners')
@@ -178,6 +181,7 @@ export function CadastroCompletoForm() {
         setPartnerIdCriado(partner.id);
       }
 
+      // 2. Grava Dados do Local (Venue)
       const enderecoFormatado = `${logradouro || 'Endereço'}, ${numero || 'S/N'}${complemento ? ' - ' + complemento : ''}, ${bairro} - ${cidade}/${uf}`;
       
       const { error: vErr } = await supabase
@@ -235,6 +239,7 @@ export function CadastroCompletoForm() {
 
   return (
     <>
+      {/* Header Oficial B2B */}
       <header className="portal-header">
         <div className="portal-header__brand">
           <svg width="32" height="32" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -262,6 +267,7 @@ export function CadastroCompletoForm() {
           {statusMsg && <div style={{ color: '#C084FC', marginTop: '12px', fontWeight: '600' }}>{statusMsg}</div>}
         </div>
 
+        {/* ETAPA 1: Identificação */}
         <section className="cadastro-completo__secao">
           <h2>1. Identificação do Espaço</h2>
           <div className="campo">
@@ -378,13 +384,14 @@ export function CadastroCompletoForm() {
           </div>
         </section>
 
+        {/* ETAPA 2: Taxonomia & Identidade */}
         <section className={`cadastro-completo__secao ${!liberado ? 'cadastro-completo__secao--bloqueada' : ''}`}>
           <h2>2. Categorias, Subcategorias & Tags (Opcional)</h2>
           <p style={{ color: '#94A3B8', fontSize: '14px', marginTop: '-12px', marginBottom: '20px' }}>
             Selecione as categorias correspondentes e crie tags customizadas para o seu perfil.
           </p>
 
-          {/* Seleção de Categoria Principal */}
+          {/* Categorias Principais */}
           <div className="campo">
             <label>Categoria Principal</label>
             <div className="tag-grid">
@@ -404,7 +411,7 @@ export function CadastroCompletoForm() {
             </div>
           </div>
 
-          {/* Subcategoria Dinâmica */}
+          {/* Subcategorias Dinâmicas */}
           {categoria && SUBCATEGORIAS_B2B[categoria] && (
             <div className="campo">
               <label>Subcategoria de {categoria}</label>
@@ -440,7 +447,7 @@ export function CadastroCompletoForm() {
             </div>
           </div>
 
-          {/* Criar Tags Customizadas */}
+          {/* Adicionar Custom Tag */}
           <div className="campo">
             <label>Adicionar Tag Personalizada</label>
             <div style={{ display: 'flex', gap: '8px' }}>
@@ -461,7 +468,7 @@ export function CadastroCompletoForm() {
             </div>
           </div>
 
-          {/* Tags Escolhidas */}
+          {/* Resumo de Tags */}
           {tagsSelecionadas.length > 0 && (
             <div className="campo" style={{ marginTop: '16px' }}>
               <label style={{ fontSize: '12px', color: '#A1A1AA' }}>Tags selecionadas para este espaço:</label>
@@ -535,6 +542,7 @@ export function CadastroCompletoForm() {
           </div>
         </section>
 
+        {/* Botão Flutuante de Suporte */}
         <button
           type="button"
           onClick={() => abrirWhatsappSuporte()}
@@ -560,6 +568,7 @@ export function CadastroCompletoForm() {
           💬 Atendimento WhatsApp
         </button>
 
+        {/* Modal de Termos de Adesão */}
         {modalTermosAberto && (
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '16px' }}>
             <div style={{ backgroundColor: '#181420', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: '20px', maxWidth: '600px', width: '100%', maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.6)' }}>
