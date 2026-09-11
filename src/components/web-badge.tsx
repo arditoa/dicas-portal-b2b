@@ -1,43 +1,42 @@
-import { version } from 'expo/package.json';
-import { Image } from 'expo-image';
-import { useColorScheme, StyleSheet } from 'react-native';
+import { StyleSheet, Text, View, useColorScheme } from 'react-native';
 
-import { ThemedText } from './themed-text';
-import { ThemedView } from './themed-view';
-
-import { Spacing } from '@/constants/theme';
-
-export function WebBadge() {
+export default function WebBadge() {
   const scheme = useColorScheme();
 
   return (
-    <ThemedView style={styles.container}>
-      <ThemedText type="code" themeColor="textSecondary" style={styles.versionText}>
-        v{version}
-      </ThemedText>
-      <Image
-        source={
-          scheme === 'dark'
-            ? require('@/assets/images/expo-badge-white.png')
-            : require('@/assets/images/expo-badge.png')
-        }
-        style={styles.badgeImage}
-      />
-    </ThemedView>
+    <View style={styles.container}>
+      {/* Exibe o badge estilizado de forma nativa */}
+      <View style={[styles.badge, scheme === 'dark' ? styles.badgeDark : styles.badgeLight]}>
+        <Text style={styles.badgeText}>DICAS LGBT+</Text>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: Spacing.five,
     alignItems: 'center',
-    gap: Spacing.two,
+    justifyContent: 'center',
+    marginVertical: 10,
   },
-  versionText: {
-    textAlign: 'center',
+  badge: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
   },
-  badgeImage: {
-    width: 123,
-    aspectRatio: 123 / 24,
+  badgeDark: {
+    backgroundColor: '#1E1A29',
+    borderColor: '#E1306C',
+  },
+  badgeLight: {
+    backgroundColor: '#FFF',
+    borderColor: '#E1306C',
+  },
+  badgeText: {
+    color: '#E1306C',
+    fontWeight: '800',
+    fontSize: 14,
+    letterSpacing: 1,
   },
 });

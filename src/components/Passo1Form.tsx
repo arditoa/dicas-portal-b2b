@@ -1,5 +1,5 @@
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { WebBadge } from './web-badge';
+import WebBadge from './web-badge';
 
 export const CATEGORIES_LIST = [
   { slug: 'bares', label: 'Bares & Vida Noturna' },

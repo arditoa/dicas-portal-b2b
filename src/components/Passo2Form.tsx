@@ -1,6 +1,6 @@
 import { EXPERIENCES_TAGS_SIMPLE, MUSIC_STYLES, PUBLIC_VIBES } from '@/constants/tags';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { WebBadge } from './web-badge';
+import WebBadge from './web-badge';
 
 export interface Passo2Data {
   instagram: string;
