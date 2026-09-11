@@ -1,15 +1,19 @@
 {
   "expo": {
-    "name": "Dicas LGBT",
+    "name": "meu-app",
     "slug": "meu-app",
-    "privacy": "public",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
     "web": {
+      "bundler": "metro",
       "output": "single"
     },
     "plugins": [
-      "expo-router",
-      "expo-splash-screen",
-      "expo-status-bar"
-    ]
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
   }
 }
