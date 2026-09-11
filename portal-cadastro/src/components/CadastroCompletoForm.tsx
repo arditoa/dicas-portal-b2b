@@ -1,35 +1,40 @@
+import { supabase } from '@/lib/supabase';
 import { useEffect, useState } from 'react';
 import { apenasDigitos, formatarDocumento } from '../lib/documento';
-import { supabase } from '@/lib/supabase';
 import { formatarWhatsApp } from '../lib/whatsapp';
 import './CadastroCompletoForm.css';
 
 const WHATSAPP_SUPORTE = '5511942922028';
 
-const TAGS_VIBE = [
-  'Geral / Todos bem-vindos',
-  'Gay',
-  'Lésbico',
-  'Trans & Não-binário',
-  'Bissexual+',
-  'Drag',
-  'Ursos/Leather',
-  'Queer/Alternativo',
-  'Ballroom/Vogue',
-  'Fetiche'
+// Categorias Principais (Sincronizadas)
+const CATEGORIAS_B2B = [
+  'Bares & Vida Noturna',
+  'Gastronomia',
+  'Festas & Eventos',
+  'Cultura & Lazer',
+  'Dicas Trip (Turismo)',
+  'Beleza',
+  'Espaços 18+',
+  'Lojas',
+  'Serviços',
+  'Lazer'
 ];
 
-const ESTILOS_MUSICAIS = [
-  'Pop',
-  'Eletrônico / House / Techno',
-  'Funk',
-  'Samba / Pagode',
-  'MPB / Brasilidades',
-  'Sertanejo',
-  'Rock / Indie',
-  'Hip-Hop / R&B / Trap',
-  'Axé / Forró',
-  'Variado / Sem Música'
+// Subcategorias Atualizadas
+const SUBCATEGORIAS_B2B: Record<string, string[]> = {
+  'Bares & Vida Noturna': ['Música ao vivo', 'Rooftops', 'Karaokês', 'Happy Hours', 'Parklet'],
+  'Gastronomia': ['Restaurantes', 'Cafés', 'Padarias', 'Hamburguerias', 'Docerias', 'Vegano'],
+  'Festas & Eventos': ['Baladas', 'Festivais', 'Open Bar', 'Drag Shows', 'Sunsets'],
+  'Cultura & Lazer': ['Teatros', 'Centros Culturais', 'Cinemas', 'Exposições', 'Museus'],
+  'Dicas Trip (Turismo)': ['Hotéis', 'Pousadas', 'Roteiros Guiados', 'Pontos Turísticos']
+};
+
+// Preset de Experiências & Infraestrutura
+const EXPERIENCIAS_PRESET = [
+  'Date', 'Rolê com amigos', 'Dançar', 'Música ao vivo', 'Karaokê',
+  'Drag show', 'Comer bem', 'Happy hour', 'Relaxar', 'Conhecer pessoas',
+  'Passear', 'Aniversário', 'Aula de dança', 'Aula de forró',
+  'Acessível PCD', 'Pet Friendly', 'Wi-Fi Grátis', 'Estacionamento'
 ];
 
 export function CadastroCompletoForm() {
@@ -38,7 +43,12 @@ export function CadastroCompletoForm() {
   const [whatsapp, setWhatsapp] = useState('');
   const [nomeEspaco, setNomeEspaco] = useState('');
   const [nomeFantasia, setNomeFantasia] = useState('');
-  const [categoria, setCategoria] = useState('bar');
+
+  // Taxonomia Sincronizada
+  const [categoria, setCategoria] = useState('');
+  const [subcategoria, setSubcategoria] = useState('');
+  const [tagsSelecionadas, setTagsSelecionadas] = useState<string[]>([]);
+  const [customTagInput, setCustomTagInput] = useState('');
 
   const [cep, setCep] = useState('');
   const [logradouro, setLogradouro] = useState('');
@@ -54,10 +64,8 @@ export function CadastroCompletoForm() {
 
   const [bio, setBio] = useState('');
   const [instagram, setInstagram] = useState('');
-  const [estiloMusical, setEstiloMusical] = useState('');
   const [fotoCapa, setFotoCapa] = useState('');
   const [nomeArquivo, setNomeArquivo] = useState('');
-  const [tagsVibe, setTagsVibe] = useState<string[]>([]);
   const [statusMsg, setStatusMsg] = useState('');
   const [carregandoCnpj, setCarregandoCnpj] = useState(false);
   const [enviando, setEnviando] = useState(false);
@@ -65,6 +73,7 @@ export function CadastroCompletoForm() {
 
   const [partnerIdCriado, setPartnerIdCriado] = useState<string | null>(null);
 
+  // Consulta CNPJ Automática
   useEffect(() => {
     const limpo = apenasDigitos(doc);
     if (limpo.length === 14) {
@@ -89,6 +98,7 @@ export function CadastroCompletoForm() {
     }
   }, [doc]);
 
+  // Consulta CEP Automática
   useEffect(() => {
     const limpo = apenasDigitos(cep);
     if (limpo.length === 8 && !logradouro) {
@@ -123,6 +133,19 @@ export function CadastroCompletoForm() {
     }
   };
 
+  const toggleTag = (tag: string) => {
+    setTagsSelecionadas((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
+  };
+
+  const handleAddCustomTag = (e: React.FormEvent | React.MouseEvent) => {
+    e.preventDefault();
+    const formatted = customTagInput.trim();
+    if (formatted && !tagsSelecionadas.includes(formatted)) {
+      setTagsSelecionadas((prev) => [...prev, formatted]);
+      setCustomTagInput('');
+    }
+  };
+
   const concluirCadastro = async (e: React.MouseEvent) => {
     e.preventDefault();
 
@@ -149,9 +172,7 @@ export function CadastroCompletoForm() {
           .select()
           .single();
 
-        if (pErr) {
-          throw new Error(`Erro ao criar parceiro: ${pErr.message}`);
-        }
+        if (pErr) throw new Error(`Erro ao criar parceiro: ${pErr.message}`);
 
         currentPartnerId = partner.id;
         setPartnerIdCriado(partner.id);
@@ -164,18 +185,16 @@ export function CadastroCompletoForm() {
         .insert({
           partner_id: currentPartnerId,
           nome: nomeEspaco || nomeFantasia || 'Espaço sem nome',
-          categoria,
+          categoria: categoria || null,
+          subcategoria: subcategoria || null,
           endereco: enderecoFormatado,
           bio,
           instagram,
-          estilo_musical: estiloMusical,
           foto_capa: fotoCapa || null,
-          tags_publico_vibe: tagsVibe
+          tags: tagsSelecionadas
         });
 
-      if (vErr) {
-        throw new Error(`Erro ao criar local: ${vErr.message}`);
-      }
+      if (vErr) throw new Error(`Erro ao criar local: ${vErr.message}`);
 
       setSucessoConcluido(true);
     } catch (err: any) {
@@ -184,10 +203,6 @@ export function CadastroCompletoForm() {
     } finally {
       setEnviando(false);
     }
-  };
-
-  const toggleTag = (tag: string) => {
-    setTagsVibe((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
   };
 
   const abrirWhatsappSuporte = (opcao?: string) => {
@@ -235,7 +250,7 @@ export function CadastroCompletoForm() {
             <path d="M50 5C27.9 5 10 22.9 10 45C10 68 50 95 50 95C50 95 90 68 90 45C90 22.9 72.1 5 50 5ZM50 60C41.7 60 35 53.3 35 45C35 36.7 41.7 30 50 30C58.3 30 65 36.7 65 45C65 53.3 58.3 60 50 60Z" fill="url(#rainbowGrad)" />
           </svg>
           <div className="portal-header__title">
-            DICAS <span>LGBT+</span>
+            DICAS <span>PARCEIROS</span>
           </div>
         </div>
       </header>
@@ -298,16 +313,6 @@ export function CadastroCompletoForm() {
               value={nomeFantasia}
               onChange={(e) => setNomeFantasia(e.target.value)}
             />
-          </div>
-
-          <div className="campo">
-            <label>Categoria *</label>
-            <select value={categoria} onChange={(e) => setCategoria(e.target.value)}>
-              <option value="bar">Bar</option>
-              <option value="balada">Balada</option>
-              <option value="comer">Restaurante / Comer</option>
-              <option value="roteiro">Roteiro Cultural</option>
-            </select>
           </div>
 
           <fieldset className="cadastro-completo__endereco">
@@ -374,12 +379,108 @@ export function CadastroCompletoForm() {
         </section>
 
         <section className={`cadastro-completo__secao ${!liberado ? 'cadastro-completo__secao--bloqueada' : ''}`}>
-          <h2>2. Perfil e Identidade</h2>
+          <h2>2. Categorias, Subcategorias & Tags (Opcional)</h2>
           <p style={{ color: '#94A3B8', fontSize: '14px', marginTop: '-12px', marginBottom: '20px' }}>
-            Adicione detalhes do seu espaço para personalizar como ele aparecerá no app.
+            Selecione as categorias correspondentes e crie tags customizadas para o seu perfil.
           </p>
 
+          {/* Seleção de Categoria Principal */}
           <div className="campo">
+            <label>Categoria Principal</label>
+            <div className="tag-grid">
+              {CATEGORIAS_B2B.map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  className={`tag-chip ${categoria === cat ? 'tag-chip--marcado' : ''}`}
+                  onClick={() => {
+                    setCategoria(categoria === cat ? '' : cat);
+                    setSubcategoria('');
+                  }}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Subcategoria Dinâmica */}
+          {categoria && SUBCATEGORIAS_B2B[categoria] && (
+            <div className="campo">
+              <label>Subcategoria de {categoria}</label>
+              <div className="tag-grid">
+                {SUBCATEGORIAS_B2B[categoria].map((sub) => (
+                  <button
+                    key={sub}
+                    type="button"
+                    className={`tag-chip ${subcategoria === sub ? 'tag-chip--marcado' : ''}`}
+                    onClick={() => setSubcategoria(subcategoria === sub ? '' : sub)}
+                  >
+                    {sub}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Tags Preset */}
+          <div className="campo">
+            <label>Diferenciais & Infraestrutura</label>
+            <div className="tag-grid">
+              {EXPERIENCIAS_PRESET.map((exp) => (
+                <button
+                  key={exp}
+                  type="button"
+                  className={`tag-chip ${tagsSelecionadas.includes(exp) ? 'tag-chip--marcado' : ''}`}
+                  onClick={() => toggleTag(exp)}
+                >
+                  {exp}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Criar Tags Customizadas */}
+          <div className="campo">
+            <label>Adicionar Tag Personalizada</label>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type="text"
+                placeholder="Ex: Open Bar de Chope Artesanal..."
+                value={customTagInput}
+                onChange={(e) => setCustomTagInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAddCustomTag(e)}
+              />
+              <button
+                type="button"
+                onClick={handleAddCustomTag}
+                style={{ backgroundColor: '#A855F7', color: '#FFF', border: 'none', borderRadius: '8px', padding: '0 16px', fontWeight: 'bold', cursor: 'pointer' }}
+              >
+                + Criar
+              </button>
+            </div>
+          </div>
+
+          {/* Tags Escolhidas */}
+          {tagsSelecionadas.length > 0 && (
+            <div className="campo" style={{ marginTop: '16px' }}>
+              <label style={{ fontSize: '12px', color: '#A1A1AA' }}>Tags selecionadas para este espaço:</label>
+              <div className="tag-grid">
+                {tagsSelecionadas.map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    className="tag-chip tag-chip--marcado"
+                    onClick={() => toggleTag(tag)}
+                  >
+                    {tag} ✕
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="campo" style={{ marginTop: '20px' }}>
             <label>Instagram do Espaço</label>
             <input
               type="text"
@@ -387,22 +488,6 @@ export function CadastroCompletoForm() {
               value={instagram}
               onChange={(e) => setInstagram(e.target.value)}
             />
-          </div>
-
-          <div className="campo">
-            <label>Estilo Musical Predominante</label>
-            <div className="tag-grid">
-              {ESTILOS_MUSICAIS.map((estilo) => (
-                <button
-                  key={estilo}
-                  type="button"
-                  className={`tag-chip ${estiloMusical === estilo ? 'tag-chip--marcado' : ''}`}
-                  onClick={() => setEstiloMusical(estilo)}
-                >
-                  {estilo}
-                </button>
-              ))}
-            </div>
           </div>
 
           <div className="campo">
@@ -432,22 +517,6 @@ export function CadastroCompletoForm() {
                 <img src={fotoCapa} alt="Preview da capa" style={{ width: '100%', maxHeight: '200px', objectFit: 'cover', borderRadius: '12px' }} />
               </div>
             )}
-          </div>
-
-          <div className="campo">
-            <label>Público & Vibe</label>
-            <div className="tag-grid">
-              {TAGS_VIBE.map((tag) => (
-                <button
-                  key={tag}
-                  type="button"
-                  className={`tag-chip ${tagsVibe.includes(tag) ? 'tag-chip--marcado' : ''}`}
-                  onClick={() => toggleTag(tag)}
-                >
-                  {tag}
-                </button>
-              ))}
-            </div>
           </div>
 
           <div style={{ marginTop: '32px' }}>
