@@ -1,4 +1,3 @@
-import { supabase } from '../../lib/supabase';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -14,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import MapView, { Callout, Marker } from 'react-native-maps';
+import { supabase } from '../../lib/supabase';
 
 // 1. Chips de Categoria Principal
 const CATEGORY_CHIPS = [
