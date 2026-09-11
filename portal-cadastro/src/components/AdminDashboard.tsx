@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import './AdminDashboard.css';
-import { supabase } from '../lib/supabase';
+import { supabase } from '@/lib/supabase';
 
 const ADMIN_USER = 'admin@dicaslgbt.com';
 const ADMIN_PASS = 'DicasAdmin2026!';

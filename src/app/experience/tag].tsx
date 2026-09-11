@@ -12,7 +12,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '@/lib/supabase';
 
 const COLORS = {
   background: '#0B0B0E',

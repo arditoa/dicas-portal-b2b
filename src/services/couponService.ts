@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { Coupon } from '../types/coupon';
 
 export const couponService = {

@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { supabase } from '@/lib/supabase';
 
 export const vipService = {
   async joinList(eventId: string, fullName: string, email: string) {

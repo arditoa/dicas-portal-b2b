@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, Linking, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { THEME } from '../constants/theme';
-import { supabase } from '../lib/supabase';
+import { supabase } from '@/lib/supabase';
 
 const WebBrowser = (() => {
   try {

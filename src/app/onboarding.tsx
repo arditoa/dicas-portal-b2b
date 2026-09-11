@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { supabase } from '../lib/supabase';
+import { supabase } from '@/lib/supabase';
 
 export default function OnboardingScreen() {
   const router = useRouter();

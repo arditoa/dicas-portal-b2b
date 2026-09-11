@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { supabase } from '@/lib/supabase';
 
 export const doorService = {
   // Buscar convidados da Lista VIP para a portaria
