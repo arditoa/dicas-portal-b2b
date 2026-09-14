@@ -1,32 +1,32 @@
-import { Alert } from 'react-native';
-import { supabase } from './supabase';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
-export async function ensureSession() {
-  const { data: { session } } = await supabase.auth.getSession();
-  return session;
+const SEGREDO_JWT = process.env.JWT_SECRET;
+const HORAS_VALIDADE_TOKEN = 12;
+
+if (!SEGREDO_JWT && process.env.NODE_ENV !== 'test') {
+  throw new Error(
+    'JWT_SECRET não está definido nas variáveis de ambiente do backend.'
+  );
 }
 
-export async function requireAuthAction(
-  router: any,
-  actionDescription: string,
-  onAuthenticated: () => void
-) {
-  const session = await ensureSession();
+export interface PayloadToken {
+  usuarioId: string;
+  papel: 'moderador' | 'admin';
+}
 
-  if (!session?.user) {
-    Alert.alert(
-      'Cadastro Necessário 🌈',
-      `Para ${actionDescription}, você precisa criar uma conta rápida ou entrar na sua conta.`,
-      [
-        { text: 'Agora não', style: 'cancel' },
-        {
-          text: 'Criar Conta / Entrar',
-          onPress: () => router.push('/register'),
-        },
-      ]
-    );
-    return;
-  }
+export async function gerarHashSenha(senhaEmTexto: string): Promise<string> {
+  return bcrypt.hash(senhaEmTexto, 12);
+}
 
-  onAuthenticated();
+export async function conferirSenha(senhaEmTexto: string, hashGuardado: string): Promise<boolean> {
+  return bcrypt.compare(senhaEmTexto, hashGuardado);
+}
+
+export function gerarTokenSessao(payload: PayloadToken): string {
+  return jwt.sign(payload, SEGREDO_JWT as string, { expiresIn: `${HORAS_VALIDADE_TOKEN}h` });
+}
+
+export function verificarTokenSessao(token: string): PayloadToken {
+  return jwt.verify(token, SEGREDO_JWT as string) as PayloadToken;
 }
