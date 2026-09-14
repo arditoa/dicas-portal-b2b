@@ -2,19 +2,19 @@ import { Building2, Calendar, Check, Home as HomeIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
-export default function OnboardingPage() {
+export default function Home() {
   return (
     <div className="min-h-screen bg-[#111217] text-white flex flex-col justify-center items-center p-6">
       <div className="max-w-5xl w-full space-y-8">
         
         {/* Header com Logo */}
         <div className="flex items-center gap-3">
-          <div className="relative h-10 w-40">
+          <div className="relative h-12 w-48">
             <Image
-              src="/logo.png"
+              src="/logos-dicasapp-semfundo (2).png"
               alt="Dicas LGBT+ Parceiros"
-              width={160}
-              height={40}
+              width={192}
+              height={48}
               className="object-contain"
               priority
             />
