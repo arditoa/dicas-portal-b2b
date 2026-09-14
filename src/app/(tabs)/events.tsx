@@ -2,98 +2,249 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
+  Alert,
   Image,
   Modal,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const MUSIC_STYLES = ['Funk', 'Pop/Eletrônica', 'Sertanejo', 'Drag/Cabaré', 'MPB/Samba', 'Techno/House'];
-const AUDIENCES = ['Todos os Públicos', 'Gay', 'Lésbica', 'Trans+', 'Bi+', 'Ursos'];
+// Importe o seu cliente do Supabase
+import { supabase } from '../../lib/supabase';
 
-const EVENTS_DATA = [
-  { id: 'noite-aberta', title: 'Noite Aberta', location: 'Zig Club', dateText: 'Sáb • 23h', type: 'Eventos', color: '#2558A6' },
-  { id: 'drink-duplo-night', title: 'Drink Duplo Night', location: 'Castro Bar', dateText: 'Qui • 20h', type: 'Eventos', color: '#5C25A6' },
-  { id: 'roteiro-guiado', title: 'Roteiro guiado — edição especial', location: 'Centro', dateText: 'Dom • 10h', type: 'Eventos', color: '#258BA6' },
+const COLORS = {
+  background: '#0B0B0E',
+  card: '#161520',
+  border: '#232230',
+  textPrimary: '#FFFFFF',
+  textSecondary: '#A0A0B2',
+  textMuted: '#626274',
+  pink: '#E1306C',
+  purple: '#7E57C2',
+  gold: '#FFD54F',
+  green: '#4CAF7D',
+};
+
+// 🎵 Filtros por Estilo Musical
+const MUSIC_FILTERS = [
+  { id: 'todos_estilos', label: 'Todos os Estilos' },
+  { id: 'pop', label: 'Pop & Funk' },
+  { id: 'eletronico', label: 'Eletrônico' },
+  { id: 'brasilidades', label: 'Brasilidades & Axé' },
+  { id: 'rock', label: 'Rock & Indie' },
+  { id: 'samba', label: 'Samba & Pagode' },
 ];
 
-const ANNOUNCEMENTS_DATA = [
-  {
-    id: 'camara-lgbt',
-    title: 'Acompanhe as pautas na Câmara',
-    subtitle: 'Direito & Legislação',
-    description: 'Fique atento aos projetos de lei e audiências públicas em pauta na Câmara que impactam diretamente os direitos da nossa comunidade.',
-    icon: 'award',
-    color: '#7E57C2',
-    actionText: 'Ver pautas da Câmara',
-    route: '/denunciar',
-  },
-  {
-    id: 'central-denuncia',
-    title: 'Central de Denúncias Segura',
-    subtitle: 'Apoio & Proteção',
-    description: 'Sofreu ou presenciou discriminação ou LGBTfobia em algum estabelecimento? Faça seu relato de forma anônima e segura.',
-    icon: 'shield-off',
-    color: '#E1306C',
-    actionText: 'Fazer Denúncia Anônima',
-    route: '/denunciar',
-  },
+// 🌈 Filtros por Perfil / Público da Festa
+const PUBLIC_FILTERS = [
+  { id: 'todos_publicos', label: 'Todos os Públicos' },
+  { id: 'gay', label: 'Gay' },
+  { id: 'lesbica', label: 'Lésbica' },
+  { id: 'trans', label: 'Trans & Non-Binary' },
+  { id: 'drag', label: 'Drag Shows' },
+  { id: 'ursos', label: 'Bears & Ursos' },
 ];
 
-export default function AgendaScreen() {
+// OPÇÕES DE DATAS NO CALENDÁRIO MODAL
+const CALENDAR_DATES = [
+  { id: 'hoje', label: 'Hoje', sub: 'Eventos acontecendo agora' },
+  { id: 'amanha', label: 'Amanhã', sub: 'Agenda de amanhã' },
+  { id: 'fds', label: 'Este Fim de Semana', sub: 'Sábado & Domingo' },
+  { id: 'proximo_fds', label: 'Próximo Fim de Semana', sub: 'Destaques futuros' },
+];
+
+interface EventItem {
+  id: string;
+  title: string;
+  date: string;
+  dateTag: 'hoje' | 'amanha' | 'fds';
+  location: string;
+  price: string;
+  musicGenre: string;
+  publicType: string;
+  isVIP?: boolean;
+  hasGuestList: boolean;
+}
+
+export default function EventsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const [activeTab, setActiveTab] = useState<'events' | 'announcements'>('events');
-  const [selectedPeriod, setSelectedPeriod] = useState('week');
+  // STATUS DE AUTENTICAÇÃO (Mudar para true ao testar logado ou conectar com Supabase Auth)
+  const isUserLogged = false;
 
-  const [musicSheetVisible, setMusicSheetVisible] = useState(false);
-  const [selectedMusicStyles, setSelectedMusicStyles] = useState<string[]>([]);
+  const [dateFilter, setDateFilter] = useState<string>('hoje');
+  const [selectedMusic, setSelectedMusic] = useState('todos_estilos');
+  const [selectedPublic, setSelectedPublic] = useState('todos_publicos');
+  
+  // Modais
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const [selectedEventForList, setSelectedEventForList] = useState<EventItem | null>(null);
+  
+  // Campos do formulário de Lista VIP
+  const [userName, setUserName] = useState('');
+  const [userCpf, setUserCpf] = useState('');
+  const [userEmail, setUserEmail] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const [audienceSheetVisible, setAudienceSheetVisible] = useState(false);
-  const [selectedAudiences, setSelectedAudiences] = useState<string[]>(['Todos os Públicos']);
+  const events: EventItem[] = [
+    {
+      id: 'ev1',
+      title: 'Sunset Sessions & Karaoke Pop',
+      date: 'Hoje • 18:00',
+      dateTag: 'hoje',
+      location: 'Castro Burger • Vila Mariana',
+      price: 'Entrada Grátis',
+      musicGenre: 'pop',
+      publicType: 'gay',
+      isVIP: true,
+      hasGuestList: true,
+    },
+    {
+      id: 'ev2',
+      title: 'Noite Pop & Drag Cabaré',
+      date: 'Hoje • 23:00',
+      dateTag: 'hoje',
+      location: 'Zig Club • Baixo Augusta',
+      price: 'R$ 30,00 com lista',
+      musicGenre: 'pop',
+      publicType: 'drag',
+      isVIP: true,
+      hasGuestList: true,
+    },
+    {
+      id: 'ev3',
+      title: 'Festa Lésbica SAPHO Sunset',
+      date: 'Sábado • 16:00',
+      dateTag: 'fds',
+      location: 'Rooftop Augusta • Centro',
+      price: 'R$ 35,00',
+      musicGenre: 'brasilidades',
+      publicType: 'lesbica',
+      isVIP: false,
+      hasGuestList: true,
+    },
+    {
+      id: 'ev4',
+      title: 'Tribal Tech & Dark Room',
+      date: 'Sábado • 23:59',
+      dateTag: 'fds',
+      location: 'Warehouse • Barra Funda',
+      price: 'R$ 60,00',
+      musicGenre: 'eletronico',
+      publicType: 'gay',
+      isVIP: true,
+      hasGuestList: false,
+    },
+    {
+      id: 'ev5',
+      title: 'Bear Party & Rock Indie',
+      date: 'Domingo • 17:00',
+      dateTag: 'fds',
+      location: 'Pub Destaque • Jardins',
+      price: 'R$ 25,00',
+      musicGenre: 'rock',
+      publicType: 'ursos',
+      isVIP: false,
+      hasGuestList: false,
+    },
+  ];
 
-  const [dateSheetVisible, setDateSheetVisible] = useState(false);
-  const [selectedDateFilter, setSelectedDateFilter] = useState('Todas as datas');
+  const filteredEvents = events.filter((ev) => {
+    if (dateFilter !== 'todos' && dateFilter === 'hoje' && ev.dateTag !== 'hoje') return false;
+    if (dateFilter === 'fds' && ev.dateTag !== 'fds') return false;
+    if (selectedMusic !== 'todos_estilos' && ev.musicGenre !== selectedMusic) return false;
+    if (selectedPublic !== 'todos_publicos' && ev.publicType !== selectedPublic) return false;
+    return true;
+  });
 
-  const toggleAudience = (item: string) => {
-    if (item === 'Todos os Públicos') {
-      setSelectedAudiences(['Todos os Públicos']);
+  // TRAVA DE LOGIN AO CLICAR NO EVENTO
+  const handleEventClick = (eventItem: EventItem) => {
+    if (!eventItem.hasGuestList) {
+      Alert.alert('Evento sem Lista', 'Este evento não possui opção de envio de nome na lista VIP.');
       return;
     }
-    let updated = selectedAudiences.filter((a) => a !== 'Todos os Públicos');
-    if (updated.includes(item)) {
-      updated = updated.filter((a) => a !== item);
-    } else {
-      updated.push(item);
+
+    if (!isUserLogged) {
+      Alert.alert(
+        'Acesso Restrito',
+        'Crie sua conta ou entre no app para colocar seu nome na lista VIP do evento.',
+        [
+          { text: 'Agora não', style: 'cancel' },
+          { text: 'Entrar / Criar Conta', onPress: () => router.push('/(tabs)/profile') },
+        ]
+      );
+      return;
     }
-    if (updated.length === 0) updated = ['Todos os Públicos'];
-    setSelectedAudiences(updated);
+
+    setSelectedEventForList(eventItem);
   };
 
-  const toggleMusicStyle = (item: string) => {
-    if (selectedMusicStyles.includes(item)) {
-      setSelectedMusicStyles(selectedMusicStyles.filter((s) => s !== item));
-    } else {
-      setSelectedMusicStyles([...selectedMusicStyles, item]);
+  // ENVIO DO NOME E CPF PARA O SUPABASE
+  const handleSendNameToList = async () => {
+    if (!userName.trim()) {
+      Alert.alert('Atenção', 'Por favor, digite seu nome completo.');
+      return;
+    }
+    if (!userCpf.trim()) {
+      Alert.alert('Atenção', 'Por favor, informe seu CPF para validação na portaria.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { error } = await supabase
+        .from('event_guest_lists')
+        .insert([
+          {
+            event_id: selectedEventForList?.id,
+            full_name: userName.trim(),
+            cpf: userCpf.trim(),
+            email: userEmail.trim() || null,
+          },
+        ]);
+
+      if (error) {
+        console.error('Erro ao enviar nome para o Supabase:', error);
+        Alert.alert('Erro', 'Não foi possível salvar seu nome na lista VIP. Tente novamente.');
+        setLoading(false);
+        return;
+      }
+
+      Alert.alert(
+        'Nome Confirmado!',
+        `Seu nome (${userName}) e CPF foram inseridos com sucesso na lista VIP de ${selectedEventForList?.title}. Apresente seu documento na portaria!`
+      );
+
+      setSelectedEventForList(null);
+      setUserName('');
+      setUserCpf('');
+      setUserEmail('');
+    } catch (err) {
+      console.error('Erro de conexão:', err);
+      Alert.alert('Erro inesperado', 'Ocorreu um problema ao comunicar com o servidor.');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <View style={styles.container}>
-      {/* Header com o mesmo aliamento do Explorar */}
+      {/* HEADER */}
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <View style={styles.headerEsquerda}>
           <Image
-            source={require('@/assets/images/logolinear-semfundo.png')}
+            source={require('../../assets/images/logolinear-semfundo.png')}
             style={styles.logoLinear}
             resizeMode="contain"
           />
-          <Text style={styles.appSubtitulo}>Agenda & Programação LGBT+</Text>
+          <Text style={styles.appSubtitulo}>Conexões e Experiências LGBT+</Text>
         </View>
         <TouchableOpacity
           style={styles.profileBtn}
@@ -104,231 +255,263 @@ export default function AgendaScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
-        {/* Toggle Principal */}
-        <View style={styles.toggleContainer}>
-          <TouchableOpacity
-            style={[styles.toggleBtn, activeTab === 'events' && styles.toggleBtnActive]}
-            onPress={() => setActiveTab('events')}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.toggleText, activeTab === 'events' && styles.toggleTextActive]}>
-              Eventos
-            </Text>
-          </TouchableOpacity>
+        {/* TÍTULO E BOTÕES DE SELEÇÃO DE DATA */}
+        <View style={styles.titleArea}>
+          <Text style={styles.mainTitle}>Eventos</Text>
+          
+          <View style={styles.dateSelectorRow}>
+            <TouchableOpacity
+              style={[styles.dateBtn, dateFilter === 'hoje' && styles.dateBtnActive]}
+              onPress={() => setDateFilter('hoje')}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.dateBtnText, dateFilter === 'hoje' && styles.dateBtnTextActive]}>
+                Hoje
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.toggleBtn, activeTab === 'announcements' && styles.toggleBtnActive]}
-            onPress={() => setActiveTab('announcements')}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.toggleText, activeTab === 'announcements' && styles.toggleTextActive]}>
-              Comunicados
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.dateBtn, dateFilter === 'fds' && styles.dateBtnActive]}
+              onPress={() => setDateFilter('fds')}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.dateBtnText, dateFilter === 'fds' && styles.dateBtnTextActive]}>
+                Próximos
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.calendarIconBtn}
+              onPress={() => setShowCalendarModal(true)}
+              activeOpacity={0.8}
+            >
+              <Feather name="calendar" size={16} color={COLORS.pink} />
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* Conteúdo Eventos */}
-        {activeTab === 'events' && (
-          <>
-            <View style={styles.periodRow}>
-              <TouchableOpacity
-                style={[styles.periodChip, selectedPeriod === 'week' && styles.periodChipActive]}
-                onPress={() => setSelectedPeriod('week')}
-              >
-                <Text style={[styles.periodText, selectedPeriod === 'week' && styles.periodTextActive]}>Esta semana</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.periodChip, selectedPeriod === 'month' && styles.periodChipActive]}
-                onPress={() => setSelectedPeriod('month')}
-              >
-                <Text style={[styles.periodText, selectedPeriod === 'month' && styles.periodTextActive]}>Este mês</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.periodChip, selectedPeriod === 'saved' && styles.periodChipActive]}
-                onPress={() => setSelectedPeriod('saved')}
-              >
-                <Text style={[styles.periodText, selectedPeriod === 'saved' && styles.periodTextActive]}>Salvos</Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersScroll}>
-              <TouchableOpacity
-                style={[styles.dropdownBtn, selectedMusicStyles.length > 0 && styles.dropdownBtnActive]}
-                onPress={() => setMusicSheetVisible(true)}
-              >
-                <Feather name="music" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
-                <Text style={styles.dropdownText}>
-                  {selectedMusicStyles.length > 0 ? `Música (${selectedMusicStyles.length})` : 'Estilo musical'}
-                </Text>
-                <Feather name="chevron-down" size={14} color="#A0A0B2" style={{ marginLeft: 4 }} />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.dropdownBtn, !selectedAudiences.includes('Todos os Públicos') && styles.dropdownBtnActive]}
-                onPress={() => setAudienceSheetVisible(true)}
-              >
-                <Feather name="users" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
-                <Text style={styles.dropdownText}>
-                  {!selectedAudiences.includes('Todos os Públicos') ? `Público (${selectedAudiences.length})` : 'Público'}
-                </Text>
-                <Feather name="chevron-down" size={14} color="#A0A0B2" style={{ marginLeft: 4 }} />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.dropdownBtn, selectedDateFilter !== 'Todas as datas' && styles.dropdownBtnActive]}
-                onPress={() => setDateSheetVisible(true)}
-              >
-                <Feather name="calendar" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
-                <Text style={styles.dropdownText}>{selectedDateFilter}</Text>
-              </TouchableOpacity>
-            </ScrollView>
-
-            <View style={styles.eventsList}>
-              {EVENTS_DATA.map((event) => (
+        {/* FILEIRA 1: Estilo Musical */}
+        <View style={styles.filterSection}>
+          <Text style={styles.filterLabel}>Estilo Musical</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
+            {MUSIC_FILTERS.map((item) => {
+              const isSelected = selectedMusic === item.id;
+              return (
                 <TouchableOpacity
-                  key={event.id}
-                  style={styles.eventCard}
-                  onPress={() => router.push(`/business/${event.id}`)}
-                  activeOpacity={0.88}
+                  key={item.id}
+                  style={[styles.musicChip, isSelected && styles.musicChipActive]}
+                  onPress={() => setSelectedMusic(item.id)}
+                  activeOpacity={0.8}
                 >
-                  <View style={[styles.eventThumb, { backgroundColor: event.color }]} />
-                  <View style={styles.eventInfo}>
-                    <View style={styles.tagBadge}>
-                      <Text style={styles.tagText}>{event.type}</Text>
-                    </View>
-                    <Text style={styles.eventTitle}>{event.title}</Text>
-                    <Text style={styles.eventSubtext}>{event.location} • {event.dateText}</Text>
-                  </View>
+                  <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
+                    {item.label}
+                  </Text>
                 </TouchableOpacity>
-              ))}
-            </View>
-          </>
-        )}
+              );
+            })}
+          </ScrollView>
+        </View>
 
-        {/* Conteúdo Comunicados */}
-        {activeTab === 'announcements' && (
-          <View style={styles.announcementsList}>
-            {ANNOUNCEMENTS_DATA.map((item) => (
-              <View key={item.id} style={styles.announcementCard}>
-                <View style={styles.announcementHeader}>
-                  <View style={[styles.announcementIconBox, { backgroundColor: item.color + '22' }]}>
-                    <Feather name={item.icon as any} size={20} color={item.color} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.announcementSubtitle}>{item.subtitle}</Text>
-                    <Text style={styles.announcementTitle}>{item.title}</Text>
-                  </View>
+        {/* FILEIRA 2: Público / Perfil */}
+        <View style={styles.filterSection}>
+          <Text style={styles.filterLabel}>Público & Perfil</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
+            {PUBLIC_FILTERS.map((item) => {
+              const isSelected = selectedPublic === item.id;
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[styles.publicChip, isSelected && styles.publicChipActive]}
+                  onPress={() => setSelectedPublic(item.id)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        {/* LISTA DE EVENTOS */}
+        <View style={styles.listArea}>
+          <View style={styles.listHeaderRow}>
+            <Text style={styles.sectionTitle}>
+              {dateFilter === 'hoje' ? 'Agenda de Hoje' : 'Próximos Eventos'}
+            </Text>
+            <Text style={styles.eventCount}>{filteredEvents.length} eventos</Text>
+          </View>
+
+          {filteredEvents.length === 0 ? (
+            <View style={styles.emptyBox}>
+              <Feather name="calendar" size={32} color={COLORS.textMuted} />
+              <Text style={styles.emptyText}>Nenhum evento encontrado para esse filtro.</Text>
+            </View>
+          ) : (
+            filteredEvents.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={[styles.eventCard, !item.hasGuestList && styles.eventCardDisabled]}
+                onPress={() => handleEventClick(item)}
+                activeOpacity={item.hasGuestList ? 0.85 : 1}
+              >
+                <View style={styles.eventThumb}>
+                  <Feather name="calendar" size={20} color={COLORS.pink} />
                 </View>
 
-                <Text style={styles.announcementDesc}>{item.description}</Text>
+                <View style={{ flex: 1 }}>
+                  <View style={styles.eventHeaderRow}>
+                    <Text style={styles.eventDate}>{item.date}</Text>
+                    {item.hasGuestList && (
+                      <View style={styles.guestListBadge}>
+                        <Feather name="edit-3" size={9} color={COLORS.green} />
+                        <Text style={styles.guestListBadgeText}>NOME NA LISTA</Text>
+                      </View>
+                    )}
+                  </View>
 
-                <TouchableOpacity
-                  style={[styles.announcementBtn, { backgroundColor: item.color }]}
-                  onPress={() => router.push(item.route as any)}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.announcementBtnText}>{item.actionText}</Text>
-                  <Feather name="arrow-right" size={16} color="#FFF" />
-                </TouchableOpacity>
-              </View>
-            ))}
-          </View>
-        )}
+                  <Text style={styles.eventTitle}>{item.title}</Text>
+                  <Text style={styles.eventLocation}>{item.location}</Text>
+                  <Text style={styles.eventPrice}>{item.price}</Text>
+                </View>
+
+                <Feather
+                  name={item.hasGuestList ? 'user-plus' : 'chevron-right'}
+                  size={18}
+                  color={item.hasGuestList ? COLORS.pink : '#606070'}
+                />
+              </TouchableOpacity>
+            ))
+          )}
+        </View>
 
       </ScrollView>
 
-      {/* Modais de Filtro */}
-      <Modal visible={musicSheetVisible} transparent animationType="slide">
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setMusicSheetVisible(false)}>
-          <View style={styles.modalSheet}>
-            <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>Estilo Musical</Text>
-              <TouchableOpacity onPress={() => setMusicSheetVisible(false)}>
-                <Feather name="x" size={20} color="#FFF" />
+      {/* MODAL 1: CALENDÁRIO */}
+      <Modal
+        visible={showCalendarModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCalendarModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowCalendarModal(false)}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Feather name="calendar" size={18} color={COLORS.pink} />
+                <Text style={styles.modalTitle}>Filtrar por Data</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowCalendarModal(false)}>
+                <Feather name="x" size={20} color={COLORS.textSecondary} />
               </TouchableOpacity>
             </View>
-            <View style={styles.chipsWrap}>
-              {MUSIC_STYLES.map((style) => {
-                const isSelected = selectedMusicStyles.includes(style);
-                return (
-                  <TouchableOpacity
-                    key={style}
-                    style={[styles.sheetChip, isSelected && styles.sheetChipActive]}
-                    onPress={() => toggleMusicStyle(style)}
-                  >
-                    <Text style={[styles.sheetChipText, isSelected && styles.sheetChipTextActive]}>{style}</Text>
-                  </TouchableOpacity>
-                );
-              })}
+
+            <View style={styles.modalOptionsList}>
+              {CALENDAR_DATES.map((opt) => (
+                <TouchableOpacity
+                  key={opt.id}
+                  style={[
+                    styles.modalOptionCard,
+                    dateFilter === opt.id && styles.modalOptionActive,
+                  ]}
+                  onPress={() => {
+                    setDateFilter(opt.id);
+                    setShowCalendarModal(false);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.modalOptionTitle}>{opt.label}</Text>
+                  <Text style={styles.modalOptionSub}>{opt.sub}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
-            <TouchableOpacity style={styles.applyBtn} onPress={() => setMusicSheetVisible(false)}>
-              <Text style={styles.applyBtnText}>Aplicar Filtro</Text>
-            </TouchableOpacity>
           </View>
         </TouchableOpacity>
       </Modal>
 
-      <Modal visible={audienceSheetVisible} transparent animationType="slide">
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setAudienceSheetVisible(false)}>
-          <View style={styles.modalSheet}>
-            <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>Público Alvo</Text>
-              <TouchableOpacity onPress={() => setAudienceSheetVisible(false)}>
-                <Feather name="x" size={20} color="#FFF" />
+      {/* MODAL 2: NOME NA LISTA VIP COM INTEGRACAO SUPABASE */}
+      <Modal
+        visible={selectedEventForList !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedEventForList(null)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setSelectedEventForList(null)}
+        >
+          <TouchableOpacity activeOpacity={1} style={styles.listModalContent}>
+            <View style={styles.modalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Feather name="user-check" size={20} color={COLORS.pink} />
+                <Text style={styles.modalTitle}>Lista VIP do Evento</Text>
+              </View>
+              <TouchableOpacity onPress={() => setSelectedEventForList(null)}>
+                <Feather name="x" size={20} color={COLORS.textSecondary} />
               </TouchableOpacity>
             </View>
-            <View style={styles.chipsWrap}>
-              {AUDIENCES.map((aud) => {
-                const isSelected = selectedAudiences.includes(aud);
-                return (
-                  <TouchableOpacity
-                    key={aud}
-                    style={[styles.sheetChip, isSelected && styles.sheetChipActive]}
-                    onPress={() => toggleAudience(aud)}
-                  >
-                    <Text style={[styles.sheetChipText, isSelected && styles.sheetChipTextActive]}>{aud}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-            <TouchableOpacity style={styles.applyBtn} onPress={() => setAudienceSheetVisible(false)}>
-              <Text style={styles.applyBtnText}>Aplicar Filtro</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
 
-      <Modal visible={dateSheetVisible} transparent animationType="slide">
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setDateSheetVisible(false)}>
-          <View style={styles.modalSheet}>
-            <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>Filtrar por Data</Text>
-              <TouchableOpacity onPress={() => setDateSheetVisible(false)}>
-                <Feather name="x" size={20} color="#FFF" />
-              </TouchableOpacity>
+            {selectedEventForList && (
+              <View style={{ marginBottom: 16 }}>
+                <Text style={styles.listEventName}>{selectedEventForList.title}</Text>
+                <Text style={styles.listEventSub}>{selectedEventForList.location} • {selectedEventForList.date}</Text>
+              </View>
+            )}
+
+            <View style={styles.formGroup}>
+              <Text style={styles.inputLabel}>Nome Completo (Como no documento)</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Ex: Gabriel Silva"
+                placeholderTextColor={COLORS.textMuted}
+                value={userName}
+                onChangeText={setUserName}
+              />
             </View>
-            <View style={styles.chipsWrap}>
-              {['Todas as datas', 'Hoje', 'Amanhã', 'Fim de Semana'].map((opt) => {
-                const isSelected = selectedDateFilter === opt;
-                return (
-                  <TouchableOpacity
-                    key={opt}
-                    style={[styles.sheetChip, isSelected && styles.sheetChipActive]}
-                    onPress={() => {
-                      setSelectedDateFilter(opt);
-                      setDateSheetVisible(false);
-                    }}
-                  >
-                    <Text style={[styles.sheetChipText, isSelected && styles.sheetChipTextActive]}>{opt}</Text>
-                  </TouchableOpacity>
-                );
-              })}
+
+            <View style={styles.formGroup}>
+              <Text style={styles.inputLabel}>CPF (Para validação na portaria)</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="000.000.000-00"
+                placeholderTextColor={COLORS.textMuted}
+                value={userCpf}
+                onChangeText={setUserCpf}
+                keyboardType="numeric"
+              />
             </View>
-          </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.inputLabel}>E-mail (Opcional)</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="seuemail@exemplo.com"
+                placeholderTextColor={COLORS.textMuted}
+                value={userEmail}
+                onChangeText={setUserEmail}
+                keyboardType="email-address"
+              />
+            </View>
+
+            <TouchableOpacity 
+              style={[styles.submitListBtn, loading && { opacity: 0.6 }]} 
+              onPress={handleSendNameToList} 
+              activeOpacity={0.88}
+              disabled={loading}
+            >
+              <Text style={styles.submitListBtnText}>
+                {loading ? 'Enviando...' : 'Enviar Nome e CPF para a Lista'}
+              </Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
 
@@ -337,7 +520,8 @@ export default function AgendaScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0B0B0E' },
+  container: { flex: 1, backgroundColor: COLORS.background },
+  scrollContent: { paddingBottom: 40 },
 
   header: {
     flexDirection: 'row',
@@ -348,65 +532,78 @@ const styles = StyleSheet.create({
   },
   headerEsquerda: { justifyContent: 'center' },
   logoLinear: { width: 150, height: 36 },
-  appSubtitulo: { fontSize: 11, fontWeight: '500', color: '#A0A0B2', marginTop: 2 },
+  appSubtitulo: { fontSize: 11, fontWeight: '500', color: COLORS.textSecondary, marginTop: 2 },
   profileBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#161520',
+    backgroundColor: COLORS.card,
     borderWidth: 1,
-    borderColor: '#232230',
+    borderColor: COLORS.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
 
-  scrollContent: { paddingHorizontal: 16, paddingBottom: 40 },
+  titleArea: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 12 },
+  mainTitle: { fontSize: 24, fontWeight: '800', color: COLORS.textPrimary },
   
-  toggleContainer: { flexDirection: 'row', backgroundColor: '#161520', borderRadius: 14, padding: 4, borderWidth: 1, borderColor: '#232230', marginBottom: 20 },
-  toggleBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
-  toggleBtnActive: { backgroundColor: '#E1306C' },
-  toggleText: { fontSize: 14, fontWeight: '700', color: '#A0A0B2' },
-  toggleTextActive: { color: '#FFFFFF' },
+  dateSelectorRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  dateBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
+  dateBtnActive: { backgroundColor: COLORS.pink, borderColor: COLORS.pink },
+  dateBtnText: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary },
+  dateBtnTextActive: { color: '#FFF', fontWeight: '700' },
+  calendarIconBtn: { width: 32, height: 32, borderRadius: 10, backgroundColor: COLORS.card, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
 
-  periodRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
-  periodChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230' },
-  periodChipActive: { backgroundColor: '#E1306C', borderColor: '#E1306C' },
-  periodText: { fontSize: 13, fontWeight: '600', color: '#A0A0B2' },
-  periodTextActive: { color: '#FFFFFF' },
+  filterSection: { marginBottom: 12 },
+  filterLabel: { fontSize: 12, fontWeight: '700', color: COLORS.textSecondary, paddingHorizontal: 16, marginBottom: 6 },
+  chipsRow: { paddingHorizontal: 16, gap: 8 },
 
-  filtersScroll: { gap: 8, marginBottom: 24 },
-  dropdownBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#161520', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#232230' },
-  dropdownBtnActive: { backgroundColor: '#E1306C', borderColor: '#E1306C' },
-  dropdownText: { fontSize: 13, color: '#FFFFFF', fontWeight: '500' },
+  musicChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 18, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
+  musicChipActive: { backgroundColor: COLORS.pink, borderColor: COLORS.pink },
 
-  eventsList: { gap: 12 },
-  eventCard: { flexDirection: 'row', backgroundColor: '#161520', borderRadius: 16, padding: 12, borderWidth: 1, borderColor: '#232230', gap: 12 },
-  eventThumb: { width: 64, height: 64, borderRadius: 12 },
-  eventInfo: { flex: 1, justifyContent: 'center' },
-  tagBadge: { alignSelf: 'flex-start', backgroundColor: '#202B42', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, marginBottom: 4 },
-  tagText: { fontSize: 10, fontWeight: '700', color: '#5C6BC0' },
-  eventTitle: { fontSize: 15, fontWeight: '700', color: '#FFFFFF', marginBottom: 2 },
-  eventSubtext: { fontSize: 12, color: '#A0A0B2' },
+  publicChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 18, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
+  publicChipActive: { backgroundColor: COLORS.purple, borderColor: COLORS.purple },
 
-  announcementsList: { gap: 16 },
-  announcementCard: { backgroundColor: '#161520', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#232230' },
-  announcementHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
-  announcementIconBox: { width: 42, height: 42, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-  announcementSubtitle: { fontSize: 11, fontWeight: '700', color: '#606070', letterSpacing: 0.5 },
-  announcementTitle: { fontSize: 16, fontWeight: '800', color: '#FFFFFF' },
-  announcementDesc: { fontSize: 13, color: '#A0A0B2', lineHeight: 18, marginBottom: 16 },
-  announcementBtn: { flexDirection: 'row', height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center', gap: 8 },
-  announcementBtnText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
+  chipText: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary },
+  chipTextActive: { color: '#FFF', fontWeight: '700' },
 
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  modalSheet: { backgroundColor: '#161520', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, borderWidth: 1, borderColor: '#232230' },
-  sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  sheetTitle: { fontSize: 18, fontWeight: '800', color: '#FFF' },
-  chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
-  sheetChip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, backgroundColor: '#232230', borderWidth: 1, borderColor: '#3D3D4E' },
-  sheetChipActive: { backgroundColor: '#E1306C', borderColor: '#E1306C' },
-  sheetChipText: { fontSize: 13, color: '#A0A0B2', fontWeight: '600' },
-  sheetChipTextActive: { color: '#FFF' },
-  applyBtn: { backgroundColor: '#E1306C', height: 48, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-  applyBtnText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
+  listArea: { paddingHorizontal: 16, marginTop: 8 },
+  listHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  sectionTitle: { fontSize: 17, fontWeight: '800', color: COLORS.textPrimary },
+  eventCount: { fontSize: 12, color: COLORS.textSecondary, fontWeight: '600' },
+
+  eventCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.card, padding: 14, borderRadius: 18, borderWidth: 1, borderColor: COLORS.border, gap: 12, marginBottom: 10 },
+  eventCardDisabled: { opacity: 0.6 },
+  eventThumb: { width: 48, height: 48, borderRadius: 14, backgroundColor: 'rgba(225, 48, 108, 0.12)', justifyContent: 'center', alignItems: 'center' },
+  eventHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 },
+  eventDate: { fontSize: 11, fontWeight: '700', color: COLORS.pink },
+  guestListBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(76, 175, 125, 0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  guestListBadgeText: { fontSize: 8, fontWeight: '800', color: COLORS.green },
+  eventTitle: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary },
+  eventLocation: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
+  eventPrice: { fontSize: 11, fontWeight: '700', color: COLORS.purple, marginTop: 4 },
+
+  emptyBox: { padding: 30, alignItems: 'center', gap: 10, backgroundColor: COLORS.card, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, marginTop: 10 },
+  emptyText: { fontSize: 13, color: COLORS.textSecondary, textAlign: 'center' },
+
+  // Modais
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.75)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 },
+  modalContent: { width: '100%', backgroundColor: COLORS.card, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: COLORS.border },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  modalTitle: { fontSize: 16, fontWeight: '800', color: COLORS.textPrimary },
+  modalOptionsList: { gap: 10 },
+  modalOptionCard: { padding: 14, borderRadius: 14, backgroundColor: '#0B0B0E', borderWidth: 1, borderColor: COLORS.border },
+  modalOptionActive: { borderColor: COLORS.pink, backgroundColor: 'rgba(225, 48, 108, 0.12)' },
+  modalOptionTitle: { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary },
+  modalOptionSub: { fontSize: 11, color: COLORS.textSecondary, marginTop: 2 },
+
+  // Modal Nome na Lista VIP
+  listModalContent: { width: '100%', backgroundColor: COLORS.card, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: COLORS.border },
+  listEventName: { fontSize: 16, fontWeight: '800', color: COLORS.pink },
+  listEventSub: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
+  formGroup: { marginBottom: 12 },
+  inputLabel: { fontSize: 12, fontWeight: '700', color: COLORS.textSecondary, marginBottom: 6 },
+  textInput: { height: 44, borderRadius: 12, backgroundColor: '#0B0B0E', borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 14, color: COLORS.textPrimary, fontSize: 13 },
+  submitListBtn: { height: 46, backgroundColor: COLORS.pink, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginTop: 8 },
+  submitListBtnText: { fontSize: 13, fontWeight: '800', color: '#FFF' },
 });

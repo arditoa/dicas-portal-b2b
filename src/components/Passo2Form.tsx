@@ -1,4 +1,4 @@
-import { EXPERIENCES_TAGS_SIMPLE, MUSIC_STYLES, PUBLIC_VIBES } from '@/constants/tags';
+import { EXPERIENCES_TAGS_SIMPLE, MUSIC_STYLES, PUBLIC_VIBES } from '../constants/tags';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import WebBadge from './web-badge';
 

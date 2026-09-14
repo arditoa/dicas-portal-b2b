@@ -1,64 +1,83 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity } from 'react-native';
-
-export interface Cupom {
-  id: string;
-  codigo_cupom: string;
-  titulo_oferta: string;
-  descricao_regras?: string;
-  desconto_porcentagem?: number;
-  desconto_valor_fixo?: number;
-  data_validade: string;
-}
+import { Feather } from '@expo/vector-icons';
+import { useState } from 'react';
+import { Alert, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 
 interface CouponModalProps {
   visible: boolean;
-  cupom: Cupom | null;
   onClose: () => void;
+  estabelecimento: string;
+  tituloCupom: string;
+  codigo: string;
 }
 
-export function CouponModal({ visible, cupom, onClose }: CouponModalProps) {
-  const [copiado, setCopiado] = useState(false);
+export function CouponModal({
+  visible,
+  onClose,
+  estabelecimento,
+  tituloCupom,
+  codigo,
+}: CouponModalProps) {
+  const [usado, setUsado] = useState(false);
 
-  if (!cupom) return null;
-
-  const handleCopiar = () => {
-    setCopiado(true);
-    setTimeout(() => setCopiado(false), 2000);
+  const handleConfirmarUso = () => {
+    Alert.alert(
+      'Confirmar Uso',
+      'Você confirma que apresentou este cupom no estabelecimento e o desconto foi aplicado?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Sim, confirmar',
+          onPress: () => {
+            setUsado(true);
+            setTimeout(() => {
+              onClose();
+              setUsado(false);
+            }, 1500);
+          },
+        },
+      ]
+    );
   };
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <View style={styles.content}>
-          <Text style={styles.badge}>🏷️ OFERTA EXCLUSIVA</Text>
-          <Text style={styles.title}>{cupom.titulo_oferta}</Text>
-          
-          <Text style={styles.discountText}>
-            {cupom.desconto_porcentagem ? `${cupom.desconto_porcentagem}% OFF` : `R$ ${cupom.desconto_valor_fixo} OFF`}
-          </Text>
-
-          {/* Caixas do Codigo */}
-          <View style={styles.codeContainer}>
-            <Text style={styles.codeText}>{cupom.codigo_cupom}</Text>
-          </View>
-
-          {cupom.descricao_regras ? (
-            <Text style={styles.regras}>Regras: {cupom.descricao_regras}</Text>
-          ) : null}
-
-          <Text style={styles.validade}>
-            Válido até: {new Date(cupom.data_validade).toLocaleDateString('pt-BR')}
-          </Text>
-
-          <TouchableOpacity style={styles.copyButton} onPress={handleCopiar}>
-            <Text style={styles.copyButtonText}>
-              {copiado ? '✓ Código Copiado!' : 'Copiar Código do Cupom'}
-            </Text>
+        <View style={styles.card}>
+          <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
+            <Feather name="x" size={20} color="#A0A0B2" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-            <Text style={styles.closeButtonText}>Fechar</Text>
+          <View style={styles.badgeTag}>
+            <Text style={styles.badgeText}>CUPOM EXCLUSIVO LGBT+</Text>
+          </View>
+
+          <Text style={styles.placeName}>{estabelecimento}</Text>
+          <Text style={styles.couponTitle}>{tituloCupom}</Text>
+
+          {/* QR CODE PARA ESCANEAR NO LOCAL */}
+          <View style={styles.qrContainer}>
+            <QRCode value={codigo} size={140} backgroundColor="#FFFFFF" color="#0B0B0E" />
+          </View>
+
+          <Text style={styles.codeLabel}>CÓDIGO DE VALIDAÇÃO</Text>
+          <View style={styles.codeBox}>
+            <Text style={styles.codeText}>{codigo}</Text>
+          </View>
+
+          <Text style={styles.instruction}>
+            Apresente a tela do seu celular para o atendente ou garçom no momento do pagamento.
+          </Text>
+
+          <TouchableOpacity
+            style={[styles.confirmBtn, usado && styles.confirmBtnSuccess]}
+            onPress={handleConfirmarUso}
+            disabled={usado}
+          >
+            <Feather name={usado ? "check-circle" : "check"} size={16} color="#FFF" />
+            <Text style={styles.confirmBtnText}>
+              {usado ? 'Cupom Utilizado!' : 'Marcar como Utilizado'}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -67,17 +86,19 @@ export function CouponModal({ visible, cupom, onClose }: CouponModalProps) {
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  content: { backgroundColor: '#FFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, alignItems: 'center' },
-  badge: { backgroundColor: '#ECFDF5', color: '#059669', fontSize: 12, fontWeight: 'bold', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, marginBottom: 8 },
-  title: { fontSize: 20, fontWeight: 'bold', color: '#0F172A', textAlign: 'center' },
-  discountText: { fontSize: 28, fontWeight: '900', color: '#059669', marginVertical: 8 },
-  codeContainer: { backgroundColor: '#F1F5F9', borderStyle: 'dashed', borderWidth: 2, borderColor: '#CBD5E1', borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12, marginVertical: 12 },
-  codeText: { fontSize: 22, fontWeight: 'bold', color: '#0F172A', letterSpacing: 2 },
-  regras: { fontSize: 13, color: '#64748B', textAlign: 'center', marginBottom: 4 },
-  validade: { fontSize: 12, color: '#94A3B8', marginBottom: 20 },
-  copyButton: { backgroundColor: '#059669', width: '100%', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
-  copyButtonText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
-  closeButton: { paddingVertical: 12, marginTop: 8 },
-  closeButtonText: { color: '#64748B', fontSize: 14, fontWeight: '600' },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  card: { width: '100%', backgroundColor: '#161520', borderRadius: 20, padding: 20, alignItems: 'center', borderWidth: 1, borderColor: '#232230' },
+  closeBtn: { alignSelf: 'flex-end', padding: 4 },
+  badgeTag: { backgroundColor: 'rgba(255, 213, 79, 0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, marginBottom: 8 },
+  badgeText: { fontSize: 10, fontWeight: '800', color: '#FFD54F' },
+  placeName: { fontSize: 13, color: '#A0A0B2', fontWeight: '600' },
+  couponTitle: { fontSize: 18, fontWeight: '800', color: '#FFF', textAlign: 'center', marginTop: 2, marginBottom: 16 },
+  qrContainer: { padding: 12, backgroundColor: '#FFF', borderRadius: 16, marginBottom: 16 },
+  codeLabel: { fontSize: 10, fontWeight: '700', color: '#626274', letterSpacing: 1 },
+  codeBox: { backgroundColor: '#0B0B0E', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: '#232230', marginVertical: 6 },
+  codeText: { fontSize: 16, fontWeight: '800', color: '#E1306C', letterSpacing: 2 },
+  instruction: { fontSize: 11, color: '#A0A0B2', textAlign: 'center', marginVertical: 12, lineHeight: 16 },
+  confirmBtn: { width: '100%', height: 44, backgroundColor: '#E1306C', borderRadius: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 4 },
+  confirmBtnSuccess: { backgroundColor: '#4CAF7D' },
+  confirmBtnText: { color: '#FFF', fontWeight: '700', fontSize: 13 },
 });

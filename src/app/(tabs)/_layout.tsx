@@ -7,40 +7,40 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: '#E1306C',
-        tabBarInactiveTintColor: '#606070',
+        tabBarInactiveTintColor: '#626274',
         tabBarStyle: {
-          backgroundColor: '#1C1B26',
-          borderTopColor: '#2D2B3D',
+          backgroundColor: '#161520',
+          borderTopColor: '#232230',
           height: 60,
           paddingBottom: 8,
-          paddingTop: 8,
+          paddingTop: 6,
         },
       }}
     >
-      {/* 1. Início */}
+      {/* 1. Início (Home) */}
       <Tabs.Screen
         name="index"
         options={{
           title: 'Início',
-          tabBarIcon: ({ color, size }) => <Feather name="home" size={size} color={color} />,
+          tabBarIcon: ({ color }) => <Feather name="compass" size={20} color={color} />,
         }}
       />
 
-      {/* 2. Explorar */}
+      {/* 2. Mapa (Puxa os dados da tela explore.tsx) */}
       <Tabs.Screen
         name="explore"
         options={{
-          title: 'Explorar',
-          tabBarIcon: ({ color, size }) => <Feather name="map-pin" size={size} color={color} />,
+          title: 'Mapa',
+          tabBarIcon: ({ color }) => <Feather name="map-pin" size={20} color={color} />,
         }}
       />
 
-      {/* 3. Agenda */}
+      {/* 3. Eventos */}
       <Tabs.Screen
         name="events"
         options={{
-          title: 'Agenda',
-          tabBarIcon: ({ color, size }) => <Feather name="calendar" size={size} color={color} />,
+          title: 'Eventos',
+          tabBarIcon: ({ color }) => <Feather name="calendar" size={20} color={color} />,
         }}
       />
 
@@ -49,29 +49,15 @@ export default function TabLayout() {
         name="profile"
         options={{
           title: 'Perfil',
-          tabBarIcon: ({ color, size }) => <Feather name="user" size={size} color={color} />,
+          tabBarIcon: ({ color }) => <Feather name="user" size={20} color={color} />,
         }}
       />
 
-      {/* Abas OCULTAS do Rodapé */}
-      <Tabs.Screen
-        name="rewards"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="tourism"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="categories"
-        options={{
-          href: null,
-        }}
-      />
+      {/* Ocultar abas secundárias da barra inferior */}
+      <Tabs.Screen name="categories" options={{ href: null }} />
+      <Tabs.Screen name="category" options={{ href: null }} />
+      <Tabs.Screen name="rewards" options={{ href: null }} />
+      <Tabs.Screen name="tourism" options={{ href: null }} />
     </Tabs>
   );
 }

@@ -1,6 +1,6 @@
-import Passo1Form, { Passo1Data } from '@/components/Passo1Form';
-import Passo2Form, { Passo2Data } from '@/components/Passo2Form';
-import { supabase } from '@/lib/supabase';
+import Passo1Form, { Passo1Data } from '../../components/Passo1Form';
+import Passo2Form, { Passo2Data } from '../../components/Passo2Form';
+import { supabase } from '../../lib/supabase';
 import { useState } from 'react';
 import {
   ScrollView,

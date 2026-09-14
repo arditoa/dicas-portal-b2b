@@ -1,0 +1,206 @@
+=== MAPA DE ESTRUTURA DO PROJETO ===
+Gerado em: Sat Sep 12 14:27:03 -03 2026
+
+--- ESTRUTURA DE PASTAS (src/) ---
+src
+src/app
+src/App.tsx
+src/app/_layout.tsx
+src/app/(tabs)
+src/app/(tabs)/_layout.tsx
+src/app/(tabs)/categories.tsx
+src/app/(tabs)/events.tsx
+src/app/(tabs)/explore.tsx
+src/app/(tabs)/index.tsx
+src/app/(tabs)/profile.tsx
+src/app/(tabs)/rewards.tsx
+src/app/(tabs)/tourism.tsx
+src/app/+not-found.tsx
+src/app/auth
+src/app/auth/login.tsx
+src/app/auth/register.tsx
+src/app/banner
+src/app/banner/[id].tsx
+src/app/business
+src/app/business/[id].tsx
+src/app/business/advertise.tsx
+src/app/business/cadastre-seu-espaco.tsx
+src/app/business/coupons.tsx
+src/app/business/dashboard.tsx
+src/app/business/door.tsx
+src/app/business/indicar.tsx
+src/app/business/register.tsx
+src/app/categories
+src/app/categories/[id].tsx
+src/app/categories/culture.tsx
+src/app/categories/gastronomy.tsx
+src/app/categories/tourism.tsx
+src/app/coupons.tsx
+src/app/denunciar.tsx
+src/app/experience
+src/app/experience/[tag].tsx
+src/app/experience/tag].tsx
+src/app/favorites.tsx
+src/app/index.tsx
+src/app/indicar-amigo.tsx
+src/app/near.tsx
+src/app/onboarding.tsx
+src/app/plans.tsx
+src/app/privacy.tsx
+src/app/promotions.tsx
+src/app/rewards.tsx
+src/app/services
+src/app/services/actions.ts
+src/app/services/actions.ts/supabase.ts
+src/app/tourism
+src/app/tourism/[type].tsx
+src/app/venue
+src/app/venue/[id].tsx
+src/assets
+src/assets/images
+src/assets/images/ícone-dicasapp-semfundo (2).png
+src/assets/images/logo-full.png
+src/assets/images/logo-icon.png
+src/assets/images/logolinear-semfundo.png
+src/components
+src/components/AdminModeration.tsx
+src/components/animated-icon.module.css
+src/components/animated-icon.tsx
+src/components/animated-icon.web.tsx
+src/components/app-tabs.tsx
+src/components/app-tabs.web.tsx
+src/components/CategoryChips.tsx
+src/components/CategoryIconStrip.tsx
+src/components/CheckinButton.tsx
+src/components/CollapsibleSection.tsx
+src/components/CompactVenueCard.tsx
+src/components/CouponModal.tsx
+src/components/ExperienceFilterModal.tsx
+src/components/external-link.tsx
+src/components/FeaturedCard.tsx
+src/components/FilterButton.tsx
+src/components/FilterSheet.tsx
+src/components/GestaoCupons.tsx
+src/components/GestaoFestas.tsx
+src/components/HighlightBadge.tsx
+src/components/hint-row.tsx
+src/components/ItineraryCard.tsx
+src/components/MapLegend.tsx
+src/components/MapView.native.tsx
+src/components/MapView.tsx
+src/components/MapView.web.tsx
+src/components/PartyFeed.tsx
+src/components/Passo1Form.tsx
+src/components/Passo2Form.tsx
+src/components/RatingBadge.tsx
+src/components/SafeSpaceInfoModal.tsx
+src/components/SegmentedToggle.tsx
+src/components/SkeletonCard.tsx
+src/components/SponsorBadge.tsx
+src/components/themed-text.tsx
+src/components/themed-view.tsx
+src/components/ui
+src/components/ui/collapsible.tsx
+src/components/VenueCard.tsx
+src/components/VenueListItem.tsx
+src/components/VipListForm.tsx
+src/components/web-badge.tsx
+src/constants
+src/constants/tags.ts
+src/constants/theme.ts
+src/context
+src/context/AppContext.tsx
+src/context/AuthContext.tsx
+src/context/CouponsContext.tsx
+src/context/FavoritesContext.tsx
+src/context/logo-icon.png
+src/context/logo.jpg
+src/global.css
+src/hooks
+src/hooks/use-color-scheme.ts
+src/hooks/use-color-scheme.web.ts
+src/hooks/use-theme.ts
+src/hooks/useCoupons.ts
+src/hooks/useLocation.ts
+src/hooks/useUserLocation.ts
+src/hooks/useVenues.ts
+src/hooks/useVipList.ts
+src/lib
+src/lib/admin.ts
+src/lib/api.ts
+src/lib/auth.ts
+src/lib/authContext.tsx
+src/lib/categories
+src/lib/config.ts
+src/lib/coupons.ts
+src/lib/events.ts
+src/lib/partner.ts
+src/lib/supabase.ts
+src/lib/types.ts
+src/lib/venue.ts
+src/lib/venues.ts
+src/screens
+src/screens/CategoryScreen.js
+src/screens/HomeScreen.js
+src/services
+src/services/actions.ts
+src/services/analytics.ts
+src/services/businessService.ts
+src/services/cnpj.ts
+src/services/couponService.ts
+src/services/database.ts
+src/services/DoorCheckin.tsx
+src/services/doorService.ts
+src/services/supabase.ts
+src/services/vipListService.ts
+src/types
+src/types/coupon.ts
+src/types/database.ts
+src/types/index.ts
+src/types/vipList.ts
+src/utils
+src/utils/analytics.ts
+src/utils/distance.ts
+src/utils/haptics.ts
+src/utils/notifications.ts
+src/utils/share.ts
+
+--- ARQUIVOS NA RAIZ DO PROJETO ---
+total 848
+drwxr-xr-x@  38 renatabertazzi  staff    1216 Sep 12 14:26 .
+drwx------@  45 renatabertazzi  staff    1440 Sep 12 14:21 ..
+drwxr-xr-x@   3 renatabertazzi  staff      96 Sep 11 15:55 .claude
+-rw-r--r--@   1 renatabertazzi  staff   10244 Sep  4 12:04 .DS_Store
+-rw-r--r--@   1 renatabertazzi  staff     142 Sep  9 20:13 .env
+-rw-r--r--@   1 renatabertazzi  staff     204 Sep 10 21:21 .env.production
+drwxr-xr-x@   7 renatabertazzi  staff     224 Sep 12 13:03 .expo
+drwxr-xr-x@  12 renatabertazzi  staff     384 Sep 11 16:44 .git
+-rw-r--r--@   1 renatabertazzi  staff     237 Sep 11 14:24 .gitignore
+-rw-r--r--@   1 renatabertazzi  staff      22 Sep 10 22:12 .npmrc
+drwxr-xr-x@   4 renatabertazzi  staff     128 Sep 11 15:55 .vercel
+drwxr-xr-x@   4 renatabertazzi  staff     128 Sep 11 15:57 .vscode
+-rw-r--r--@   1 renatabertazzi  staff     118 Sep  4 12:19 AGENTS.md
+drwxr-xr-x@   2 renatabertazzi  staff      64 Sep 11 15:53 app
+-rw-r--r--@   1 renatabertazzi  staff      28 Sep 12 13:13 App.js
+-rw-r--r--@   1 renatabertazzi  staff     421 Sep 12 12:55 app.json
+drwxr-xr-x@   4 renatabertazzi  staff     128 Sep 11 16:24 assets
+-rw-r--r--@   1 renatabertazzi  staff     124 Sep 12 11:51 babel.config.js
+drwxr-xr-x@   8 renatabertazzi  staff     256 Sep 11 17:29 backend
+-rw-r--r--@   1 renatabertazzi  staff      11 Sep  4 12:19 CLAUDE.md
+drwxr-xr-x@   9 renatabertazzi  staff     288 Sep 11 17:02 dist
+-rw-r--r--@   1 renatabertazzi  staff     343 Sep  4 12:19 eas.json
+drwxr-xr-x@   3 renatabertazzi  staff      96 Sep 11 15:55 expo
+-rw-r--r--@   1 renatabertazzi  staff     110 Sep 12 14:15 expo-env.d.ts
+drwxr-xr-x@   4 renatabertazzi  staff     128 Sep 11 17:27 lib
+-rw-r--r--@   1 renatabertazzi  staff    1106 Sep  4 12:19 LICENSE
+-rw-r--r--@   1 renatabertazzi  staff    4264 Sep 12 14:27 MAPA_DO_PROJETO.txt
+-rw-r--r--@   1 renatabertazzi  staff     184 Sep 12 11:54 metro.config.js
+-rw-r--r--@   1 renatabertazzi  staff  343190 Sep 12 13:07 package-lock.json
+-rw-r--r--@   1 renatabertazzi  staff    1252 Sep 12 13:07 package.json
+drwxr-xr-x@  20 renatabertazzi  staff     640 Sep 11 17:29 portal-cadastro
+-rw-r--r--@   1 renatabertazzi  staff    2271 Sep  4 12:19 README.md
+drwxr-xr-x@   4 renatabertazzi  staff     128 Sep 11 15:55 scripts
+drwxr-xr-x@   3 renatabertazzi  staff      96 Sep 11 15:57 server
+drwxr-xr-x@  15 renatabertazzi  staff     480 Sep 11 16:24 src
+-rw-r--r--@   1 renatabertazzi  staff     183 Sep 12 14:15 tsconfig.json
+-rw-r--r--@   1 renatabertazzi  staff     159 Sep 10 23:54 vercel.json

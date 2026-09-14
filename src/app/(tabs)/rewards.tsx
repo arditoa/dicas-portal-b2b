@@ -28,7 +28,7 @@ export default function RewardsScreen() {
           {/* Header com Ícone da Marca */}
           <View style={styles.headerRow}>
             <Image
-              source={require('@/assets/images/logo-icon.png')}
+              source={require('../../assets/images/logo-icon.png')}
               style={styles.headerIcon}
               resizeMode="contain"
             />

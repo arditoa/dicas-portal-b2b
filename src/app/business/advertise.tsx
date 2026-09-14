@@ -1,5 +1,5 @@
-import { CATEGORIES_LIST, EXPERIENCES_TAGS, SUBCATEGORIES_MAP } from '@/constants/tags';
-import { supabase } from '@/lib/supabase';
+import { CATEGORIES_LIST, EXPERIENCES_TAGS, SUBCATEGORIES_MAP } from '../../constants/tags';
+import { supabase } from '../../lib/supabase';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';

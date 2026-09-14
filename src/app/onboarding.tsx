@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-// 🚨 AQUI ESTÁ A CORREÇÃO: Usando caminho relativo em vez de '@/lib/supabase'
+// 🚨 AQUI ESTÁ A CORREÇÃO: Usando caminho relativo em vez de '../lib/supabase'
 import { supabase } from '../lib/supabase';
 
 export default function OnboardingScreen() {

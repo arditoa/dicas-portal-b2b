@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { supabase } from '../../lib/supabase';
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -150,7 +150,7 @@ export default function BusinessDetailOrCategoryScreen() {
             </TouchableOpacity>
             
             <Image
-              source={require('@/assets/images/logo-icon.png')}
+              source={require('../../assets/images/logo-icon.png')}
               style={styles.headerIconSquare}
               resizeMode="contain"
             />

@@ -1,4 +1,4 @@
-import { THEME } from '@/constants/theme';
+import { THEME } from '../../constants/theme';
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>App LGBT+ Prototype</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: #050508; color: #FFF; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+    
+    /* Navigation Bar outside phone */
+    .controls { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center; }
+    .controls button { background-color: #161520; border: 1px solid #232230; color: #A0A0B2; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.2s; }
+    .controls button.active, .controls button:hover { background-color: #E1306C; color: #FFF; border-color: #E1306C; }
+
+    /* Mockup Frame */
+    .phone { width: 360px; height: 740px; background-color: #0B0B0E; border-radius: 40px; border: 12px solid #1C1B29; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8); position: relative; overflow: hidden; display: flex; flex-direction: column; }
+    .notch { width: 120px; height: 25px; background-color: #1C1B29; position: absolute; top: 0; left: 50%; transform: translateX(-50%); border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; z-index: 100; }
+    
+    /* App Canvas */
+    .screen { display: none; flex: 1; padding: 45px 16px 60px 16px; overflow-y: auto; }
+    .screen.active { display: flex; flex-direction: column; }
+
+    /* UI Components */
+    .header { font-size: 22px; font-weight: 800; margin-bottom: 16px; }
+    .card { background-color: #161520; border: 1px solid #232230; border-radius: 16px; padding: 16px; margin-bottom: 12px; }
+    .card-title { font-weight: 700; font-size: 16px; margin-bottom: 4px; color: #FFF; }
+    .card-subtitle { font-size: 12px; color: #A0A0B2; }
+    .tag { display: inline-block; background: rgba(225,48,108,0.2); color: #E1306C; font-size: 10px; padding: 4px 8px; border-radius: 6px; font-weight: 700; margin-top: 8px; }
+    .btn { background-color: #E1306C; color: #FFF; text-align: center; padding: 14px; border-radius: 12px; font-weight: 700; margin-top: 10px; cursor: pointer; text-decoration: none; display: block; }
+
+    /* Bottom Nav Bar inside Phone */
+    .tab-bar { position: absolute; bottom: 0; left: 0; right: 0; height: 55px; background-color: #161520; border-top: 1px solid #232230; display: flex; justify-content: space-around; align-items: center; font-size: 10px; color: #626274; }
+    .tab-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .tab-item.active { color: #E1306C; }
+  </style>
+</head>
+<body>
+
+  <!-- Menu Superior de Navegação -->
+  <div class="controls">
+    <button class="active" onclick="switchScreen('home', this)">Home / Feed</button>
+    <button onclick="switchScreen('profile', this)">Perfil</button>
+    <button onclick="switchScreen('login', this)">Login / Autenticação</button>
+    <button onclick="switchScreen('categories', this)">Categorias</button>
+    <button onclick="switchScreen('business', this)">Detalhes do Espaço</button>
+  </div>
+
+  <!-- Celular -->
+  <div class="phone">
+    <div class="notch"></div>
+
+    <!-- Tela 1: Home -->
+    <div id="home" class="screen active">
+      <div class="header">Explorar Bares & Festas</div>
+      <div class="card">
+        <div class="card-title">Zig Club</div>
+        <div class="card-subtitle">Bar & Balada • Pinheiros, SP</div>
+        <span class="tag">ESPAÇO SEGURO LGBT+</span>
+      </div>
+      <div class="card">
+        <div class="card-title">Festa Castro</div>
+        <div class="card-subtitle">Evento Especial • Sáb, 22:00</div>
+        <span class="tag">INGRESSOS DISPONÍVEIS</span>
+      </div>
+    </div>
+
+    <!-- Tela 2: Perfil -->
+    <div id="profile" class="screen">
+      <div class="header">Meu Perfil</div>
+      <div class="card" style="text-align: center;">
+        <div style="width: 60px; height: 60px; background: #E1306C; border-radius: 30px; margin: 0 auto 10px auto; display:flex; align-items:center; justify-content:center; font-weight:bold;">US</div>
+        <div class="card-title">Usuário Ativo</div>
+        <div class="card-subtitle">usuario@email.com</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Suporte via WhatsApp</div>
+        <div class="card-subtitle">+55 11 94294-2028</div>
+      </div>
+      <div class="btn">Excluir Minha Conta</div>
+    </div>
+
+    <!-- Tela 3: Login -->
+    <div id="login" class="screen">
+      <div class="header" style="margin-top:20px;">Entrar no App</div>
+      <div class="card">
+        <div class="card-subtitle" style="margin-bottom:8px;">E-mail</div>
+        <input type="text" placeholder="seu@email.com" style="width:100%; background:#0B0B0E; border:1px solid #232230; padding:10px; border-radius:8px; color:#fff;">
+        <div class="card-subtitle" style="margin-top:12px; margin-bottom:8px;">Senha</div>
+        <input type="password" placeholder="******" style="width:100%; background:#0B0B0E; border:1px solid #232230; padding:10px; border-radius:8px; color:#fff;">
+        <div class="btn">Acessar Conta</div>
+      </div>
+    </div>
+
+    <!-- Tela 4: Categorias -->
+    <div id="categories" class="screen">
+      <div class="header">Categorias</div>
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+        <div class="card" style="text-align:center;"><div class="card-title">🍹 Bares</div></div>
+        <div class="card" style="text-align:center;"><div class="card-title">🎉 Festas</div></div>
+        <div class="card" style="text-align:center;"><div class="card-title">☕ Cafés</div></div>
+        <div class="card" style="text-align:center;"><div class="card-title">🎭 Cultura</div></div>
+      </div>
+    </div>
+
+    <!-- Tela 5: Detalhe do Espaço -->
+    <div id="business" class="screen">
+      <div class="header">Castro Bar</div>
+      <div class="card">
+        <div class="card-subtitle">Rua Augusta, 1230 - Consolação</div>
+        <p style="font-size:12px; color:#A0A0B2; margin-top:8px;">Ambiente inclusivo com programação cultural e drinks autorais.</p>
+        <div class="btn">Lista VIP / Confirmar Presença</div>
+      </div>
+    </div>
+
+    <!-- Tab Bar -->
+    <div class="tab-bar">
+      <div class="tab-item active">● Home</div>
+      <div class="tab-item">● Buscar</div>
+      <div class="tab-item">● Cupons</div>
+      <div class="tab-item">● Perfil</div>
+    </div>
+  </div>
+
+  <script>
+    function switchScreen(id, btn) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+      btn.classList.add('active');
+    }
+  </script>
+</body>
+</html>

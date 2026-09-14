@@ -1,75 +1,40 @@
-import { Session, User } from '@supabase/supabase-js';
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import React, { createContext, useContext, useState } from 'react';
 
-type AuthContextType = {
-  user: User | null;
-  session: Session | null;
-  isBusiness: boolean;
-  loading: boolean;
-  signOut: () => Promise<void>;
-};
+interface UserData {
+  nomeSocial: string;
+  email: string;
+  telefone: string;
+  dataNascimento: string;
+}
 
-const AuthContext = createContext<AuthContextType>({
-  user: null,
-  session: null,
-  isBusiness: false,
-  loading: true,
-  signOut: async () => {},
-});
+interface AuthContextType {
+  isGuest: boolean;
+  user: UserData | null;
+  login: (userData: UserData) => void;
+  logout: () => void;
+}
 
-export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [isBusiness, setIsBusiness] = useState(false);
-  const [loading, setLoading] = useState(true);
+const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) checkBusinessRole(session.user.id);
-      else setLoading(false);
-    });
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [isGuest, setIsGuest] = useState(true); // Começa sempre como visitante por padrão (Aprovação Apple)
+  const [user, setUser] = useState<UserData | null>(null);
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) checkBusinessRole(session.user.id);
-      else {
-        setIsBusiness(false);
-        setLoading(false);
-      }
-    });
-
-    return () => listener.subscription.unsubscribe();
-  }, []);
-
-  const checkBusinessRole = async (userId: string) => {
-    try {
-      const { data } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', userId)
-        .single();
-
-      setIsBusiness(data?.role === 'business');
-    } catch {
-      setIsBusiness(false);
-    } finally {
-      setLoading(false);
-    }
+  const login = (userData: UserData) => {
+    setUser(userData);
+    setIsGuest(false);
   };
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
+  const logout = () => {
+    setUser(null);
+    setIsGuest(true);
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, isBusiness, loading, signOut }}>
+    <AuthContext.Provider value={{ isGuest, user, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
-};
+}
 
 export const useAuth = () => useContext(AuthContext);
