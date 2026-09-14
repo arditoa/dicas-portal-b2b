@@ -1,128 +1,113 @@
-import { Building2, Calendar, Check, Home as HomeIcon } from "lucide-react";
-import Image from "next/image";
-import Link from "next/link";
+import { ArrowRight, Building2, Calendar, ShieldCheck, Sparkles } from 'lucide-react';
+import Link from 'next/link';
 
-export default function Home() {
+export const dynamic = 'force-dynamic';
+
+export default function HomePage() {
   return (
-    <div className="min-h-screen bg-[#111217] text-white flex flex-col justify-center items-center p-6">
-      <div className="max-w-5xl w-full space-y-8">
-        
-        {/* Header com Logo */}
+    <main className="min-h-screen bg-[#111217] text-white flex flex-col justify-between p-4 md:p-8">
+      {/* Header com Logo Oficial */}
+      <header className="w-full max-w-5xl mx-auto flex justify-between items-center py-4 border-b border-white/10">
         <div className="flex items-center gap-3">
-          <div className="relative h-12 w-48">
-            <Image
-              src="/logos-dicasapp-semfundo (2).png"
-              alt="Dicas LGBT+ Parceiros"
-              width={192}
-              height={48}
-              className="object-contain"
-              priority
-            />
-          </div>
-          <span className="text-gray-400 font-medium text-sm">Parceiros</span>
-        </div>
-
-        {/* Título Principal */}
-        <div className="space-y-2">
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
-            Como você quer aparecer no app?
-          </h1>
-          <p className="text-gray-400 text-base">
-            Escolha o tipo de conta — você pode combinar mais de um perfil depois, se precisar.
-          </p>
-        </div>
-
-        {/* Grid de Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          
-          {/* Card 1 - Local / Estabelecimento */}
-          <div className="bg-[#1A1B23] border border-[#2A2C38] rounded-2xl p-6 flex flex-col justify-between hover:border-pink-500/50 transition-all">
-            <div className="space-y-4">
-              <div className="w-10 h-10 rounded-xl bg-pink-500/10 flex items-center justify-center text-pink-500">
-                <HomeIcon className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-white">Local / Estabelecimento</h3>
-                <p className="text-gray-400 text-sm mt-2 leading-relaxed">
-                  Bares, restaurantes, hotéis e outros espaços físicos. Aparece no mapa, nas categorias e pode ganhar destaque.
-                </p>
-              </div>
-              <div className="pt-4 border-t border-[#2A2C38] flex items-center gap-2 text-xs text-gray-300">
-                <Check className="w-4 h-4 text-pink-500" />
-                <span>Planos de Freemium a Fundador</span>
-              </div>
+          {/* Altere o src para o caminho correto da sua logo na pasta /public */}
+          <div className="relative w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-600 to-pink-500 p-0.5">
+            <div className="w-full h-full bg-[#111217] rounded-[10px] flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-pink-400" />
             </div>
-            <Link
-              href="/cadastro/local"
-              className="mt-8 w-full py-3 px-4 rounded-xl font-medium text-sm bg-pink-600 hover:bg-pink-700 text-white text-center transition-colors block"
-            >
-              Cadastrar meu local
-            </Link>
           </div>
-
-          {/* Card 2 - Organizador de Evento */}
-          <div className="bg-[#1A1B23] border border-[#2A2C38] rounded-2xl p-6 flex flex-col justify-between hover:border-purple-500/50 transition-all">
-            <div className="space-y-4">
-              <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-400">
-                <Calendar className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-white">Organizador de Evento</h3>
-                <p className="text-gray-400 text-sm mt-2 leading-relaxed">
-                  Festas, shows e eventos avulsos — com ou sem local fixo. Divulgação pontual, com opção de venda de ingresso.
-                </p>
-              </div>
-              <div className="pt-4 border-t border-[#2A2C38] flex items-center gap-2 text-xs text-gray-300">
-                <Check className="w-4 h-4 text-purple-400" />
-                <span>Pacotes avulsos, sem mensalidade</span>
-              </div>
-            </div>
-            <Link
-              href="/cadastro/evento"
-              className="mt-8 w-full py-3 px-4 rounded-xl font-medium text-sm bg-[#161720] border border-[#2A2C38] hover:bg-[#222430] text-white text-center transition-colors block"
-            >
-              Cadastrar um evento
-            </Link>
-          </div>
-
-          {/* Card 3 - Parceiro Institucional */}
-          <div className="bg-[#1A1B23] border border-[#2A2C38] rounded-2xl p-6 flex flex-col justify-between hover:border-yellow-500/50 transition-all">
-            <div className="space-y-4">
-              <div className="w-10 h-10 rounded-xl bg-yellow-500/10 flex items-center justify-center text-yellow-400">
-                <Building2 className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-white">Parceiro Institucional</h3>
-                <p className="text-gray-400 text-sm mt-2 leading-relaxed">
-                  Marcas e negócios que não são um espaço físico do app (ex.: petshop, seguradora). Comissão sobre indicações fechadas.
-                </p>
-              </div>
-              <div className="pt-4 border-t border-[#2A2C38] flex items-center gap-2 text-xs text-gray-300">
-                <Check className="w-4 h-4 text-yellow-400" />
-                <span>Fechado por atendimento direto</span>
-              </div>
-            </div>
-            <Link
-              href="/contato"
-              className="mt-8 w-full py-3 px-4 rounded-xl font-medium text-sm bg-[#161720] border border-[#2A2C38] hover:bg-[#222430] text-white text-center transition-colors block"
-            >
-              Falar com o time
-            </Link>
-          </div>
-
+          <span className="font-bold text-xl tracking-tight text-white">
+            Portal B2B <span className="text-pink-500">LGBT+</span>
+          </span>
         </div>
 
-        {/* Rodapé com Link para Login */}
-        <div className="text-center pt-4">
-          <p className="text-sm text-gray-400">
-            Já tem uma conta?{" "}
-            <Link href="/login" className="text-pink-500 hover:underline font-medium">
-              Entrar
-            </Link>
-          </p>
-        </div>
+        <Link
+          href="/login"
+          className="text-sm font-medium bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl border border-white/10 transition"
+        >
+          Área do Parceiro
+        </Link>
+      </header>
 
-      </div>
-    </div>
+      {/* Hero Section */}
+      <section className="w-full max-w-4xl mx-auto text-center my-12 space-y-4">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-pink-500/10 border border-pink-500/20 text-pink-400 text-xs font-semibold tracking-wide uppercase">
+          Onboarding de Parceiros
+        </div>
+        <h1 className="text-3xl md:text-5xl font-extrabold text-white tracking-tight">
+          Conecte sua empresa ao público <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-400">LGBT+</span>
+        </h1>
+        <p className="text-gray-400 text-base md:text-lg max-w-2xl mx-auto">
+          Escolha o perfil do seu negócio abaixo para cadastrar seu estabelecimento, evento ou instituição e garantir visibilidade no portal oficial.
+        </p>
+      </section>
+
+      {/* Grid de Cards de Seleção */}
+      <section className="w-full max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 my-auto">
+        {/* Card 1: Local / Estabelecimento */}
+        <Link
+          href="/cadastro/local"
+          className="group relative bg-[#181920] border border-white/10 hover:border-pink-500/50 rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-pink-500/5 flex flex-col justify-between"
+        >
+          <div>
+            <div className="w-12 h-12 rounded-xl bg-pink-500/10 border border-pink-500/20 flex items-center justify-center text-pink-400 mb-6 group-hover:scale-110 transition-transform">
+              <Building2 className="w-6 h-6" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">Local / Comércio</h3>
+            <p className="text-gray-400 text-sm leading-relaxed">
+              Bares, restaurantes, hotéis, lojas e serviços amigáveis e seguros para a comunidade.
+            </p>
+          </div>
+          <div className="mt-8 flex items-center text-xs font-semibold text-pink-400 group-hover:text-pink-300 gap-2">
+            Cadastrar Estabelecimento
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+          </div>
+        </Link>
+
+        {/* Card 2: Evento */}
+        <Link
+          href="/cadastro/evento"
+          className="group relative bg-[#181920] border border-white/10 hover:border-purple-500/50 rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-purple-500/5 flex flex-col justify-between"
+        >
+          <div>
+            <div className="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 mb-6 group-hover:scale-110 transition-transform">
+              <Calendar className="w-6 h-6" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">Eventos & Festas</h3>
+            <p className="text-gray-400 text-sm leading-relaxed">
+              Festas, festivais, feiras culturais, conferências e encontros voltados ao público.
+            </p>
+          </div>
+          <div className="mt-8 flex items-center text-xs font-semibold text-purple-400 group-hover:text-purple-300 gap-2">
+            Cadastrar Evento
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+          </div>
+        </Link>
+
+        {/* Card 3: Institucional / ONG */}
+        <Link
+          href="/cadastro/institucional"
+          className="group relative bg-[#181920] border border-white/10 hover:border-indigo-500/50 rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-indigo-500/5 flex flex-col justify-between"
+        >
+          <div>
+            <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 mb-6 group-hover:scale-110 transition-transform">
+              <ShieldCheck className="w-6 h-6" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">Institucional / ONG</h3>
+            <p className="text-gray-400 text-sm leading-relaxed">
+              Organizações, projetos sociais e instituições parceiras de apoio e visibilidade.
+            </p>
+          </div>
+          <div className="mt-8 flex items-center text-xs font-semibold text-indigo-400 group-hover:text-indigo-300 gap-2">
+            Cadastrar Instituição
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+          </div>
+        </Link>
+      </section>
+
+      {/* Footer Simples */}
+      <footer className="w-full max-w-5xl mx-auto border-t border-white/10 pt-6 mt-12 text-center text-xs text-gray-500">
+        © {new Date().getFullYear()} Guia & Portal B2B LGBT+. Todos os direitos reservados.
+      </footer>
+    </main>
   );
 }
