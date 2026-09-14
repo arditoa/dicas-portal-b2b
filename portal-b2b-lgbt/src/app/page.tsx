@@ -112,7 +112,7 @@ export default function Home() {
 
         </div>
 
-        {/* Rodapé / Link para Login */}
+        {/* Rodapé com Link para Login */}
         <div className="text-center pt-4">
           <p className="text-sm text-gray-400">
             Já tem uma conta?{" "}
