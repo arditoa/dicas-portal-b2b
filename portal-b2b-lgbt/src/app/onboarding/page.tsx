@@ -1,100 +1,126 @@
-'use client';
-import { Calendar, Handshake, Store } from 'lucide-react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { Building2, Calendar, Check, Home } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
 
-export default function OnboardingPage() {
-  const router = useRouter();
-
+export default function TipoContaPage() {
   return (
-    <div className="min-h-screen bg-[#0B0B0E] flex flex-col justify-center items-center px-6 py-12">
-      {/* HEADER LOGO */}
-      <div className="w-full max-w-6xl mb-8 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-full bg-[#E1306C] flex items-center justify-center font-bold text-white text-xs">
-          ♥
-        </div>
-        <span className="text-white font-bold text-sm tracking-wide">Dicas LGBT+ <span className="text-[#A0A0B2] font-normal">Parceiros</span></span>
-      </div>
-
-      <div className="w-full max-w-6xl">
-        <h1 className="text-3xl font-black text-white mb-2">Como você quer aparecer no app?</h1>
-        <p className="text-[#A0A0B2] text-sm mb-10">
-          Escolha o tipo de conta — você pode combinar mais de um perfil depois, se precisar.
-        </p>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* CARD 1: LOCAL / ESTABELECIMENTO */}
-          <div className="bg-[#161520] border border-[#232230] rounded-2xl p-8 flex flex-col justify-between">
-            <div>
-              <div className="w-10 h-10 rounded-xl bg-[#E1306C]/10 border border-[#E1306C]/20 flex items-center justify-center mb-6">
-                <Store size={20} className="text-[#E1306C]" />
-              </div>
-              <h2 className="text-lg font-black text-white mb-2">Local / Estabelecimento</h2>
-              <p className="text-[#A0A0B2] text-xs leading-relaxed mb-6">
-                Bares, restaurantes, hotéis e outros espaços físicos. Aparece no mapa, nas categorias e pode ganhar destaque.
-              </p>
-              <div className="text-[#A0A0B2] text-xs flex items-center gap-2 mb-8">
-                <span className="text-[#4CAF7D]">✓</span> Planos de Freemium a Fundador
-              </div>
-            </div>
-            <button
-              onClick={() => router.push('/planos')}
-              className="w-full bg-[#E1306C] hover:bg-[#C2285C] text-white font-bold py-3.5 rounded-xl transition text-sm text-center"
-            >
-              Cadastrar meu local
-            </button>
+    <div className="min-h-screen bg-[#111217] text-white flex flex-col justify-center items-center p-6">
+      <div className="max-w-5xl w-full space-y-8">
+        
+        {/* Header com Logo */}
+        <div className="flex items-center gap-3">
+          <div className="relative h-8 w-32">
+            <Image
+              src="/logo.png"
+              alt="Dicas LGBT+ Parceiros"
+              fill
+              className="object-contain"
+              priority
+            />
           </div>
-
-          {/* CARD 2: ORGANIZADOR DE EVENTO */}
-          <div className="bg-[#161520] border border-[#232230] rounded-2xl p-8 flex flex-col justify-between">
-            <div>
-              <div className="w-10 h-10 rounded-xl bg-[#7E57C2]/10 border border-[#7E57C2]/20 flex items-center justify-center mb-6">
-                <Calendar size={20} className="text-[#7E57C2]" />
-              </div>
-              <h2 className="text-lg font-black text-white mb-2">Organizador de Evento</h2>
-              <p className="text-[#A0A0B2] text-xs leading-relaxed mb-6">
-                Festas, shows e eventos avulsos — com ou sem local fixo. Divulgação pontual, com opção de venda de ingresso.
-              </p>
-              <div className="text-[#A0A0B2] text-xs flex items-center gap-2 mb-8">
-                <span className="text-[#4CAF7D]">✓</span> Pacotes avulsos, sem mensalidade
-              </div>
-            </div>
-            <button
-              onClick={() => router.push('/cadastrar-evento')}
-              className="w-full bg-[#232230] hover:bg-[#2D2B3D] text-white font-bold py-3.5 rounded-xl transition text-sm text-center border border-[#232230]"
-            >
-              Cadastrar um evento
-            </button>
-          </div>
-
-          {/* CARD 3: PARCEIRO INSTITUCIONAL */}
-          <div className="bg-[#161520] border border-[#232230] rounded-2xl p-8 flex flex-col justify-between">
-            <div>
-              <div className="w-10 h-10 rounded-xl bg-[#FFD54F]/10 border border-[#FFD54F]/20 flex items-center justify-center mb-6">
-                <Handshake size={20} className="text-[#FFD54F]" />
-              </div>
-              <h2 className="text-lg font-black text-white mb-2">Parceiro Institucional</h2>
-              <p className="text-[#A0A0B2] text-xs leading-relaxed mb-6">
-                Marcas e negócios que não são um espaço físico do app (ex.: petshop, seguradora). Comissão sobre indicações fechadas.
-              </p>
-              <div className="text-[#A0A0B2] text-xs flex items-center gap-2 mb-8">
-                <span className="text-[#4CAF7D]">✓</span> Fechado por atendimento direto
-              </div>
-            </div>
-            <button
-              onClick={() => router.push('/parceria-institucional')}
-              className="w-full bg-[#232230] hover:bg-[#2D2B3D] text-white font-bold py-3.5 rounded-xl transition text-sm text-center border border-[#232230]"
-            >
-              Falar com o time
-            </button>
-          </div>
+          <span className="text-gray-400 font-medium text-sm">Parceiros</span>
         </div>
 
-        <div className="text-center mt-12">
-          <p className="text-xs text-[#A0A0B2]">
-            Já tem uma conta? <Link href="/login" className="text-[#E1306C] font-bold">Entrar</Link>
+        {/* Título Principal */}
+        <div className="space-y-2">
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
+            Como você quer aparecer no app?
+          </h1>
+          <p className="text-gray-400 text-base">
+            Escolha o tipo de conta — você pode combinar mais de um perfil depois, se precisar.
           </p>
         </div>
+
+        {/* Grid de Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          
+          {/* Card 1 - Local / Estabelecimento */}
+          <div className="bg-[#1A1B23] border border-[#2A2C38] rounded-2xl p-6 flex flex-col justify-between hover:border-pink-500/50 transition-all">
+            <div className="space-y-4">
+              <div className="w-10 h-10 rounded-xl bg-pink-500/10 flex items-center justify-center text-pink-500">
+                <Home className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">Local / Estabelecimento</h3>
+                <p className="text-gray-400 text-sm mt-2 leading-relaxed">
+                  Bares, restaurantes, hotéis e outros espaços físicos. Aparece no mapa, nas categorias e pode ganhar destaque.
+                </p>
+              </div>
+              <div className="pt-4 border-t border-[#2A2C38] flex items-center gap-2 text-xs text-gray-300">
+                <Check className="w-4 h-4 text-pink-500" />
+                <span>Planos de Freemium a Fundador</span>
+              </div>
+            </div>
+            <Link
+              href="/cadastro/local"
+              className="mt-8 w-full py-3 px-4 rounded-xl font-medium text-sm bg-pink-600 hover:bg-pink-700 text-white text-center transition-colors block"
+            >
+              Cadastrar meu local
+            </Link>
+          </div>
+
+          {/* Card 2 - Organizador de Evento */}
+          <div className="bg-[#1A1B23] border border-[#2A2C38] rounded-2xl p-6 flex flex-col justify-between hover:border-purple-500/50 transition-all">
+            <div className="space-y-4">
+              <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-400">
+                <Calendar className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">Organizador de Evento</h3>
+                <p className="text-gray-400 text-sm mt-2 leading-relaxed">
+                  Festas, shows e eventos avulsos — com ou sem local fixo. Divulgação pontual, com opção de venda de ingresso.
+                </p>
+              </div>
+              <div className="pt-4 border-t border-[#2A2C38] flex items-center gap-2 text-xs text-gray-300">
+                <Check className="w-4 h-4 text-purple-400" />
+                <span>Pacotes avulsos, sem mensalidade</span>
+              </div>
+            </div>
+            <Link
+              href="/cadastro/evento"
+              className="mt-8 w-full py-3 px-4 rounded-xl font-medium text-sm bg-[#161720] border border-[#2A2C38] hover:bg-[#222430] text-white text-center transition-colors block"
+            >
+              Cadastrar um evento
+            </Link>
+          </div>
+
+          {/* Card 3 - Parceiro Institucional */}
+          <div className="bg-[#1A1B23] border border-[#2A2C38] rounded-2xl p-6 flex flex-col justify-between hover:border-yellow-500/50 transition-all">
+            <div className="space-y-4">
+              <div className="w-10 h-10 rounded-xl bg-yellow-500/10 flex items-center justify-center text-yellow-400">
+                <Building2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">Parceiro Institucional</h3>
+                <p className="text-gray-400 text-sm mt-2 leading-relaxed">
+                  Marcas e negócios que não são um espaço físico do app (ex.: petshop, seguradora). Comissão sobre indicações fechadas.
+                </p>
+              </div>
+              <div className="pt-4 border-t border-[#2A2C38] flex items-center gap-2 text-xs text-gray-300">
+                <Check className="w-4 h-4 text-yellow-400" />
+                <span>Fechado por atendimento direto</span>
+              </div>
+            </div>
+            <Link
+              href="/contato"
+              className="mt-8 w-full py-3 px-4 rounded-xl font-medium text-sm bg-[#161720] border border-[#2A2C38] hover:bg-[#222430] text-white text-center transition-colors block"
+            >
+              Falar com o time
+            </Link>
+          </div>
+
+        </div>
+
+        {/* Rodapé / Link para Login */}
+        <div className="text-center pt-4">
+          <p className="text-sm text-gray-400">
+            Já tem uma conta?{" "}
+            <Link href="/login" className="text-pink-500 hover:underline font-medium">
+              Entrar
+            </Link>
+          </p>
+        </div>
+
       </div>
     </div>
   );
