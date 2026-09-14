@@ -1,8 +1,8 @@
 'use client';
-import { useState } from 'react';
+import { Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
-import { Store, Lock, Mail, ArrowRight, ShieldCheck, Sparkles } from 'lucide-react';
+import { useState } from 'react';
+import { supabase } from '../../lib/supabase';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -33,6 +33,7 @@ export default function LoginPage() {
         router.push('/dashboard');
       }
     } catch (err: any) {
+      console.error("Erro no login:", err);
       setErrorMsg(err.message || 'Erro na autenticação.');
     } finally {
       setLoading(false);
