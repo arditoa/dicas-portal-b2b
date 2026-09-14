@@ -1,16 +1,8 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  distDir: '.next',
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  /* Opções de configuração padrão do Next.js */
   reactStrictMode: true,
-  images: {
-    unoptimized: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
 };
 
 export default nextConfig;
