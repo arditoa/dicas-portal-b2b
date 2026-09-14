@@ -2,18 +2,19 @@ import { Building2, Calendar, Check, Home } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
-export default function TipoContaPage() {
+export default function Home() {
   return (
     <div className="min-h-screen bg-[#111217] text-white flex flex-col justify-center items-center p-6">
       <div className="max-w-5xl w-full space-y-8">
         
         {/* Header com Logo */}
         <div className="flex items-center gap-3">
-          <div className="relative h-8 w-32">
+          <div className="relative h-10 w-40">
             <Image
               src="/logo.png"
               alt="Dicas LGBT+ Parceiros"
-              fill
+              width={160}
+              height={40}
               className="object-contain"
               priority
             />
