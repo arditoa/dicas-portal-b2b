@@ -1,21 +1,35 @@
-import { Building2, Calendar, Check, Home as HomeIcon } from "lucide-react";
-import Image from "next/image";
-import Link from "next/link";
+'use client';
 
-export default function Home() {
+// Rodada 36 — pedido direto da Andrea: virar 2 abas ("Local/Comércio" e
+// "Eventos e Festas") com o MESMO formulário do cadastro rápido embutido
+// direto aqui (sem navegar pra /cadastro/rapido), mantendo o layout visual
+// que já existia (header com logo, cards escuros com acento rosa/roxo).
+// O card de "Parceiro Institucional" (leads sem espaço físico, fechado por
+// atendimento direto) continua existindo — só ficou menor, como opção
+// secundária abaixo das abas, porque não é um cadastro rápido tipo os
+// outros dois.
+import { Building2, Calendar, CheckCircle2, Home as HomeIcon } from 'lucide-react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { useState } from 'react';
+import FormularioCadastroRapido from '../../components/FormularioCadastroRapido';
+
+export default function OnboardingPage() {
+  const [aba, setAba] = useState<'local' | 'evento'>('local');
+  const [sucesso, setSucesso] = useState(false);
+  const [whatsappEnviado, setWhatsappEnviado] = useState('');
+
   return (
     <div className="min-h-screen bg-[#111217] text-white flex flex-col justify-center items-center p-6">
-      <div className="max-w-5xl w-full space-y-8">
-        
+      <div className="max-w-3xl w-full space-y-8">
         {/* Header com Logo */}
         <div className="flex items-center gap-3">
-          <div className="relative h-12 w-48">
+          <div className="relative h-20 w-48">
             <Image
               src="/logos-dicasapp-semfundo (2).png"
               alt="Dicas LGBT+ Parceiros"
-              width={192}
-              height={48}
-              className="object-contain"
+              fill
+              className="object-contain object-left"
               priority
             />
           </div>
@@ -25,103 +39,102 @@ export default function Home() {
         {/* Título Principal */}
         <div className="space-y-2">
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
-            Como você quer aparecer no app?
+            {sucesso ? 'Recebemos seu cadastro!' : 'Como você quer aparecer no app?'}
           </h1>
-          <p className="text-gray-400 text-base">
-            Escolha o tipo de conta — você pode combinar mais de um perfil depois, se precisar.
-          </p>
+          {!sucesso && (
+            <p className="text-gray-400 text-base">
+              Escolha o tipo de conta e preencha o cadastro rápido abaixo — leva menos de 1 minuto.
+            </p>
+          )}
         </div>
 
-        {/* Grid de Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          
-          {/* Card 1 - Local / Estabelecimento */}
-          <div className="bg-[#1A1B23] border border-[#2A2C38] rounded-2xl p-6 flex flex-col justify-between hover:border-pink-500/50 transition-all">
-            <div className="space-y-4">
-              <div className="w-10 h-10 rounded-xl bg-pink-500/10 flex items-center justify-center text-pink-500">
-                <HomeIcon className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-white">Local / Estabelecimento</h3>
-                <p className="text-gray-400 text-sm mt-2 leading-relaxed">
-                  Bares, restaurantes, hotéis e outros espaços físicos. Aparece no mapa, nas categorias e pode ganhar destaque.
-                </p>
-              </div>
-              <div className="pt-4 border-t border-[#2A2C38] flex items-center gap-2 text-xs text-gray-300">
-                <Check className="w-4 h-4 text-pink-500" />
-                <span>Planos de Freemium a Fundador</span>
-              </div>
-            </div>
-            <Link
-              href="/cadastro/local"
-              className="mt-8 w-full py-3 px-4 rounded-xl font-medium text-sm bg-pink-600 hover:bg-pink-700 text-white text-center transition-colors block"
-            >
-              Cadastrar meu local
+        {sucesso ? (
+          <div className="bg-[#1A1B23] border border-[#2A2C38] rounded-2xl p-8 text-center space-y-4">
+            <CheckCircle2 className="w-14 h-14 text-emerald-400 mx-auto" />
+            <p className="text-gray-300 text-sm leading-relaxed">
+              Vamos dar uma olhada e te avisamos pelo WhatsApp ({whatsappEnviado}) quando estiver
+              aprovado — costuma ser rapidinho.
+            </p>
+            <Link href="/" className="inline-block text-pink-500 hover:underline text-sm font-medium">
+              Voltar para o início
             </Link>
           </div>
-
-          {/* Card 2 - Organizador de Evento */}
-          <div className="bg-[#1A1B23] border border-[#2A2C38] rounded-2xl p-6 flex flex-col justify-between hover:border-purple-500/50 transition-all">
-            <div className="space-y-4">
-              <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-400">
-                <Calendar className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-white">Organizador de Evento</h3>
-                <p className="text-gray-400 text-sm mt-2 leading-relaxed">
-                  Festas, shows e eventos avulsos — com ou sem local fixo. Divulgação pontual, com opção de venda de ingresso.
-                </p>
-              </div>
-              <div className="pt-4 border-t border-[#2A2C38] flex items-center gap-2 text-xs text-gray-300">
-                <Check className="w-4 h-4 text-purple-400" />
-                <span>Pacotes avulsos, sem mensalidade</span>
-              </div>
+        ) : (
+          <>
+            {/* Abas */}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setAba('local')}
+                className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold border transition ${
+                  aba === 'local'
+                    ? 'bg-pink-600 border-pink-600 text-white'
+                    : 'bg-[#1A1B23] border-[#2A2C38] text-gray-300 hover:border-pink-500/50'
+                }`}
+              >
+                <HomeIcon className="w-4 h-4" /> Local / Comércio
+              </button>
+              <button
+                type="button"
+                onClick={() => setAba('evento')}
+                className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold border transition ${
+                  aba === 'evento'
+                    ? 'bg-purple-600 border-purple-600 text-white'
+                    : 'bg-[#1A1B23] border-[#2A2C38] text-gray-300 hover:border-purple-500/50'
+                }`}
+              >
+                <Calendar className="w-4 h-4" /> Eventos e Festas
+              </button>
             </div>
-            <Link
-              href="/cadastro/evento"
-              className="mt-8 w-full py-3 px-4 rounded-xl font-medium text-sm bg-[#161720] border border-[#2A2C38] hover:bg-[#222430] text-white text-center transition-colors block"
-            >
-              Cadastrar um evento
-            </Link>
-          </div>
 
-          {/* Card 3 - Parceiro Institucional */}
-          <div className="bg-[#1A1B23] border border-[#2A2C38] rounded-2xl p-6 flex flex-col justify-between hover:border-yellow-500/50 transition-all">
-            <div className="space-y-4">
-              <div className="w-10 h-10 rounded-xl bg-yellow-500/10 flex items-center justify-center text-yellow-400">
-                <Building2 className="w-5 h-5" />
+            <p className="text-gray-500 text-xs -mt-2">
+              {aba === 'local'
+                ? 'Bares, restaurantes, hotéis e outros espaços físicos. Aparece no mapa, nas categorias e pode ganhar destaque.'
+                : 'Festas, shows e eventos avulsos — com ou sem local fixo. Divulgação pontual, com opção de venda de ingresso.'}
+            </p>
+
+            <FormularioCadastroRapido
+              key={aba}
+              tipo={aba}
+              onSucesso={(whatsapp) => {
+                setWhatsappEnviado(whatsapp);
+                setSucesso(true);
+              }}
+            />
+
+            {/* Parceiro Institucional — opção secundária, não é um
+                cadastro rápido (sempre fechado por atendimento direto). */}
+            <div className="bg-[#1A1B23] border border-[#2A2C38] rounded-2xl p-5 flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-yellow-500/10 flex items-center justify-center text-yellow-400 shrink-0">
+                  <Building2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-white">Parceiro Institucional</h3>
+                  <p className="text-gray-400 text-xs mt-0.5">
+                    Marcas e negócios sem espaço físico no app (ex.: petshop, seguradora) — comissão sobre indicações fechadas.
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-lg font-semibold text-white">Parceiro Institucional</h3>
-                <p className="text-gray-400 text-sm mt-2 leading-relaxed">
-                  Marcas e negócios que não são um espaço físico do app (ex.: petshop, seguradora). Comissão sobre indicações fechadas.
-                </p>
-              </div>
-              <div className="pt-4 border-t border-[#2A2C38] flex items-center gap-2 text-xs text-gray-300">
-                <Check className="w-4 h-4 text-yellow-400" />
-                <span>Fechado por atendimento direto</span>
-              </div>
+              <Link
+                href="/contato"
+                className="shrink-0 py-2.5 px-4 rounded-xl font-medium text-xs bg-[#161720] border border-[#2A2C38] hover:bg-[#222430] text-white text-center transition-colors"
+              >
+                Falar com o time
+              </Link>
             </div>
-            <Link
-              href="/contato"
-              className="mt-8 w-full py-3 px-4 rounded-xl font-medium text-sm bg-[#161720] border border-[#2A2C38] hover:bg-[#222430] text-white text-center transition-colors block"
-            >
-              Falar com o time
-            </Link>
-          </div>
-
-        </div>
+          </>
+        )}
 
         {/* Rodapé / Link para Login */}
         <div className="text-center pt-4">
           <p className="text-sm text-gray-400">
-            Já tem uma conta?{" "}
+            Já tem uma conta?{' '}
             <Link href="/login" className="text-pink-500 hover:underline font-medium">
               Entrar
             </Link>
           </p>
         </div>
-
       </div>
     </div>
   );

@@ -1,13 +1,20 @@
 'use client';
 import { Sparkles } from 'lucide-react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
+import { normalizarTelefoneBR, emailSinteticoParceiro } from '../../lib/parceiroAuth';
 
 export default function LoginPage() {
   const router = useRouter();
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState('');
+  // Rodada 22: a maioria dos parceiros agora ganha login por WhatsApp
+  // (conta criada automaticamente na aprovação, ver /api/aprovar-local) —
+  // esse campo aceita WhatsApp OU e-mail na tela de entrar; o cadastro
+  // manual (isRegister) continua só por e-mail, sem mudança.
+  const [identificador, setIdentificador] = useState('');
   const [password, setPassword] = useState('');
   const [nomeEspaco, setNomeEspaco] = useState('');
   const [loading, setLoading] = useState(false);
@@ -27,8 +34,22 @@ export default function LoginPage() {
         });
         if (error) throw error;
         router.push('/onboarding');
+      } else if (identificador.includes('@')) {
+        const { error } = await supabase.auth.signInWithPassword({ email: identificador.trim(), password });
+        if (error) throw error;
+        router.push('/dashboard');
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        // Rodada 23: o login por telefone de verdade do Supabase Auth está
+        // desativado neste projeto ("Phone logins are disabled") — o
+        // parceiro digita o WhatsApp, mas por baixo a conta foi criada com
+        // um e-mail sintético calculado a partir desse mesmo número (ver
+        // src/lib/parceiroAuth.ts e /api/aprovar-local). Precisa ser o
+        // MESMO cálculo dos dois lados.
+        const telefone = normalizarTelefoneBR(identificador);
+        const { error } = await supabase.auth.signInWithPassword({
+          email: emailSinteticoParceiro(telefone),
+          password,
+        });
         if (error) throw error;
         router.push('/dashboard');
       }
@@ -44,8 +65,15 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[#0B0B0E] flex flex-col md:flex-row text-white">
       <div className="hidden md:flex md:w-1/2 bg-[#161520] border-r border-[#232230] p-12 flex-col justify-between relative overflow-hidden">
         <div className="flex items-center gap-3 z-10">
-          <div className="w-9 h-9 rounded-full bg-[#E1306C] flex items-center justify-center text-white font-bold text-sm">♥</div>
-          <span className="text-white font-black text-lg">Dicas LGBT+ <span className="text-[#A0A0B2] font-normal text-sm">Parceiros</span></span>
+          <div className="relative h-16 w-36">
+            <Image
+              src="/logos-dicasapp-semfundo (2).png"
+              alt="Dicas LGBT+ Parceiros"
+              fill
+              className="object-contain object-left"
+              priority
+            />
+          </div>
         </div>
         <div className="max-w-md z-10 my-auto">
           <div className="inline-flex items-center gap-2 bg-[#E1306C]/10 border border-[#E1306C]/20 px-3 py-1.5 rounded-full text-[#E1306C] text-xs font-extrabold mb-6">
@@ -92,17 +120,34 @@ export default function LoginPage() {
                 />
               </div>
             )}
-            <div>
-              <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">E-mail</label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="seu@email.com"
-                className="w-full bg-[#161520] border border-[#232230] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#E1306C]"
-              />
-            </div>
+            {isRegister ? (
+              <div>
+                <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">E-mail</label>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="seu@email.com"
+                  className="w-full bg-[#161520] border border-[#232230] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#E1306C]"
+                />
+              </div>
+            ) : (
+              <div>
+                <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">WhatsApp ou e-mail</label>
+                <input
+                  type="text"
+                  required
+                  value={identificador}
+                  onChange={(e) => setIdentificador(e.target.value)}
+                  placeholder="(11) 99999-9999 ou seu@email.com"
+                  className="w-full bg-[#161520] border border-[#232230] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#E1306C]"
+                />
+                <p className="text-[11px] text-[#626274] mt-1.5">
+                  Foi aprovado pelo /admin? Seu login é o mesmo WhatsApp do cadastro.
+                </p>
+              </div>
+            )}
             <div>
               <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">Senha</label>
               <input

@@ -1,12 +1,18 @@
 import { useState, useEffect } from 'react';
 import * as Location from 'expo-location';
 
-export function useLocation() {
+// `enabled` (default false) evita pedir permissão de localização assim
+// que a tela monta — só dispara a solicitação real quando quem chama o
+// hook passa `enabled: true` (ex.: usuário tocou num filtro de distância).
+export function useLocation(enabled: boolean = false) {
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (!enabled || coords) return;
+
+    setLoading(true);
     (async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
@@ -22,7 +28,7 @@ export function useLocation() {
       });
       setLoading(false);
     })();
-  }, []);
+  }, [enabled]);
 
   return { coords, errorMsg, loading };
 }

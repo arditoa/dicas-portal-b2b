@@ -1,7 +1,8 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Image,
   Modal,
@@ -14,7 +15,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-// Importe o seu cliente do Supabase
+import { useAuth } from '../../lib/authContext';
 import { supabase } from '../../lib/supabase';
 
 const COLORS = {
@@ -30,27 +31,28 @@ const COLORS = {
   green: '#4CAF7D',
 };
 
-// 🎵 Filtros por Estilo Musical
+// Precisam bater com o enum public.estilo_musical (001_migrar_para_locais.sql) —
+// os mesmos valores/labels usados no cadastro de evento do portal.
 const MUSIC_FILTERS = [
   { id: 'todos_estilos', label: 'Todos os Estilos' },
-  { id: 'pop', label: 'Pop & Funk' },
-  { id: 'eletronico', label: 'Eletrônico' },
-  { id: 'brasilidades', label: 'Brasilidades & Axé' },
-  { id: 'rock', label: 'Rock & Indie' },
-  { id: 'samba', label: 'Samba & Pagode' },
+  { id: 'funk', label: 'Funk' },
+  { id: 'pop_eletronica', label: 'Pop / Eletrônica' },
+  { id: 'sertanejo', label: 'Sertanejo' },
+  { id: 'drag_cabare', label: 'Drag / Cabaré' },
+  { id: 'mpb_samba', label: 'MPB / Samba' },
+  { id: 'techno_house', label: 'Techno / House' },
 ];
 
-// 🌈 Filtros por Perfil / Público da Festa
+// Precisam bater com o enum public.publico_tag
 const PUBLIC_FILTERS = [
   { id: 'todos_publicos', label: 'Todos os Públicos' },
-  { id: 'gay', label: 'Gay' },
-  { id: 'lesbica', label: 'Lésbica' },
-  { id: 'trans', label: 'Trans & Non-Binary' },
-  { id: 'drag', label: 'Drag Shows' },
-  { id: 'ursos', label: 'Bears & Ursos' },
+  { id: 'gay', label: 'Gays' },
+  { id: 'lesbica', label: 'Lésbicas' },
+  { id: 'trans', label: 'Trans' },
+  { id: 'bi', label: 'Bi' },
+  { id: 'ursos', label: 'Ursos' },
 ];
 
-// OPÇÕES DE DATAS NO CALENDÁRIO MODAL
 const CALENDAR_DATES = [
   { id: 'hoje', label: 'Hoje', sub: 'Eventos acontecendo agora' },
   { id: 'amanha', label: 'Amanhã', sub: 'Agenda de amanhã' },
@@ -58,114 +60,173 @@ const CALENDAR_DATES = [
   { id: 'proximo_fds', label: 'Próximo Fim de Semana', sub: 'Destaques futuros' },
 ];
 
-interface EventItem {
+const STATUS_SOLICITACAO_LABEL: Record<string, string> = {
+  solicitada: 'Solicitação enviada — aguardando aprovação',
+  aprovada: 'Aprovada! Seu nome está confirmado na lista',
+  rejeitada: 'Solicitação não aprovada',
+  cancelada: 'Solicitação cancelada',
+  check_in: 'Check-in já feito na portaria',
+};
+
+const DIAS_SEMANA = [
+  'Domingo',
+  'Segunda',
+  'Terça',
+  'Quarta',
+  'Quinta',
+  'Sexta',
+  'Sábado',
+];
+
+type DateTag = 'hoje' | 'amanha' | 'fds' | 'proximo_fds' | 'outro';
+
+interface ListaVip {
   id: string;
-  title: string;
-  date: string;
-  dateTag: 'hoje' | 'amanha' | 'fds';
-  location: string;
-  price: string;
-  musicGenre: string;
-  publicType: string;
-  isVIP?: boolean;
-  hasGuestList: boolean;
+  titulo: string;
+  vagas_limite: number | null;
+  vagas_ocupadas: number;
+  ativa: boolean;
+}
+
+interface EventoRow {
+  id: string;
+  titulo: string;
+  descricao: string | null;
+  data_inicio: string;
+  data_fim: string | null;
+  estilos_musicais: string[];
+  publico_tags: string[];
+  foto_capa_url: string | null;
+  plano_destaque: 'basico' | 'destaque' | 'vip';
+  locais: { nome: string; bairro: string | null; cidade: string } | null;
+  listas_vip: ListaVip[] | null;
+}
+
+interface EventItem extends EventoRow {
+  dateTag: DateTag;
+  listaVipAtiva: ListaVip | null;
+}
+
+function calcularDateTag(dataInicioISO: string): DateTag {
+  const agora = new Date();
+  const data = new Date(dataInicioISO);
+
+  const inicioHoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
+  const inicioData = new Date(data.getFullYear(), data.getMonth(), data.getDate());
+  const diffDias = Math.round((inicioData.getTime() - inicioHoje.getTime()) / 86400000);
+
+  if (diffDias === 0) return 'hoje';
+  if (diffDias === 1) return 'amanha';
+
+  const diaSemanaHoje = agora.getDay(); // 0 = domingo, 6 = sábado
+  const diasAteSabado = (6 - diaSemanaHoje + 7) % 7;
+  const diasAteDomingo = diasAteSabado + 1;
+
+  if (diffDias >= diasAteSabado && diffDias <= diasAteDomingo) return 'fds';
+  if (diffDias >= diasAteSabado + 7 && diffDias <= diasAteDomingo + 7) return 'proximo_fds';
+
+  return 'outro';
+}
+
+function formatarDataEvento(dataInicioISO: string, tag: DateTag): string {
+  const data = new Date(dataInicioISO);
+  const hora = data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+  if (tag === 'hoje') return `Hoje • ${hora}`;
+  if (tag === 'amanha') return `Amanhã • ${hora}`;
+  return `${DIAS_SEMANA[data.getDay()]} • ${hora}`;
 }
 
 export default function EventsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { user, session } = useAuth();
+  const isUserLogged = !!session;
 
-  // STATUS DE AUTENTICAÇÃO (Mudar para true ao testar logado ou conectar com Supabase Auth)
-  const isUserLogged = false;
-
-  const [dateFilter, setDateFilter] = useState<string>('hoje');
+  const [dateFilter, setDateFilter] = useState<DateTag>('hoje');
   const [selectedMusic, setSelectedMusic] = useState('todos_estilos');
   const [selectedPublic, setSelectedPublic] = useState('todos_publicos');
-  
+
+  const [events, setEvents] = useState<EventItem[]>([]);
+  const [loadingEvents, setLoadingEvents] = useState(true);
+  const [minhasSolicitacoes, setMinhasSolicitacoes] = useState<Record<string, string>>({});
+
   // Modais
   const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [selectedEventForList, setSelectedEventForList] = useState<EventItem | null>(null);
-  
-  // Campos do formulário de Lista VIP
-  const [userName, setUserName] = useState('');
-  const [userCpf, setUserCpf] = useState('');
-  const [userEmail, setUserEmail] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [acompanhantes, setAcompanhantes] = useState('0');
+  const [submitting, setSubmitting] = useState(false);
 
-  const events: EventItem[] = [
-    {
-      id: 'ev1',
-      title: 'Sunset Sessions & Karaoke Pop',
-      date: 'Hoje • 18:00',
-      dateTag: 'hoje',
-      location: 'Castro Burger • Vila Mariana',
-      price: 'Entrada Grátis',
-      musicGenre: 'pop',
-      publicType: 'gay',
-      isVIP: true,
-      hasGuestList: true,
-    },
-    {
-      id: 'ev2',
-      title: 'Noite Pop & Drag Cabaré',
-      date: 'Hoje • 23:00',
-      dateTag: 'hoje',
-      location: 'Zig Club • Baixo Augusta',
-      price: 'R$ 30,00 com lista',
-      musicGenre: 'pop',
-      publicType: 'drag',
-      isVIP: true,
-      hasGuestList: true,
-    },
-    {
-      id: 'ev3',
-      title: 'Festa Lésbica SAPHO Sunset',
-      date: 'Sábado • 16:00',
-      dateTag: 'fds',
-      location: 'Rooftop Augusta • Centro',
-      price: 'R$ 35,00',
-      musicGenre: 'brasilidades',
-      publicType: 'lesbica',
-      isVIP: false,
-      hasGuestList: true,
-    },
-    {
-      id: 'ev4',
-      title: 'Tribal Tech & Dark Room',
-      date: 'Sábado • 23:59',
-      dateTag: 'fds',
-      location: 'Warehouse • Barra Funda',
-      price: 'R$ 60,00',
-      musicGenre: 'eletronico',
-      publicType: 'gay',
-      isVIP: true,
-      hasGuestList: false,
-    },
-    {
-      id: 'ev5',
-      title: 'Bear Party & Rock Indie',
-      date: 'Domingo • 17:00',
-      dateTag: 'fds',
-      location: 'Pub Destaque • Jardins',
-      price: 'R$ 25,00',
-      musicGenre: 'rock',
-      publicType: 'ursos',
-      isVIP: false,
-      hasGuestList: false,
-    },
-  ];
+  const carregarEventos = useCallback(async () => {
+    setLoadingEvents(true);
+    try {
+      const inicioHoje = new Date();
+      inicioHoje.setHours(0, 0, 0, 0);
+
+      const { data, error } = await supabase
+        .from('eventos')
+        .select(
+          'id, titulo, descricao, data_inicio, data_fim, estilos_musicais, publico_tags, foto_capa_url, plano_destaque, locais(nome, bairro, cidade), listas_vip(id, titulo, vagas_limite, vagas_ocupadas, ativa)'
+        )
+        .eq('status', 'aprovado')
+        .gte('data_inicio', inicioHoje.toISOString())
+        .order('data_inicio', { ascending: true })
+        .limit(60);
+
+      if (error) throw error;
+
+      const linhas = (data || []) as unknown as EventoRow[];
+      const itens: EventItem[] = linhas.map((ev) => ({
+        ...ev,
+        dateTag: calcularDateTag(ev.data_inicio),
+        listaVipAtiva: (ev.listas_vip || []).find((l) => l.ativa) || null,
+      }));
+
+      setEvents(itens);
+
+      // Carrega o status das minhas próprias solicitações, se estiver logado
+      if (user?.id) {
+        const listaIds = itens.map((ev) => ev.listaVipAtiva?.id).filter(Boolean) as string[];
+        if (listaIds.length > 0) {
+          const { data: minhas, error: errMinhas } = await supabase
+            .from('listas_vip_solicitacoes')
+            .select('lista_vip_id, status')
+            .eq('user_id', user.id)
+            .in('lista_vip_id', listaIds);
+
+          if (!errMinhas && minhas) {
+            const mapa: Record<string, string> = {};
+            minhas.forEach((s: any) => {
+              mapa[s.lista_vip_id] = s.status;
+            });
+            setMinhasSolicitacoes(mapa);
+          }
+        } else {
+          setMinhasSolicitacoes({});
+        }
+      } else {
+        setMinhasSolicitacoes({});
+      }
+    } catch (err) {
+      console.error('Erro ao carregar eventos:', err);
+    } finally {
+      setLoadingEvents(false);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    carregarEventos();
+  }, [carregarEventos]);
 
   const filteredEvents = events.filter((ev) => {
-    if (dateFilter !== 'todos' && dateFilter === 'hoje' && ev.dateTag !== 'hoje') return false;
-    if (dateFilter === 'fds' && ev.dateTag !== 'fds') return false;
-    if (selectedMusic !== 'todos_estilos' && ev.musicGenre !== selectedMusic) return false;
-    if (selectedPublic !== 'todos_publicos' && ev.publicType !== selectedPublic) return false;
+    if (ev.dateTag !== dateFilter) return false;
+    if (selectedMusic !== 'todos_estilos' && !ev.estilos_musicais?.includes(selectedMusic)) return false;
+    if (selectedPublic !== 'todos_publicos' && !ev.publico_tags?.includes(selectedPublic)) return false;
     return true;
   });
 
-  // TRAVA DE LOGIN AO CLICAR NO EVENTO
   const handleEventClick = (eventItem: EventItem) => {
-    if (!eventItem.hasGuestList) {
+    if (!eventItem.listaVipAtiva) {
       Alert.alert('Evento sem Lista', 'Este evento não possui opção de envio de nome na lista VIP.');
       return;
     }
@@ -182,55 +243,68 @@ export default function EventsScreen() {
       return;
     }
 
+    setAcompanhantes('0');
     setSelectedEventForList(eventItem);
   };
 
-  // ENVIO DO NOME E CPF PARA O SUPABASE
-  const handleSendNameToList = async () => {
-    if (!userName.trim()) {
-      Alert.alert('Atenção', 'Por favor, digite seu nome completo.');
-      return;
-    }
-    if (!userCpf.trim()) {
-      Alert.alert('Atenção', 'Por favor, informe seu CPF para validação na portaria.');
-      return;
-    }
+  const statusAtual = selectedEventForList?.listaVipAtiva
+    ? minhasSolicitacoes[selectedEventForList.listaVipAtiva.id]
+    : undefined;
 
-    setLoading(true);
+  const handleSendToList = async () => {
+    if (!selectedEventForList?.listaVipAtiva || !user) return;
 
+    const numAcompanhantes = Math.max(0, Math.min(5, parseInt(acompanhantes, 10) || 0));
+
+    setSubmitting(true);
     try {
-      const { error } = await supabase
-        .from('event_guest_lists')
-        .insert([
-          {
-            event_id: selectedEventForList?.id,
-            full_name: userName.trim(),
-            cpf: userCpf.trim(),
-            email: userEmail.trim() || null,
-          },
-        ]);
+      const { error } = await supabase.from('listas_vip_solicitacoes').insert({
+        lista_vip_id: selectedEventForList.listaVipAtiva.id,
+        acompanhantes: numAcompanhantes,
+      });
 
       if (error) {
-        console.error('Erro ao enviar nome para o Supabase:', error);
-        Alert.alert('Erro', 'Não foi possível salvar seu nome na lista VIP. Tente novamente.');
-        setLoading(false);
-        return;
+        if (error.code === '23505') {
+          Alert.alert('Você já está na lista', 'Seu nome já foi enviado para esta lista VIP.');
+        } else {
+          throw error;
+        }
+      } else {
+        Alert.alert(
+          'Nome enviado!',
+          `Seu nome foi inserido na lista VIP de ${selectedEventForList.titulo}. Apresente um documento na portaria.`
+        );
       }
 
-      Alert.alert(
-        'Nome Confirmado!',
-        `Seu nome (${userName}) e CPF foram inseridos com sucesso na lista VIP de ${selectedEventForList?.title}. Apresente seu documento na portaria!`
-      );
+      setSelectedEventForList(null);
+      carregarEventos();
+    } catch (err: any) {
+      console.error('Erro ao enviar solicitação de lista VIP:', err);
+      Alert.alert('Erro', err?.message || 'Não foi possível salvar seu nome na lista VIP. Tente novamente.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCancelarSolicitacao = async () => {
+    if (!selectedEventForList?.listaVipAtiva || !user) return;
+
+    setSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from('listas_vip_solicitacoes')
+        .delete()
+        .eq('lista_vip_id', selectedEventForList.listaVipAtiva.id)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
 
       setSelectedEventForList(null);
-      setUserName('');
-      setUserCpf('');
-      setUserEmail('');
-    } catch (err) {
-      console.error('Erro de conexão:', err);
-      Alert.alert('Erro inesperado', 'Ocorreu um problema ao comunicar com o servidor.');
+      carregarEventos();
+    } catch (err: any) {
+      Alert.alert('Erro', err?.message || 'Não foi possível cancelar a solicitação.');
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
@@ -260,7 +334,7 @@ export default function EventsScreen() {
         {/* TÍTULO E BOTÕES DE SELEÇÃO DE DATA */}
         <View style={styles.titleArea}>
           <Text style={styles.mainTitle}>Eventos</Text>
-          
+
           <View style={styles.dateSelectorRow}>
             <TouchableOpacity
               style={[styles.dateBtn, dateFilter === 'hoje' && styles.dateBtnActive]}
@@ -345,27 +419,38 @@ export default function EventsScreen() {
             <Text style={styles.eventCount}>{filteredEvents.length} eventos</Text>
           </View>
 
-          {filteredEvents.length === 0 ? (
+          {loadingEvents ? (
+            <View style={styles.emptyBox}>
+              <ActivityIndicator color={COLORS.pink} />
+            </View>
+          ) : filteredEvents.length === 0 ? (
             <View style={styles.emptyBox}>
               <Feather name="calendar" size={32} color={COLORS.textMuted} />
-              <Text style={styles.emptyText}>Nenhum evento encontrado para esse filtro.</Text>
+              <Text style={styles.emptyText}>
+                Nenhum evento aprovado encontrado para esse filtro ainda. Novos eventos aparecem
+                aqui assim que forem aprovados.
+              </Text>
             </View>
           ) : (
             filteredEvents.map((item) => (
               <TouchableOpacity
                 key={item.id}
-                style={[styles.eventCard, !item.hasGuestList && styles.eventCardDisabled]}
+                style={[styles.eventCard, !item.listaVipAtiva && styles.eventCardDisabled]}
                 onPress={() => handleEventClick(item)}
-                activeOpacity={item.hasGuestList ? 0.85 : 1}
+                activeOpacity={item.listaVipAtiva ? 0.85 : 1}
               >
                 <View style={styles.eventThumb}>
-                  <Feather name="calendar" size={20} color={COLORS.pink} />
+                  {item.foto_capa_url ? (
+                    <Image source={{ uri: item.foto_capa_url }} style={styles.eventThumbImg} />
+                  ) : (
+                    <Feather name="calendar" size={20} color={COLORS.pink} />
+                  )}
                 </View>
 
                 <View style={{ flex: 1 }}>
                   <View style={styles.eventHeaderRow}>
-                    <Text style={styles.eventDate}>{item.date}</Text>
-                    {item.hasGuestList && (
+                    <Text style={styles.eventDate}>{formatarDataEvento(item.data_inicio, item.dateTag)}</Text>
+                    {item.listaVipAtiva && (
                       <View style={styles.guestListBadge}>
                         <Feather name="edit-3" size={9} color={COLORS.green} />
                         <Text style={styles.guestListBadgeText}>NOME NA LISTA</Text>
@@ -373,15 +458,19 @@ export default function EventsScreen() {
                     )}
                   </View>
 
-                  <Text style={styles.eventTitle}>{item.title}</Text>
-                  <Text style={styles.eventLocation}>{item.location}</Text>
-                  <Text style={styles.eventPrice}>{item.price}</Text>
+                  <Text style={styles.eventTitle}>{item.titulo}</Text>
+                  <Text style={styles.eventLocation}>
+                    {item.locais ? `${item.locais.nome} • ${item.locais.bairro || item.locais.cidade}` : 'Local a confirmar'}
+                  </Text>
+                  {item.plano_destaque !== 'basico' && (
+                    <Text style={styles.eventPrice}>★ Evento em destaque</Text>
+                  )}
                 </View>
 
                 <Feather
-                  name={item.hasGuestList ? 'user-plus' : 'chevron-right'}
+                  name={item.listaVipAtiva ? 'user-plus' : 'chevron-right'}
                   size={18}
-                  color={item.hasGuestList ? COLORS.pink : '#606070'}
+                  color={item.listaVipAtiva ? COLORS.pink : '#606070'}
                 />
               </TouchableOpacity>
             ))
@@ -422,7 +511,7 @@ export default function EventsScreen() {
                     dateFilter === opt.id && styles.modalOptionActive,
                   ]}
                   onPress={() => {
-                    setDateFilter(opt.id);
+                    setDateFilter(opt.id as DateTag);
                     setShowCalendarModal(false);
                   }}
                   activeOpacity={0.8}
@@ -436,7 +525,7 @@ export default function EventsScreen() {
         </TouchableOpacity>
       </Modal>
 
-      {/* MODAL 2: NOME NA LISTA VIP COM INTEGRACAO SUPABASE */}
+      {/* MODAL 2: NOME NA LISTA VIP (listas_vip_solicitacoes de verdade) */}
       <Modal
         visible={selectedEventForList !== null}
         transparent
@@ -461,56 +550,71 @@ export default function EventsScreen() {
 
             {selectedEventForList && (
               <View style={{ marginBottom: 16 }}>
-                <Text style={styles.listEventName}>{selectedEventForList.title}</Text>
-                <Text style={styles.listEventSub}>{selectedEventForList.location} • {selectedEventForList.date}</Text>
+                <Text style={styles.listEventName}>{selectedEventForList.titulo}</Text>
+                <Text style={styles.listEventSub}>
+                  {selectedEventForList.locais?.nome} •{' '}
+                  {formatarDataEvento(selectedEventForList.data_inicio, selectedEventForList.dateTag)}
+                </Text>
+                {selectedEventForList.listaVipAtiva?.vagas_limite != null && (
+                  <Text style={styles.listEventSub}>
+                    {Math.max(
+                      0,
+                      selectedEventForList.listaVipAtiva.vagas_limite -
+                        selectedEventForList.listaVipAtiva.vagas_ocupadas
+                    )}{' '}
+                    vagas disponíveis
+                  </Text>
+                )}
               </View>
             )}
 
-            <View style={styles.formGroup}>
-              <Text style={styles.inputLabel}>Nome Completo (Como no documento)</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="Ex: Gabriel Silva"
-                placeholderTextColor={COLORS.textMuted}
-                value={userName}
-                onChangeText={setUserName}
-              />
-            </View>
+            {statusAtual ? (
+              <View style={{ gap: 14 }}>
+                <Text style={styles.statusText}>
+                  {STATUS_SOLICITACAO_LABEL[statusAtual] || statusAtual}
+                </Text>
+                {(statusAtual === 'solicitada' || statusAtual === 'aprovada') && (
+                  <TouchableOpacity
+                    style={[styles.submitListBtn, { backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border }, submitting && { opacity: 0.6 }]}
+                    onPress={handleCancelarSolicitacao}
+                    disabled={submitting}
+                  >
+                    <Text style={[styles.submitListBtnText, { color: COLORS.textSecondary }]}>
+                      {submitting ? 'Cancelando...' : 'Cancelar Solicitação'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            ) : (
+              <>
+                <View style={styles.formGroup}>
+                  <Text style={styles.inputLabel}>Quantos acompanhantes? (0 a 5)</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="0"
+                    placeholderTextColor={COLORS.textMuted}
+                    value={acompanhantes}
+                    onChangeText={(v) => setAcompanhantes(v.replace(/[^0-9]/g, ''))}
+                    keyboardType="numeric"
+                  />
+                </View>
 
-            <View style={styles.formGroup}>
-              <Text style={styles.inputLabel}>CPF (Para validação na portaria)</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="000.000.000-00"
-                placeholderTextColor={COLORS.textMuted}
-                value={userCpf}
-                onChangeText={setUserCpf}
-                keyboardType="numeric"
-              />
-            </View>
+                <Text style={styles.listEventSub}>
+                  Seu nome (do perfil) e sua conta serão usados para confirmar entrada na portaria.
+                </Text>
 
-            <View style={styles.formGroup}>
-              <Text style={styles.inputLabel}>E-mail (Opcional)</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="seuemail@exemplo.com"
-                placeholderTextColor={COLORS.textMuted}
-                value={userEmail}
-                onChangeText={setUserEmail}
-                keyboardType="email-address"
-              />
-            </View>
-
-            <TouchableOpacity 
-              style={[styles.submitListBtn, loading && { opacity: 0.6 }]} 
-              onPress={handleSendNameToList} 
-              activeOpacity={0.88}
-              disabled={loading}
-            >
-              <Text style={styles.submitListBtnText}>
-                {loading ? 'Enviando...' : 'Enviar Nome e CPF para a Lista'}
-              </Text>
-            </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.submitListBtn, submitting && { opacity: 0.6 }]}
+                  onPress={handleSendToList}
+                  activeOpacity={0.88}
+                  disabled={submitting}
+                >
+                  <Text style={styles.submitListBtnText}>
+                    {submitting ? 'Enviando...' : 'Enviar Nome para a Lista'}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
@@ -546,7 +650,7 @@ const styles = StyleSheet.create({
 
   titleArea: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 12 },
   mainTitle: { fontSize: 24, fontWeight: '800', color: COLORS.textPrimary },
-  
+
   dateSelectorRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   dateBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
   dateBtnActive: { backgroundColor: COLORS.pink, borderColor: COLORS.pink },
@@ -574,14 +678,15 @@ const styles = StyleSheet.create({
 
   eventCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.card, padding: 14, borderRadius: 18, borderWidth: 1, borderColor: COLORS.border, gap: 12, marginBottom: 10 },
   eventCardDisabled: { opacity: 0.6 },
-  eventThumb: { width: 48, height: 48, borderRadius: 14, backgroundColor: 'rgba(225, 48, 108, 0.12)', justifyContent: 'center', alignItems: 'center' },
+  eventThumb: { width: 48, height: 48, borderRadius: 14, backgroundColor: 'rgba(225, 48, 108, 0.12)', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  eventThumbImg: { width: 48, height: 48 },
   eventHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 },
   eventDate: { fontSize: 11, fontWeight: '700', color: COLORS.pink },
   guestListBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(76, 175, 125, 0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
   guestListBadgeText: { fontSize: 8, fontWeight: '800', color: COLORS.green },
   eventTitle: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary },
   eventLocation: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
-  eventPrice: { fontSize: 11, fontWeight: '700', color: COLORS.purple, marginTop: 4 },
+  eventPrice: { fontSize: 11, fontWeight: '700', color: COLORS.gold, marginTop: 4 },
 
   emptyBox: { padding: 30, alignItems: 'center', gap: 10, backgroundColor: COLORS.card, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, marginTop: 10 },
   emptyText: { fontSize: 13, color: COLORS.textSecondary, textAlign: 'center' },
@@ -601,6 +706,7 @@ const styles = StyleSheet.create({
   listModalContent: { width: '100%', backgroundColor: COLORS.card, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: COLORS.border },
   listEventName: { fontSize: 16, fontWeight: '800', color: COLORS.pink },
   listEventSub: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
+  statusText: { fontSize: 13, fontWeight: '600', color: COLORS.textPrimary, lineHeight: 20 },
   formGroup: { marginBottom: 12 },
   inputLabel: { fontSize: 12, fontWeight: '700', color: COLORS.textSecondary, marginBottom: 6 },
   textInput: { height: 44, borderRadius: 12, backgroundColor: '#0B0B0E', borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 14, color: COLORS.textPrimary, fontSize: 13 },

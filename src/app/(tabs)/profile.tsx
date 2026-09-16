@@ -1,7 +1,8 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Image,
   Linking,
@@ -15,6 +16,8 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '../../lib/authContext';
+import { supabase } from '../../lib/supabase';
 
 const COLORS = {
   background: '#0B0B0E',
@@ -36,7 +39,8 @@ export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const [isLogado, setIsLogado] = useState(false);
+  const { user, session, loading: authLoading, signOut } = useAuth();
+  const isLogado = !!session;
   const [isModoCadastro, setIsModoCadastro] = useState(true);
 
   const [nomeSocial, setNomeSocial] = useState('');
@@ -45,11 +49,93 @@ export default function ProfileScreen() {
   const [dataNascimento, setDataNascimento] = useState('');
   const [senha, setSenha] = useState('');
   const [aceitaLGPD, setAceitaLGPD] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
+  const [perfil, setPerfil] = useState<{
+    display_name: string | null;
+    phone: string | null;
+    birth_date: string | null;
+  } | null>(null);
   const [totalSalvos, setTotalSalvos] = useState(0);
   const [totalCupons, setTotalCupons] = useState(0);
 
-  const handleCadastrar = () => {
+  // Formata enquanto digita: o teclado é numérico (nunca deveria ter barra
+  // pra digitar) mas o campo pede DD/MM/AAAA -- sem isso, quem digitasse só
+  // números nunca conseguia bater 3 partes separadas por "/" e o cadastro
+  // travava com "Informe a data de nascimento no formato DD/MM/AAAA" sem
+  // nenhum jeito de corrigir. Insere as barras automaticamente conforme os
+  // números são digitados (mesmo padrão de "01/02/2000").
+  const formatarDataNascimento = (texto: string): string => {
+    const digitos = texto.replace(/\D/g, '').slice(0, 8);
+    const dia = digitos.slice(0, 2);
+    const mes = digitos.slice(2, 4);
+    const ano = digitos.slice(4, 8);
+    if (digitos.length <= 2) return dia;
+    if (digitos.length <= 4) return `${dia}/${mes}`;
+    return `${dia}/${mes}/${ano}`;
+  };
+
+  // DD/MM/AAAA -> AAAA-MM-DD (o formato que o Postgres espera)
+  const paraDataISO = (dataBr: string): string | null => {
+    const partes = dataBr.trim().split('/');
+    if (partes.length !== 3) return null;
+    const [dia, mes, ano] = partes;
+    if (!dia || !mes || !ano || ano.length !== 4) return null;
+    const iso = `${ano}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return null;
+    return iso;
+  };
+
+  // Espelha a constraint birth_date_18_mais do banco, só pra dar um erro
+  // amigável em vez do usuário ver um erro cru do Postgres.
+  const temMaisDe18 = (dataISO: string): boolean => {
+    const nascimento = new Date(dataISO);
+    const limite = new Date();
+    limite.setFullYear(limite.getFullYear() - 18);
+    return nascimento <= limite;
+  };
+
+  useEffect(() => {
+    if (!user?.id) {
+      setPerfil(null);
+      setTotalSalvos(0);
+      setTotalCupons(0);
+      return;
+    }
+
+    let ativo = true;
+
+    (async () => {
+      const [perfilRes, salvosRes, cuponsRes] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('display_name, phone, birth_date')
+          .eq('id', user.id)
+          .single(),
+        supabase
+          .from('favoritos_locais')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id),
+        supabase
+          .from('cupons_resgatados')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id),
+      ]);
+
+      if (!ativo) return;
+
+      if (!perfilRes.error) setPerfil(perfilRes.data as any);
+      if (!salvosRes.error) setTotalSalvos(salvosRes.count ?? 0);
+      if (!cuponsRes.error) setTotalCupons(cuponsRes.count ?? 0);
+    })();
+
+    return () => {
+      ativo = false;
+    };
+  }, [user?.id]);
+
+  const handleCadastrar = async () => {
     if (!nomeSocial || !email || !telefone || !dataNascimento || !senha) {
       Alert.alert('Campos obrigatórios', 'Por favor, preencha todos os campos.');
       return;
@@ -58,29 +144,68 @@ export default function ProfileScreen() {
       Alert.alert('LGPD', 'Autorize o uso dos dados para continuar.');
       return;
     }
+    const dataISO = paraDataISO(dataNascimento);
+    if (!dataISO) {
+      Alert.alert('Data inválida', 'Informe a data de nascimento no formato DD/MM/AAAA.');
+      return;
+    }
+    if (!temMaisDe18(dataISO)) {
+      Alert.alert('Idade mínima', 'Você precisa ter 18 anos ou mais para criar uma conta.');
+      return;
+    }
 
-    setIsLogado(true);
-    setTotalSalvos(3);
-    setTotalCupons(1);
-    Alert.alert('Conta Criada!', `Seja bem-vinde, ${nomeSocial}!`);
+    setSubmitting(true);
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password: senha,
+        options: {
+          data: {
+            full_name: nomeSocial,
+            social_name: nomeSocial,
+            phone: telefone,
+            birth_date: dataISO,
+          },
+        },
+      });
+
+      if (error) throw error;
+
+      if (data.session) {
+        Alert.alert('Conta criada!', `Seja bem-vinde, ${nomeSocial}!`);
+      } else {
+        Alert.alert(
+          'Quase lá!',
+          'Enviamos um e-mail de confirmação. Confirme para poder entrar na sua conta.'
+        );
+      }
+    } catch (err: any) {
+      Alert.alert('Não foi possível criar a conta', err?.message || 'Tente novamente.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleEntrar = () => {
+  const handleEntrar = async () => {
     if (!email || !senha) {
       Alert.alert('Atenção', 'Informe e-mail e senha.');
       return;
     }
-    setNomeSocial('Alex Silva');
-    setIsLogado(true);
-    setTotalSalvos(5);
-    setTotalCupons(2);
+
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
+      if (error) throw error;
+    } catch (err: any) {
+      Alert.alert('Não foi possível entrar', err?.message || 'Verifique seu e-mail e senha.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleLogout = () => {
-    setIsLogado(false);
+  const handleLogout = async () => {
+    await signOut();
     setIsModoCadastro(false);
-    setTotalSalvos(0);
-    setTotalCupons(0);
   };
 
   const handleIndicarAmigos = async () => {
@@ -120,15 +245,32 @@ export default function ProfileScreen() {
   const handleExcluirConta = () => {
     Alert.alert(
       'Excluir Conta (LGPD)',
-      'Deseja remover permanentemente sua conta e histórico?',
+      'Deseja solicitar a remoção permanente da sua conta e histórico?',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Excluir',
           style: 'destructive',
-          onPress: () => {
-            handleLogout();
-            Alert.alert('Conta removida com sucesso.');
+          onPress: async () => {
+            try {
+              const { error } = await supabase.from('solicitacoes_exclusao_conta').insert({
+                email: user?.email || email,
+                telefone: perfil?.phone || telefone || null,
+                motivo: 'Solicitado pelo app (Meu Perfil > Excluir Conta)',
+              });
+              if (error) throw error;
+
+              await handleLogout();
+              Alert.alert(
+                'Pedido registrado',
+                'Recebemos sua solicitação de exclusão. Seus dados serão removidos em breve.'
+              );
+            } catch (err: any) {
+              Alert.alert(
+                'Não foi possível registrar o pedido',
+                err?.message || 'Tente novamente em alguns instantes.'
+              );
+            }
           },
         },
       ]
@@ -183,7 +325,11 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
 
-          {!isLogado ? (
+          {authLoading ? (
+            <View style={styles.authBox}>
+              <ActivityIndicator color={COLORS.pink} />
+            </View>
+          ) : !isLogado ? (
             <View style={styles.authBox}>
               <Text style={styles.authTitle}>
                 {isModoCadastro ? 'Criar sua conta' : 'Entrar na sua conta'}
@@ -252,8 +398,9 @@ export default function ProfileScreen() {
                         placeholder="DD/MM/AAAA"
                         placeholderTextColor={COLORS.textMuted}
                         keyboardType="numeric"
+                        maxLength={10}
                         value={dataNascimento}
-                        onChangeText={setDataNascimento}
+                        onChangeText={(texto) => setDataNascimento(formatarDataNascimento(texto))}
                       />
                     </View>
                   </View>
@@ -293,18 +440,24 @@ export default function ProfileScreen() {
               )}
 
               <TouchableOpacity
-                style={styles.actionBtn}
+                style={[styles.actionBtn, submitting && { opacity: 0.6 }]}
                 onPress={isModoCadastro ? handleCadastrar : handleEntrar}
                 activeOpacity={0.85}
+                disabled={submitting}
               >
-                <Text style={styles.actionBtnText}>
-                  {isModoCadastro ? 'Concluir Cadastro' : 'Entrar na Conta'}
-                </Text>
+                {submitting ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <Text style={styles.actionBtnText}>
+                    {isModoCadastro ? 'Concluir Cadastro' : 'Entrar na Conta'}
+                  </Text>
+                )}
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.switchAuthBtn}
                 onPress={() => setIsModoCadastro(!isModoCadastro)}
+                disabled={submitting}
               >
                 <Text style={styles.switchAuthText}>
                   {isModoCadastro
@@ -317,22 +470,24 @@ export default function ProfileScreen() {
             <View style={styles.profileCard}>
               <View style={styles.avatarCircle}>
                 <Text style={styles.avatarInitials}>
-                  {nomeSocial ? nomeSocial.substring(0, 2).toUpperCase() : 'US'}
+                  {(perfil?.display_name || user?.email || 'US').substring(0, 2).toUpperCase()}
                 </Text>
               </View>
-              <Text style={styles.userName}>{nomeSocial}</Text>
-              <Text style={styles.userEmail}>{email}</Text>
+              <Text style={styles.userName}>{perfil?.display_name || 'Sem nome cadastrado'}</Text>
+              <Text style={styles.userEmail}>{user?.email}</Text>
 
               <View style={styles.infoDivider} />
 
               <View style={styles.infoRow}>
                 <Feather name="phone" size={14} color={COLORS.textMuted} />
-                <Text style={styles.infoText}>WhatsApp: {telefone}</Text>
+                <Text style={styles.infoText}>WhatsApp: {perfil?.phone || 'não informado'}</Text>
               </View>
 
               <View style={styles.infoRow}>
                 <Feather name="calendar" size={14} color={COLORS.textMuted} />
-                <Text style={styles.infoText}>Nascimento: {dataNascimento}</Text>
+                <Text style={styles.infoText}>
+                  Nascimento: {perfil?.birth_date || 'não informado'}
+                </Text>
               </View>
             </View>
           )}

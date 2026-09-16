@@ -1,100 +1,195 @@
 'use client';
-import { ArrowLeft, Check, X } from 'lucide-react';
+import { ArrowLeft, Check, CheckCircle2, Loader2, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { supabase } from '../../lib/supabase';
+
+// Nomes/valores usados no enum public.plano_comercial (005). Precisam bater
+// exatamente com os `slug`s abaixo.
+const planos = [
+  {
+    slug: 'freemium',
+    nome: 'Freemium',
+    preco: 'R$0',
+    sub: 'sempre grátis',
+    beneficios: [
+      { text: 'Aparece no mapa e na categoria', ok: true },
+      { text: '@Instagram no perfil', ok: false },
+      { text: 'Cupons', ok: false },
+      { text: 'Destaque / tags', ok: false },
+    ],
+    cta: 'Continuar grátis',
+    highlight: false,
+  },
+  {
+    slug: 'starter',
+    nome: 'Starter',
+    preco: 'R$59',
+    sub: '/mês',
+    beneficios: [
+      { text: 'Tudo do Freemium', ok: true },
+      { text: 'Mostre seu instagram', ok: true },
+      { text: '2 cupons por mês', ok: false },
+      { text: 'Destaque / tags', ok: false },
+    ],
+    cta: 'Selecionar',
+    highlight: false,
+  },
+  {
+    slug: 'intermediario',
+    nome: 'Intermediário',
+    preco: 'R$249',
+    sub: '/mês',
+    beneficios: [
+      { text: 'Tudo do Starter', ok: true },
+      { text: 'Suba na sua categoria', ok: true },
+      { text: 'Prioridade — Top 15 da categoria', ok: true },
+      { text: 'Cupons ilimitados', ok: true },
+    ],
+    cta: 'Selecionar',
+    highlight: false,
+  },
+  {
+    slug: 'premium',
+    nome: 'Premium',
+    tag: 'RECOMENDADO',
+    preco: 'R$599',
+    sub: '/mês',
+    beneficios: [
+      { text: 'Tudo do Intermediário', ok: true },
+      { text: 'Apareça no "Em Alta"', ok: true },
+      { text: 'Seção "Em Alta" rotativa (pool de 20)', ok: true },
+      { text: '3 tags — Top 5', ok: true },
+      { text: '1 push mensal', ok: true },
+    ],
+    cta: 'Assinar Premium',
+    highlight: true,
+    color: '#E1306C',
+  },
+  {
+    slug: 'fundador',
+    nome: 'Fundador',
+    tag: '5 VAGAS NO TOTAL',
+    preco: 'R$3.500',
+    sub: '/mês',
+    beneficios: [
+      { text: 'Tudo do Premium', ok: true },
+      { text: 'Banner permanente na Home', ok: true },
+      { text: 'Não entra em rotação', ok: true },
+      { text: 'Vagas travadas — exclusividade', ok: true },
+    ],
+    cta: 'Consultar vaga',
+    highlight: false,
+    borderGold: true,
+  },
+] as const;
 
 export default function PlanosPage() {
   const router = useRouter();
+  const [localId, setLocalId] = useState<string | null>(null);
+  const [carregando, setCarregando] = useState(true);
+  const [enviando, setEnviando] = useState<string | null>(null);
+  const [confirmado, setConfirmado] = useState<{ nome: string; gratis: boolean } | null>(null);
+  const [erro, setErro] = useState('');
 
-  const planos = [
-    {
-      nome: 'Freemium',
-      preco: 'R$0',
-      sub: 'sempre grátis',
-      beneficios: [
-        { text: 'Aparece no mapa e na categoria', ok: true },
-        { text: '@Instagram no perfil', ok: false },
-        { text: 'Cupons', ok: false },
-        { text: 'Destaque / tags', ok: false },
-      ],
-      cta: 'Continuar grátis',
-      highlight: false,
-    },
-    {
-      nome: 'Starter',
-      preco: 'R$59',
-      sub: '/mês',
-      beneficios: [
-        { text: 'Tudo do Freemium', ok: true },
-        { text: 'Mostre seu instagram', ok: true },
-        { text: '2 cupons por mês', ok: false },
-        { text: 'Destaque / tags', ok: false },
-      ],
-      cta: 'Selecionar',
-      highlight: false,
-    },
-    {
-      nome: 'Intermediário',
-      preco: 'R$249',
-      sub: '/mês',
-      beneficios: [
-        { text: 'Tudo do Starter', ok: true },
-        { text: 'Suba na sua categoria', ok: true },
-        { text: 'Prioridade — Top 15 da categoria', ok: true },
-        { text: 'Cupons ilimitados', ok: true },
-      ],
-      cta: 'Selecionar',
-      highlight: false,
-    },
-    {
-      nome: 'Premium',
-      tag: 'RECOMENDADO',
-      preco: 'R$599',
-      sub: '/mês',
-      beneficios: [
-        { text: 'Tudo do Intermediário', ok: true },
-        { text: 'Apareça no "Em Alta"', ok: true },
-        { text: 'Seção "Em Alta" rotativa (pool de 20)', ok: true },
-        { text: '3 tags — Top 5', ok: true },
-        { text: '1 push mensal', ok: true },
-      ],
-      cta: 'Assinar Premium',
-      highlight: true,
-      color: '#E1306C',
-    },
-    {
-      nome: 'Fundador',
-      tag: '5 VAGAS NO TOTAL',
-      preco: 'R$2.500',
-      sub: '/mês',
-      beneficios: [
-        { text: 'Tudo do Premium', ok: true },
-        { text: 'Banner permanente na Home', ok: true },
-        { text: 'Não entra em rotação', ok: true },
-        { text: 'Vagas travadas — exclusividade', ok: true },
-      ],
-      cta: 'Consultar vaga',
-      highlight: false,
-      borderGold: true,
-    },
-  ];
+  useEffect(() => {
+    (async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData?.user) {
+        const { data } = await supabase
+          .from('locais')
+          .select('id')
+          .eq('owner_id', userData.user.id)
+          .maybeSingle();
+        setLocalId(data?.id ?? null);
+      }
+      setCarregando(false);
+    })();
+  }, []);
+
+  const escolherPlano = async (plano: (typeof planos)[number]) => {
+    setErro('');
+
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData?.user) {
+      router.push('/login');
+      return;
+    }
+    if (!localId) {
+      // Tem conta, mas não tem local vinculado ainda — não dá pra registrar
+      // interesse em nenhum plano sem saber qual local é.
+      router.push('/vincular');
+      return;
+    }
+
+    setEnviando(plano.slug);
+    const ehGratis = plano.slug === 'freemium';
+    const { error } = await supabase
+      .from('locais')
+      .update({
+        plano_comercial: plano.slug,
+        plano_comercial_status: ehGratis ? 'ativo' : 'interesse',
+      })
+      .eq('id', localId);
+
+    if (error) {
+      setErro(error.message);
+      setEnviando(null);
+      return;
+    }
+
+    setConfirmado({ nome: plano.nome, gratis: ehGratis });
+    setEnviando(null);
+  };
+
+  if (carregando) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="animate-spin text-[#E1306C]" size={28} />
+      </div>
+    );
+  }
+
+  if (confirmado) {
+    return (
+      <div className="min-h-screen bg-[#0B0B0E] flex flex-col items-center justify-center p-6 text-center text-white">
+        <CheckCircle2 className="text-[#4CAF7D] mb-4" size={40} />
+        <h1 className="text-xl font-black mb-2">
+          {confirmado.gratis ? `Plano ${confirmado.nome} ativado` : `Interesse no plano ${confirmado.nome} registrado`}
+        </h1>
+        <p className="text-[#A0A0B2] text-sm mb-6 max-w-sm">
+          {confirmado.gratis
+            ? 'Seu local já está no plano gratuito — nada muda pra você agora.'
+            : `Vamos entrar em contato pelo WhatsApp ou e-mail cadastrado pra combinar o pagamento (Pix). Assim que confirmarmos, o plano ${confirmado.nome} é ativado no seu painel.`}
+        </p>
+        <Link href="/dashboard" className="text-[#E1306C] text-sm font-bold hover:underline">
+          Voltar ao painel
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0B0B0E] p-8">
-      <Link href="/onboarding" className="inline-flex items-center gap-2 text-[#A0A0B2] text-xs hover:text-white transition mb-6">
+      <Link href="/dashboard" className="inline-flex items-center gap-2 text-[#A0A0B2] text-xs hover:text-white transition mb-6">
         <ArrowLeft size={14} /> Voltar
       </Link>
 
       <div className="mb-8">
         <h1 className="text-2xl font-black text-white">Planos para o seu local</h1>
-        <p className="text-[#A0A0B2] text-sm mt-1">Você pode trocar de plano quando quiser, direto no portal.</p>
+        <p className="text-[#A0A0B2] text-sm mt-1">
+          Escolher um plano pago registra seu interesse — combinamos o pagamento por Pix/WhatsApp e
+          ativamos manualmente por enquanto. Você pode trocar quando quiser.
+        </p>
       </div>
 
-      {/* CARDS DOS 5 PLANOS */}
+      {erro && <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl text-xs mb-6">{erro}</div>}
+
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
-        {planos.map((p, i) => (
+        {planos.map((p) => (
           <div
-            key={i}
+            key={p.slug}
             className={`bg-[#161520] border rounded-2xl p-6 flex flex-col justify-between relative ${
               p.highlight
                 ? 'border-[#E1306C] shadow-lg shadow-[#E1306C]/10'
@@ -135,8 +230,9 @@ export default function PlanosPage() {
             </div>
 
             <button
-              onClick={() => router.push('/dashboard')}
-              className={`w-full py-3 rounded-xl font-bold text-xs transition ${
+              onClick={() => escolherPlano(p)}
+              disabled={enviando === p.slug}
+              className={`w-full py-3 rounded-xl font-bold text-xs transition flex items-center justify-center gap-2 ${
                 p.highlight
                   ? 'bg-[#E1306C] text-white hover:bg-[#C2285C]'
                   : p.borderGold
@@ -144,6 +240,7 @@ export default function PlanosPage() {
                   : 'bg-[#232230] text-white hover:bg-[#2D2B3D]'
               }`}
             >
+              {enviando === p.slug && <Loader2 className="animate-spin" size={12} />}
               {p.cta}
             </button>
           </div>

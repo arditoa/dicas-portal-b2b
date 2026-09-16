@@ -1,4 +1,5 @@
-import { ArrowRight, Building2, Calendar, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowRight, Building2, Calendar, ShieldCheck } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -7,17 +8,17 @@ export default function HomePage() {
   return (
     <main className="min-h-screen bg-[#111217] text-white flex flex-col justify-between p-4 md:p-8">
       {/* Header com Logo Oficial */}
-      <header className="w-full max-w-5xl mx-auto flex justify-between items-center py-4 border-b border-white/10">
+      <header className="w-full max-w-5xl mx-auto flex justify-between items-center py-4">
         <div className="flex items-center gap-3">
-          {/* Altere o src para o caminho correto da sua logo na pasta /public */}
-          <div className="relative w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-600 to-pink-500 p-0.5">
-            <div className="w-full h-full bg-[#111217] rounded-[10px] flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-pink-400" />
-            </div>
+          <div className="relative h-16 w-44">
+            <Image
+              src="/logos-dicasapp-semfundo (2).png"
+              alt="Dicas LGBT+ Parceiros"
+              fill
+              className="object-contain object-left"
+              priority
+            />
           </div>
-          <span className="font-bold text-xl tracking-tight text-white">
-            Portal B2B <span className="text-pink-500">LGBT+</span>
-          </span>
         </div>
 
         <Link

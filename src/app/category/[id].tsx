@@ -1,7 +1,8 @@
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   Image,
@@ -10,9 +11,14 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { CATEGORIAS, CATEGORIA_REAL_LABEL, CategoriaSlugUI } from '../../lib/categorias';
+import { useAuth } from '../../lib/authContext';
+import { useLocation } from '../../hooks/useLocation';
+import { supabase } from '../../lib/supabase';
 
 const COLORS = {
   background: '#0B0B0E',
@@ -33,109 +39,120 @@ const OPCOES_DISTANCIA = [
   { label: 'Até 5 km', val: 5 },
 ];
 
-const ESTABELECIMENTOS_MOCK = [
-  {
-    id: 't1',
-    name: 'Passagens & Voos LGBT+ Friendly',
-    categorySlug: 'turismo',
-    subcat: 'Passagens Aéreas',
-    iconName: 'send' as const,
-    features: ['Milhas', 'Desconto Exclusivo', 'Parceiro Oficial'],
-    address: 'Destinos Nacionais e Internacionais',
-    distanceKm: 0,
-    distanceStr: 'Voo Direto',
-    isVIP: true,
-    rating: '5.0',
-    tags: ['predominância lésbica', 'predominância gay', 'aniversário'],
-  },
-  {
-    id: 't2',
-    name: 'Hotel Boutique Castro',
-    categorySlug: 'turismo',
-    subcat: 'Hotéis & Pousadas',
-    iconName: 'home' as const,
-    features: ['Pet Friendly', 'Piscina', 'Café Incluso'],
-    address: 'Jardins • São Paulo, SP',
-    distanceKm: 0,
-    distanceStr: 'São Paulo',
-    isVIP: true,
-    rating: '4.9',
-    tags: ['predominância gay', 'date', 'aniversário'],
-  },
-  {
-    id: '1',
-    name: 'Vezpa Bar & Speakeasy',
-    categorySlug: 'bares',
-    subcat: 'Speakeasy',
-    iconName: 'map-pin' as const,
-    features: ['Parklet', 'Speakeasy', 'Cerveja 600ml'],
-    address: 'R. Lisboa, 400 • Pinheiros',
-    distanceKm: 1.1,
-    distanceStr: '1.1 km',
-    isVIP: true,
-    rating: '4.9',
-    tags: ['predominância gay', 'happy hour', 'aniversário'],
-  },
-  {
-    id: '2',
-    name: 'Bar & Café Safica',
-    categorySlug: 'bares',
-    subcat: 'Pubs',
-    iconName: 'map-pin' as const,
-    features: ['Predominância Lésbica', 'Parklet', 'Cerveja 600ml'],
-    address: 'R. Augusta, 1200 • Consolação',
-    distanceKm: 1.8,
-    distanceStr: '1.8 km',
-    isVIP: false,
-    rating: '5.0',
-    tags: ['predominância lésbica', 'rolê com amigos', 'aniversário'],
-  },
-  {
-    id: '3',
-    name: 'Zig Club & Cabaré',
-    categorySlug: 'bares',
-    subcat: 'Pubs',
-    iconName: 'map-pin' as const,
-    features: ['Pubs', 'Karaokê', 'Cerveja 600ml'],
-    address: 'R. Álvaro de Carvalho, 190 • Centro',
-    distanceKm: 0.8,
-    distanceStr: '0.8 km',
-    isVIP: true,
-    rating: '5.0',
-    tags: ['predominância gay', 'dançar', 'aniversário'],
-  },
-];
+const PLANO_PRIORIDADE: Record<string, number> = { vip: 0, destaque: 1, basico: 2 };
 
-export default function CategoryDetailScreen() {
+function distanciaKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+interface LocalItem {
+  id: string;
+  nome: string;
+  categoria: string;
+  subcategoria: string | null;
+  bairro: string | null;
+  cidade: string;
+  foto_capa_url: string | null;
+  safe_space: boolean;
+  plano_destaque: 'basico' | 'destaque' | 'vip';
+  rating_media: number;
+  rating_total: number;
+  lat: number | null;
+  lng: number | null;
+}
+
+export default function CategoryListScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  
-  const { id, title, subcats } = useLocalSearchParams<{
-    id: string;
-    title?: string;
-    subcats?: string;
-  }>();
+  const { user, session } = useAuth();
 
+  const { id, title, search } = useLocalSearchParams<{ id: string; title?: string; search?: string }>();
   const slug = (id || '').toString().toLowerCase();
-  const isTurismo = slug === 'turismo' || slug === 'dicas trip';
-  const decodedTitle = title ? decodeURIComponent(title) : (slug ? slug.toUpperCase() : 'BUSCA');
-  
-  const rawSubcats = subcats ? decodeURIComponent(subcats).split(',') : [];
-  const subcategoriesList = ['Em Alta', 'Todos', ...rawSubcats.filter((s) => s.trim().length > 0)];
+  const isTodos = slug === 'todos';
 
-  const [selectedSubcat, setSelectedSubcat] = useState('Em Alta');
-  const [maxDistance, setMaxDistance] = useState(999);
-  const [searchQuery, setSearchQuery] = useState('');
+  const categoriaConfig = CATEGORIAS[slug as CategoriaSlugUI];
+  const categoriaReal = isTodos ? null : categoriaConfig?.categoriaReal ?? slug;
+  const decodedTitle = title
+    ? decodeURIComponent(title)
+    : categoriaConfig?.label || (categoriaReal ? CATEGORIA_REAL_LABEL[categoriaReal] : 'Todos os Locais');
+
+  const [loading, setLoading] = useState(true);
+  const [locais, setLocais] = useState<LocalItem[]>([]);
   const [favoritos, setFavoritos] = useState<string[]>([]);
 
-  // SIMULAÇÃO DO STATUS DE LOGIN (SUBSTITUIR PELO HOOK/CONTEXTO DO SUPABASE DEPOIS)
-  const isUserLogged = false; 
+  const [selectedSubcat, setSelectedSubcat] = useState(search ? 'Todas' : 'Em Alta');
+  const [maxDistance, setMaxDistance] = useState(999);
+  const [searchQuery, setSearchQuery] = useState(search ? decodeURIComponent(search) : '');
 
-  const handleToggleFavorito = (placeId: string) => {
-    if (!isUserLogged) {
+  const { coords, loading: loadingLocation, errorMsg: locationError } = useLocation(maxDistance !== 999);
+
+  const carregar = useCallback(async () => {
+    setLoading(true);
+    try {
+      let query = supabase
+        .from('locais')
+        .select(
+          'id, nome, categoria, subcategoria, bairro, cidade, foto_capa_url, safe_space, plano_destaque, rating_media, rating_total, lat, lng'
+        )
+        .eq('status', 'aprovado')
+        .limit(100);
+
+      if (categoriaReal) query = query.eq('categoria', categoriaReal);
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const itens = ((data as any) || []) as LocalItem[];
+      itens.sort((a, b) => (PLANO_PRIORIDADE[a.plano_destaque] ?? 2) - (PLANO_PRIORIDADE[b.plano_destaque] ?? 2));
+      setLocais(itens);
+
+      if (user?.id && itens.length > 0) {
+        const { data: favs } = await supabase
+          .from('favoritos_locais')
+          .select('local_id')
+          .eq('user_id', user.id)
+          .in('local_id', itens.map((i) => i.id));
+        setFavoritos((favs || []).map((f: any) => f.local_id));
+      } else {
+        setFavoritos([]);
+      }
+    } catch (err) {
+      console.error('Erro ao carregar categoria:', err);
+      setLocais([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [categoriaReal, user?.id]);
+
+  useEffect(() => {
+    carregar();
+  }, [carregar]);
+
+  useEffect(() => {
+    if (locationError) {
+      Alert.alert('Localização', 'Não conseguimos acessar sua localização. Mostrando todas as distâncias.');
+      setMaxDistance(999);
+    }
+  }, [locationError]);
+
+  const subcategoriasList = useMemo(() => {
+    const reais = Array.from(
+      new Set(locais.map((l) => l.subcategoria).filter((s): s is string => !!s && s.trim().length > 0))
+    );
+    return ['Em Alta', 'Todas', ...reais];
+  }, [locais]);
+
+  const handleToggleFavorito = async (localId: string) => {
+    if (!session || !user) {
       Alert.alert(
         'Salvar nos Favoritos',
-        'Crie sua conta ou entre em 10 segundos para guardar seus locais preferidos.',
+        'Crie sua conta ou entre em poucos segundos para guardar seus locais preferidos.',
         [
           { text: 'Agora não', style: 'cancel' },
           { text: 'Entrar / Criar Conta', onPress: () => router.push('/(tabs)/profile') },
@@ -144,61 +161,62 @@ export default function CategoryDetailScreen() {
       return;
     }
 
-    if (favoritos.includes(placeId)) {
-      setFavoritos(favoritos.filter((favId) => favId !== placeId));
-    } else {
-      setFavoritos([...favoritos, placeId]);
+    const jaFavoritado = favoritos.includes(localId);
+    try {
+      if (jaFavoritado) {
+        await supabase.from('favoritos_locais').delete().eq('local_id', localId).eq('user_id', user.id);
+        setFavoritos(favoritos.filter((id) => id !== localId));
+      } else {
+        await supabase.from('favoritos_locais').insert({ local_id: localId, user_id: user.id });
+        setFavoritos([...favoritos, localId]);
+      }
+    } catch (err: any) {
+      Alert.alert('Erro', err?.message || 'Não foi possível atualizar seus favoritos.');
     }
   };
 
-  const filteredPlaces = ESTABELECIMENTOS_MOCK.filter((place) => {
-    const matchesCategory =
-      place.categorySlug.toLowerCase() === slug ||
-      place.tags.some((t) => t.includes(slug)) ||
-      slug === 'todos';
+  const filteredPlaces = locais
+    .map((item) => {
+      const distanceKm =
+        coords && item.lat != null && item.lng != null
+          ? distanciaKm(coords.latitude, coords.longitude, item.lat, item.lng)
+          : null;
+      return { ...item, distanceKm };
+    })
+    .filter((item) => {
+      const matchesSubcat =
+        selectedSubcat === 'Em Alta'
+          ? item.plano_destaque !== 'basico'
+          : selectedSubcat === 'Todas' || item.subcategoria === selectedSubcat;
 
-    const matchesSubcat =
-      selectedSubcat === 'Em Alta'
-        ? place.isVIP === true
-        : selectedSubcat === 'Todos' ||
-          place.subcat.toLowerCase() === selectedSubcat.toLowerCase() ||
-          place.features.some((f) => f.toLowerCase() === selectedSubcat.toLowerCase());
+      const matchesDistance = maxDistance === 999 || item.distanceKm == null || item.distanceKm <= maxDistance;
 
-    const matchesDistance = isTurismo || place.distanceKm <= maxDistance;
+      const matchesSearch =
+        !searchQuery.trim() ||
+        item.nome.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (item.bairro || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.cidade.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesSearch =
-      place.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      place.address.toLowerCase().includes(searchQuery.toLowerCase());
-
-    return matchesCategory && matchesSubcat && matchesDistance && matchesSearch;
-  });
+      return matchesSubcat && matchesDistance && matchesSearch;
+    });
 
   return (
     <View style={styles.container}>
       <SafeAreaView style={[styles.safeArea, { paddingTop: insets.top }]}>
-        
-        {/* HEADER */}
         <View style={styles.headerBlock}>
           <View style={styles.topRow}>
-            <TouchableOpacity
-              style={styles.backBtn}
-              onPress={() => router.back()}
-              activeOpacity={0.8}
-            >
+            <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
               <Feather name="arrow-left" size={18} color={COLORS.textPrimary} />
             </TouchableOpacity>
-
             <Image
               source={require('../../assets/images/logolinear-semfundo.png')}
               style={styles.headerLogo}
               resizeMode="contain"
             />
           </View>
-
           <Text style={styles.categoryTitleText}>{decodedTitle}</Text>
         </View>
 
-        {/* BUSCA DE TEXTO */}
         <View style={styles.searchContainer}>
           <Feather name="search" size={16} color={COLORS.textMuted} />
           <TextInput
@@ -210,44 +228,27 @@ export default function CategoryDetailScreen() {
           />
         </View>
 
-        {/* SUBCATEGORIAS */}
-        {subcategoriesList.length > 1 && (
+        {subcategoriasList.length > 1 && (
           <View style={styles.filterSection}>
             <FlatList
               horizontal
-              data={subcategoriesList}
+              data={subcategoriasList}
               keyExtractor={(item) => item}
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.chipsContainer}
               renderItem={({ item }) => {
                 const isSelected = selectedSubcat === item;
                 const isEmAlta = item === 'Em Alta';
-
                 return (
                   <TouchableOpacity
-                    style={[
-                      styles.chip,
-                      isSelected && styles.chipActive,
-                      isEmAlta && !isSelected && styles.chipEmAltaInactive,
-                    ]}
+                    style={[styles.chip, isSelected && styles.chipActive, isEmAlta && !isSelected && styles.chipEmAltaInactive]}
                     onPress={() => setSelectedSubcat(item)}
                     activeOpacity={0.8}
                   >
                     {isEmAlta && (
-                      <Feather
-                        name="trending-up"
-                        size={12}
-                        color={isSelected ? '#FFF' : COLORS.gold}
-                        style={{ marginRight: 4 }}
-                      />
+                      <Feather name="trending-up" size={12} color={isSelected ? '#FFF' : COLORS.gold} style={{ marginRight: 4 }} />
                     )}
-                    <Text
-                      style={[
-                        styles.chipText,
-                        isSelected && styles.chipTextActive,
-                        isEmAlta && !isSelected && { color: COLORS.gold },
-                      ]}
-                    >
+                    <Text style={[styles.chipText, isSelected && styles.chipTextActive, isEmAlta && !isSelected && { color: COLORS.gold }]}>
                       {item}
                     </Text>
                   </TouchableOpacity>
@@ -257,118 +258,105 @@ export default function CategoryDetailScreen() {
           </View>
         )}
 
-        {/* FILTRO DE DISTÂNCIA */}
-        {!isTurismo && (
-          <View style={styles.distanceSection}>
-            <View style={styles.distanceLabelRow}>
-              <Feather name="navigation" size={12} color={COLORS.pink} />
-              <Text style={styles.distanceSectionTitle}>Raio de distância</Text>
-            </View>
-            <View style={styles.distanceRow}>
-              {OPCOES_DISTANCIA.map((d) => {
-                const isSelected = maxDistance === d.val;
-                return (
-                  <TouchableOpacity
-                    key={d.val}
-                    style={[styles.distChip, isSelected && styles.distChipActive]}
-                    onPress={() => setMaxDistance(d.val)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[styles.distChipText, isSelected && styles.distChipTextActive]}>
-                      {d.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+        <View style={styles.distanceSection}>
+          <View style={styles.distanceLabelRow}>
+            <Feather name="navigation" size={12} color={COLORS.pink} />
+            <Text style={styles.distanceSectionTitle}>Raio de distância</Text>
+            {loadingLocation && <ActivityIndicator size="small" color={COLORS.pink} style={{ marginLeft: 6 }} />}
           </View>
-        )}
+          <View style={styles.distanceRow}>
+            {OPCOES_DISTANCIA.map((d) => {
+              const isSelected = maxDistance === d.val;
+              return (
+                <TouchableOpacity
+                  key={d.val}
+                  style={[styles.distChip, isSelected && styles.distChipActive]}
+                  onPress={() => setMaxDistance(d.val)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.distChipText, isSelected && styles.distChipTextActive]}>{d.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
 
-        {/* LISTA DE RESULTADOS */}
-        <FlatList
-          data={filteredPlaces}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Feather name="compass" size={32} color={COLORS.textMuted} />
-              <Text style={styles.emptyTitle}>Nenhuma opção encontrada</Text>
-              <Text style={styles.emptySub}>Tente alterar os termos da sua busca.</Text>
-            </View>
-          }
-          renderItem={({ item }) => {
-            const isFavorited = favoritos.includes(item.id);
-
-            return (
-              <TouchableOpacity
-                style={styles.placeCard}
-                onPress={() => router.push(`/business/${item.id}` as any)}
-                activeOpacity={0.88}
-              >
-                <View style={[styles.placeThumb, isTurismo && { backgroundColor: 'rgba(76, 175, 125, 0.15)' }]}>
-                  <Feather
-                    name={item.iconName}
-                    size={20}
-                    color={isTurismo ? COLORS.safeSpace : COLORS.pink}
-                  />
-                </View>
-
-                <View style={{ flex: 1 }}>
-                  <View style={styles.placeHeaderRow}>
-                    <Text style={styles.placeName}>{item.name}</Text>
-
-                    {/* ÁREA DE ÍCONES DE AÇÃO (DESTAQUE E CORAÇÃO DE FAVORITO) */}
-                    <View style={styles.actionRow}>
-                      {item.isVIP && (
-                        <View style={styles.vipBadge}>
-                          <Text style={styles.vipBadgeText}>DESTAQUE</Text>
-                        </View>
-                      )}
-                      
-                      {/* BOTÃO CORAÇÃO / FAVORITAR */}
-                      <TouchableOpacity
-                        style={styles.favBtn}
-                        onPress={() => handleToggleFavorito(item.id)}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                      >
-                        <Feather
-                          name="heart"
-                          size={16}
-                          color={isFavorited ? COLORS.pink : COLORS.textMuted}
-                        />
-                      </TouchableOpacity>
-                    </View>
+        {loading ? (
+          <View style={styles.emptyContainer}>
+            <ActivityIndicator color={COLORS.pink} />
+          </View>
+        ) : (
+          <FlatList
+            data={filteredPlaces}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Feather name="compass" size={32} color={COLORS.textMuted} />
+                <Text style={styles.emptyTitle}>Nenhum local aprovado ainda</Text>
+                <Text style={styles.emptySub}>
+                  Novos locais aparecem aqui assim que forem aprovados pelo time.
+                </Text>
+              </View>
+            }
+            renderItem={({ item }) => {
+              const isFavorited = favoritos.includes(item.id);
+              return (
+                <TouchableOpacity
+                  style={styles.placeCard}
+                  onPress={() => router.push(`/business/${item.id}` as any)}
+                  activeOpacity={0.88}
+                >
+                  <View style={styles.placeThumb}>
+                    {item.foto_capa_url ? (
+                      <Image source={{ uri: item.foto_capa_url }} style={styles.placeThumbImg} />
+                    ) : (
+                      <Feather name="map-pin" size={20} color={COLORS.pink} />
+                    )}
                   </View>
 
-                  <Text style={styles.placeSubcat}>{item.subcat}</Text>
-                  <Text style={styles.placeAddress}>{item.address}</Text>
-
-                  <View style={styles.tagList}>
-                    {item.features.map((tag) => (
-                      <View key={tag} style={styles.featureTag}>
-                        <Text style={styles.featureTagText}>{tag}</Text>
+                  <View style={{ flex: 1 }}>
+                    <View style={styles.placeHeaderRow}>
+                      <Text style={styles.placeName} numberOfLines={1}>{item.nome}</Text>
+                      <View style={styles.actionRow}>
+                        {item.plano_destaque !== 'basico' && (
+                          <View style={styles.vipBadge}>
+                            <Text style={styles.vipBadgeText}>DESTAQUE</Text>
+                          </View>
+                        )}
+                        <TouchableOpacity
+                          style={styles.favBtn}
+                          onPress={() => handleToggleFavorito(item.id)}
+                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                          <Feather name="heart" size={16} color={isFavorited ? COLORS.pink : COLORS.textMuted} />
+                        </TouchableOpacity>
                       </View>
-                    ))}
-                  </View>
+                    </View>
 
-                  <View style={styles.placeFooterRow}>
-                    <Text style={[styles.placeDistance, isTurismo && { color: COLORS.safeSpace }]}>
-                      {item.distanceStr}
-                    </Text>
-                    <View style={styles.ratingBadge}>
-                      <Feather name="star" size={12} color={COLORS.gold} />
-                      <Text style={styles.ratingText}>{item.rating}</Text>
+                    <Text style={styles.placeSubcat}>{item.subcategoria || CATEGORIA_REAL_LABEL[item.categoria] || item.categoria}</Text>
+                    <Text style={styles.placeAddress}>{item.bairro || item.cidade}</Text>
+
+                    <View style={styles.placeFooterRow}>
+                      <Text style={styles.placeDistance}>
+                        {item.distanceKm != null ? `${item.distanceKm.toFixed(1)} km` : item.bairro || item.cidade}
+                      </Text>
+                      <View style={styles.ratingBadge}>
+                        <Feather name="star" size={12} color={COLORS.gold} />
+                        <Text style={styles.ratingText}>
+                          {item.rating_total > 0 ? item.rating_media.toFixed(1) : '—'}
+                        </Text>
+                      </View>
                     </View>
                   </View>
-                </View>
 
-                <Feather name="chevron-right" size={18} color={COLORS.textMuted} />
-              </TouchableOpacity>
-            );
-          }}
-        />
-
+                  <Feather name="chevron-right" size={18} color={COLORS.textMuted} />
+                </TouchableOpacity>
+              );
+            }}
+          />
+        )}
       </SafeAreaView>
     </View>
   );
@@ -380,51 +368,18 @@ const styles = StyleSheet.create({
 
   headerBlock: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 10 },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: COLORS.card,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
+  backBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: COLORS.card, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
   headerLogo: { width: 130, height: 32 },
   categoryTitleText: { fontSize: 22, fontWeight: '800', color: COLORS.textPrimary },
 
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginHorizontal: 16,
-    marginBottom: 10,
-    paddingHorizontal: 14,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: COLORS.card,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
+  searchContainer: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginBottom: 10, paddingHorizontal: 14, height: 42, borderRadius: 12, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
   searchInput: { flex: 1, color: COLORS.textPrimary, fontSize: 13 },
 
   filterSection: { marginBottom: 10 },
   chipsContainer: { paddingHorizontal: 16, gap: 8 },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 18,
-    backgroundColor: COLORS.card,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
+  chip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 18, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
   chipActive: { backgroundColor: COLORS.pink, borderColor: COLORS.pink },
-  chipEmAltaInactive: {
-    borderColor: 'rgba(255, 213, 79, 0.4)',
-    backgroundColor: 'rgba(255, 213, 79, 0.08)',
-  },
+  chipEmAltaInactive: { borderColor: 'rgba(255, 213, 79, 0.4)', backgroundColor: 'rgba(255, 213, 79, 0.08)' },
   chipText: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary },
   chipTextActive: { color: '#FFF', fontWeight: '700' },
 
@@ -432,57 +387,29 @@ const styles = StyleSheet.create({
   distanceLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 6 },
   distanceSectionTitle: { fontSize: 11, fontWeight: '700', color: COLORS.textSecondary },
   distanceRow: { flexDirection: 'row', gap: 8 },
-  distChip: {
-    flex: 1,
-    paddingVertical: 6,
-    borderRadius: 10,
-    backgroundColor: COLORS.card,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    alignItems: 'center',
-  },
+  distChip: { flex: 1, paddingVertical: 6, borderRadius: 10, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border, alignItems: 'center' },
   distChipActive: { backgroundColor: COLORS.purple, borderColor: COLORS.purple },
   distChipText: { fontSize: 11, fontWeight: '600', color: COLORS.textSecondary },
   distChipTextActive: { color: '#FFF', fontWeight: '700' },
 
   listContent: { paddingHorizontal: 16, paddingBottom: 30, gap: 12 },
-  placeCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.card,
-    padding: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    gap: 12,
-  },
-  placeThumb: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: 'rgba(225, 48, 108, 0.12)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  placeHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  placeName: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary, flex: 1 },
-  actionRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  favBtn: { padding: 4 },
-  vipBadge: { backgroundColor: 'rgba(255, 213, 79, 0.2)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  vipBadgeText: { fontSize: 8, fontWeight: '800', color: COLORS.gold },
-  placeSubcat: { fontSize: 11, fontWeight: '700', color: COLORS.purple, marginTop: 2 },
-  placeAddress: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
+  emptyContainer: { alignItems: 'center', gap: 8, paddingTop: 60, paddingHorizontal: 30 },
+  emptyTitle: { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary, marginTop: 6 },
+  emptySub: { fontSize: 12, color: COLORS.textSecondary, textAlign: 'center' },
 
-  tagList: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
-  featureTag: { backgroundColor: '#232230', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  featureTagText: { fontSize: 10, color: COLORS.textSecondary, fontWeight: '600' },
-
-  placeFooterRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
-  placeDistance: { fontSize: 11, fontWeight: '700', color: COLORS.pink },
+  placeCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.card, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, gap: 12, marginBottom: 12 },
+  placeThumb: { width: 48, height: 48, borderRadius: 12, backgroundColor: '#1A1926', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  placeThumbImg: { width: 48, height: 48 },
+  placeHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  placeName: { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary, flex: 1 },
+  actionRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  vipBadge: { backgroundColor: 'rgba(225, 48, 108, 0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  vipBadgeText: { fontSize: 8, fontWeight: '800', color: COLORS.pink },
+  favBtn: { padding: 2 },
+  placeSubcat: { fontSize: 11, color: COLORS.textSecondary, marginTop: 2 },
+  placeAddress: { fontSize: 11, color: COLORS.textMuted, marginTop: 2 },
+  placeFooterRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 },
+  placeDistance: { fontSize: 11, fontWeight: '700', color: COLORS.safeSpace },
   ratingBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   ratingText: { fontSize: 11, fontWeight: '700', color: COLORS.textPrimary },
-
-  emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 30, gap: 6 },
-  emptyTitle: { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary },
-  emptySub: { fontSize: 11, color: COLORS.textSecondary, textAlign: 'center' },
 });

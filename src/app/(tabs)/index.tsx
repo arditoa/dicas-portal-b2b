@@ -1,7 +1,8 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Image,
   Linking,
@@ -13,6 +14,10 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { useAuth } from '../../lib/authContext';
+import { CATEGORIA_REAL_LABEL, CATEGORIAS, CATEGORIA_ORDER, CategoriaConfig } from '../../lib/categorias';
+import { supabase } from '../../lib/supabase';
 
 const COLORS = {
   background: '#0B0B0E',
@@ -27,105 +32,7 @@ const COLORS = {
   gold: '#FFD54F',
 };
 
-export interface CategoriaConfig {
-  slug: string;
-  label: string;
-  icon: keyof typeof Feather.glyphMap;
-  color: string;
-  subcats: string;
-  emBreve?: boolean;
-}
-
-const CATEGORIES: Record<string, CategoriaConfig> = {
-  bares: {
-    slug: 'bares',
-    label: 'Bares',
-    icon: 'moon',
-    color: '#E1306C',
-    subcats: 'Pubs,Parklet,Rooftop,Cerveja 600ml,Speakeasy,Karaokê',
-  },
-  gastronomia: {
-    slug: 'gastronomia',
-    label: 'Gastronomia',
-    icon: 'coffee',
-    color: '#FFD54F',
-    subcats: 'Bistrôs,Pizzarias,Cafés,Brunch,Hamburguerias',
-  },
-  festas: {
-    slug: 'festas',
-    label: 'Festas',
-    icon: 'music',
-    color: '#FFB74D',
-    subcats: 'Pop,Eletrônico,Funk,Drag Shows',
-  },
-  cultura: {
-    slug: 'cultura',
-    label: 'Cultura',
-    icon: 'film',
-    color: '#4FC3F7',
-    subcats: 'Teatros,Cinema,Exposições,Galerias',
-  },
-  turismo: {
-    slug: 'turismo',
-    label: 'Dicas Trip',
-    icon: 'compass',
-    color: '#81C784',
-    subcats: 'Passagens Aéreas,Hotéis & Pousadas,Roteiros,Passeios,Guias',
-  },
-  beleza: {
-    slug: 'beleza',
-    label: 'Beleza',
-    icon: 'scissors',
-    color: '#E1306C',
-    subcats: '',
-    emBreve: true,
-  },
-  mais18: {
-    slug: '18plus',
-    label: 'Espaços 18+',
-    icon: 'lock',
-    color: '#7E57C2',
-    subcats: '',
-    emBreve: true,
-  },
-  lojas: {
-    slug: 'lojas',
-    label: 'Lojas',
-    icon: 'shopping-bag',
-    color: '#E1306C',
-    subcats: '',
-    emBreve: true,
-  },
-  servicos: {
-    slug: 'servicos',
-    label: 'Serviços',
-    icon: 'briefcase',
-    color: '#7E57C2',
-    subcats: '',
-    emBreve: true,
-  },
-  lazer: {
-    slug: 'lazer',
-    label: 'Lazer',
-    icon: 'smile',
-    color: '#4FC3F7',
-    subcats: '',
-    emBreve: true,
-  },
-};
-
-const CATEGORY_ORDER = [
-  'bares',
-  'gastronomia',
-  'festas',
-  'cultura',
-  'turismo',
-  'beleza',
-  'mais18',
-  'lojas',
-  'servicos',
-  'lazer',
-];
+const PLANO_PRIORIDADE: Record<string, number> = { vip: 0, destaque: 1, basico: 2 };
 
 const EXPERIENCIAS = [
   'Aniversário',
@@ -150,15 +57,15 @@ const BANNERS_PRINCIPAIS = [
   {
     id: 'b1',
     tag: 'MEMBRO FUNDADOR',
-    titulo: 'Vezpa Bar & Zig Club',
-    sub: 'Conheça os espaços que constroem nossa comunidade',
+    titulo: 'Conheça os selos oficiais',
+    sub: 'Locais que constroem nossa comunidade desde o início',
     cor: '#FFD54F',
     route: '/experience/Membro%20Fundador',
   },
   {
     id: 'b2',
     tag: 'DESTAQUE DA SEMANA',
-    titulo: 'Barbearia Prisma & Café Aurora',
+    titulo: 'Espaços em destaque',
     sub: 'Experiências exclusivas e atendimento acolhedor',
     cor: '#E1306C',
     route: '/experience/Destaque',
@@ -167,7 +74,7 @@ const BANNERS_PRINCIPAIS = [
     id: 'b3',
     tag: 'CUPONS EXCLUSIVOS',
     titulo: 'Economize nos seus Rolês',
-    sub: 'Crie sua conta e garanta até 20% OFF nos parceiros',
+    sub: 'Crie sua conta e garanta seus cupons com os parceiros',
     cor: '#7E57C2',
     route: '/(tabs)/profile',
   },
@@ -181,105 +88,115 @@ const BANNERS_PRINCIPAIS = [
   },
 ];
 
-// 🔥 5 LOCAIS EM ALTA COM INSTAGRAM E CORAÇÃO
-const LOCAIS_EM_ALTA = [
-  {
-    id: 'vezpa-bar',
-    name: 'Vezpa Bar & Speakeasy',
-    category: 'Bar & Drinks',
-    neighborhood: 'Pinheiros • SP',
-    rating: '4.9',
-    instagram: 'vezpabar',
-    iconName: 'moon' as const,
-  },
-  {
-    id: 'zig-club',
-    name: 'Zig Club & Cabaré',
-    category: 'Balada & Shows',
-    neighborhood: 'Centro • SP',
-    rating: '5.0',
-    instagram: 'zigclub',
-    iconName: 'music' as const,
-  },
-  {
-    id: 'cafe-safica',
-    name: 'Bar & Café Safica',
-    category: 'Café & Pub',
-    neighborhood: 'Consolação • SP',
-    rating: '5.0',
-    instagram: 'cafesafica',
-    iconName: 'coffee' as const,
-  },
-  {
-    id: 'pousada-castro',
-    name: 'Hotel Boutique Castro',
-    category: 'Hospedagem Friendly',
-    neighborhood: 'Jardins • SP',
-    rating: '4.9',
-    instagram: 'pousadacastro',
-    iconName: 'home' as const,
-  },
-  {
-    id: 'barbearia-prisma',
-    name: 'Barbearia & Estética Prisma',
-    category: 'Beleza & Cuidados',
-    neighborhood: 'Vila Madalena • SP',
-    rating: '4.8',
-    instagram: 'prismabarbearia',
-    iconName: 'scissors' as const,
-  },
-];
+interface LocalCard {
+  id: string;
+  nome: string;
+  categoria: string;
+  bairro: string | null;
+  cidade: string;
+  instagram: string | null;
+  rating_media: number;
+  rating_total: number;
+  plano_destaque: 'basico' | 'destaque' | 'vip';
+}
 
-const AGENDA_HOJE_MOCK = [
-  {
-    id: 'zig-club',
-    horario: '22:00 • Centro',
-    titulo: 'Sunset Sessions',
-    diferencial: 'Karaokê & Drinks',
-  },
-  {
-    id: 'castro-bar',
-    horario: '23:30 • Pinheiros',
-    titulo: 'Drag Cabaré Show',
-    diferencial: 'Performance ao vivo',
-  },
-];
+interface EventoHoje {
+  id: string;
+  titulo: string;
+  data_inicio: string;
+  locais: { nome: string; bairro: string | null } | null;
+}
 
-const DICAS_TRIP_DESTINOS = [
-  {
-    id: 'hotel-aurora',
-    titulo: 'Hotel Aurora & Pousada',
-    categoria: 'Hotéis & Pousadas',
-    badge: '15% OFF',
-    desc: 'Hospedagem inclusiva no coração de Pinheiros',
-  },
-  {
-    id: 'voos-salvador',
-    titulo: 'Roteiro Salvador LGBT+',
-    categoria: 'Passagens & Roteiros',
-    badge: 'PROMO TRIP',
-    desc: 'Guia completo de praias e festas para o fim de semana',
-  },
-  {
-    id: 'resort-floripa',
-    titulo: 'Resort Safe Space Floripa',
-    categoria: 'Destinos em Destaque',
-    badge: 'PATROCINADO',
-    desc: 'Experiência pé na areia com acolhimento total',
-  },
-];
+interface LocalTurismo {
+  id: string;
+  nome: string;
+  categoria: string;
+  subcategoria: string | null;
+  descricao: string | null;
+  plano_destaque: 'basico' | 'destaque' | 'vip';
+}
 
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { user, session } = useAuth();
+
   const [busca, setBusca] = useState('');
   const [favoritos, setFavoritos] = useState<string[]>([]);
 
-  // ESTADO DE AUTENTICAÇÃO
-  const isUserLogged = false;
+  const [emAlta, setEmAlta] = useState<LocalCard[]>([]);
+  const [agendaHoje, setAgendaHoje] = useState<EventoHoje[]>([]);
+  const [dicasTrip, setDicasTrip] = useState<LocalTurismo[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleToggleFavorito = (placeId: string) => {
-    if (!isUserLogged) {
+  const isUserLogged = !!session;
+
+  const carregarHome = useCallback(async () => {
+    setLoading(true);
+    try {
+      const inicioHoje = new Date();
+      inicioHoje.setHours(0, 0, 0, 0);
+      const fimHoje = new Date();
+      fimHoje.setHours(23, 59, 59, 999);
+
+      const [emAltaRes, agendaRes, tripRes] = await Promise.all([
+        supabase
+          .from('locais')
+          .select('id, nome, categoria, bairro, cidade, instagram, rating_media, rating_total, plano_destaque')
+          .eq('status', 'aprovado')
+          .limit(20),
+        supabase
+          .from('eventos')
+          .select('id, titulo, data_inicio, locais(nome, bairro)')
+          .eq('status', 'aprovado')
+          .gte('data_inicio', inicioHoje.toISOString())
+          .lte('data_inicio', fimHoje.toISOString())
+          .order('data_inicio', { ascending: true })
+          .limit(5),
+        supabase
+          .from('locais')
+          .select('id, nome, categoria, subcategoria, descricao, plano_destaque')
+          .eq('status', 'aprovado')
+          .eq('categoria', 'turismo')
+          .limit(10),
+      ]);
+
+      let listaEmAlta = ((emAltaRes.data as any) || []) as LocalCard[];
+      listaEmAlta.sort((a, b) => (PLANO_PRIORIDADE[a.plano_destaque] ?? 2) - (PLANO_PRIORIDADE[b.plano_destaque] ?? 2));
+      setEmAlta(listaEmAlta.slice(0, 8));
+
+      setAgendaHoje(((agendaRes.data as any) || []) as EventoHoje[]);
+
+      let listaTrip = ((tripRes.data as any) || []) as LocalTurismo[];
+      listaTrip.sort((a, b) => (PLANO_PRIORIDADE[a.plano_destaque] ?? 2) - (PLANO_PRIORIDADE[b.plano_destaque] ?? 2));
+      setDicasTrip(listaTrip.slice(0, 8));
+
+      if (user?.id) {
+        const idsParaChecar = [...listaEmAlta.map((i) => i.id), ...listaTrip.map((i) => i.id)];
+        if (idsParaChecar.length > 0) {
+          const { data: favs } = await supabase
+            .from('favoritos_locais')
+            .select('local_id')
+            .eq('user_id', user.id)
+            .in('local_id', idsParaChecar);
+          setFavoritos((favs || []).map((f: any) => f.local_id));
+        }
+      } else {
+        setFavoritos([]);
+      }
+    } catch (err) {
+      console.error('Erro ao carregar Home:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    carregarHome();
+  }, [carregarHome]);
+
+  const handleToggleFavorito = async (localId: string) => {
+    if (!isUserLogged || !user) {
       Alert.alert(
         'Salvar nos Favoritos',
         'Crie sua conta ou entre em poucos segundos para salvar seus locais favoritos.',
@@ -291,15 +208,23 @@ export default function HomeScreen() {
       return;
     }
 
-    if (favoritos.includes(placeId)) {
-      setFavoritos(favoritos.filter((id) => id !== placeId));
-    } else {
-      setFavoritos([...favoritos, placeId]);
+    const jaFavoritado = favoritos.includes(localId);
+    try {
+      if (jaFavoritado) {
+        await supabase.from('favoritos_locais').delete().eq('local_id', localId).eq('user_id', user.id);
+        setFavoritos(favoritos.filter((id) => id !== localId));
+      } else {
+        await supabase.from('favoritos_locais').insert({ local_id: localId, user_id: user.id });
+        setFavoritos([...favoritos, localId]);
+      }
+    } catch (err: any) {
+      Alert.alert('Erro', err?.message || 'Não foi possível atualizar seus favoritos.');
     }
   };
 
   const handleOpenInstagram = (handle: string) => {
-    Linking.openURL(`https://instagram.com/${handle}`).catch(() => {
+    const limpo = handle.replace(/^@/, '');
+    Linking.openURL(`https://instagram.com/${limpo}`).catch(() => {
       Alert.alert('Erro', 'Não foi possível abrir o Instagram.');
     });
   };
@@ -314,20 +239,22 @@ export default function HomeScreen() {
 
     router.push({
       pathname: `/category/${cat.slug}` as any,
-      params: {
-        title: encodeURIComponent(cat.label),
-        subcats: encodeURIComponent(cat.subcats),
-      },
+      params: { title: encodeURIComponent(cat.label) },
     });
   };
 
   const openExperienceScreen = (exp: string) => {
     router.push({
-      pathname: `/category/${encodeURIComponent(exp.toLowerCase())}` as any,
-      params: {
-        title: encodeURIComponent(exp),
-        subcats: encodeURIComponent('Populares,Recomendados,Próximos'),
-      },
+      pathname: '/category/todos' as any,
+      params: { title: encodeURIComponent(exp) },
+    });
+  };
+
+  const handleBuscar = () => {
+    if (!busca.trim()) return;
+    router.push({
+      pathname: '/category/todos' as any,
+      params: { title: encodeURIComponent('Resultados da busca'), search: encodeURIComponent(busca.trim()) },
     });
   };
 
@@ -359,14 +286,24 @@ export default function HomeScreen() {
           <TextInput
             value={busca}
             onChangeText={setBusca}
+            onSubmitEditing={handleBuscar}
+            returnKeyType="search"
             placeholder="Buscar por nome, bairro ou local (ex: São Paulo)..."
             placeholderTextColor={COLORS.textMuted}
             style={styles.buscaInput}
           />
         </View>
 
-        {/* BANNERS PRINCIPAIS DIVERSIFICADOS */}
-        <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} style={styles.bannerScrollView}>
+        {/* BANNERS PRINCIPAIS */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.bannerScrollView}
+          contentContainerStyle={styles.bannerScrollContent}
+          decelerationRate="fast"
+          snapToInterval={332}
+          snapToAlignment="start"
+        >
           {BANNERS_PRINCIPAIS.map((b) => (
             <TouchableOpacity
               key={b.id}
@@ -387,8 +324,8 @@ export default function HomeScreen() {
         <View style={styles.secaoBloco}>
           <Text style={styles.sectionTituloPadrao}>Categorias</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriaScrollContent}>
-            {CATEGORY_ORDER.map((slug) => {
-              const cat = CATEGORIES[slug];
+            {CATEGORIA_ORDER.map((slug) => {
+              const cat = CATEGORIAS[slug];
               return (
                 <TouchableOpacity
                   key={slug}
@@ -413,61 +350,75 @@ export default function HomeScreen() {
           </ScrollView>
         </View>
 
-        {/* 🚀 NOVA SEÇÃO: EM ALTA (5 LOCAIS COM INSTAGRAM E CORAÇÃO) */}
+        {/* EM ALTA */}
         <View style={styles.secaoBloco}>
           <View style={styles.sectionHeaderRow}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Feather name="trending-up" size={16} color={COLORS.gold} />
               <Text style={styles.sectionTitulo}>Em Alta</Text>
             </View>
-            <TouchableOpacity onPress={() => router.push('/category/todos?title=Em%20Alta' as any)}>
+            <TouchableOpacity onPress={() => router.push({ pathname: '/category/todos' as any, params: { title: encodeURIComponent('Em Alta') } })}>
               <Text style={styles.sectionVerTudo}>Ver mais</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carrosselPadding}>
-            {LOCAIS_EM_ALTA.map((item) => {
-              const isFavorited = favoritos.includes(item.id);
-              return (
-                <TouchableOpacity
-                  key={item.id}
-                  style={styles.emAltaCard}
-                  onPress={() => router.push(`/business/${item.id}` as any)}
-                  activeOpacity={0.88}
-                >
-                  <View style={styles.emAltaHeaderRow}>
-                    <View style={styles.emAltaCategoryBadge}>
-                      <Text style={styles.emAltaCategoryText}>{item.category}</Text>
+
+          {loading ? (
+            <ActivityIndicator color={COLORS.pink} style={{ marginLeft: 16 }} />
+          ) : emAlta.length === 0 ? (
+            <View style={styles.emptyInlineBox}>
+              <Text style={styles.emptyInlineText}>
+                Ainda não há locais aprovados. Assim que os primeiros cadastros forem aprovados
+                pelo portal, eles aparecem aqui.
+              </Text>
+            </View>
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carrosselPadding}>
+              {emAlta.map((item) => {
+                const isFavorited = favoritos.includes(item.id);
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.emAltaCard}
+                    onPress={() => router.push(`/business/${item.id}` as any)}
+                    activeOpacity={0.88}
+                  >
+                    <View style={styles.emAltaHeaderRow}>
+                      <View style={styles.emAltaCategoryBadge}>
+                        <Text style={styles.emAltaCategoryText}>{CATEGORIA_REAL_LABEL[item.categoria] || item.categoria}</Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => handleToggleFavorito(item.id)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Feather name="heart" size={16} color={isFavorited ? COLORS.pink : COLORS.textMuted} />
+                      </TouchableOpacity>
                     </View>
-                    <TouchableOpacity
-                      onPress={() => handleToggleFavorito(item.id)}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Feather
-                        name="heart"
-                        size={16}
-                        color={isFavorited ? COLORS.pink : COLORS.textMuted}
-                      />
-                    </TouchableOpacity>
-                  </View>
 
-                  <Text style={styles.emAltaTitle}>{item.name}</Text>
-                  <Text style={styles.emAltaMeta}>{item.neighborhood} • ★ {item.rating}</Text>
+                    <Text style={styles.emAltaTitle}>{item.nome}</Text>
+                    <Text style={styles.emAltaMeta}>
+                      {item.bairro || item.cidade} • ★ {item.rating_total > 0 ? item.rating_media.toFixed(1) : '—'}
+                    </Text>
 
-                  <View style={styles.emAltaFooterRow}>
-                    <TouchableOpacity
-                      style={styles.instaBtn}
-                      onPress={() => handleOpenInstagram(item.instagram)}
-                      activeOpacity={0.8}
-                    >
-                      <Feather name="instagram" size={12} color={COLORS.pink} />
-                      <Text style={styles.instaBtnText}>@{item.instagram}</Text>
-                    </TouchableOpacity>
-                    <Feather name="chevron-right" size={16} color={COLORS.safeSpace} />
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+                    <View style={styles.emAltaFooterRow}>
+                      {item.instagram ? (
+                        <TouchableOpacity
+                          style={styles.instaBtn}
+                          onPress={() => handleOpenInstagram(item.instagram!)}
+                          activeOpacity={0.8}
+                        >
+                          <Feather name="instagram" size={12} color={COLORS.pink} />
+                          <Text style={styles.instaBtnText}>@{item.instagram.replace(/^@/, '')}</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <View />
+                      )}
+                      <Feather name="chevron-right" size={16} color={COLORS.safeSpace} />
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
         </View>
 
         {/* O QUE FAZER HOJE */}
@@ -478,10 +429,16 @@ export default function HomeScreen() {
               <Text style={styles.sectionVerTudo}>Ver agenda</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carrosselPadding}>
-            {AGENDA_HOJE_MOCK.map((item) => {
-              const isFavorited = favoritos.includes(item.id);
-              return (
+
+          {loading ? (
+            <ActivityIndicator color={COLORS.pink} style={{ marginLeft: 16 }} />
+          ) : agendaHoje.length === 0 ? (
+            <View style={styles.emptyInlineBox}>
+              <Text style={styles.emptyInlineText}>Nenhum evento aprovado pra hoje ainda.</Text>
+            </View>
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carrosselPadding}>
+              {agendaHoje.map((item) => (
                 <TouchableOpacity
                   key={item.id}
                   style={styles.agendaCard}
@@ -490,27 +447,19 @@ export default function HomeScreen() {
                 >
                   <View style={styles.agendaImageArea}>
                     <Feather name="calendar" size={24} color={COLORS.pink} />
-                    <TouchableOpacity
-                      style={styles.favBtnFloating}
-                      onPress={() => handleToggleFavorito(item.id)}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Feather
-                        name="heart"
-                        size={16}
-                        color={isFavorited ? COLORS.pink : '#FFF'}
-                      />
-                    </TouchableOpacity>
                   </View>
                   <View style={styles.agendaContent}>
-                    <Text style={styles.agendaHorario}>{item.horario}</Text>
+                    <Text style={styles.agendaHorario}>
+                      {new Date(item.data_inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} •{' '}
+                      {item.locais?.bairro || 'Local a confirmar'}
+                    </Text>
                     <Text style={styles.agendaTitulo}>{item.titulo}</Text>
-                    <Text style={styles.agendaDiferencial}>{item.diferencial}</Text>
+                    <Text style={styles.agendaDiferencial}>{item.locais?.nome || ''}</Text>
                   </View>
                 </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+              ))}
+            </ScrollView>
+          )}
         </View>
 
         {/* DICAS TRIP */}
@@ -520,51 +469,60 @@ export default function HomeScreen() {
               <Text style={styles.sectionTitulo}>Dicas Trip</Text>
               <Text style={styles.sectionSubtitulo}>Destinos, hospedagens e roteiros LGBT+</Text>
             </View>
-            <TouchableOpacity onPress={() => handleCategoryPress(CATEGORIES.turismo)}>
+            <TouchableOpacity onPress={() => handleCategoryPress(CATEGORIAS.turismo)}>
               <Text style={styles.sectionVerTudo}>Ver catálogo</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carrosselPadding}>
-            {DICAS_TRIP_DESTINOS.map((item) => {
-              const isFavorited = favoritos.includes(item.id);
-              return (
-                <TouchableOpacity
-                  key={item.id}
-                  style={styles.turismoPropagandaCard}
-                  onPress={() => router.push(`/business/${item.id}` as any)}
-                  activeOpacity={0.85}
-                >
-                  <View style={styles.turismoHeaderRow}>
-                    <Text style={styles.turismoCategoryBadge}>{item.categoria}</Text>
-                    <View style={styles.cardHeaderRightRow}>
-                      <View style={styles.turismoPromoBadge}>
-                        <Text style={styles.turismoPromoText}>{item.badge}</Text>
+
+          {loading ? (
+            <ActivityIndicator color={COLORS.pink} style={{ marginLeft: 16 }} />
+          ) : dicasTrip.length === 0 ? (
+            <View style={styles.emptyInlineBox}>
+              <Text style={styles.emptyInlineText}>Ainda não há dicas de turismo aprovadas.</Text>
+            </View>
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carrosselPadding}>
+              {dicasTrip.map((item) => {
+                const isFavorited = favoritos.includes(item.id);
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.turismoPropagandaCard}
+                    onPress={() => router.push(`/business/${item.id}` as any)}
+                    activeOpacity={0.85}
+                  >
+                    <View style={styles.turismoHeaderRow}>
+                      <Text style={styles.turismoCategoryBadge}>{item.subcategoria || 'Turismo'}</Text>
+                      <View style={styles.cardHeaderRightRow}>
+                        {item.plano_destaque !== 'basico' && (
+                          <View style={styles.turismoPromoBadge}>
+                            <Text style={styles.turismoPromoText}>DESTAQUE</Text>
+                          </View>
+                        )}
+                        <TouchableOpacity
+                          style={{ marginLeft: 6 }}
+                          onPress={() => handleToggleFavorito(item.id)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Feather name="heart" size={16} color={isFavorited ? COLORS.pink : COLORS.textMuted} />
+                        </TouchableOpacity>
                       </View>
-                      <TouchableOpacity
-                        style={{ marginLeft: 6 }}
-                        onPress={() => handleToggleFavorito(item.id)}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        <Feather
-                          name="heart"
-                          size={16}
-                          color={isFavorited ? COLORS.pink : COLORS.textMuted}
-                        />
-                      </TouchableOpacity>
                     </View>
-                  </View>
 
-                  <Text style={styles.turismoTitle}>{item.titulo}</Text>
-                  <Text style={styles.turismoDesc} numberOfLines={2}>{item.desc}</Text>
+                    <Text style={styles.turismoTitle}>{item.nome}</Text>
+                    <Text style={styles.turismoDesc} numberOfLines={2}>
+                      {item.descricao || 'Sem descrição cadastrada ainda.'}
+                    </Text>
 
-                  <View style={styles.turismoFooterRow}>
-                    <Text style={styles.turismoBtnText}>Ver detalhes do local</Text>
-                    <Feather name="arrow-right" size={14} color={COLORS.safeSpace} />
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+                    <View style={styles.turismoFooterRow}>
+                      <Text style={styles.turismoBtnText}>Ver detalhes do local</Text>
+                      <Feather name="arrow-right" size={14} color={COLORS.safeSpace} />
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
         </View>
 
         {/* ESCOLHA PELA EXPERIÊNCIA */}
@@ -643,7 +601,8 @@ const styles = StyleSheet.create({
   },
   buscaInput: { flex: 1, color: COLORS.textPrimary, fontSize: 13 },
 
-  bannerScrollView: { marginBottom: 24, paddingLeft: 16 },
+  bannerScrollView: { marginBottom: 24 },
+  bannerScrollContent: { paddingLeft: 16, paddingRight: 4 },
   bannerCard: {
     width: 320,
     backgroundColor: COLORS.card,
@@ -665,6 +624,9 @@ const styles = StyleSheet.create({
   sectionSubtitulo: { fontSize: 11, color: COLORS.textSecondary, marginTop: 2 },
   sectionVerTudo: { fontSize: 12, fontWeight: '600', color: COLORS.pink },
 
+  emptyInlineBox: { marginHorizontal: 16, backgroundColor: COLORS.card, borderRadius: 14, borderWidth: 1, borderColor: COLORS.border, padding: 16 },
+  emptyInlineText: { fontSize: 12, color: COLORS.textSecondary, lineHeight: 17 },
+
   categoriaScrollContent: { paddingHorizontal: 16, gap: 12 },
   categoriaHorizontalItem: { alignItems: 'center', width: 84 },
   categoriaCircle: {
@@ -685,7 +647,6 @@ const styles = StyleSheet.create({
 
   carrosselPadding: { paddingHorizontal: 16, gap: 12 },
 
-  // Estilos da secao "Em Alta"
   emAltaCard: {
     width: 220,
     backgroundColor: COLORS.card,
@@ -707,7 +668,6 @@ const styles = StyleSheet.create({
 
   agendaCard: { width: 170, borderRadius: 14, backgroundColor: COLORS.card, overflow: 'hidden', borderWidth: 1, borderColor: COLORS.border },
   agendaImageArea: { height: 80, backgroundColor: '#1A1926', justifyContent: 'center', alignItems: 'center', position: 'relative' },
-  favBtnFloating: { position: 'absolute', top: 8, right: 8, padding: 4, borderRadius: 12, backgroundColor: 'rgba(0, 0, 0, 0.4)' },
   agendaContent: { padding: 10 },
   agendaHorario: { fontSize: 11, fontWeight: '700', color: COLORS.pink, marginBottom: 2 },
   agendaTitulo: { fontSize: 13, fontWeight: '700', color: COLORS.textPrimary },
