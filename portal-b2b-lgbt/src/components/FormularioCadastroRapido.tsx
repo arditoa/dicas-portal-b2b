@@ -15,8 +15,6 @@ import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { buscarCoordenadas } from '../lib/geocodificar';
 import { telefoneParecCurto } from '../lib/parceiroAuth';
-import { HorarioFuncionamento, horarioFuncionamentoVazio, limparHorarioFuncionamento } from '../lib/horarios';
-import CampoHorarioFuncionamento from './CampoHorarioFuncionamento';
 
 // Mesma taxonomia reduzida de /cadastro/local — ver src/lib/categorias.ts
 // (app) pra explicação completa de por que só essas 4 estão habilitadas.
@@ -248,9 +246,6 @@ export default function FormularioCadastroRapido({ tipo, onSucesso }: Props) {
   const [cidade, setCidade] = useState('');
   const [publicoLocal, setPublicoLocal] = useState<string[]>(['todos']);
   const [fotoLocal, setFotoLocal] = useState<File | null>(null);
-  const [horarioFuncionamento, setHorarioFuncionamento] = useState<HorarioFuncionamento>(
-    horarioFuncionamentoVazio()
-  );
 
   // Evento
   const [titulo, setTitulo] = useState('');
@@ -359,13 +354,6 @@ export default function FormularioCadastroRapido({ tipo, onSucesso }: Props) {
         if (fotoLocal && novoLocalId) {
           const url = await enviarFoto('fotos-locais', novoLocalId, fotoLocal);
           await supabase.rpc('cadastro_rapido_definir_foto_local', { p_id: novoLocalId, p_url: url });
-        }
-
-        if (novoLocalId) {
-          await supabase.rpc('cadastro_rapido_definir_horario_local', {
-            p_id: novoLocalId,
-            p_horario: limparHorarioFuncionamento(horarioFuncionamento),
-          });
         }
       } else {
         const descricaoCompleta = [
@@ -560,15 +548,6 @@ export default function FormularioCadastroRapido({ tipo, onSucesso }: Props) {
             </div>
 
             <CampoFoto label="Foto do espaço" arquivo={fotoLocal} onSelect={setFotoLocal} disabled={loading} />
-
-            <div>
-              <label className={labelClass}>Horário de funcionamento</label>
-              <CampoHorarioFuncionamento
-                value={horarioFuncionamento}
-                onChange={setHorarioFuncionamento}
-                disabled={loading}
-              />
-            </div>
           </div>
         ) : (
           <div className="bg-[#12121A] border border-[#232230] rounded-2xl p-6 space-y-4">

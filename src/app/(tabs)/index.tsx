@@ -95,6 +95,7 @@ interface LocalCard {
   bairro: string | null;
   cidade: string;
   instagram: string | null;
+  foto_capa_url: string | null;
   rating_media: number;
   rating_total: number;
   plano_destaque: 'basico' | 'destaque' | 'vip';
@@ -142,7 +143,7 @@ export default function HomeScreen() {
       const [emAltaRes, agendaRes, tripRes] = await Promise.all([
         supabase
           .from('locais')
-          .select('id, nome, categoria, bairro, cidade, instagram, rating_media, rating_total, plano_destaque')
+          .select('id, nome, categoria, bairro, cidade, instagram, foto_capa_url, rating_media, rating_total, plano_destaque')
           .eq('status', 'aprovado')
           .limit(20),
         supabase
@@ -382,6 +383,16 @@ export default function HomeScreen() {
                     onPress={() => router.push(`/business/${item.id}` as any)}
                     activeOpacity={0.88}
                   >
+                    {item.foto_capa_url && (
+                      <>
+                        <Image
+                          source={{ uri: item.foto_capa_url }}
+                          style={StyleSheet.absoluteFillObject}
+                          resizeMode="cover"
+                        />
+                        <View style={styles.emAltaOverlay} />
+                      </>
+                    )}
                     <View style={styles.emAltaHeaderRow}>
                       <View style={styles.emAltaCategoryBadge}>
                         <Text style={styles.emAltaCategoryText}>{CATEGORIA_REAL_LABEL[item.categoria] || item.categoria}</Text>
@@ -656,6 +667,11 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     justifyContent: 'space-between',
     gap: 6,
+    overflow: 'hidden',
+  },
+  emAltaOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(11, 11, 14, 0.55)',
   },
   emAltaHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   emAltaCategoryBadge: { backgroundColor: 'rgba(255, 213, 79, 0.15)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },

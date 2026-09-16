@@ -135,6 +135,7 @@ type LocalDestaque = {
   plano_destaque: 'basico' | 'destaque' | 'vip';
   plano_comercial: string;
   plano_comercial_status: string;
+  fundador: boolean;
 };
 
 type VinculoPendente = {
@@ -196,6 +197,7 @@ export default function AdminPage() {
       { data: leadsData },
       { data: interessesData },
       { data: locaisDestaqueData },
+      { data: badgesFundadorData },
     ] = await Promise.all([
         supabase
           .from('locais')
@@ -232,6 +234,13 @@ export default function AdminPage() {
           .select('id, nome, categoria, cidade, bairro, plano_destaque, plano_comercial, plano_comercial_status')
           .eq('status', 'aprovado')
           .order('nome', { ascending: true }),
+        // Rodada 37 — selo "Membro Fundador" é um local_badges (não é
+        // plano_destaque, ver experience/[tag].tsx no app) — busca junto
+        // pra saber quem já tem, e mostrar o toggle certo abaixo.
+        supabase
+          .from('local_badges')
+          .select('local_id, ativo')
+          .ilike('rotulo', '%fundador%'),
       ]);
 
     setLocaisPendentes((locaisData as LocalPendente[]) || []);
@@ -240,7 +249,17 @@ export default function AdminPage() {
     setVinculosPendentes((vinculosData as unknown as VinculoPendente[]) || []);
     setLeads((leadsData as LeadInstitucional[]) || []);
     setInteressesPlano((interessesData as InteresseNoPlano[]) || []);
-    setLocaisDestaque((locaisDestaqueData as LocalDestaque[]) || []);
+    const idsComFundadorAtivo = new Set(
+      ((badgesFundadorData as { local_id: string; ativo: boolean }[]) || [])
+        .filter((b) => b.ativo)
+        .map((b) => b.local_id)
+    );
+    setLocaisDestaque(
+      ((locaisDestaqueData as Omit<LocalDestaque, 'fundador'>[]) || []).map((l) => ({
+        ...l,
+        fundador: idsComFundadorAtivo.has(l.id),
+      }))
+    );
   }, []);
 
   useEffect(() => {
@@ -443,6 +462,35 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
     setErro('');
     setLocaisDestaque((atual) => atual.map((l) => (l.id === id ? { ...l, plano_destaque: plano } : l)));
     const { error } = await supabase.from('locais').update({ plano_destaque: plano }).eq('id', id);
+    if (error) {
+      setErro(error.message);
+      await carregarFilas();
+    }
+    setProcessando(null);
+  };
+
+  // Rodada 37 — toggle do selo "Membro Fundador" (local_badges), separado
+  // do plano_destaque acima — é o que faz um local aparecer na seção
+  // "Membro Fundador" do app (experience/[tag].tsx). Faz upsert manual
+  // porque local_badges não tem unique constraint em (local_id, rotulo).
+  const alternarFundador = async (id: string, ativar: boolean) => {
+    setProcessando(id);
+    setErro('');
+    setLocaisDestaque((atual) => atual.map((l) => (l.id === id ? { ...l, fundador: ativar } : l)));
+
+    const { data: existente } = await supabase
+      .from('local_badges')
+      .select('id')
+      .eq('local_id', id)
+      .ilike('rotulo', '%fundador%')
+      .maybeSingle();
+
+    const { error } = existente
+      ? await supabase.from('local_badges').update({ ativo: ativar }).eq('id', existente.id)
+      : await supabase
+          .from('local_badges')
+          .insert({ local_id: id, rotulo: 'Membro Fundador', cor_tag: 'dourado', ativo: ativar });
+
     if (error) {
       setErro(error.message);
       await carregarFilas();
@@ -761,9 +809,10 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
       <section className="mb-10">
         <h2 className="text-base font-bold mb-3">⭐ Destaque manual dos locais ({locaisDestaque.length})</h2>
         <p className="text-xs text-[#626274] mb-3">
-          Controla a ordenação e o selo "Destaque"/"VIP" que aparecem no app (Em Alta, Dicas Trip).
-          Independente do plano pago — dá pra usar como selo editorial/&quot;Fundador&quot; gratuito
-          enquanto ainda não há parceiro pagante, sem precisar cobrar nada ainda.
+          O select controla a ordenação e o selo &quot;Destaque&quot;/&quot;VIP&quot; que aparecem no app
+          (Em Alta, Dicas Trip). O checkbox &quot;Membro Fundador&quot; é separado — é o que faz o local
+          aparecer na seção Membro Fundador do app. Os dois são independentes do plano pago —
+          dá pra usar como selo editorial gratuito enquanto ainda não há parceiro pagante.
         </p>
         <div className="space-y-2">
           {locaisDestaque.length === 0 && <p className="text-xs text-[#626274]">Nenhum local aprovado ainda.</p>}
@@ -778,6 +827,16 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
                     : ' · sem plano pago ainda'}
                 </p>
               </div>
+              <label className="flex items-center gap-2 text-xs font-bold text-[#FFD54F] shrink-0 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={l.fundador}
+                  disabled={processando === l.id}
+                  onChange={(e) => alternarFundador(l.id, e.target.checked)}
+                  className="accent-[#FFD54F]"
+                />
+                Membro Fundador
+              </label>
               <select
                 value={l.plano_destaque}
                 onChange={(e) => atualizarDestaque(l.id, e.target.value as 'basico' | 'destaque' | 'vip')}

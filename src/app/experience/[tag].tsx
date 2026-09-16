@@ -3,8 +3,10 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   ImageBackground,
+  Linking,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -15,6 +17,10 @@ import {
 
 import { CATEGORIA_REAL_LABEL } from '../../lib/categorias';
 import { supabase } from '../../lib/supabase';
+
+// Mesmo número/padrão já usado em profile.tsx (handleIndicarParceiroWhatsApp)
+// pra qualquer contato comercial dentro do app.
+const WHATSAPP_PARCEIROS = '5511942942028';
 
 const COLORS = {
   background: '#0B0B0E',
@@ -93,6 +99,23 @@ export default function FeaturedScreen() {
 
   const heroPartner = parceiros[0];
   const regularPartners = parceiros.slice(1);
+
+  const handleSejaDestaqueWhatsApp = async () => {
+    const mensagem = encodeURIComponent(
+      `Olá! Vi a seção "${pageTitle}" no app Dicas LGBT+ e quero saber como colocar meu espaço em destaque.`
+    );
+    const url = `whatsapp://send?phone=${WHATSAPP_PARCEIROS}&text=${mensagem}`;
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        await Linking.openURL(`https://api.whatsapp.com/send?phone=${WHATSAPP_PARCEIROS}&text=${mensagem}`);
+      }
+    } catch {
+      Alert.alert('Erro', 'Não foi possível abrir o WhatsApp.');
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -198,13 +221,17 @@ export default function FeaturedScreen() {
             </>
           )}
 
-          <View style={styles.ctaCard}>
+          <TouchableOpacity style={styles.ctaCard} onPress={handleSejaDestaqueWhatsApp} activeOpacity={0.85}>
             <Feather name="shield" size={24} color={COLORS.purple} />
             <Text style={styles.ctaTitle}>Seja um {pageTitle}</Text>
             <Text style={styles.ctaSub}>
               Posicione sua marca em destaque máximo para milhares de pessoas na comunidade.
             </Text>
-          </View>
+            <View style={styles.ctaBtn}>
+              <Feather name="message-circle" size={14} color="#FFF" />
+              <Text style={styles.ctaBtnText}>Falar no WhatsApp</Text>
+            </View>
+          </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -287,4 +314,6 @@ const styles = StyleSheet.create({
   ctaCard: { backgroundColor: COLORS.card, borderRadius: 16, padding: 20, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border, gap: 8 },
   ctaTitle: { fontSize: 15, fontWeight: '800', color: COLORS.textPrimary },
   ctaSub: { fontSize: 12, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 16 },
+  ctaBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: COLORS.purple, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, marginTop: 4 },
+  ctaBtnText: { fontSize: 12, fontWeight: '700', color: '#FFF' },
 });

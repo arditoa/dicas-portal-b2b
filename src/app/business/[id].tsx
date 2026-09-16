@@ -38,6 +38,18 @@ const BADGE_COLORS: Record<string, string> = {
   rosa: '#E1306C',
 };
 
+// Mesmas chaves/ordem do portal (src/lib/horarios.ts) — nunca renomear
+// sem migrar os dados já salvos em locais.horario_funcionamento.
+const DIAS_SEMANA: { chave: string; label: string }[] = [
+  { chave: 'segunda', label: 'Segunda' },
+  { chave: 'terca', label: 'Terça' },
+  { chave: 'quarta', label: 'Quarta' },
+  { chave: 'quinta', label: 'Quinta' },
+  { chave: 'sexta', label: 'Sexta' },
+  { chave: 'sabado', label: 'Sábado' },
+  { chave: 'domingo', label: 'Domingo' },
+];
+
 interface LocalRow {
   id: string;
   nome: string;
@@ -55,6 +67,9 @@ interface LocalRow {
   plano_destaque: 'basico' | 'destaque' | 'vip';
   rating_media: number;
   rating_total: number;
+  horario_funcionamento: Record<string, { aberto: boolean; abre?: string; fecha?: string; musica_ao_vivo?: string }> | null;
+  galeria_fotos: string[] | null;
+  video_url: string | null;
 }
 
 interface LocalBadge {
@@ -98,7 +113,7 @@ export default function BusinessDetailScreen() {
         supabase
           .from('locais')
           .select(
-            'id, nome, categoria, subcategoria, descricao, endereco, bairro, cidade, lat, lng, instagram, foto_capa_url, safe_space, plano_destaque, rating_media, rating_total'
+            'id, nome, categoria, subcategoria, descricao, endereco, bairro, cidade, lat, lng, instagram, foto_capa_url, safe_space, plano_destaque, rating_media, rating_total, horario_funcionamento, galeria_fotos, video_url'
           )
           .eq('id', id)
           .single(),
@@ -364,6 +379,46 @@ export default function BusinessDetailScreen() {
               <Text style={styles.actionBtnText}>Ver no Mapa</Text>
             </TouchableOpacity>
 
+            {local.galeria_fotos && local.galeria_fotos.length > 0 && (
+              <View style={{ marginTop: 16 }}>
+                <Text style={styles.sectionTitle}>Fotos</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 8 }}>
+                  {local.galeria_fotos.map((url, idx) => (
+                    <Image key={idx} source={{ uri: url }} style={styles.galeriaFoto} resizeMode="cover" />
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
+            {local.video_url && (
+              <TouchableOpacity
+                style={[styles.actionBtn, styles.videoBtn]}
+                onPress={() => Linking.openURL(local.video_url!)}
+              >
+                <Feather name="play-circle" size={18} color="#FFF" style={{ marginRight: 8 }} />
+                <Text style={styles.actionBtnText}>Ver vídeo</Text>
+              </TouchableOpacity>
+            )}
+
+            {local.horario_funcionamento && DIAS_SEMANA.some((d) => local.horario_funcionamento?.[d.chave]?.aberto) && (
+              <View style={styles.horarioBox}>
+                <Text style={styles.sectionTitle}>Horário de funcionamento</Text>
+                {DIAS_SEMANA.map((d) => {
+                  const dia = local.horario_funcionamento?.[d.chave];
+                  if (!dia?.aberto) return null;
+                  return (
+                    <View key={d.chave} style={styles.horarioLinha}>
+                      <Text style={styles.horarioDia}>{d.label}</Text>
+                      <Text style={styles.horarioValor}>
+                        {dia.abre && dia.fecha ? `${dia.abre} – ${dia.fecha}` : 'Aberto'}
+                        {dia.musica_ao_vivo ? `  •  música ao vivo ${dia.musica_ao_vivo}` : ''}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+
             {/* AVALIAÇÕES */}
             <View style={styles.reviewsHeader}>
               <Text style={styles.sectionTitle}>Avaliações</Text>
@@ -499,7 +554,15 @@ const styles = StyleSheet.create({
 
   actionBtn: { flexDirection: 'row', height: 48, backgroundColor: '#E1306C', borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
   mapBtn: { backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230' },
+  videoBtn: { backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230' },
   actionBtnText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
+
+  galeriaFoto: { width: 140, height: 100, borderRadius: 12, backgroundColor: '#161520' },
+
+  horarioBox: { marginTop: 16, marginBottom: 8, padding: 14, borderRadius: 14, backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230' },
+  horarioLinha: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
+  horarioDia: { fontSize: 13, fontWeight: '700', color: '#FFF' },
+  horarioValor: { fontSize: 12, color: '#A0A0B2', flexShrink: 1, textAlign: 'right', marginLeft: 8 },
 
   reviewsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, marginBottom: 12 },
   sectionTitle: { fontSize: 16, fontWeight: '800', color: '#FFF' },
