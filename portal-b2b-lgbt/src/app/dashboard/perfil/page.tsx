@@ -87,29 +87,33 @@ const TAGS_EXPERIENCIA = [
   'Parklet',
 ] as const;
 
-// Quantidade de tags de experiência que o plano ATUAL do local permite —
-// espelha exatamente o que /planos promete ("3 tags — Top 5" no Premium,
-// "Destaque / tags" desmarcado nos 3 planos de baixo). Só precisa estar
-// com `plano_comercial_status = 'ativo'` pra valer (mesma regra que já
-// protege plano_comercial_status desde a 005 — 'interesse'/'aguardando_
-// pagamento' ainda não é um plano pago em vigor). Isso é só limite de UX
-// por enquanto, não travado no banco (ver 014_tags_experiencia_locais.sql)
-// — mesmo grau de confiança já usado hoje pro limite de cupons por plano.
-function limiteTagsExperiencia(planoComercial: string, planoComercialStatus: string): number {
-  if (planoComercialStatus !== 'ativo') return 0;
-  if (planoComercial === 'premium' || planoComercial === 'fundador') return 3;
-  return 0;
+// Rodada 38 — pedido direto da Andrea pra inverter a lógica antiga: TODO
+// plano (mesmo freemium) pode preencher tags de experiência, galeria e
+// vídeo — o preenchimento nunca foi travado no banco (ver
+// 014_tags_experiencia_locais.sql / 020_horario_funcionamento_galeria_e_
+// fix_foto_evento.sql), só a UX do portal escondia o campo. O que
+// continua exclusivo de Premium/Fundador com plano_comercial_status =
+// 'ativo' é aparecer PRO USUÁRIO FINAL no app — ver `publicaRecursosNoApp`,
+// usada em business/[id].tsx (app) pra decidir o que mostrar. Isso deixa
+// o cadastro completo desde o início (menos fricção, mais dados pra
+// Andrea oferecer o upgrade com o perfil já pronto) sem dar de graça o
+// que é vendido nos planos pagos.
+function limiteTagsExperiencia(): number {
+  return 3;
 }
 
-// Carrossel de fotos + link de vídeo (Rodada 35, "locais premium... subir
-// carrossel de fotos e até vídeos") — mesma regra de plano/status da
-// função acima, e o mesmo grau de confiança (limite de UX, não travado no
-// banco — ver 020_horario_funcionamento_galeria_e_fix_foto_evento.sql).
-// Vídeo é só LINK (Instagram/Reels/YouTube), nunca upload de arquivo —
-// decisão da Andrea pra não gerar custo de armazenamento de vídeo.
+// Mesmo espírito da função acima — preencher é livre pra qualquer plano;
+// o que aparece no app pro usuário final é decidido por
+// `publicaRecursosNoApp`. Vídeo é só LINK (Instagram/Reels/YouTube),
+// nunca upload de arquivo — decisão da Andrea pra não gerar custo de
+// armazenamento de vídeo.
 const LIMITE_GALERIA_FOTOS = 6;
 
-function temDireitoAGaleriaEVideo(planoComercial: string, planoComercialStatus: string): boolean {
+// Única checagem de plano que sobrou nesta tela — não trava preenchimento,
+// só decide a frase de aviso que aparece embaixo de cada campo premium
+// (a checagem que realmente importa pro usuário final é a mesma regra
+// espelhada em business/[id].tsx no app).
+function publicaRecursosNoApp(planoComercial: string, planoComercialStatus: string): boolean {
   if (planoComercialStatus !== 'ativo') return false;
   return planoComercial === 'premium' || planoComercial === 'fundador';
 }
@@ -573,95 +577,6 @@ export default function MinhaPaginaPage() {
         </div>
 
         <div>
-          {(() => {
-            const limite = limiteTagsExperiencia(local.plano_comercial, local.plano_comercial_status);
-            const extras = local.tags.filter((t) => !(TAGS_EXPERIENCIA as readonly string[]).includes(t));
-            return (
-              <>
-                <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">
-                  Tags de experiência (aparecem no perfil e no destaque do local)
-                </label>
-                {limite === 0 ? (
-                  <p className="text-xs text-[#626274] bg-[#161520] border border-[#232230] rounded-xl p-3">
-                    Esse recurso é dos planos <b className="text-[#D0D0E0]">Premium</b> e{' '}
-                    <b className="text-[#D0D0E0]">Fundador</b> (até 3 tags). Veja em{' '}
-                    <Link href="/planos" className="underline hover:text-white">planos</Link>.
-                  </p>
-                ) : (
-                  <>
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      {TAGS_EXPERIENCIA.map((tag) => {
-                        const ligado = local.tags.includes(tag);
-                        const desabilitado = !ligado && local.tags.length >= limite;
-                        return (
-                          <button
-                            type="button"
-                            key={tag}
-                            disabled={desabilitado}
-                            onClick={() => alternarTagExperiencia(tag, limite)}
-                            className={`text-xs font-bold px-3 py-2 rounded-full border transition ${
-                              ligado
-                                ? 'bg-[#E1306C] border-[#E1306C] text-white'
-                                : desabilitado
-                                ? 'bg-[#161520] border-[#232230] text-[#626274] opacity-40 cursor-not-allowed'
-                                : 'bg-[#161520] border-[#232230] text-[#A0A0B2] hover:border-[#E1306C]/50'
-                            }`}
-                          >
-                            {tag}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {extras.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mb-3">
-                        {extras.map((tag) => (
-                          <button
-                            type="button"
-                            key={tag}
-                            onClick={() => removerTag(tag)}
-                            className="text-xs font-bold px-3 py-2 rounded-full border bg-[#E1306C] border-[#E1306C] text-white flex items-center gap-1.5"
-                            title="Remover"
-                          >
-                            {tag} <span className="text-white/70">×</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={novaTagLivre}
-                        onChange={(e) => setNovaTagLivre(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            adicionarTagLivre(limite);
-                          }
-                        }}
-                        disabled={local.tags.length >= limite}
-                        placeholder="Escreva uma tag sua (ex: Rooftop)"
-                        className="flex-1 bg-[#161520] border border-[#232230] rounded-xl py-2.5 px-3 text-white text-sm focus:outline-none focus:border-[#E1306C] disabled:opacity-40"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => adicionarTagLivre(limite)}
-                        disabled={local.tags.length >= limite || !novaTagLivre.trim()}
-                        className="bg-[#232230] hover:bg-[#2D2B3D] text-white text-xs font-bold px-4 rounded-xl disabled:opacity-40"
-                      >
-                        Adicionar
-                      </button>
-                    </div>
-                    <p className="text-[10px] text-[#626274] mt-2">
-                      {local.tags.length}/{limite} tags usadas — escolha das sugeridas ou escreva a sua.
-                    </p>
-                  </>
-                )}
-              </>
-            );
-          })()}
-        </div>
-
-        <div>
           <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">
             Horário de funcionamento
           </label>
@@ -674,66 +589,85 @@ export default function MinhaPaginaPage() {
 
         <div>
           {(() => {
-            const temDireito = temDireitoAGaleriaEVideo(local.plano_comercial, local.plano_comercial_status);
+            const limite = limiteTagsExperiencia();
+            const extras = local.tags.filter((t) => !(TAGS_EXPERIENCIA as readonly string[]).includes(t));
+            const publicaNoApp = publicaRecursosNoApp(local.plano_comercial, local.plano_comercial_status);
             return (
               <>
                 <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">
-                  Galeria de fotos (carrossel no perfil do app)
+                  Tags de experiência (aparecem no perfil e no destaque do local)
                 </label>
-                {!temDireito ? (
-                  <p className="text-xs text-[#626274] bg-[#161520] border border-[#232230] rounded-xl p-3">
-                    Esse recurso é dos planos <b className="text-[#D0D0E0]">Premium</b> e{' '}
-                    <b className="text-[#D0D0E0]">Fundador</b> (até {LIMITE_GALERIA_FOTOS} fotos). Veja em{' '}
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {TAGS_EXPERIENCIA.map((tag) => {
+                    const ligado = local.tags.includes(tag);
+                    const desabilitado = !ligado && local.tags.length >= limite;
+                    return (
+                      <button
+                        type="button"
+                        key={tag}
+                        disabled={desabilitado}
+                        onClick={() => alternarTagExperiencia(tag, limite)}
+                        className={`text-xs font-bold px-3 py-2 rounded-full border transition ${
+                          ligado
+                            ? 'bg-[#E1306C] border-[#E1306C] text-white'
+                            : desabilitado
+                            ? 'bg-[#161520] border-[#232230] text-[#626274] opacity-40 cursor-not-allowed'
+                            : 'bg-[#161520] border-[#232230] text-[#A0A0B2] hover:border-[#E1306C]/50'
+                        }`}
+                      >
+                        {tag}
+                      </button>
+                    );
+                  })}
+                </div>
+                {extras.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {extras.map((tag) => (
+                      <button
+                        type="button"
+                        key={tag}
+                        onClick={() => removerTag(tag)}
+                        className="text-xs font-bold px-3 py-2 rounded-full border bg-[#E1306C] border-[#E1306C] text-white flex items-center gap-1.5"
+                        title="Remover"
+                      >
+                        {tag} <span className="text-white/70">×</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={novaTagLivre}
+                    onChange={(e) => setNovaTagLivre(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        adicionarTagLivre(limite);
+                      }
+                    }}
+                    disabled={local.tags.length >= limite}
+                    placeholder="Escreva uma tag sua (ex: Rooftop)"
+                    className="flex-1 bg-[#161520] border border-[#232230] rounded-xl py-2.5 px-3 text-white text-sm focus:outline-none focus:border-[#E1306C] disabled:opacity-40"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => adicionarTagLivre(limite)}
+                    disabled={local.tags.length >= limite || !novaTagLivre.trim()}
+                    className="bg-[#232230] hover:bg-[#2D2B3D] text-white text-xs font-bold px-4 rounded-xl disabled:opacity-40"
+                  >
+                    Adicionar
+                  </button>
+                </div>
+                <p className="text-[10px] text-[#626274] mt-2">
+                  {local.tags.length}/{limite} tags usadas — escolha das sugeridas ou escreva a sua.
+                </p>
+                {!publicaNoApp && (
+                  <p className="text-xs text-[#E1A93A] bg-[#E1A93A]/10 border border-[#E1A93A]/30 rounded-xl p-3 mt-2">
+                    Fica salvo aqui, mas só aparece pros usuários no app quando seu plano for{' '}
+                    <b>Premium</b> ou <b>Fundador</b> (ativo). Veja em{' '}
                     <Link href="/planos" className="underline hover:text-white">planos</Link>.
                   </p>
-                ) : (
-                  <>
-                    {local.galeria_fotos.length > 0 && (
-                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mb-3">
-                        {local.galeria_fotos.map((url) => (
-                          <div key={url} className="relative group">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={url}
-                              alt="Foto da galeria"
-                              className="w-full h-24 object-cover rounded-lg border border-[#232230]"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => removerFotoGaleria(url)}
-                              className="absolute top-1 right-1 bg-black/70 hover:bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs"
-                              title="Remover"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <input
-                      ref={inputGaleriaRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const arquivo = e.target.files?.[0];
-                        if (arquivo) enviarFotoGaleria(arquivo);
-                        e.target.value = '';
-                      }}
-                    />
-                    <button
-                      type="button"
-                      disabled={enviandoFoto || local.galeria_fotos.length >= LIMITE_GALERIA_FOTOS}
-                      onClick={() => inputGaleriaRef.current?.click()}
-                      className="w-full bg-[#161520] border border-dashed border-[#232230] hover:border-[#E1306C]/50 rounded-xl py-3.5 px-4 text-[#D0D0E0] text-sm font-bold flex items-center justify-center gap-2 transition disabled:opacity-40"
-                    >
-                      {enviandoFoto ? <Loader2 className="animate-spin" size={16} /> : <Upload size={16} />}
-                      {enviandoFoto ? 'Enviando...' : 'Adicionar foto à galeria'}
-                    </button>
-                    <p className="text-[10px] text-[#626274] mt-1">
-                      {local.galeria_fotos.length}/{LIMITE_GALERIA_FOTOS} fotos — JPG, PNG ou WebP, até {TAMANHO_MAXIMO_MB}MB cada.
-                    </p>
-                  </>
                 )}
               </>
             );
@@ -742,31 +676,93 @@ export default function MinhaPaginaPage() {
 
         <div>
           {(() => {
-            const temDireito = temDireitoAGaleriaEVideo(local.plano_comercial, local.plano_comercial_status);
+            const publicaNoApp = publicaRecursosNoApp(local.plano_comercial, local.plano_comercial_status);
+            return (
+              <>
+                <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">
+                  Galeria de fotos (carrossel no perfil do app)
+                </label>
+                {local.galeria_fotos.length > 0 && (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mb-3">
+                    {local.galeria_fotos.map((url) => (
+                      <div key={url} className="relative group">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={url}
+                          alt="Foto da galeria"
+                          className="w-full h-24 object-cover rounded-lg border border-[#232230]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removerFotoGaleria(url)}
+                          className="absolute top-1 right-1 bg-black/70 hover:bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs"
+                          title="Remover"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <input
+                  ref={inputGaleriaRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const arquivo = e.target.files?.[0];
+                    if (arquivo) enviarFotoGaleria(arquivo);
+                    e.target.value = '';
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={enviandoFoto || local.galeria_fotos.length >= LIMITE_GALERIA_FOTOS}
+                  onClick={() => inputGaleriaRef.current?.click()}
+                  className="w-full bg-[#161520] border border-dashed border-[#232230] hover:border-[#E1306C]/50 rounded-xl py-3.5 px-4 text-[#D0D0E0] text-sm font-bold flex items-center justify-center gap-2 transition disabled:opacity-40"
+                >
+                  {enviandoFoto ? <Loader2 className="animate-spin" size={16} /> : <Upload size={16} />}
+                  {enviandoFoto ? 'Enviando...' : 'Adicionar foto à galeria'}
+                </button>
+                <p className="text-[10px] text-[#626274] mt-1">
+                  {local.galeria_fotos.length}/{LIMITE_GALERIA_FOTOS} fotos — JPG, PNG ou WebP, até {TAMANHO_MAXIMO_MB}MB cada.
+                </p>
+                {!publicaNoApp && (
+                  <p className="text-xs text-[#E1A93A] bg-[#E1A93A]/10 border border-[#E1A93A]/30 rounded-xl p-3 mt-2">
+                    Fica salvo aqui, mas só aparece pros usuários no app quando seu plano for{' '}
+                    <b>Premium</b> ou <b>Fundador</b> (ativo). Veja em{' '}
+                    <Link href="/planos" className="underline hover:text-white">planos</Link>.
+                  </p>
+                )}
+              </>
+            );
+          })()}
+        </div>
+
+        <div>
+          {(() => {
+            const publicaNoApp = publicaRecursosNoApp(local.plano_comercial, local.plano_comercial_status);
             return (
               <>
                 <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">
                   Vídeo (link do Instagram, Reels ou YouTube)
                 </label>
-                {!temDireito ? (
-                  <p className="text-xs text-[#626274] bg-[#161520] border border-[#232230] rounded-xl p-3">
-                    Esse recurso é dos planos <b className="text-[#D0D0E0]">Premium</b> e{' '}
-                    <b className="text-[#D0D0E0]">Fundador</b>. Veja em{' '}
+                <input
+                  type="url"
+                  value={local.video_url || ''}
+                  onChange={(e) => setLocal({ ...local, video_url: e.target.value })}
+                  placeholder="https://instagram.com/reel/..."
+                  className="w-full bg-[#161520] border border-[#232230] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#E1306C]"
+                />
+                <p className="text-[10px] text-[#626274] mt-2">
+                  Cole o link de um Reels, vídeo do Instagram ou YouTube. Sem upload de arquivo — só o link.
+                </p>
+                {!publicaNoApp && (
+                  <p className="text-xs text-[#E1A93A] bg-[#E1A93A]/10 border border-[#E1A93A]/30 rounded-xl p-3 mt-2">
+                    Fica salvo aqui, mas só aparece pros usuários no app quando seu plano for{' '}
+                    <b>Premium</b> ou <b>Fundador</b> (ativo). Veja em{' '}
                     <Link href="/planos" className="underline hover:text-white">planos</Link>.
                   </p>
-                ) : (
-                  <>
-                    <input
-                      type="url"
-                      value={local.video_url || ''}
-                      onChange={(e) => setLocal({ ...local, video_url: e.target.value })}
-                      placeholder="https://instagram.com/reel/..."
-                      className="w-full bg-[#161520] border border-[#232230] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#E1306C]"
-                    />
-                    <p className="text-[10px] text-[#626274] mt-2">
-                      Cole o link de um Reels, vídeo do Instagram ou YouTube. Sem upload de arquivo — só o link.
-                    </p>
-                  </>
                 )}
               </>
             );

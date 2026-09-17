@@ -138,6 +138,21 @@ type LocalDestaque = {
   fundador: boolean;
 };
 
+// Rodada 38 — pedido direto da Andrea: organizador de evento paga uma
+// taxa única (R$69, cobrança manual por Pix/WhatsApp — mesmo fluxo que já
+// existe pra plano_comercial de bar, sem gateway de pagamento nenhum) pra
+// ter destaque numa festa específica. `eventos.plano_destaque` já existe
+// desde a 001 e o app já mostra o selo quando != 'basico'
+// ((tabs)/events.tsx linha ~465) — só faltava esse seletor manual aqui,
+// igual ao que já existe pra locais acima.
+type EventoDestaque = {
+  id: string;
+  titulo: string;
+  tipo: string;
+  data_inicio: string;
+  plano_destaque: 'basico' | 'destaque' | 'vip';
+};
+
 type VinculoPendente = {
   id: string;
   local_id: string;
@@ -168,6 +183,7 @@ export default function AdminPage() {
   const [eventosPendentes, setEventosPendentes] = useState<EventoPendente[]>([]);
   const [aprovadosSemConta, setAprovadosSemConta] = useState<AprovadoSemConta[]>([]);
   const [locaisDestaque, setLocaisDestaque] = useState<LocalDestaque[]>([]);
+  const [eventosDestaque, setEventosDestaque] = useState<EventoDestaque[]>([]);
   const [vinculosPendentes, setVinculosPendentes] = useState<VinculoPendente[]>([]);
   const [leads, setLeads] = useState<LeadInstitucional[]>([]);
   const [interessesPlano, setInteressesPlano] = useState<InteresseNoPlano[]>([]);
@@ -198,6 +214,7 @@ export default function AdminPage() {
       { data: interessesData },
       { data: locaisDestaqueData },
       { data: badgesFundadorData },
+      { data: eventosDestaqueData },
     ] = await Promise.all([
         supabase
           .from('locais')
@@ -241,6 +258,14 @@ export default function AdminPage() {
           .from('local_badges')
           .select('local_id, ativo')
           .ilike('rotulo', '%fundador%'),
+        // Rodada 38 — eventos aprovados e futuros, pra dar destaque manual
+        // (mesma lógica do bloco de locais acima) depois de cobrar o R$69.
+        supabase
+          .from('eventos')
+          .select('id, titulo, tipo, data_inicio, plano_destaque')
+          .eq('status', 'aprovado')
+          .gte('data_inicio', new Date().toISOString())
+          .order('data_inicio', { ascending: true }),
       ]);
 
     setLocaisPendentes((locaisData as LocalPendente[]) || []);
@@ -260,6 +285,7 @@ export default function AdminPage() {
         fundador: idsComFundadorAtivo.has(l.id),
       }))
     );
+    setEventosDestaque((eventosDestaqueData as EventoDestaque[]) || []);
   }, []);
 
   useEffect(() => {
@@ -462,6 +488,19 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
     setErro('');
     setLocaisDestaque((atual) => atual.map((l) => (l.id === id ? { ...l, plano_destaque: plano } : l)));
     const { error } = await supabase.from('locais').update({ plano_destaque: plano }).eq('id', id);
+    if (error) {
+      setErro(error.message);
+      await carregarFilas();
+    }
+    setProcessando(null);
+  };
+
+  // Rodada 38 — mesma ação, mas pra eventos (tabela/coluna diferente).
+  const atualizarDestaqueEvento = async (id: string, plano: 'basico' | 'destaque' | 'vip') => {
+    setProcessando(id);
+    setErro('');
+    setEventosDestaque((atual) => atual.map((ev) => (ev.id === id ? { ...ev, plano_destaque: plano } : ev)));
+    const { error } = await supabase.from('eventos').update({ plano_destaque: plano }).eq('id', id);
     if (error) {
       setErro(error.message);
       await carregarFilas();
@@ -845,6 +884,41 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
               >
                 <option value="basico">Básico</option>
                 <option value="destaque">Destaque</option>
+                <option value="vip">VIP</option>
+              </select>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="mb-10">
+        <h2 className="text-base font-bold mb-3">⭐ Destaque manual dos eventos ({eventosDestaque.length})</h2>
+        <p className="text-xs text-[#626274] mb-3">
+          Taxa única de R$69 por evento (cobrança manual por Pix/WhatsApp, igual ao fluxo de
+          plano pago dos bares) — depois de confirmar o pagamento, marca aqui como
+          &quot;Destaque&quot; ou &quot;VIP&quot;. O app já mostra o selo quando o evento não está
+          &quot;Básico&quot;. Só lista eventos já aprovados e com data futura.
+        </p>
+        <div className="space-y-2">
+          {eventosDestaque.length === 0 && (
+            <p className="text-xs text-[#626274]">Nenhum evento aprovado e futuro por aqui ainda.</p>
+          )}
+          {eventosDestaque.map((ev) => (
+            <div key={ev.id} className="bg-[#161520] border border-[#232230] rounded-xl p-4 flex justify-between items-center gap-4">
+              <div>
+                <h3 className="font-bold text-sm">{ev.titulo}</h3>
+                <p className="text-xs text-[#626274] mt-1">
+                  {ev.tipo} · {new Date(ev.data_inicio).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+                </p>
+              </div>
+              <select
+                value={ev.plano_destaque}
+                onChange={(e) => atualizarDestaqueEvento(ev.id, e.target.value as 'basico' | 'destaque' | 'vip')}
+                disabled={processando === ev.id}
+                className="bg-[#0B0B0E] border border-[#232230] rounded-lg text-xs font-bold px-3 py-2 shrink-0 disabled:opacity-40"
+              >
+                <option value="basico">Básico</option>
+                <option value="destaque">Destaque (R$69)</option>
                 <option value="vip">VIP</option>
               </select>
             </div>

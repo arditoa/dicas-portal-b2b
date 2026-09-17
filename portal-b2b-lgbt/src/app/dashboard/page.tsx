@@ -243,7 +243,7 @@ export default function DashboardPage() {
             href="/dashboard/perfil"
             className="bg-[#232230] hover:bg-[#2D2B3D] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"
           >
-            Minha Página
+            Fotos, tags e horário
           </Link>
           <Link
             href="/planos"

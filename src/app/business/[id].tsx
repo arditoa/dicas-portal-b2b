@@ -50,6 +50,20 @@ const DIAS_SEMANA: { chave: string; label: string }[] = [
   { chave: 'domingo', label: 'Domingo' },
 ];
 
+// Rodada 38 — a Andrea decidiu inverter a lógica antiga: agora QUALQUER
+// plano pode preencher tags de experiência, galeria e vídeo no portal
+// (dashboard/perfil), pra chegar com o cadastro completo desde o início.
+// O que continua exclusivo de quem paga é aparecer AQUI pro usuário
+// final — só locais Premium/Fundador com plano_comercial_status='ativo'
+// mostram esses 3 campos; espelha `publicaRecursosNoApp` do portal
+// (dashboard/perfil/page.tsx). Horário de funcionamento e as fotos
+// básicas (foto_capa_url) continuam sempre visíveis pra todo mundo —
+// nunca foram parte do que os planos pagos vendem.
+function publicaRecursosPremium(local: Pick<LocalRow, 'plano_comercial' | 'plano_comercial_status'>): boolean {
+  if (local.plano_comercial_status !== 'ativo') return false;
+  return local.plano_comercial === 'premium' || local.plano_comercial === 'fundador';
+}
+
 interface LocalRow {
   id: string;
   nome: string;
@@ -70,6 +84,9 @@ interface LocalRow {
   horario_funcionamento: Record<string, { aberto: boolean; abre?: string; fecha?: string; musica_ao_vivo?: string }> | null;
   galeria_fotos: string[] | null;
   video_url: string | null;
+  tags: string[] | null;
+  plano_comercial: string;
+  plano_comercial_status: string;
 }
 
 interface LocalBadge {
@@ -113,7 +130,7 @@ export default function BusinessDetailScreen() {
         supabase
           .from('locais')
           .select(
-            'id, nome, categoria, subcategoria, descricao, endereco, bairro, cidade, lat, lng, instagram, foto_capa_url, safe_space, plano_destaque, rating_media, rating_total, horario_funcionamento, galeria_fotos, video_url'
+            'id, nome, categoria, subcategoria, descricao, endereco, bairro, cidade, lat, lng, instagram, foto_capa_url, safe_space, plano_destaque, rating_media, rating_total, horario_funcionamento, galeria_fotos, video_url, tags, plano_comercial, plano_comercial_status'
           )
           .eq('id', id)
           .single(),
@@ -379,7 +396,20 @@ export default function BusinessDetailScreen() {
               <Text style={styles.actionBtnText}>Ver no Mapa</Text>
             </TouchableOpacity>
 
-            {local.galeria_fotos && local.galeria_fotos.length > 0 && (
+            {publicaRecursosPremium(local) && local.tags && local.tags.length > 0 && (
+              <View style={{ marginTop: 16 }}>
+                <Text style={styles.sectionTitle}>Tags de experiência</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                  {local.tags.map((tag, idx) => (
+                    <View key={idx} style={styles.tagExperienciaChip}>
+                      <Text style={styles.tagExperienciaTexto}>{tag}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {publicaRecursosPremium(local) && local.galeria_fotos && local.galeria_fotos.length > 0 && (
               <View style={{ marginTop: 16 }}>
                 <Text style={styles.sectionTitle}>Fotos</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 8 }}>
@@ -390,7 +420,7 @@ export default function BusinessDetailScreen() {
               </View>
             )}
 
-            {local.video_url && (
+            {publicaRecursosPremium(local) && local.video_url && (
               <TouchableOpacity
                 style={[styles.actionBtn, styles.videoBtn]}
                 onPress={() => Linking.openURL(local.video_url!)}
@@ -558,6 +588,9 @@ const styles = StyleSheet.create({
   actionBtnText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
 
   galeriaFoto: { width: 140, height: 100, borderRadius: 12, backgroundColor: '#161520' },
+
+  tagExperienciaChip: { backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
+  tagExperienciaTexto: { color: '#D0D0E0', fontSize: 12, fontWeight: '700' },
 
   horarioBox: { marginTop: 16, marginBottom: 8, padding: 14, borderRadius: 14, backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230' },
   horarioLinha: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
