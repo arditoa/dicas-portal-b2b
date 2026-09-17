@@ -571,7 +571,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   safeArea: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
-  logo: { width: 130, height: 32 },
+  logo: { width: 140, height: 34 },
   headerTitle: { fontSize: 16, fontWeight: '800', color: COLORS.textPrimary },
   scrollContent: { paddingHorizontal: 16, paddingBottom: 40 },
 

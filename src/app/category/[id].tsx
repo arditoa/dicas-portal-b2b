@@ -369,7 +369,7 @@ const styles = StyleSheet.create({
   headerBlock: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 10 },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
   backBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: COLORS.card, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
-  headerLogo: { width: 130, height: 32 },
+  headerLogo: { width: 140, height: 34 },
   categoryTitleText: { fontSize: 22, fontWeight: '800', color: COLORS.textPrimary },
 
   searchContainer: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginBottom: 10, paddingHorizontal: 14, height: 42, borderRadius: 12, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },

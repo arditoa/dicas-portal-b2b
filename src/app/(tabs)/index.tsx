@@ -584,7 +584,12 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   headerEsquerda: { justifyContent: 'center' },
-  logoLinear: { width: 150, height: 36 },
+  // Rodada 40 — logo trocado (novo gradiente no "LGBT+"). Aproveitei
+  // pra padronizar o tamanho do logo do header: cada tela tinha um
+  // valor diferente (150x36, 130x32, 140x32...) e ficava visivelmente
+  // maior/menor dependendo da tela. Agora as 5 telas com logo no
+  // header (index, events, profile, explore, category) usam 140x34.
+  logoLinear: { width: 140, height: 34 },
   appSubtitulo: { fontSize: 11, fontWeight: '500', color: COLORS.textSecondary, marginTop: 2 },
   profileBtn: {
     width: 36,
