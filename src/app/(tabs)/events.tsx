@@ -53,11 +53,20 @@ const PUBLIC_FILTERS = [
   { id: 'ursos', label: 'Ursos' },
 ];
 
+// Rodada 39 — bug real encontrado: `calcularDateTag` sempre soube gerar a
+// tag 'outro' (qualquer evento além do próximo fim de semana), mas
+// NENHUM lugar da UI (nem os botões rápidos, nem esse modal) tinha uma
+// opção que setasse `dateFilter` pra 'outro' — um evento aprovado com
+// data futura "normal" (ex.: dentro de 3 semanas) ficava
+// PERMANENTEMENTE inalcançável na tela, mesmo aparecendo certinho no
+// banco. Reportado pela Andrea ("testei datas futuras mas não aparece no
+// app, no Supabase aparecem os eventos"). Adicionada a opção que faltava.
 const CALENDAR_DATES = [
   { id: 'hoje', label: 'Hoje', sub: 'Eventos acontecendo agora' },
   { id: 'amanha', label: 'Amanhã', sub: 'Agenda de amanhã' },
   { id: 'fds', label: 'Este Fim de Semana', sub: 'Sábado & Domingo' },
   { id: 'proximo_fds', label: 'Próximo Fim de Semana', sub: 'Destaques futuros' },
+  { id: 'outro', label: 'Mais pra Frente', sub: 'Depois do próximo fim de semana' },
 ];
 
 const STATUS_SOLICITACAO_LABEL: Record<string, string> = {
@@ -98,6 +107,7 @@ interface EventoRow {
   publico_tags: string[];
   foto_capa_url: string | null;
   plano_destaque: 'basico' | 'destaque' | 'vip';
+  local_id: string | null;
   locais: { nome: string; bairro: string | null; cidade: string } | null;
   listas_vip: ListaVip[] | null;
 }
@@ -166,7 +176,7 @@ export default function EventsScreen() {
       const { data, error } = await supabase
         .from('eventos')
         .select(
-          'id, titulo, descricao, data_inicio, data_fim, estilos_musicais, publico_tags, foto_capa_url, plano_destaque, locais(nome, bairro, cidade), listas_vip(id, titulo, vagas_limite, vagas_ocupadas, ativa)'
+          'id, titulo, descricao, data_inicio, data_fim, estilos_musicais, publico_tags, foto_capa_url, plano_destaque, local_id, locais(nome, bairro, cidade), listas_vip(id, titulo, vagas_limite, vagas_ocupadas, ativa)'
         )
         .eq('status', 'aprovado')
         .gte('data_inicio', inicioHoje.toISOString())
@@ -352,7 +362,7 @@ export default function EventsScreen() {
               activeOpacity={0.8}
             >
               <Text style={[styles.dateBtnText, dateFilter === 'fds' && styles.dateBtnTextActive]}>
-                Próximos
+                Fim de semana
               </Text>
             </TouchableOpacity>
 
@@ -414,7 +424,7 @@ export default function EventsScreen() {
         <View style={styles.listArea}>
           <View style={styles.listHeaderRow}>
             <Text style={styles.sectionTitle}>
-              {dateFilter === 'hoje' ? 'Agenda de Hoje' : 'Próximos Eventos'}
+              {(CALENDAR_DATES.find((d) => d.id === dateFilter)?.label) || 'Próximos Eventos'}
             </Text>
             <Text style={styles.eventCount}>{filteredEvents.length} eventos</Text>
           </View>
@@ -459,9 +469,20 @@ export default function EventsScreen() {
                   </View>
 
                   <Text style={styles.eventTitle}>{item.titulo}</Text>
-                  <Text style={styles.eventLocation}>
-                    {item.locais ? `${item.locais.nome} • ${item.locais.bairro || item.locais.cidade}` : 'Local a confirmar'}
-                  </Text>
+                  {item.locais && item.local_id ? (
+                    <TouchableOpacity
+                      onPress={() => router.push(`/business/${item.local_id}` as any)}
+                      hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                    >
+                      <Text style={[styles.eventLocation, styles.eventLocationLink]}>
+                        {item.locais.nome} • {item.locais.bairro || item.locais.cidade}
+                      </Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <Text style={styles.eventLocation}>
+                      {item.locais ? `${item.locais.nome} • ${item.locais.bairro || item.locais.cidade}` : 'Local a confirmar'}
+                    </Text>
+                  )}
                   {item.plano_destaque !== 'basico' && (
                     <Text style={styles.eventPrice}>★ Evento em destaque</Text>
                   )}
@@ -635,7 +656,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   headerEsquerda: { justifyContent: 'center' },
-  logoLinear: { width: 150, height: 36 },
+  logoLinear: { width: 140, height: 34 },
   appSubtitulo: { fontSize: 11, fontWeight: '500', color: COLORS.textSecondary, marginTop: 2 },
   profileBtn: {
     width: 36,
@@ -686,6 +707,7 @@ const styles = StyleSheet.create({
   guestListBadgeText: { fontSize: 8, fontWeight: '800', color: COLORS.green },
   eventTitle: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary },
   eventLocation: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
+  eventLocationLink: { textDecorationLine: 'underline', color: COLORS.pink },
   eventPrice: { fontSize: 11, fontWeight: '700', color: COLORS.gold, marginTop: 4 },
 
   emptyBox: { padding: 30, alignItems: 'center', gap: 10, backgroundColor: COLORS.card, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, marginTop: 10 },

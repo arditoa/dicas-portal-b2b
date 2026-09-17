@@ -153,6 +153,16 @@ type EventoDestaque = {
   plano_destaque: 'basico' | 'destaque' | 'vip';
 };
 
+// Rodada 39 — mesma ideia do bloco "Locais aprovados — enviar/reenviar
+// acesso" (Rodada 22) só que pra organizador de evento independente
+// (criado_por preenchido, sem conta emprestada de local com dono).
+type EventoComOrganizador = {
+  id: string;
+  titulo: string;
+  contato_nome: string | null;
+  contato_whatsapp: string | null;
+};
+
 type VinculoPendente = {
   id: string;
   local_id: string;
@@ -184,6 +194,7 @@ export default function AdminPage() {
   const [aprovadosSemConta, setAprovadosSemConta] = useState<AprovadoSemConta[]>([]);
   const [locaisDestaque, setLocaisDestaque] = useState<LocalDestaque[]>([]);
   const [eventosDestaque, setEventosDestaque] = useState<EventoDestaque[]>([]);
+  const [eventosComOrganizador, setEventosComOrganizador] = useState<EventoComOrganizador[]>([]);
   const [vinculosPendentes, setVinculosPendentes] = useState<VinculoPendente[]>([]);
   const [leads, setLeads] = useState<LeadInstitucional[]>([]);
   const [interessesPlano, setInteressesPlano] = useState<InteresseNoPlano[]>([]);
@@ -215,6 +226,7 @@ export default function AdminPage() {
       { data: locaisDestaqueData },
       { data: badgesFundadorData },
       { data: eventosDestaqueData },
+      { data: eventosComOrganizadorData },
     ] = await Promise.all([
         supabase
           .from('locais')
@@ -266,6 +278,13 @@ export default function AdminPage() {
           .eq('status', 'aprovado')
           .gte('data_inicio', new Date().toISOString())
           .order('data_inicio', { ascending: true }),
+        supabase
+          .from('eventos')
+          .select('id, titulo, contato_nome, contato_whatsapp')
+          .eq('status', 'aprovado')
+          .not('criado_por', 'is', null)
+          .not('contato_whatsapp', 'is', null)
+          .order('titulo', { ascending: true }),
       ]);
 
     setLocaisPendentes((locaisData as LocalPendente[]) || []);
@@ -286,6 +305,7 @@ export default function AdminPage() {
       }))
     );
     setEventosDestaque((eventosDestaqueData as EventoDestaque[]) || []);
+    setEventosComOrganizador((eventosComOrganizadorData as EventoComOrganizador[]) || []);
   }, []);
 
   useEffect(() => {
@@ -416,6 +436,48 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
       }
     } catch (e: any) {
       setErro(e.message || 'Erro ao aprovar.');
+    }
+    await carregarFilas();
+    setProcessando(null);
+  };
+
+  // Rodada 39 — pedido da Andrea: poder gerar e reenviar uma senha nova
+  // pro organizador que já tem conta, sem precisar ter guardado a antiga
+  // (senha só existe em texto puro uma vez, no momento em que é gerada —
+  // depois disso é só hash no banco, não tem como "recuperar"). Mesma
+  // ideia do botão "Enviar acesso" que locais já têm (Rodada 22).
+  const reenviarAcessoEvento = async (ev: EventoComOrganizador) => {
+    setProcessando(ev.id);
+    setErro('');
+    try {
+      const { data: sessao } = await supabase.auth.getSession();
+      const token = sessao?.session?.access_token;
+      const resp = await fetch('/api/aprovar-evento', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ evento_id: ev.id, reenviar: true }),
+      });
+      const resultado = await resp.json();
+      if (!resp.ok) throw new Error(resultado.error || 'Erro ao reenviar acesso.');
+
+      if (resultado.senha) {
+        const mensagem = `Oi${ev.contato_nome ? `, ${ev.contato_nome}` : ''}! Aqui está um novo acesso ao Portal de Parceiros pro seu evento "${resultado.tituloEvento}":
+
+Link: ${URL_PORTAL}/login
+Login (seu WhatsApp): ${resultado.telefone}
+Senha nova temporária: ${resultado.senha}
+
+Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!`;
+        setEventoContaCriada({
+          titulo: resultado.tituloEvento,
+          telefone: resultado.telefone,
+          senha: resultado.senha,
+          contaNova: false,
+          link: `https://wa.me/${resultado.telefone}?text=${encodeURIComponent(mensagem)}`,
+        });
+      }
+    } catch (e: any) {
+      setErro(e.message || 'Erro ao reenviar acesso.');
     }
     await carregarFilas();
     setProcessando(null);
@@ -837,6 +899,40 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
                 disabled={processando === l.id || !l.contato_telefone}
                 className="bg-[#25D366]/10 text-[#25D366] border border-[#25D366]/30 text-xs font-bold px-3 py-2 rounded-lg hover:bg-[#25D366]/20 flex items-center gap-1.5 shrink-0 disabled:opacity-40"
                 title={!l.contato_telefone ? 'Sem WhatsApp cadastrado' : 'Enviar acesso'}
+              >
+                <MessageCircle size={14} /> Enviar acesso
+              </button>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="mb-10">
+        <h2 className="text-base font-bold mb-3">
+          Organizadores de evento — reenviar acesso ({eventosComOrganizador.length})
+        </h2>
+        <p className="text-xs text-[#626274] mb-3">
+          Mesma ideia acima, só que pro organizador independente de uma festa (sem local com
+          dono). A senha só existe em texto puro uma vez — depois disso é só hash no banco, então
+          "reenviar" na verdade gera uma senha nova e manda de novo pelo WhatsApp.
+        </p>
+        <div className="space-y-3">
+          {eventosComOrganizador.length === 0 && (
+            <p className="text-xs text-[#626274]">Nenhum organizador com conta própria ainda.</p>
+          )}
+          {eventosComOrganizador.map((ev) => (
+            <div key={ev.id} className="bg-[#161520] border border-[#232230] rounded-xl p-4 flex justify-between items-center gap-4">
+              <div>
+                <h3 className="font-bold text-sm">{ev.titulo}</h3>
+                <p className="text-xs text-[#626274] mt-1">
+                  {ev.contato_nome || '—'} · {ev.contato_whatsapp || 'sem telefone'}
+                </p>
+              </div>
+              <button
+                onClick={() => reenviarAcessoEvento(ev)}
+                disabled={processando === ev.id || !ev.contato_whatsapp}
+                className="bg-[#25D366]/10 text-[#25D366] border border-[#25D366]/30 text-xs font-bold px-3 py-2 rounded-lg hover:bg-[#25D366]/20 flex items-center gap-1.5 shrink-0 disabled:opacity-40"
+                title={!ev.contato_whatsapp ? 'Sem WhatsApp cadastrado' : 'Enviar acesso'}
               >
                 <MessageCircle size={14} /> Enviar acesso
               </button>

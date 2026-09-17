@@ -43,9 +43,17 @@ export async function POST(req: NextRequest) {
   }
 
   let evento_id: string | undefined;
+  let reenviar = false;
   try {
     const body = await req.json();
     evento_id = body?.evento_id;
+    // Rodada 39 — pedido da Andrea: mesma ideia do botão "Enviar acesso"
+    // que locais já tinham (Rodada 22) — reenviar uma senha nova pro
+    // organizador que já tem conta, em vez de só poder ver a senha uma
+    // vez no momento da aprovação e nunca mais (senha fica só como hash
+    // depois disso, não tem como "buscar" a antiga — regerar é o único
+    // jeito seguro de mandar de novo).
+    reenviar = body?.reenviar === true;
   } catch {
     // corpo ausente/inválido — cai no erro 400 abaixo
   }
@@ -94,7 +102,19 @@ export async function POST(req: NextRequest) {
     localJaTemDono = !!local?.owner_id;
   }
 
-  const precisaDeLogin = !evento.criado_por && !localJaTemDono && !!evento.contato_whatsapp;
+  if (reenviar && localJaTemDono) {
+    return NextResponse.json(
+      { error: 'Esse evento é de um local que já tem dono — o organizador entra com o login do próprio local, não tem senha separada pra reenviar.' },
+      { status: 400 }
+    );
+  }
+  if (reenviar && !evento.contato_whatsapp) {
+    return NextResponse.json({ error: 'Esse evento não tem WhatsApp de contato cadastrado.' }, { status: 400 });
+  }
+
+  const precisaDeLogin = reenviar
+    ? !localJaTemDono && !!evento.contato_whatsapp
+    : !evento.criado_por && !localJaTemDono && !!evento.contato_whatsapp;
 
   let userId: string | null = null;
   let senhaGerada: string | null = null;
