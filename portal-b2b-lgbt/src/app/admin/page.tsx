@@ -351,6 +351,18 @@ const OPCOES_SECAO_EVENTO: { value: string; label: string }[] = [
 // desde a 001 e o app já mostra o selo quando != 'basico'
 // ((tabs)/events.tsx linha ~465) — só faltava esse seletor manual aqui,
 // igual ao que já existe pra locais acima.
+// Rodada 48 — pedido direto da Andrea: "além de expandir também para o
+// ticks, poder subir flier" — confirmado que "ticks" são as marcações/
+// seções do evento (destaque_secoes), que já existiam aqui só que com um
+// fluxo de rascunho + botão "Aplicar", diferente do painel instantâneo
+// que locais já tinham desde a Rodada 44. Unificado: agora clicar no
+// checkbox já aplica na hora (alternarSecaoInstantaneaEvento), igual
+// locais. `foto_capa_url` somado ao tipo pra dar a opção de subir o
+// flier/arte do evento direto do admin — a coluna e o bucket
+// (fotos-eventos) já existiam desde a Rodada 9/20 pro parceiro fazer
+// isso no próprio portal; a RLS de storage já libera is_admin() nesse
+// bucket também (fotos_eventos_insert_dono/update_dono, migration 009),
+// então não precisou de migration nova, só esta UI.
 type EventoDestaque = {
   id: string;
   titulo: string;
@@ -359,6 +371,7 @@ type EventoDestaque = {
   plano_destaque: 'basico' | 'destaque' | 'vip';
   destaque_secoes: string[];
   destaque_ate: string | null;
+  foto_capa_url: string | null;
 };
 
 // Rodada 39 — mesma ideia do bloco "Locais aprovados — enviar/reenviar
@@ -416,6 +429,19 @@ export default function AdminPage() {
   const [buscaLocal, setBuscaLocal] = useState('');
   const [buscaEvento, setBuscaEvento] = useState('');
   const [experienciaAberta, setExperienciaAberta] = useState<Record<string, boolean>>({});
+  // Rodada 48 — pedido direto da Andrea: "poder expandir os bares pros
+  // dados (menos confuso quando tivermos vários)" — antes, o card de
+  // cada estabelecimento/evento mostrava TUDO sempre aberto (checkboxes,
+  // Escolha pela Experiência, upload de foto/conteúdo) — com poucos
+  // locais era só uma rolagem grande, mas com muitos vira uma parede de
+  // formulário. Fechado por padrão (a linha "Aparece em: ..." continua
+  // sempre visível, então dá pra confirmar o essencial sem abrir nada);
+  // um clique mostra os controles de edição completos.
+  const [localExpandido, setLocalExpandido] = useState<Record<string, boolean>>({});
+  const [eventoExpandido, setEventoExpandido] = useState<Record<string, boolean>>({});
+  // Rodada 48 — upload de flier/arte do evento direto do admin, mesmo
+  // espírito de enviandoFoto (locais) abaixo, só que pra eventos.
+  const [enviandoFlierId, setEnviandoFlierId] = useState<string | null>(null);
 
   const [locaisPendentes, setLocaisPendentes] = useState<LocalPendente[]>([]);
   const [eventosPendentes, setEventosPendentes] = useState<EventoPendente[]>([]);
@@ -551,7 +577,7 @@ export default function AdminPage() {
         // (abaixo) em vez do evento só sumir sem pista nenhuma.
         supabase
           .from('eventos')
-          .select('id, titulo, tipo, data_inicio, plano_destaque, destaque_secoes, destaque_ate')
+          .select('id, titulo, tipo, data_inicio, plano_destaque, destaque_secoes, destaque_ate, foto_capa_url')
           .eq('status', 'aprovado')
           .gte('data_inicio', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
           .order('data_inicio', { ascending: true }),
@@ -1016,6 +1042,63 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
       await carregarFilas();
     }
     setProcessando(null);
+  };
+
+  // Rodada 48 — mesmo espírito de alternarSecaoInstantanea (locais,
+  // acima) só que pra eventos: clicar no checkbox já aplica na hora,
+  // sem precisar de um botão "Aplicar" separado. `destaque_ate` (prazo)
+  // não é afetado aqui — continua só sendo tocado pelo campo de data +
+  // botão "Aplicar prazo", que agora usa ev.destaque_secoes (o valor
+  // real/atual) em vez de um rascunho separado das seções.
+  const alternarSecaoInstantaneaEvento = async (ev: EventoDestaque, secao: string, marcar: boolean) => {
+    setProcessando(ev.id);
+    setErro('');
+    const novasSecoes = marcar
+      ? Array.from(new Set([...ev.destaque_secoes, secao]))
+      : ev.destaque_secoes.filter((s) => s !== secao);
+    setEventosDestaque((atual) => atual.map((item) => (item.id === ev.id ? { ...item, destaque_secoes: novasSecoes } : item)));
+    const { error } = await supabase.from('eventos').update({ destaque_secoes: novasSecoes }).eq('id', ev.id);
+    if (error) {
+      setErro(error.message);
+      await carregarFilas();
+    }
+    setProcessando(null);
+  };
+
+  // Rodada 48 — upload de flier/arte do evento direto do admin, pra
+  // qualquer evento (não só o organizador dele) — mesma ideia de
+  // enviarFotoLocal abaixo, mas gravando em eventos.foto_capa_url e no
+  // bucket fotos-eventos (já existe desde a Rodada 9, RLS já libera
+  // is_admin(), sem migration nova). Mesmo limite de 5MB que o portal do
+  // parceiro já usa (dashboard/eventos/page.tsx).
+  const enviarFlierEvento = async (ev: EventoDestaque, arquivo: File) => {
+    if (!arquivo.type.startsWith('image/')) {
+      setErro('Selecione um arquivo de imagem.');
+      return;
+    }
+    if (arquivo.size > 5 * 1024 * 1024) {
+      setErro('A imagem do flier precisa ter até 5MB.');
+      return;
+    }
+    setEnviandoFlierId(ev.id);
+    setErro('');
+    try {
+      const extensao = arquivo.name.split('.').pop() || 'jpg';
+      const caminho = `${ev.id}/flier-${Date.now()}.${extensao}`;
+      const { error: erroUpload } = await supabase.storage
+        .from('fotos-eventos')
+        .upload(caminho, arquivo, { cacheControl: '3600', upsert: false });
+      if (erroUpload) throw erroUpload;
+      const { data } = supabase.storage.from('fotos-eventos').getPublicUrl(caminho);
+      const url = data.publicUrl;
+      setEventosDestaque((atual) => atual.map((item) => (item.id === ev.id ? { ...item, foto_capa_url: url } : item)));
+      const { error: erroUpdate } = await supabase.from('eventos').update({ foto_capa_url: url }).eq('id', ev.id);
+      if (erroUpdate) throw erroUpdate;
+    } catch (e: any) {
+      setErro(e.message || 'Erro ao enviar o flier.');
+      await carregarFilas();
+    }
+    setEnviandoFlierId(null);
   };
 
   // Rodada 44 — seletor único "Escolha pela experiência" (até 3). Cada
@@ -1628,6 +1711,7 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
             const rascunhoConteudoItem = lerRascunhoConteudo(l);
             const selecaoExperiencia = selecaoAtualExperiencia(l);
             const aberto = experienciaAberta[l.id] ?? selecaoExperiencia.length > 0;
+            const expandido = localExpandido[l.id] ?? false;
             return (
             <div key={l.id} className="bg-[#161520] border border-[#232230] rounded-xl p-4 space-y-4">
               <div className="flex justify-between items-start gap-4 flex-wrap">
@@ -1663,6 +1747,21 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
                 </select>
               </div>
 
+              {/* Rodada 48 — pedido direto da Andrea: expandir/recolher os
+                  dados de cada local, pra não virar uma parede de
+                  formulário quando tiver muitos estabelecimentos na
+                  lista. A linha "Aparece em: ..." acima já dá o essencial
+                  sem precisar abrir nada. */}
+              <button
+                onClick={() => setLocalExpandido((atual) => ({ ...atual, [l.id]: !expandido }))}
+                className="flex items-center gap-1.5 text-xs font-bold text-[#A0A0B2] hover:text-white border-t border-[#232230] pt-3 w-full"
+              >
+                {expandido ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                {expandido ? 'Ocultar detalhes e edição' : 'Ver detalhes e editar (selos, fotos, descrição...)'}
+              </button>
+
+              {expandido && (
+              <>
               <div className="flex items-center gap-3 flex-wrap border-t border-[#232230] pt-3">
                 {OPCOES_SECAO_LOCAL_RAPIDA.map((o) => (
                   <label key={o.value} className="flex items-center gap-1.5 text-xs text-[#D0D0E0] cursor-pointer">
@@ -1807,6 +1906,8 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
                   Salvar conteúdo
                 </button>
               </div>
+              </>
+              )}
             </div>
             );
           })}
@@ -1875,29 +1976,46 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
             <p className="text-xs text-[#626274]">Nenhum evento aprovado encontrado com esse filtro/busca.</p>
           )}
           {eventosFiltrados.map((ev) => {
+            // Rodada 48 — só o prazo ("até quando") ainda usa rascunho;
+            // as seções (checkboxes) abaixo agora aplicam na hora, ver
+            // alternarSecaoInstantaneaEvento.
             const rascunho = lerRascunhoFixacao(ev.id, ev.destaque_secoes, ev.destaque_ate);
+            const expandidoEv = eventoExpandido[ev.id] ?? false;
             return (
             <div key={ev.id} className="bg-[#161520] border border-[#232230] rounded-xl p-4 space-y-3">
               <div className="flex justify-between items-center gap-4">
-                <div>
-                  <h3 className="font-bold text-sm">{ev.titulo}</h3>
-                  <p className="text-xs text-[#626274] mt-1">
-                    {ev.tipo} · {new Date(ev.data_inicio).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
-                  </p>
-                  <p className="text-xs text-[#4CAF7D] mt-1 font-bold">
-                    {ev.plano_destaque !== 'basico' || ev.destaque_secoes.includes('destaque')
-                      ? '✓ Selo "Evento em destaque" aparece no card'
-                      : 'Sem selo de destaque no card ainda'}
-                    {ev.destaque_secoes.includes('evento_destaque') ? ' · fixado no topo da aba Eventos' : ''}
-                    {ev.destaque_secoes.includes('hoje') ? ' · aparece em O Que Fazer Hoje' : ''}
-                    {ev.destaque_secoes.includes('patrocinado') ? ' · Patrocinado' : ''}
-                  </p>
-                  {new Date(ev.data_inicio).getTime() < Date.now() && (
-                    <p className="text-xs text-[#E1306C] mt-1 font-bold">
-                      ⚠ Data já passou — some do app mesmo aprovado e destacado. Se é uma festa
-                      recorrente, atualize a data pra próxima edição pra ele voltar a aparecer.
-                    </p>
+                <div className="flex items-center gap-3">
+                  {/* Rodada 48 — miniatura do flier, sempre visível (não
+                      só quando expandido) pra Andrea reconhecer a festa
+                      de longe numa lista com várias. */}
+                  {ev.foto_capa_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={ev.foto_capa_url} alt={ev.titulo} className="w-12 h-12 rounded-lg object-cover border border-[#232230] shrink-0" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-lg bg-[#0B0B0E] border border-dashed border-[#232230] flex items-center justify-center text-[8px] text-[#626274] text-center px-1 shrink-0">
+                      sem flier
+                    </div>
                   )}
+                  <div>
+                    <h3 className="font-bold text-sm">{ev.titulo}</h3>
+                    <p className="text-xs text-[#626274] mt-1">
+                      {ev.tipo} · {new Date(ev.data_inicio).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+                    </p>
+                    <p className="text-xs text-[#4CAF7D] mt-1 font-bold">
+                      {ev.plano_destaque !== 'basico' || ev.destaque_secoes.includes('destaque')
+                        ? '✓ Selo "Evento em destaque" aparece no card'
+                        : 'Sem selo de destaque no card ainda'}
+                      {ev.destaque_secoes.includes('evento_destaque') ? ' · fixado no topo da aba Eventos' : ''}
+                      {ev.destaque_secoes.includes('hoje') ? ' · aparece em O Que Fazer Hoje' : ''}
+                      {ev.destaque_secoes.includes('patrocinado') ? ' · Patrocinado' : ''}
+                    </p>
+                    {new Date(ev.data_inicio).getTime() < Date.now() && (
+                      <p className="text-xs text-[#E1306C] mt-1 font-bold">
+                        ⚠ Data já passou — some do app mesmo aprovado e destacado. Se é uma festa
+                        recorrente, atualize a data pra próxima edição pra ele voltar a aparecer.
+                      </p>
+                    )}
+                  </div>
                 </div>
                 <select
                   value={ev.plano_destaque}
@@ -1910,13 +2028,27 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
                   <option value="vip">VIP</option>
                 </select>
               </div>
+
+              {/* Rodada 48 — mesmo padrão de expandir/recolher que os
+                  locais ganharam acima, pra aba Eventos não virar parede
+                  de formulário também. */}
+              <button
+                onClick={() => setEventoExpandido((atual) => ({ ...atual, [ev.id]: !expandidoEv }))}
+                className="flex items-center gap-1.5 text-xs font-bold text-[#A0A0B2] hover:text-white border-t border-[#232230] pt-3 w-full"
+              >
+                {expandidoEv ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                {expandidoEv ? 'Ocultar detalhes e edição' : 'Ver detalhes e editar (seções, prazo, flier...)'}
+              </button>
+
+              {expandidoEv && (
               <div className="flex items-center gap-3 flex-wrap">
                 {OPCOES_SECAO_EVENTO.map((o) => (
                   <label key={o.value} className="flex items-center gap-1.5 text-xs text-[#D0D0E0] cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={rascunho.secoes.includes(o.value)}
-                      onChange={() => alternarSecaoRascunho(ev.id, o.value, ev.destaque_secoes, ev.destaque_ate)}
+                      checked={ev.destaque_secoes.includes(o.value)}
+                      disabled={processando === ev.id}
+                      onChange={(e) => alternarSecaoInstantaneaEvento(ev, o.value, e.target.checked)}
                       className="accent-[#E1306C]"
                     />
                     {o.label}
@@ -1930,11 +2062,12 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
                   title="Até quando (opcional — vazio = sem prazo)"
                 />
                 <button
-                  onClick={() => fixarDestaqueEvento(ev.id, rascunho.secoes, rascunho.ate)}
+                  onClick={() => fixarDestaqueEvento(ev.id, ev.destaque_secoes, rascunho.ate)}
                   disabled={processando === ev.id}
                   className="bg-[#232230] hover:bg-[#2C2A3A] text-[#D0D0E0] font-bold text-xs px-3 py-2 rounded-lg transition disabled:opacity-40"
+                  title="As seções acima já aplicam na hora — esse botão só grava o prazo"
                 >
-                  Aplicar seções
+                  Aplicar prazo
                 </button>
                 {ev.destaque_secoes.length > 0 && (
                   <span className="text-xs text-[#4CAF7D]">
@@ -1942,7 +2075,33 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
                     {ev.destaque_ate ? ` até ${new Date(ev.destaque_ate).toLocaleDateString('pt-BR')}` : ''}
                   </span>
                 )}
+
+                <div className="w-full border-t border-[#232230] pt-3 flex items-center gap-3">
+                  {ev.foto_capa_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={ev.foto_capa_url} alt={ev.titulo} className="w-16 h-16 rounded-lg object-cover border border-[#232230]" />
+                  ) : (
+                    <div className="w-16 h-16 rounded-lg bg-[#0B0B0E] border border-dashed border-[#232230] flex items-center justify-center text-[9px] text-[#626274] text-center px-1">
+                      sem flier
+                    </div>
+                  )}
+                  <label className="text-xs font-bold text-[#E1306C] cursor-pointer hover:underline">
+                    {enviandoFlierId === ev.id ? 'Enviando...' : ev.foto_capa_url ? 'Trocar flier' : 'Subir flier'}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      disabled={enviandoFlierId === ev.id}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) enviarFlierEvento(ev, f);
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
+                </div>
               </div>
+              )}
             </div>
             );
           })}
