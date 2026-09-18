@@ -240,6 +240,12 @@ export default function DashboardPage() {
             Meus eventos
           </Link>
           <Link
+            href="/dashboard/agenda"
+            className="bg-[#232230] hover:bg-[#2D2B3D] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"
+          >
+            Agenda da semana
+          </Link>
+          <Link
             href="/dashboard/perfil"
             className="bg-[#232230] hover:bg-[#2D2B3D] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"
           >

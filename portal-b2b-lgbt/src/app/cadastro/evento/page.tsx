@@ -134,6 +134,10 @@ export default function CadastroEventoPage() {
             Vamos analisar <strong className="text-white">{titulo}</strong> e avisar por WhatsApp
             quando for aprovado.
           </p>
+          <p className="text-[#A0A0B2] text-sm leading-relaxed">
+            Depois de aprovado, você pode abrir uma <strong className="text-white">Lista VIP</strong>{' '}
+            pra este evento direto no portal do parceiro, em &quot;Meus eventos&quot;.
+          </p>
           <Link href="/" className="inline-block mt-4 text-purple-400 hover:underline text-sm font-medium">
             Voltar para o início
           </Link>

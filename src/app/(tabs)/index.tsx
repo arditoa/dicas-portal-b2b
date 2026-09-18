@@ -17,6 +17,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '../../lib/authContext';
 import { CATEGORIA_REAL_LABEL, CATEGORIAS, CATEGORIA_ORDER, CategoriaConfig } from '../../lib/categorias';
+import {
+  compararDestaque,
+  deveExibirGlow,
+  deveIncluirEm,
+  estaFixadoEm,
+  estaFixadoParaHoje,
+  EXPERIENCIAS_REAIS,
+} from '../../lib/destaque';
 import { supabase } from '../../lib/supabase';
 
 const COLORS = {
@@ -31,27 +39,6 @@ const COLORS = {
   safeSpace: '#4CAF7D',
   gold: '#FFD54F',
 };
-
-const PLANO_PRIORIDADE: Record<string, number> = { vip: 0, destaque: 1, basico: 2 };
-
-const EXPERIENCIAS = [
-  'Aniversário',
-  'Predominância lésbica',
-  'Predominância Gay',
-  'Date',
-  'Rolê com amigos',
-  'Dançar',
-  'Música ao vivo',
-  'Karaokê',
-  'Drag show',
-  'Comer bem',
-  'Happy hour',
-  'Cultura',
-  'Relaxar',
-  'Conhecer pessoas',
-  'Aula de dança',
-  'Aula de forró',
-];
 
 const BANNERS_PRINCIPAIS = [
   {
@@ -99,6 +86,11 @@ interface LocalCard {
   rating_media: number;
   rating_total: number;
   plano_destaque: 'basico' | 'destaque' | 'vip';
+  destaque_secao_fixada: string | null;
+  destaque_secoes: string[] | null;
+  destaque_ate: string | null;
+  plano_comercial: string | null;
+  plano_comercial_status: string | null;
 }
 
 interface EventoHoje {
@@ -115,6 +107,11 @@ interface LocalTurismo {
   subcategoria: string | null;
   descricao: string | null;
   plano_destaque: 'basico' | 'destaque' | 'vip';
+  destaque_secao_fixada: string | null;
+  destaque_secoes: string[] | null;
+  destaque_ate: string | null;
+  plano_comercial: string | null;
+  plano_comercial_status: string | null;
 }
 
 export default function HomeScreen() {
@@ -126,7 +123,18 @@ export default function HomeScreen() {
   const [favoritos, setFavoritos] = useState<string[]>([]);
 
   const [emAlta, setEmAlta] = useState<LocalCard[]>([]);
+  // Rodada 47 — "Selo Dicas LGBT+": curadoria editorial da Andrea, pedida
+  // por ela mesma ("não se vende, apenas se conquista"). Mecanismo igual
+  // a 'hoje'/'patrocinado' (destaque_secoes, migration 027), mas nunca
+  // ligado a plano pago — por isso fica numa seção própria, ANTES até de
+  // "Em Alta", com um selo visual diferente (rosa da marca, não o
+  // dourado do brilho automático de quem paga).
+  const [seloDicas, setSeloDicas] = useState<LocalCard[]>([]);
   const [agendaHoje, setAgendaHoje] = useState<EventoHoje[]>([]);
+  // Rodada 44 — locais fixados manualmente em "O que fazer hoje" pelo
+  // /admin (destaque_secoes contém 'hoje'), além dos eventos automáticos
+  // de hoje já buscados acima. Ver estaFixadoParaHoje em lib/destaque.ts.
+  const [locaisHoje, setLocaisHoje] = useState<LocalCard[]>([]);
   const [dicasTrip, setDicasTrip] = useState<LocalTurismo[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -140,12 +148,21 @@ export default function HomeScreen() {
       const fimHoje = new Date();
       fimHoje.setHours(23, 59, 59, 999);
 
-      const [emAltaRes, agendaRes, tripRes] = await Promise.all([
+      // Rodada 43 — antes buscávamos só 20/10 e ORDENÁVAMOS por destaque,
+      // sem nunca FILTRAR quem entra: todo aprovado acabava aparecendo em
+      // "Em Alta"/"Dicas Trip". Agora buscamos um lote maior e usamos
+      // deveIncluirEm (src/lib/destaque.ts) pra decidir quem realmente
+      // entra — quem paga premium/fundador entra automático, e a Andrea
+      // pode incluir manualmente qualquer outro pelo /admin
+      // (destaque_secoes) quando o app estiver vazio.
+      const [emAltaRes, agendaRes, hojeRes, tripRes, eventosHojeFixadosRes, seloDicasRes] = await Promise.all([
         supabase
           .from('locais')
-          .select('id, nome, categoria, bairro, cidade, instagram, foto_capa_url, rating_media, rating_total, plano_destaque')
+          .select(
+            'id, nome, categoria, bairro, cidade, instagram, foto_capa_url, rating_media, rating_total, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status'
+          )
           .eq('status', 'aprovado')
-          .limit(20),
+          .limit(60),
         supabase
           .from('eventos')
           .select('id, titulo, data_inicio, locais(nome, bairro)')
@@ -154,26 +171,93 @@ export default function HomeScreen() {
           .lte('data_inicio', fimHoje.toISOString())
           .order('data_inicio', { ascending: true })
           .limit(5),
+        // Rodada 44 — locais fixados manualmente em "O que fazer hoje"
+        // pelo /admin (novo valor 'hoje' em destaque_secoes, migration
+        // 025). Antes só entravam eventos com data de hoje.
         supabase
           .from('locais')
-          .select('id, nome, categoria, subcategoria, descricao, plano_destaque')
+          .select(
+            'id, nome, categoria, bairro, cidade, instagram, foto_capa_url, rating_media, rating_total, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status'
+          )
+          .eq('status', 'aprovado')
+          .contains('destaque_secoes', ['hoje'])
+          .limit(20),
+        supabase
+          .from('locais')
+          .select(
+            'id, nome, categoria, subcategoria, descricao, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status'
+          )
           .eq('status', 'aprovado')
           .eq('categoria', 'turismo')
+          .limit(40),
+        // Rodada 46 — a Andrea reportou "eventos não sobem": a Home só
+        // trazia evento pra "O que fazer hoje" quando data_inicio caía
+        // EXATAMENTE hoje, sem jeito de fixar manualmente uma festa
+        // recorrente ou promover um evento antes do dia (locais já
+        // tinham essa opção desde a 025 — evento nunca teve, migration
+        // 026 libera 'hoje' também pra destaque_secoes de eventos).
+        supabase
+          .from('eventos')
+          .select('id, titulo, data_inicio, destaque_secoes, destaque_ate, locais(nome, bairro)')
+          .eq('status', 'aprovado')
+          .contains('destaque_secoes', ['hoje'])
           .limit(10),
+        // Rodada 47 — Selo Dicas LGBT+ (curadoria editorial, nunca
+        // paga — ver comentário do state acima). Busca um pouco mais que
+        // o teto recomendado (8) porque estaFixadoEm ainda filtra por
+        // destaque_ate abaixo (algum selo pode já ter vencido o prazo).
+        supabase
+          .from('locais')
+          .select(
+            'id, nome, categoria, bairro, cidade, instagram, foto_capa_url, rating_media, rating_total, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status'
+          )
+          .eq('status', 'aprovado')
+          .contains('destaque_secoes', ['selo_dicas'])
+          .limit(12),
       ]);
 
-      let listaEmAlta = ((emAltaRes.data as any) || []) as LocalCard[];
-      listaEmAlta.sort((a, b) => (PLANO_PRIORIDADE[a.plano_destaque] ?? 2) - (PLANO_PRIORIDADE[b.plano_destaque] ?? 2));
+      let listaEmAlta = (((emAltaRes.data as any) || []) as LocalCard[]).filter((item) =>
+        deveIncluirEm(item, 'em_alta')
+      );
+      listaEmAlta.sort(compararDestaque('em_alta'));
       setEmAlta(listaEmAlta.slice(0, 8));
 
-      setAgendaHoje(((agendaRes.data as any) || []) as EventoHoje[]);
+      // Rodada 46 — junta os eventos automáticos de hoje (data exata) com
+      // os fixados manualmente (destaque_secoes 'hoje', qualquer data),
+      // sem duplicar quem for as duas coisas ao mesmo tempo.
+      const agendaAutomatica = ((agendaRes.data as any) || []) as EventoHoje[];
+      const eventosFixados = (((eventosHojeFixadosRes.data as any) || []) as (EventoHoje & {
+        destaque_secoes?: string[] | null;
+        destaque_ate?: string | null;
+      })[]).filter((ev) => estaFixadoParaHoje({ id: ev.id, plano_destaque: 'basico', destaque_secoes: ev.destaque_secoes, destaque_ate: ev.destaque_ate }));
+      const idsJaNaAgenda = new Set(agendaAutomatica.map((ev) => ev.id));
+      const agendaCombinada = [
+        ...agendaAutomatica,
+        ...eventosFixados.filter((ev) => !idsJaNaAgenda.has(ev.id)),
+      ];
+      setAgendaHoje(agendaCombinada);
 
-      let listaTrip = ((tripRes.data as any) || []) as LocalTurismo[];
-      listaTrip.sort((a, b) => (PLANO_PRIORIDADE[a.plano_destaque] ?? 2) - (PLANO_PRIORIDADE[b.plano_destaque] ?? 2));
+      const listaLocaisHoje = (((hojeRes.data as any) || []) as LocalCard[]).filter((item) =>
+        estaFixadoParaHoje(item)
+      );
+      setLocaisHoje(listaLocaisHoje);
+
+      let listaTrip = (((tripRes.data as any) || []) as LocalTurismo[]).filter((item) =>
+        deveIncluirEm(item, 'dicas_trip')
+      );
+      listaTrip.sort(compararDestaque('dicas_trip'));
       setDicasTrip(listaTrip.slice(0, 8));
 
+      // Rodada 47 — Selo Dicas LGBT+: só entra quem a Andrea marcou de
+      // verdade E ainda está dentro do prazo (destaque_ate), igual o
+      // resto dos valores manuais de destaque_secoes.
+      const listaSeloDicas = (((seloDicasRes.data as any) || []) as LocalCard[]).filter((item) =>
+        estaFixadoEm(item, 'selo_dicas')
+      );
+      setSeloDicas(listaSeloDicas.slice(0, 8));
+
       if (user?.id) {
-        const idsParaChecar = [...listaEmAlta.map((i) => i.id), ...listaTrip.map((i) => i.id)];
+        const idsParaChecar = [...listaEmAlta.map((i) => i.id), ...listaTrip.map((i) => i.id), ...listaSeloDicas.map((i) => i.id)];
         if (idsParaChecar.length > 0) {
           const { data: favs } = await supabase
             .from('favoritos_locais')
@@ -244,10 +328,15 @@ export default function HomeScreen() {
     });
   };
 
-  const openExperienceScreen = (exp: string) => {
+  // Rodada 44 — antes esses chips eram decorativos: só mandavam um
+  // título pra tela de categoria, que nunca filtrava por ele (a Andrea
+  // confirmou que quer isso corrigido). Agora mandam o slug real
+  // (locais.experiencias, migration 025) e a tela de categoria filtra
+  // de verdade — ver src/app/category/[id].tsx.
+  const openExperienceScreen = (exp: { slug: string; label: string }) => {
     router.push({
       pathname: '/category/todos' as any,
-      params: { title: encodeURIComponent(exp) },
+      params: { title: encodeURIComponent(exp.label), experiencia: exp.slug },
     });
   };
 
@@ -351,6 +440,80 @@ export default function HomeScreen() {
           </ScrollView>
         </View>
 
+        {/* SELO DICAS LGBT+ — Rodada 47: curadoria editorial da Andrea,
+            nunca vendida. Fica ANTES de "Em Alta" de propósito (o pedido
+            dela foi "no topo") e usa o rosa da marca, não o dourado do
+            brilho automático de quem paga, pra nunca parecer publicidade. */}
+        {seloDicas.length > 0 && (
+          <View style={styles.secaoBloco}>
+            <View style={styles.sectionHeaderRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Feather name="heart" size={16} color={COLORS.pink} />
+                <Text style={styles.sectionTitulo}>Selo Dicas LGBT+</Text>
+              </View>
+            </View>
+            <Text style={styles.seloDicasSubtitulo}>Escolha editorial nossa — não é espaço pago.</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carrosselPadding}>
+              {seloDicas.map((item) => {
+                const isFavorited = favoritos.includes(item.id);
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[styles.emAltaCard, styles.seloDicasCard]}
+                    onPress={() => router.push(`/business/${item.id}` as any)}
+                    activeOpacity={0.88}
+                  >
+                    {item.foto_capa_url && (
+                      <>
+                        <Image
+                          source={{ uri: item.foto_capa_url }}
+                          style={StyleSheet.absoluteFillObject}
+                          resizeMode="cover"
+                        />
+                        <View style={styles.emAltaOverlayTop} />
+                        <View style={styles.emAltaOverlayBottom} />
+                      </>
+                    )}
+                    <View style={styles.emAltaHeaderRow}>
+                      <View style={styles.seloDicasBadge}>
+                        <Feather name="check-circle" size={10} color="#FFF" />
+                        <Text style={styles.seloDicasBadgeText}>Selo Dicas</Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => handleToggleFavorito(item.id)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Feather name="heart" size={16} color={isFavorited ? COLORS.pink : '#FFFFFF'} />
+                      </TouchableOpacity>
+                    </View>
+
+                    <Text style={styles.emAltaTitle}>{item.nome}</Text>
+                    <Text style={styles.emAltaMeta}>
+                      {item.bairro || item.cidade} • ★ {item.rating_total > 0 ? item.rating_media.toFixed(1) : '—'}
+                    </Text>
+
+                    <View style={styles.emAltaFooterRow}>
+                      {item.instagram ? (
+                        <TouchableOpacity
+                          style={styles.instaBtn}
+                          onPress={() => handleOpenInstagram(item.instagram!)}
+                          activeOpacity={0.8}
+                        >
+                          <Feather name="instagram" size={12} color={COLORS.pink} />
+                          <Text style={styles.instaBtnText}>@{item.instagram.replace(/^@/, '')}</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <View />
+                      )}
+                      <Feather name="chevron-right" size={16} color={COLORS.pink} />
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
+
         {/* EM ALTA */}
         <View style={styles.secaoBloco}>
           <View style={styles.sectionHeaderRow}>
@@ -376,10 +539,15 @@ export default function HomeScreen() {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carrosselPadding}>
               {emAlta.map((item) => {
                 const isFavorited = favoritos.includes(item.id);
+                // Rodada 43 — pedido da Andrea: locais que não são
+                // freemium (pagam premium/fundador, ou ela marcou
+                // manualmente "destaque" no /admin) ganham uma borda
+                // brilhante + o logo/foto do local em destaque no card.
+                const destacado = deveExibirGlow(item);
                 return (
                   <TouchableOpacity
                     key={item.id}
-                    style={styles.emAltaCard}
+                    style={[styles.emAltaCard, destacado && styles.emAltaCardDestacado]}
                     onPress={() => router.push(`/business/${item.id}` as any)}
                     activeOpacity={0.88}
                   >
@@ -390,12 +558,26 @@ export default function HomeScreen() {
                           style={StyleSheet.absoluteFillObject}
                           resizeMode="cover"
                         />
-                        <View style={styles.emAltaOverlay} />
+                        <View style={styles.emAltaOverlayTop} />
+                        <View style={styles.emAltaOverlayBottom} />
                       </>
                     )}
                     <View style={styles.emAltaHeaderRow}>
-                      <View style={styles.emAltaCategoryBadge}>
-                        <Text style={styles.emAltaCategoryText}>{CATEGORIA_REAL_LABEL[item.categoria] || item.categoria}</Text>
+                      <View style={styles.emAltaHeaderLeftRow}>
+                        {destacado && item.foto_capa_url && (
+                          <Image source={{ uri: item.foto_capa_url }} style={styles.emAltaLogoAvatar} />
+                        )}
+                        <View style={styles.emAltaCategoryBadge}>
+                          <Text style={styles.emAltaCategoryText}>{CATEGORIA_REAL_LABEL[item.categoria] || item.categoria}</Text>
+                        </View>
+                        {/* Rodada 46 — selo "Patrocinado" (destaque_secoes,
+                            migration 026): monetização avulsa por local,
+                            independente do plano comercial. */}
+                        {estaFixadoEm(item, 'patrocinado') && (
+                          <View style={styles.patrocinadoBadge}>
+                            <Text style={styles.patrocinadoBadgeText}>Patrocinado</Text>
+                          </View>
+                        )}
                       </View>
                       <TouchableOpacity
                         onPress={() => handleToggleFavorito(item.id)}
@@ -404,6 +586,13 @@ export default function HomeScreen() {
                         <Feather name="heart" size={16} color={isFavorited ? COLORS.pink : COLORS.textMuted} />
                       </TouchableOpacity>
                     </View>
+
+                    {destacado && (
+                      <View style={styles.emAltaDestaqueBadge}>
+                        <Feather name="star" size={9} color="#000" />
+                        <Text style={styles.emAltaDestaqueBadgeText}>DESTAQUE</Text>
+                      </View>
+                    )}
 
                     <Text style={styles.emAltaTitle}>{item.nome}</Text>
                     <Text style={styles.emAltaMeta}>
@@ -443,7 +632,7 @@ export default function HomeScreen() {
 
           {loading ? (
             <ActivityIndicator color={COLORS.pink} style={{ marginLeft: 16 }} />
-          ) : agendaHoje.length === 0 ? (
+          ) : agendaHoje.length === 0 && locaisHoje.length === 0 ? (
             <View style={styles.emptyInlineBox}>
               <Text style={styles.emptyInlineText}>Nenhum evento aprovado pra hoje ainda.</Text>
             </View>
@@ -451,7 +640,7 @@ export default function HomeScreen() {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carrosselPadding}>
               {agendaHoje.map((item) => (
                 <TouchableOpacity
-                  key={item.id}
+                  key={`evento-${item.id}`}
                   style={styles.agendaCard}
                   onPress={() => router.push('/(tabs)/events')}
                   activeOpacity={0.85}
@@ -466,6 +655,31 @@ export default function HomeScreen() {
                     </Text>
                     <Text style={styles.agendaTitulo}>{item.titulo}</Text>
                     <Text style={styles.agendaDiferencial}>{item.locais?.nome || ''}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+              {/* Rodada 44 — locais fixados manualmente em "hoje" pelo
+                  /admin, sem precisar de um evento cadastrado. */}
+              {locaisHoje.map((item) => (
+                <TouchableOpacity
+                  key={`local-${item.id}`}
+                  style={styles.agendaCard}
+                  onPress={() => router.push(`/business/${item.id}` as any)}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.agendaImageArea}>
+                    {item.foto_capa_url ? (
+                      <Image source={{ uri: item.foto_capa_url }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+                    ) : (
+                      <Feather name="map-pin" size={24} color={COLORS.pink} />
+                    )}
+                  </View>
+                  <View style={styles.agendaContent}>
+                    <Text style={styles.agendaHorario}>
+                      {CATEGORIA_REAL_LABEL[item.categoria] || item.categoria} • {item.bairro || item.cidade}
+                    </Text>
+                    <Text style={styles.agendaTitulo}>{item.nome}</Text>
+                    <Text style={styles.agendaDiferencial}>Aberto hoje</Text>
                   </View>
                 </TouchableOpacity>
               ))}
@@ -540,14 +754,14 @@ export default function HomeScreen() {
         <View style={styles.secaoBloco}>
           <Text style={styles.sectionTituloPadrao}>Escolha pela experiência</Text>
           <View style={styles.experienciasGrid}>
-            {EXPERIENCIAS.map((exp) => (
+            {EXPERIENCIAS_REAIS.map((exp) => (
               <TouchableOpacity
-                key={exp}
+                key={exp.slug}
                 style={styles.expChip}
                 onPress={() => openExperienceScreen(exp)}
                 activeOpacity={0.8}
               >
-                <Text style={styles.expChipText}>{exp}</Text>
+                <Text style={styles.expChipText}>{exp.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -665,6 +879,12 @@ const styles = StyleSheet.create({
 
   emAltaCard: {
     width: 220,
+    // Rodada 47 — pedido direto da Andrea: "deixar a opção da foto um
+    // pouco maior". Antes o card não tinha altura fixa (media pelo
+    // conteúdo, ~150px) — com minHeight + o mesmo justifyContent
+    // space-between de sempre, o cabeçalho fica no topo, o texto no
+    // rodapé, e a foto de fundo ganha uma área bem maior visível no meio.
+    minHeight: 260,
     backgroundColor: COLORS.card,
     borderRadius: 16,
     padding: 14,
@@ -674,13 +894,92 @@ const styles = StyleSheet.create({
     gap: 6,
     overflow: 'hidden',
   },
-  emAltaOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(11, 11, 14, 0.55)',
+  // Rodada 47 — troca do overlay único e escuro (0.55 uniforme, "afogava"
+  // a cor da foto) por dois blocos empilhados simulando um gradiente sem
+  // precisar de lib nova (expo-linear-gradient não está instalada e a
+  // prática já estabelecida aqui é não adicionar dependência nova pra
+  // isso — ver comentário de emAltaCardDestacado): o topo fica quase
+  // transparente (foto respira, mais colorida) e só o rodapé escurece o
+  // suficiente pra manter nome/meta legíveis por cima.
+  emAltaOverlayTop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '45%',
+    backgroundColor: 'rgba(11, 11, 14, 0.08)',
+  },
+  emAltaOverlayBottom: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '62%',
+    backgroundColor: 'rgba(11, 11, 14, 0.75)',
+  },
+  // Rodada 43 — "tela brilhante" pedida pela Andrea pra locais que não
+  // são freemium (pagam de verdade, ou ela marcou "destaque" manual no
+  // /admin). RN não tem borda com gradiente nativo sem lib nova, então
+  // usamos borda dourada + sombra pra ler como "brilho" sem adicionar
+  // dependência nenhuma ao app.
+  emAltaCardDestacado: {
+    borderColor: COLORS.gold,
+    borderWidth: 1.5,
+    shadowColor: COLORS.gold,
+    shadowOpacity: 0.45,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 6,
   },
   emAltaHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  emAltaHeaderLeftRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  emAltaLogoAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.gold,
+  },
+  emAltaDestaqueBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    alignSelf: 'flex-start',
+    backgroundColor: COLORS.gold,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginTop: 4,
+  },
+  emAltaDestaqueBadgeText: { fontSize: 8, fontWeight: '800', color: '#000' },
   emAltaCategoryBadge: { backgroundColor: 'rgba(255, 213, 79, 0.15)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
   emAltaCategoryText: { fontSize: 10, fontWeight: '800', color: COLORS.gold },
+  patrocinadoBadge: { backgroundColor: 'rgba(126, 87, 194, 0.18)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginLeft: 6 },
+  patrocinadoBadgeText: { fontSize: 10, fontWeight: '800', color: COLORS.purple },
+  // Rodada 47 — Selo Dicas LGBT+: borda/selo rosa (cor da marca), de
+  // propósito diferente do dourado usado pelo brilho automático de quem
+  // paga (emAltaCardDestacado) — precisa ler como "escolha editorial",
+  // nunca como "espaço pago".
+  seloDicasSubtitulo: { fontSize: 11, color: COLORS.textSecondary, paddingHorizontal: 16, marginTop: -6, marginBottom: 12 },
+  seloDicasCard: {
+    borderColor: COLORS.pink,
+    borderWidth: 1.5,
+    shadowColor: COLORS.pink,
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 6,
+  },
+  seloDicasBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: COLORS.pink,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  seloDicasBadgeText: { fontSize: 10, fontWeight: '800', color: '#FFF' },
   emAltaTitle: { fontSize: 14, fontWeight: '800', color: COLORS.textPrimary, marginTop: 4 },
   emAltaMeta: { fontSize: 11, color: COLORS.textSecondary },
   emAltaFooterRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },

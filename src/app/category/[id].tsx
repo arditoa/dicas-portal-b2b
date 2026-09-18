@@ -17,8 +17,21 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CATEGORIAS, CATEGORIA_REAL_LABEL, CategoriaSlugUI } from '../../lib/categorias';
 import { useAuth } from '../../lib/authContext';
+import { compararDestaque } from '../../lib/destaque';
 import { useLocation } from '../../hooks/useLocation';
 import { supabase } from '../../lib/supabase';
+
+// Rodada 41 — mapeia o categoria_tipo real (enum do banco) pra o mesmo
+// slug de seção usado em destaque_secao_fixada (ver /admin), pra fixação
+// manual de destaque funcionar também nas páginas de categoria. Sem
+// entrada aqui (ex.: a página "Todos") = essa página nunca casa com uma
+// fixação — só segue prioridade de plano + rotação semanal.
+const SECAO_POR_CATEGORIA_REAL: Record<string, string> = {
+  lugares: 'bares',
+  gastronomia: 'gastronomia',
+  cultura: 'cultura',
+  turismo: 'turismo',
+};
 
 const COLORS = {
   background: '#0B0B0E',
@@ -38,8 +51,6 @@ const OPCOES_DISTANCIA = [
   { label: 'Até 2 km', val: 2 },
   { label: 'Até 5 km', val: 5 },
 ];
-
-const PLANO_PRIORIDADE: Record<string, number> = { vip: 0, destaque: 1, basico: 2 };
 
 function distanciaKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371;
@@ -61,6 +72,10 @@ interface LocalItem {
   foto_capa_url: string | null;
   safe_space: boolean;
   plano_destaque: 'basico' | 'destaque' | 'vip';
+  destaque_secao_fixada: string | null;
+  destaque_secoes: string[] | null;
+  destaque_ate: string | null;
+  experiencias: string[] | null;
   rating_media: number;
   rating_total: number;
   lat: number | null;
@@ -72,9 +87,19 @@ export default function CategoryListScreen() {
   const insets = useSafeAreaInsets();
   const { user, session } = useAuth();
 
-  const { id, title, search } = useLocalSearchParams<{ id: string; title?: string; search?: string }>();
+  const { id, title, search, experiencia } = useLocalSearchParams<{
+    id: string;
+    title?: string;
+    search?: string;
+    experiencia?: string;
+  }>();
   const slug = (id || '').toString().toLowerCase();
   const isTodos = slug === 'todos';
+  // Rodada 44 — chips "Escolha pela experiência" da Home agora mandam o
+  // slug real (locais.experiencias, migration 025) pra filtrar de
+  // verdade aqui, em vez de só um título decorativo (era o bug que a
+  // Andrea pediu pra corrigir).
+  const experienciaSlug = experiencia ? decodeURIComponent(experiencia) : null;
 
   const categoriaConfig = CATEGORIAS[slug as CategoriaSlugUI];
   const categoriaReal = isTodos ? null : categoriaConfig?.categoriaReal ?? slug;
@@ -98,18 +123,20 @@ export default function CategoryListScreen() {
       let query = supabase
         .from('locais')
         .select(
-          'id, nome, categoria, subcategoria, bairro, cidade, foto_capa_url, safe_space, plano_destaque, rating_media, rating_total, lat, lng'
+          'id, nome, categoria, subcategoria, bairro, cidade, foto_capa_url, safe_space, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, experiencias, rating_media, rating_total, lat, lng'
         )
         .eq('status', 'aprovado')
         .limit(100);
 
       if (categoriaReal) query = query.eq('categoria', categoriaReal);
+      if (experienciaSlug) query = query.contains('experiencias', [experienciaSlug]);
 
       const { data, error } = await query;
       if (error) throw error;
 
       const itens = ((data as any) || []) as LocalItem[];
-      itens.sort((a, b) => (PLANO_PRIORIDADE[a.plano_destaque] ?? 2) - (PLANO_PRIORIDADE[b.plano_destaque] ?? 2));
+      const secaoDestaque = categoriaReal ? SECAO_POR_CATEGORIA_REAL[categoriaReal] || 'nenhuma' : 'nenhuma';
+      itens.sort(compararDestaque(secaoDestaque));
       setLocais(itens);
 
       if (user?.id && itens.length > 0) {
@@ -128,7 +155,7 @@ export default function CategoryListScreen() {
     } finally {
       setLoading(false);
     }
-  }, [categoriaReal, user?.id]);
+  }, [categoriaReal, experienciaSlug, user?.id]);
 
   useEffect(() => {
     carregar();
@@ -294,9 +321,13 @@ export default function CategoryListScreen() {
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
                 <Feather name="compass" size={32} color={COLORS.textMuted} />
-                <Text style={styles.emptyTitle}>Nenhum local aprovado ainda</Text>
+                <Text style={styles.emptyTitle}>
+                  {experienciaSlug ? 'Nenhum local com essa experiência ainda' : 'Nenhum local aprovado ainda'}
+                </Text>
                 <Text style={styles.emptySub}>
-                  Novos locais aparecem aqui assim que forem aprovados pelo time.
+                  {experienciaSlug
+                    ? 'Assim que a Dicas LGBT+ marcar locais com essa experiência no admin, eles aparecem aqui.'
+                    : 'Novos locais aparecem aqui assim que forem aprovados pelo time.'}
                 </Text>
               </View>
             }

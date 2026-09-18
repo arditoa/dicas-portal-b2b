@@ -1,5 +1,5 @@
 'use client';
-import { Check, Loader2, LogOut, MessageCircle, ShieldAlert, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, Loader2, LogOut, MessageCircle, Search, ShieldAlert, Star, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
@@ -126,6 +126,19 @@ type AprovadoSemConta = {
 // que faltava, pra usar como selo editorial/"Fundador" antes de cobrar de
 // verdade. Sem relação com `plano_comercial` (o plano PAGO) — os dois
 // aparecem juntos aqui só pra dar contexto, nunca são a mesma coisa.
+//
+// Rodada 43 — a Andrea reportou "todo cadastro entra em Alta" (a Home
+// nunca FILTRAVA quem entra, só ordenava — corrigido em src/lib/destaque.ts
+// e (tabs)/index.tsx) e pediu, direto no /admin, ao lado de cada local:
+// controle de em quais seções ele aparece (várias ao mesmo tempo, não só
+// uma), vendo o plano pago real dele como referência, com poder de
+// direcionar manualmente mesmo quem não paga "caso o app esteja vazio".
+// Isso troca destaque_secao_fixada (Rodada 41, um valor só) por
+// destaque_secoes (migration 024, array) — o campo antigo fica no banco
+// congelado, só como histórico, sem uso novo. Ela também pediu edição de
+// conteúdo (logo, instagram, descrição, fotos) de qualquer local direto
+// daqui — sem migration nova pra isso, a RLS já dava esse acesso a
+// is_admin() desde a 001/007, só faltava a UI.
 type LocalDestaque = {
   id: string;
   nome: string;
@@ -136,7 +149,200 @@ type LocalDestaque = {
   plano_comercial: string;
   plano_comercial_status: string;
   fundador: boolean;
+  destaque_secoes: string[];
+  destaque_ate: string | null;
+  // Rodada 44 — seletor unificado "Escolha pela experiência" (até 3,
+  // migration 025). Só guarda as 9 experiências reais + Cupons
+  // Exclusivos/Eventos — Membro Fundador/Destaque da Semana aparecem
+  // juntos no mesmo seletor da UI mas continuam gravando em
+  // local_badges/destaque_secoes (ver selecaoAtualExperiencia abaixo).
+  experiencias: string[];
+  descricao: string | null;
+  instagram: string | null;
+  foto_capa_url: string | null;
+  galeria_fotos: string[];
+  video_url: string | null;
+  tags: string[];
 };
+
+// Rodada 44 — reestruturação do /admin pedida pela Andrea: separar
+// "Aprovações" (fluxo de aprovação) de uma aba nova, "Gestão de
+// Categorias e Destaques", dedicada a buscar/filtrar estabelecimentos e
+// atribuir selos/destaques. Ela mandou a lista exata de filtros e pediu
+// sugestões — perguntei antes de implementar (4 perguntas) e o
+// combinado ficou:
+//  1) As categorias que ainda não existem pro usuário final (Beleza,
+//     Espaço 18+ e Serviços, que ela mantém "Em breve" por decisão
+//     própria mesmo tendo categoria_tipo real) continuam sem lançar nada
+//     novo — os chips abaixo são só organização/preparação no admin, sem
+//     categoria_tipo nova nem exibição no app.
+//  2) categoriaReal: null = nenhum local tem essa categoria ainda, então
+//     o filtro sempre retorna lista vazia (comportamento intencional,
+//     não um bug).
+//
+// Rodada 46 — pedido direto da Andrea pra sugerir categorias novas
+// (pensando em atrair mais usuários e monetizar com quem paga pra
+// aparecer). Em vez de inventar do zero, ativa 3 categorias que já
+// existiam aqui como placeholder "Em breve" (Beleza, Lojas, Lazer —
+// migration 026): ampliam o motivo de alguém abrir o app fora do
+// circuito de baladas (beleza/lifestyle é uso do dia a dia, não só fim
+// de semana) e são categorias naturalmente "vendáveis" pra pequenos
+// negócios pagarem por visibilidade, igual bares/gastronomia já fazem
+// com plano comercial. "Espaço 18+" fica de fora por ora — não é
+// limitação técnica, é decisão de produto/verificação de idade que
+// precisa ser tomada antes de virar categoria de banco.
+const CATEGORIA_CHIPS: { slug: string; label: string; categoriaReal: string | null }[] = [
+  { slug: 'bares', label: 'Bares', categoriaReal: 'lugares' },
+  { slug: 'gastronomia', label: 'Gastronomia', categoriaReal: 'gastronomia' },
+  { slug: 'festas', label: 'Festas', categoriaReal: null }, // eventos ficam na tabela `eventos`, não em `locais` — ver seção de eventos mais abaixo
+  { slug: 'cultura', label: 'Cultura', categoriaReal: 'cultura' },
+  { slug: 'dicas_trip', label: 'Dicas Trip', categoriaReal: 'turismo' },
+  { slug: 'beleza', label: 'Beleza', categoriaReal: 'beleza' },
+  { slug: 'mais18', label: 'Espaço 18+', categoriaReal: null },
+  { slug: 'lojas', label: 'Lojas', categoriaReal: 'lojas' },
+  { slug: 'servicos', label: 'Serviços', categoriaReal: 'servicos' }, // existe no banco — só não aparece pro usuário final ainda (decisão da Andrea, não limitação técnica)
+  { slug: 'lazer', label: 'Lazer', categoriaReal: 'lazer' },
+];
+
+const CATEGORIA_REAL_LABEL_ADMIN: Record<string, string> = {
+  lugares: 'Bares',
+  gastronomia: 'Gastronomia',
+  cultura: 'Cultura',
+  turismo: 'Dicas Trip',
+  servicos: 'Serviços',
+  beleza: 'Beleza',
+  lojas: 'Lojas',
+  lazer: 'Lazer',
+};
+
+// Mesma regra de "quem paga de verdade" que já existe em
+// src/lib/destaque.ts do app (Rodada 43) — duplicada aqui só pro filtro
+// "Em Alta" deste painel achar quem entra automático, já que o portal é
+// um projeto separado do app e não compartilha módulos. Se essa regra
+// mudar no app, replicar aqui também.
+const PLANOS_QUE_PAGAM = new Set(['premium', 'fundador']);
+function pagaPlanoComDireitoADestaque(l: LocalDestaque): boolean {
+  return PLANOS_QUE_PAGAM.has(l.plano_comercial) && l.plano_comercial_status === 'ativo';
+}
+
+function localCombinaComFiltroPrincipal(l: LocalDestaque, filtro: string): boolean {
+  if (filtro === 'todas') return true;
+  if (filtro === 'em_alta') return l.destaque_secoes.includes('em_alta') || pagaPlanoComDireitoADestaque(l);
+  if (filtro === 'hoje') return l.destaque_secoes.includes('hoje');
+  const chip = CATEGORIA_CHIPS.find((c) => c.slug === filtro);
+  if (!chip || !chip.categoriaReal) return false;
+  return l.categoria === chip.categoriaReal;
+}
+
+// Rodada 44 — seletor único "Escolha pela experiência" (até 3), pedido
+// explícito da Andrea mesmo depois de eu levantar que Membro
+// Fundador/Destaque da Semana têm mecanismo próprio (local_badges /
+// destaque_secoes) — ela confirmou que prefere ver tudo junto na mesma
+// lista do admin. `destino` decide pra onde a marcação realmente é
+// gravada (ver alternarExperiencia abaixo); a UI trata os 13 igual.
+type OpcaoExperiencia = { slug: string; label: string; destino: 'experiencias' | 'fundador' | 'destaque_semana' };
+const OPCOES_EXPERIENCIA: OpcaoExperiencia[] = [
+  { slug: 'aniversario', label: 'Aniversário', destino: 'experiencias' },
+  { slug: 'predominancia_lesbica', label: 'Predominância Lésbica', destino: 'experiencias' },
+  { slug: 'predominancia_gay', label: 'Predominância Gay', destino: 'experiencias' },
+  { slug: 'dates', label: 'Dates', destino: 'experiencias' },
+  { slug: 'musica_ao_vivo', label: 'Música ao Vivo', destino: 'experiencias' },
+  { slug: 'dancar', label: 'Dançar', destino: 'experiencias' },
+  { slug: 'karaoke', label: 'Karaokê', destino: 'experiencias' },
+  { slug: 'drag_show', label: 'Drag Show', destino: 'experiencias' },
+  { slug: 'aula_de_danca', label: 'Aula de Dança', destino: 'experiencias' },
+  { slug: 'membro_fundador', label: 'Membro Fundador', destino: 'fundador' },
+  { slug: 'destaque_da_semana', label: 'Destaque da Semana', destino: 'destaque_semana' },
+  { slug: 'cupons_exclusivos', label: 'Cupons Exclusivos', destino: 'experiencias' },
+  { slug: 'eventos', label: 'Eventos', destino: 'experiencias' },
+];
+
+// Junta as 3 fontes de dados numa lista só de slugs marcados, pra UI
+// (checkbox) e pra contagem do limite de 3 tratarem tudo como uma lista
+// única, exatamente como a Andrea pediu.
+function selecaoAtualExperiencia(l: LocalDestaque): string[] {
+  const selecao = [...(l.experiencias || [])];
+  if (l.fundador) selecao.push('membro_fundador');
+  if (l.destaque_secoes.includes('destaque')) selecao.push('destaque_da_semana');
+  return selecao;
+}
+
+// Rodada 45 — resumo em uma linha de "onde esse local aparece", pedido
+// direto da Andrea ("mais fácil de entendermos o que está aonde, em
+// qual sessão") — os checkboxes já mostram isso marcado, mas uma frase
+// só ajuda a confirmar de longe, sem precisar ler cada checkbox.
+function resumoSecoesLocal(l: LocalDestaque): string {
+  const partes: string[] = [];
+  const manualEmAlta = l.destaque_secoes.includes('em_alta');
+  const automatico = pagaPlanoComDireitoADestaque(l);
+  if (automatico && !manualEmAlta) partes.push('Em Alta (automático — plano pago)');
+  else if (manualEmAlta) partes.push('Em Alta');
+  if (l.destaque_secoes.includes('hoje')) partes.push('O que Fazer Hoje');
+  if (l.destaque_secoes.includes('turismo')) partes.push('Dicas Trip');
+  if (l.destaque_secoes.includes('patrocinado')) partes.push('Patrocinado');
+  if (l.destaque_secoes.includes('selo_dicas')) partes.push('Selo Dicas LGBT+');
+  return partes.length > 0 ? partes.join(', ') : 'nenhuma seção marcada';
+}
+
+function resumoExperienciasLocal(l: LocalDestaque): string {
+  const selecao = selecaoAtualExperiencia(l);
+  if (selecao.length === 0) return 'nenhuma';
+  return selecao
+    .map((slug) => OPCOES_EXPERIENCIA.find((o) => o.slug === slug)?.label || slug)
+    .join(', ');
+}
+
+// Rodada 41 — pedido direto da Andrea: "rotação automática semanal +
+// fixar manualmente quando quiser" (opção híbrida que ela escolheu por
+// pergunta de múltipla escolha). A rotação em si não precisa de UI nem
+// de nada gravado toda semana — roda sozinha via
+// `public.peso_rotacao_destaque` (023_destaque_rotativo_...sql), que
+// muda o desempate automaticamente quando a semana ISO muda. O que
+// precisa de UI é o "direcionar": marcar em quais seções esse local
+// aparece, e até quando (opcional).
+//
+// Rodada 43 — antes só dava pra marcar UMA seção por vez
+// (destaque_secao_fixada). Agora é multi-select (destaque_secoes).
+//
+// Rodada 44 — a Andrea pediu pra simplificar isso pra 3 checkboxes fixos
+// e universais (Em Alta / O que Fazer Hoje / Dicas Trip, iguais em
+// qualquer estabelecimento, independente da categoria dele) em vez de
+// uma opção "Categoria X" que só aparecia pra quem já era daquela
+// categoria — "Destaque" (brilho no card) saiu daqui e entrou no
+// seletor único "Escolha pela experiência" acima, como "Destaque da
+// Semana".
+// Rodada 46 — "Patrocinado" somado à lista: selo novo de monetização
+// (migration 026), igual "Destaque" só que sem estar amarrado a nenhum
+// plano comercial — qualquer local pode comprar avulso, cobrança manual
+// igual ao resto (Pix/WhatsApp, sem gateway).
+//
+// Rodada 47 — "Selo Dicas LGBT+" somado (migration 027): diferente de
+// TODOS os outros valores desta lista, este NUNCA é pago — a Andrea foi
+// explícita: "o selo dicas não se vende, apenas se conquista". É
+// curadoria editorial pura, ela quem escolhe. Mecanismo idêntico por
+// baixo (destaque_secoes), só o rótulo e o contexto de negócio mudam —
+// por isso o label já deixa isso claro na própria lista, pra nunca virar
+// item de venda por engano numa conversa com parceiro.
+const OPCOES_SECAO_LOCAL_RAPIDA: { value: string; label: string }[] = [
+  { value: 'em_alta', label: 'Em Alta' },
+  { value: 'hoje', label: 'O que Fazer Hoje' },
+  { value: 'turismo', label: 'Dicas Trip' },
+  { value: 'patrocinado', label: 'Patrocinado' },
+  { value: 'selo_dicas', label: 'Selo Dicas LGBT+ (conquista — nunca é venda)' },
+];
+
+// Rodada 46 — a Andrea reportou "eventos não sobem": a causa real era
+// que evento nunca teve a opção 'hoje' aqui (só local ganhou isso na
+// 025) — a suposição de que "evento já aparece automático pela data"
+// não cobria festa recorrente/marcada com antecedência. Somado 'hoje' e
+// 'patrocinado' (mesma ideia de locais, acima) — migration 026 libera os
+// dois valores novos na constraint do banco.
+const OPCOES_SECAO_EVENTO: { value: string; label: string }[] = [
+  { value: 'evento_destaque', label: 'Topo da aba Eventos' },
+  { value: 'destaque', label: 'Destaque (selo no card)' },
+  { value: 'hoje', label: 'O que Fazer Hoje' },
+  { value: 'patrocinado', label: 'Patrocinado' },
+];
 
 // Rodada 38 — pedido direto da Andrea: organizador de evento paga uma
 // taxa única (R$69, cobrança manual por Pix/WhatsApp — mesmo fluxo que já
@@ -151,6 +357,8 @@ type EventoDestaque = {
   tipo: string;
   data_inicio: string;
   plano_destaque: 'basico' | 'destaque' | 'vip';
+  destaque_secoes: string[];
+  destaque_ate: string | null;
 };
 
 // Rodada 39 — mesma ideia do bloco "Locais aprovados — enviar/reenviar
@@ -189,6 +397,26 @@ export default function AdminPage() {
   const [carregando, setCarregando] = useState(true);
   const [autorizado, setAutorizado] = useState(false);
 
+  // Rodada 44 — nova navegação em abas pedida pela Andrea: Aba 1
+  // "Aprovações" (fluxo de aprovação, tudo que já existia) e uma tela
+  // dedicada a buscar/filtrar estabelecimentos e atribuir
+  // selos/destaques.
+  //
+  // Rodada 45: essa segunda aba ganhou sub-abas Locais/Eventos, porque a
+  // Andrea achou confuso tudo junto.
+  //
+  // Rodada 46: a Andrea ainda achou confuso — "Eventos" sobe de sub-aba
+  // pra aba própria, no mesmo nível de "Locais". `subAbaCategorias` saiu
+  // de existir; `aba` agora cobre os três níveis direto.
+  const [aba, setAba] = useState<'aprovacoes' | 'locais' | 'eventos'>('aprovacoes');
+  const [filtroPrincipal, setFiltroPrincipal] = useState<string>('todas');
+  // Rodada 46 — filtro só da aba Eventos: "O que Fazer Hoje" (destaque_secoes
+  // contém 'hoje', mesmo mecanismo que locais já tinham) vs todos.
+  const [filtroEventos, setFiltroEventos] = useState<'todos' | 'hoje'>('todos');
+  const [buscaLocal, setBuscaLocal] = useState('');
+  const [buscaEvento, setBuscaEvento] = useState('');
+  const [experienciaAberta, setExperienciaAberta] = useState<Record<string, boolean>>({});
+
   const [locaisPendentes, setLocaisPendentes] = useState<LocalPendente[]>([]);
   const [eventosPendentes, setEventosPendentes] = useState<EventoPendente[]>([]);
   const [aprovadosSemConta, setAprovadosSemConta] = useState<AprovadoSemConta[]>([]);
@@ -214,6 +442,46 @@ export default function AdminPage() {
   // pra organizador de evento independente sem conta ainda — aprovar já
   // cria o login (senha por WhatsApp) via /api/aprovar-evento.
   const [eventoContaCriada, setEventoContaCriada] = useState<{ titulo: string; telefone: string; senha: string; contaNova: boolean; link: string } | null>(null);
+  // Rodada 41 — rascunho local do "fixar destaque" (seção + prazo) antes
+  // de aplicar — os campos precisam ser gravados juntos numa única
+  // chamada, por isso não salva a cada clique/tecla.
+  //
+  // Rodada 43 — trocado de uma seção só (`secao: string`) pra várias ao
+  // mesmo tempo (`secoes: string[]`), acompanhando destaque_secoes.
+  const [rascunhoFixacao, setRascunhoFixacao] = useState<Record<string, { secoes: string[]; ate: string }>>({});
+
+  const lerRascunhoFixacao = (id: string, secoesAtuais: string[] | null, ateAtual: string | null) =>
+    rascunhoFixacao[id] ?? { secoes: secoesAtuais || [], ate: ateAtual ? ateAtual.slice(0, 10) : '' };
+
+  const alternarSecaoRascunho = (
+    id: string,
+    valor: string,
+    secoesAtuais: string[] | null,
+    ateAtual: string | null
+  ) => {
+    const rascunho = lerRascunhoFixacao(id, secoesAtuais, ateAtual);
+    const jaMarcado = rascunho.secoes.includes(valor);
+    const novasSecoes = jaMarcado ? rascunho.secoes.filter((s) => s !== valor) : [...rascunho.secoes, valor];
+    setRascunhoFixacao((atual) => ({ ...atual, [id]: { ...rascunho, secoes: novasSecoes } }));
+  };
+
+  // Rodada 43 — pedido direto da Andrea: editar logo/capa, instagram,
+  // descrição, fotos e vídeo de qualquer local direto do /admin ("a
+  // gente ter mais controle"). Rascunho local dos campos de texto (só
+  // grava quando ela clica "Salvar conteúdo"); upload de foto já sobe
+  // e grava na hora (não faz sentido rascunho pra isso).
+  const [rascunhoConteudo, setRascunhoConteudo] = useState<
+    Record<string, { descricao: string; instagram: string; video_url: string; tags: string }>
+  >({});
+  const [enviandoFoto, setEnviandoFoto] = useState<string | null>(null);
+
+  const lerRascunhoConteudo = (l: LocalDestaque) =>
+    rascunhoConteudo[l.id] ?? {
+      descricao: l.descricao || '',
+      instagram: l.instagram || '',
+      video_url: l.video_url || '',
+      tags: (l.tags || []).join(', '),
+    };
 
   const carregarFilas = useCallback(async () => {
     const [
@@ -260,7 +528,9 @@ export default function AdminPage() {
           .order('plano_comercial_atualizado_em', { ascending: true }),
         supabase
           .from('locais')
-          .select('id, nome, categoria, cidade, bairro, plano_destaque, plano_comercial, plano_comercial_status')
+          .select(
+            'id, nome, categoria, cidade, bairro, plano_destaque, plano_comercial, plano_comercial_status, destaque_secoes, destaque_ate, experiencias, descricao, instagram, foto_capa_url, galeria_fotos, video_url, tags'
+          )
           .eq('status', 'aprovado')
           .order('nome', { ascending: true }),
         // Rodada 37 — selo "Membro Fundador" é um local_badges (não é
@@ -270,13 +540,20 @@ export default function AdminPage() {
           .from('local_badges')
           .select('local_id, ativo')
           .ilike('rotulo', '%fundador%'),
-        // Rodada 38 — eventos aprovados e futuros, pra dar destaque manual
-        // (mesma lógica do bloco de locais acima) depois de cobrar o R$69.
+        // Rodada 38 — eventos aprovados, pra dar destaque manual (mesma
+        // lógica do bloco de locais acima) depois de cobrar o R$69.
+        //
+        // Rodada 46 — antes só buscava eventos FUTUROS: um evento cuja
+        // data já passou desaparecia sozinho desta lista, sem nenhuma
+        // explicação visível — exatamente o tipo de "por que não sobe"
+        // que a Andrea reportou. Agora busca também os últimos 7 dias,
+        // pra ela conseguir ver o evento e o aviso de "data já passou"
+        // (abaixo) em vez do evento só sumir sem pista nenhuma.
         supabase
           .from('eventos')
-          .select('id, titulo, tipo, data_inicio, plano_destaque')
+          .select('id, titulo, tipo, data_inicio, plano_destaque, destaque_secoes, destaque_ate')
           .eq('status', 'aprovado')
-          .gte('data_inicio', new Date().toISOString())
+          .gte('data_inicio', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
           .order('data_inicio', { ascending: true }),
         supabase
           .from('eventos')
@@ -570,6 +847,127 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
     setProcessando(null);
   };
 
+  // Rodada 41 — "fixar": sobe pro topo da(s) seção(ões) marcada(s) até
+  // uma data (ou pra sempre, se não informar). Rodada 43: agora grava um
+  // ARRAY (destaque_secoes) em vez de um valor só — dá pra marcar várias
+  // seções ao mesmo tempo no mesmo local/evento. Lista vazia = não
+  // direcionar nada (só segue a rotação automática semanal por plano
+  // pago). destaque_ate vazio grava null (sem prazo) — não é obrigatório.
+  const fixarDestaqueLocal = async (id: string, secoes: string[], ate: string) => {
+    setProcessando(id);
+    setErro('');
+    const patch = {
+      destaque_secoes: secoes,
+      destaque_ate: secoes.length > 0 && ate ? new Date(ate).toISOString() : null,
+    };
+    setLocaisDestaque((atual) => atual.map((l) => (l.id === id ? { ...l, ...patch } : l)));
+    const { error } = await supabase.from('locais').update(patch).eq('id', id);
+    if (error) {
+      setErro(error.message);
+      await carregarFilas();
+    }
+    setProcessando(null);
+  };
+
+  const fixarDestaqueEvento = async (id: string, secoes: string[], ate: string) => {
+    setProcessando(id);
+    setErro('');
+    const patch = {
+      destaque_secoes: secoes,
+      destaque_ate: secoes.length > 0 && ate ? new Date(ate).toISOString() : null,
+    };
+    setEventosDestaque((atual) => atual.map((ev) => (ev.id === id ? { ...ev, ...patch } : ev)));
+    const { error } = await supabase.from('eventos').update(patch).eq('id', id);
+    if (error) {
+      setErro(error.message);
+      await carregarFilas();
+    }
+    setProcessando(null);
+  };
+
+  // Rodada 43 — salva descrição/instagram/video/tags de um local de uma
+  // vez (mesmo espírito do "Aplicar fixação": junta tudo numa chamada só,
+  // não grava a cada tecla). Tags são digitadas separadas por vírgula.
+  const salvarConteudoLocal = async (l: LocalDestaque) => {
+    const rascunho = lerRascunhoConteudo(l);
+    setProcessando(l.id);
+    setErro('');
+    const patch = {
+      descricao: rascunho.descricao.trim() || null,
+      instagram: rascunho.instagram.trim() || null,
+      video_url: rascunho.video_url.trim() || null,
+      tags: rascunho.tags
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean),
+    };
+    setLocaisDestaque((atual) => atual.map((item) => (item.id === l.id ? { ...item, ...patch } : item)));
+    const { error } = await supabase.from('locais').update(patch).eq('id', l.id);
+    if (error) {
+      setErro(error.message);
+      await carregarFilas();
+    }
+    setProcessando(null);
+  };
+
+  // Rodada 43 — upload de logo/capa e fotos de galeria direto do
+  // /admin, pra qualquer local (não só o dono dele) — a RLS de storage
+  // (fotos_locais_insert_dono/update_dono, migration 007) já libera
+  // is_admin() pra escrever em qualquer local, então não precisou de
+  // migration nova, só esta UI. Mesmo padrão de path já usado no
+  // cadastro rápido (FormularioCadastroRapido.tsx): `${id}/capa-...` /
+  // `${id}/galeria-...` no bucket público fotos-locais.
+  const enviarFotoLocal = async (
+    local: LocalDestaque,
+    arquivo: File,
+    destino: 'capa' | 'galeria'
+  ) => {
+    if (!arquivo.type.startsWith('image/')) {
+      setErro('Selecione um arquivo de imagem.');
+      return;
+    }
+    setEnviandoFoto(local.id);
+    setErro('');
+    try {
+      const extensao = arquivo.name.split('.').pop() || 'jpg';
+      const caminho = `${local.id}/${destino}-${Date.now()}.${extensao}`;
+      const { error: erroUpload } = await supabase.storage
+        .from('fotos-locais')
+        .upload(caminho, arquivo, { cacheControl: '3600', upsert: false });
+      if (erroUpload) throw erroUpload;
+      const { data } = supabase.storage.from('fotos-locais').getPublicUrl(caminho);
+      const url = data.publicUrl;
+
+      const patch =
+        destino === 'capa'
+          ? { foto_capa_url: url }
+          : { galeria_fotos: [...(local.galeria_fotos || []), url] };
+      setLocaisDestaque((atual) => atual.map((item) => (item.id === local.id ? { ...item, ...patch } : item)));
+      const { error: erroUpdate } = await supabase.from('locais').update(patch).eq('id', local.id);
+      if (erroUpdate) throw erroUpdate;
+    } catch (e: any) {
+      setErro(e.message || 'Erro ao enviar foto.');
+      await carregarFilas();
+    }
+    setEnviandoFoto(null);
+  };
+
+  // Só remove a referência da galeria (não apaga o arquivo do storage) —
+  // consistente com a política de nunca excluir nada de forma
+  // destrutiva; um arquivo órfão no bucket não causa problema nenhum.
+  const removerFotoGaleria = async (local: LocalDestaque, url: string) => {
+    setProcessando(local.id);
+    setErro('');
+    const patch = { galeria_fotos: (local.galeria_fotos || []).filter((f) => f !== url) };
+    setLocaisDestaque((atual) => atual.map((item) => (item.id === local.id ? { ...item, ...patch } : item)));
+    const { error } = await supabase.from('locais').update(patch).eq('id', local.id);
+    if (error) {
+      setErro(error.message);
+      await carregarFilas();
+    }
+    setProcessando(null);
+  };
+
   // Rodada 37 — toggle do selo "Membro Fundador" (local_badges), separado
   // do plano_destaque acima — é o que faz um local aparecer na seção
   // "Membro Fundador" do app (experience/[tag].tsx). Faz upsert manual
@@ -592,6 +990,63 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
           .from('local_badges')
           .insert({ local_id: id, rotulo: 'Membro Fundador', cor_tag: 'dourado', ativo: ativar });
 
+    if (error) {
+      setErro(error.message);
+      await carregarFilas();
+    }
+    setProcessando(null);
+  };
+
+  // Rodada 44 — checkboxes de seleção rápida (Em Alta / O que Fazer Hoje
+  // / Dicas Trip) da aba nova "Gestão de Categorias e Destaques": ao
+  // contrário do "Aplicar seções" da Rodada 41/43 (rascunho + botão),
+  // esses aplicam na hora, mesmo espírito do toggle "Membro Fundador"
+  // que já existia (alternarFundador acima) — ela pediu "checkboxes de
+  // seleção rápida", não um formulário com botão de salvar.
+  const alternarSecaoInstantanea = async (l: LocalDestaque, secao: string, marcar: boolean) => {
+    setProcessando(l.id);
+    setErro('');
+    const novasSecoes = marcar
+      ? Array.from(new Set([...l.destaque_secoes, secao]))
+      : l.destaque_secoes.filter((s) => s !== secao);
+    setLocaisDestaque((atual) => atual.map((item) => (item.id === l.id ? { ...item, destaque_secoes: novasSecoes } : item)));
+    const { error } = await supabase.from('locais').update({ destaque_secoes: novasSecoes }).eq('id', l.id);
+    if (error) {
+      setErro(error.message);
+      await carregarFilas();
+    }
+    setProcessando(null);
+  };
+
+  // Rodada 44 — seletor único "Escolha pela experiência" (até 3). Cada
+  // item marcado é despachado pro mecanismo que já é dono daquele
+  // conceito (local_badges pra Membro Fundador, destaque_secoes pra
+  // Destaque da Semana, locais.experiencias pros outros 11) — a Andrea
+  // vê e marca tudo numa lista só, mas por baixo cada coisa continua
+  // gravando onde sempre gravou, sem duplicar estado.
+  const alternarExperiencia = async (l: LocalDestaque, opcao: OpcaoExperiencia, marcar: boolean) => {
+    const selecaoAtual = selecaoAtualExperiencia(l);
+    if (marcar && selecaoAtual.length >= 3) {
+      setErro('Só é possível marcar até 3 itens em "Escolha pela experiência" por local. Desmarque um antes de marcar outro.');
+      return;
+    }
+    setErro('');
+
+    if (opcao.destino === 'fundador') {
+      await alternarFundador(l.id, marcar);
+      return;
+    }
+    if (opcao.destino === 'destaque_semana') {
+      await alternarSecaoInstantanea(l, 'destaque', marcar);
+      return;
+    }
+
+    setProcessando(l.id);
+    const novasExperiencias = marcar
+      ? [...(l.experiencias || []), opcao.slug]
+      : (l.experiencias || []).filter((e) => e !== opcao.slug);
+    setLocaisDestaque((atual) => atual.map((item) => (item.id === l.id ? { ...item, experiencias: novasExperiencias } : item)));
+    const { error } = await supabase.from('locais').update({ experiencias: novasExperiencias }).eq('id', l.id);
     if (error) {
       setErro(error.message);
       await carregarFilas();
@@ -630,6 +1085,35 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
   ];
   const totalPendente = resumoFilas.reduce((soma, f) => soma + f.total, 0);
 
+  // Rodada 44 — lista filtrada da aba "Gestão de Categorias e
+  // Destaques": chip de filtro principal (categoria ou Em Alta/O que
+  // Fazer Hoje) + busca por nome/bairro/cidade, combinados.
+  const locaisFiltrados = locaisDestaque.filter((l) => {
+    if (!localCombinaComFiltroPrincipal(l, filtroPrincipal)) return false;
+    const termo = buscaLocal.trim().toLowerCase();
+    if (!termo) return true;
+    return (
+      l.nome.toLowerCase().includes(termo) ||
+      (l.bairro || '').toLowerCase().includes(termo) ||
+      l.cidade.toLowerCase().includes(termo)
+    );
+  });
+
+  // Rodada 47 — contagem de quem tem o Selo Dicas LGBT+ marcado. É só um
+  // AVISO, nunca um bloqueio: a Andrea pediu explicitamente ter autonomia
+  // pra ajustar mesmo com regra de negócio, "caso necessário devido a
+  // demanda" — então passar da faixa recomendada nunca impede marcar mais.
+  const totalSeloDicas = locaisDestaque.filter((l) => l.destaque_secoes.includes('selo_dicas')).length;
+
+  // Rodada 45 — mesma busca, agora na aba própria Eventos.
+  // Rodada 46 — + filtro "O que Fazer Hoje" (destaque_secoes contém 'hoje').
+  const eventosFiltrados = eventosDestaque.filter((ev) => {
+    if (filtroEventos === 'hoje' && !ev.destaque_secoes.includes('hoje')) return false;
+    const termo = buscaEvento.trim().toLowerCase();
+    if (!termo) return true;
+    return ev.titulo.toLowerCase().includes(termo);
+  });
+
   return (
     <div className="p-8 max-w-5xl mx-auto text-white">
       <div className="flex items-start justify-between gap-4 mb-1">
@@ -641,27 +1125,45 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
           <LogOut size={13} /> Sair
         </button>
       </div>
-      <p className="text-[#A0A0B2] text-xs mb-4">Aprovações manuais — cadastros, vínculos de conta e leads institucionais.</p>
+      <p className="text-[#A0A0B2] text-xs mb-4">
+        {aba === 'aprovacoes'
+          ? 'Aprovações manuais — cadastros, vínculos de conta e leads institucionais.'
+          : aba === 'locais'
+          ? 'Busque e filtre locais por categoria, e marque selos/destaques de cada estabelecimento.'
+          : 'Busque e filtre eventos/festas, e marque em quais seções do app cada um aparece.'}
+      </p>
 
-      <div className="flex flex-wrap gap-2 mb-8">
-        {totalPendente === 0 && (
-          <span className="text-xs bg-[#4CAF7D]/10 text-[#4CAF7D] border border-[#4CAF7D]/30 px-3 py-1.5 rounded-full font-bold">
-            Tudo em dia — nada pendente agora
-          </span>
-        )}
-        {resumoFilas.map((f) => (
-          <a
-            key={f.id}
-            href={`#${f.id}`}
-            className={`text-xs px-3 py-1.5 rounded-full font-bold border ${
-              f.total > 0
-                ? 'bg-[#161520] border-[#232230] hover:bg-[#1D1C29] ' + f.cor
-                : 'bg-transparent border-[#232230]/50 text-[#626274]'
-            }`}
-          >
-            {f.total} {f.label}
-          </a>
-        ))}
+      {/* Rodada 44 — pedido direto da Andrea: separar o fluxo de
+          aprovação de uma tela dedicada a buscar/filtrar estabelecimentos
+          e atribuir selos/destaques, em vez de tudo empilhado numa página
+          só. Rodada 46 — "Eventos" ganha aba própria (era sub-aba dentro
+          de "Gestão de Categorias e Destaques" desde a 45; a Andrea
+          continuou achando confuso tudo dentro da mesma aba). */}
+      <div className="flex gap-1 mb-8 border-b border-[#232230]">
+        <button
+          onClick={() => setAba('aprovacoes')}
+          className={`text-sm font-bold px-4 py-2.5 border-b-2 -mb-px transition ${
+            aba === 'aprovacoes' ? 'border-[#E1306C] text-white' : 'border-transparent text-[#626274] hover:text-[#A0A0B2]'
+          }`}
+        >
+          Aprovações{totalPendente > 0 ? ` (${totalPendente})` : ''}
+        </button>
+        <button
+          onClick={() => setAba('locais')}
+          className={`text-sm font-bold px-4 py-2.5 border-b-2 -mb-px transition ${
+            aba === 'locais' ? 'border-[#E1306C] text-white' : 'border-transparent text-[#626274] hover:text-[#A0A0B2]'
+          }`}
+        >
+          Locais ({locaisDestaque.length})
+        </button>
+        <button
+          onClick={() => setAba('eventos')}
+          className={`text-sm font-bold px-4 py-2.5 border-b-2 -mb-px transition ${
+            aba === 'eventos' ? 'border-[#E1306C] text-white' : 'border-transparent text-[#626274] hover:text-[#A0A0B2]'
+          }`}
+        >
+          Eventos ({eventosDestaque.length})
+        </button>
       </div>
 
       {contaCriada && (
@@ -739,6 +1241,29 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
       )}
 
       {erro && <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl text-xs mb-6">{erro}</div>}
+
+      {aba === 'aprovacoes' && (
+      <>
+      <div className="flex flex-wrap gap-2 mb-8">
+        {totalPendente === 0 && (
+          <span className="text-xs bg-[#4CAF7D]/10 text-[#4CAF7D] border border-[#4CAF7D]/30 px-3 py-1.5 rounded-full font-bold">
+            Tudo em dia — nada pendente agora
+          </span>
+        )}
+        {resumoFilas.map((f) => (
+          <a
+            key={f.id}
+            href={`#${f.id}`}
+            className={`text-xs px-3 py-1.5 rounded-full font-bold border ${
+              f.total > 0
+                ? 'bg-[#161520] border-[#232230] hover:bg-[#1D1C29] ' + f.cor
+                : 'bg-transparent border-[#232230]/50 text-[#626274]'
+            }`}
+          >
+            {f.total} {f.label}
+          </a>
+        ))}
+      </div>
 
       <section className="mb-10" id="fila-interesse">
         <h2 className="text-base font-bold mb-3 text-[#E1306C]">
@@ -941,87 +1466,6 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
         </div>
       </section>
 
-      <section className="mb-10">
-        <h2 className="text-base font-bold mb-3">⭐ Destaque manual dos locais ({locaisDestaque.length})</h2>
-        <p className="text-xs text-[#626274] mb-3">
-          O select controla a ordenação e o selo &quot;Destaque&quot;/&quot;VIP&quot; que aparecem no app
-          (Em Alta, Dicas Trip). O checkbox &quot;Membro Fundador&quot; é separado — é o que faz o local
-          aparecer na seção Membro Fundador do app. Os dois são independentes do plano pago —
-          dá pra usar como selo editorial gratuito enquanto ainda não há parceiro pagante.
-        </p>
-        <div className="space-y-2">
-          {locaisDestaque.length === 0 && <p className="text-xs text-[#626274]">Nenhum local aprovado ainda.</p>}
-          {locaisDestaque.map((l) => (
-            <div key={l.id} className="bg-[#161520] border border-[#232230] rounded-xl p-4 flex justify-between items-center gap-4">
-              <div>
-                <h3 className="font-bold text-sm">{l.nome}</h3>
-                <p className="text-xs text-[#626274] mt-1">
-                  {l.categoria} · {[l.bairro, l.cidade].filter(Boolean).join(', ') || '—'}
-                  {l.plano_comercial_status === 'ativo'
-                    ? ` · plano pago: ${l.plano_comercial}`
-                    : ' · sem plano pago ainda'}
-                </p>
-              </div>
-              <label className="flex items-center gap-2 text-xs font-bold text-[#FFD54F] shrink-0 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={l.fundador}
-                  disabled={processando === l.id}
-                  onChange={(e) => alternarFundador(l.id, e.target.checked)}
-                  className="accent-[#FFD54F]"
-                />
-                Membro Fundador
-              </label>
-              <select
-                value={l.plano_destaque}
-                onChange={(e) => atualizarDestaque(l.id, e.target.value as 'basico' | 'destaque' | 'vip')}
-                disabled={processando === l.id}
-                className="bg-[#0B0B0E] border border-[#232230] rounded-lg text-xs font-bold px-3 py-2 shrink-0 disabled:opacity-40"
-              >
-                <option value="basico">Básico</option>
-                <option value="destaque">Destaque</option>
-                <option value="vip">VIP</option>
-              </select>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="mb-10">
-        <h2 className="text-base font-bold mb-3">⭐ Destaque manual dos eventos ({eventosDestaque.length})</h2>
-        <p className="text-xs text-[#626274] mb-3">
-          Taxa única de R$69 por evento (cobrança manual por Pix/WhatsApp, igual ao fluxo de
-          plano pago dos bares) — depois de confirmar o pagamento, marca aqui como
-          &quot;Destaque&quot; ou &quot;VIP&quot;. O app já mostra o selo quando o evento não está
-          &quot;Básico&quot;. Só lista eventos já aprovados e com data futura.
-        </p>
-        <div className="space-y-2">
-          {eventosDestaque.length === 0 && (
-            <p className="text-xs text-[#626274]">Nenhum evento aprovado e futuro por aqui ainda.</p>
-          )}
-          {eventosDestaque.map((ev) => (
-            <div key={ev.id} className="bg-[#161520] border border-[#232230] rounded-xl p-4 flex justify-between items-center gap-4">
-              <div>
-                <h3 className="font-bold text-sm">{ev.titulo}</h3>
-                <p className="text-xs text-[#626274] mt-1">
-                  {ev.tipo} · {new Date(ev.data_inicio).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
-                </p>
-              </div>
-              <select
-                value={ev.plano_destaque}
-                onChange={(e) => atualizarDestaqueEvento(ev.id, e.target.value as 'basico' | 'destaque' | 'vip')}
-                disabled={processando === ev.id}
-                className="bg-[#0B0B0E] border border-[#232230] rounded-lg text-xs font-bold px-3 py-2 shrink-0 disabled:opacity-40"
-              >
-                <option value="basico">Básico</option>
-                <option value="destaque">Destaque (R$69)</option>
-                <option value="vip">VIP</option>
-              </select>
-            </div>
-          ))}
-        </div>
-      </section>
-
       <section className="mb-10" id="fila-vinculos">
         <h2 className="text-base font-bold mb-3">Pedidos de vínculo de conta ({vinculosPendentes.length})</h2>
         <div className="space-y-3">
@@ -1084,6 +1528,428 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
           ))}
         </div>
       </section>
+      </>
+      )}
+
+      {/* Rodada 46 — pedido direto da Andrea: "Eventos" deixa de ser
+          sub-aba dentro de "Gestão de Categorias e Destaques" e passa a
+          ser uma aba própria, no mesmo nível de "Locais" — ela relatou
+          que a mistura ainda confundia mesmo depois da separação em
+          sub-abas da Rodada 45. Cada aba agora é 100% independente. */}
+      {aba === 'locais' && (
+      <>
+      {/* Rodada 44 — filtro principal (categorias + Em Alta + O que Fazer
+          Hoje) e busca por nome/bairro/cidade, tudo combinado numa lista
+          só de estabelecimentos abaixo. */}
+      <section className="mb-6">
+        <div className="flex items-center gap-2 mb-3">
+          <Search size={14} className="text-[#626274]" />
+          <input
+            type="text"
+            value={buscaLocal}
+            onChange={(e) => setBuscaLocal(e.target.value)}
+            placeholder="Buscar por nome, bairro ou cidade..."
+            className="flex-1 bg-[#161520] border border-[#232230] rounded-lg text-xs px-3 py-2"
+          />
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            onClick={() => setFiltroPrincipal('todas')}
+            className={`text-xs font-bold px-3 py-1.5 rounded-full border transition ${
+              filtroPrincipal === 'todas'
+                ? 'bg-[#E1306C] border-[#E1306C] text-white'
+                : 'bg-[#161520] border-[#232230] text-[#A0A0B2] hover:bg-[#1D1C29]'
+            }`}
+          >
+            Todas
+          </button>
+          {CATEGORIA_CHIPS.map((c) => (
+            <button
+              key={c.slug}
+              onClick={() => setFiltroPrincipal(c.slug)}
+              title={!c.categoriaReal ? 'Categoria ainda "Em breve" pro usuário final — filtro aqui é só organizacional' : undefined}
+              className={`text-xs font-bold px-3 py-1.5 rounded-full border transition ${
+                filtroPrincipal === c.slug
+                  ? 'bg-[#E1306C] border-[#E1306C] text-white'
+                  : c.categoriaReal
+                  ? 'bg-[#161520] border-[#232230] text-[#A0A0B2] hover:bg-[#1D1C29]'
+                  : 'bg-transparent border-[#232230]/50 text-[#626274]'
+              }`}
+            >
+              {c.label}
+            </button>
+          ))}
+          <button
+            onClick={() => setFiltroPrincipal('em_alta')}
+            className={`text-xs font-bold px-3 py-1.5 rounded-full border transition ${
+              filtroPrincipal === 'em_alta'
+                ? 'bg-[#FFD54F] border-[#FFD54F] text-black'
+                : 'bg-[#161520] border-[#232230] text-[#FFD54F] hover:bg-[#1D1C29]'
+            }`}
+          >
+            Em Alta
+          </button>
+          <button
+            onClick={() => setFiltroPrincipal('hoje')}
+            className={`text-xs font-bold px-3 py-1.5 rounded-full border transition ${
+              filtroPrincipal === 'hoje'
+                ? 'bg-[#FFD54F] border-[#FFD54F] text-black'
+                : 'bg-[#161520] border-[#232230] text-[#FFD54F] hover:bg-[#1D1C29]'
+            }`}
+          >
+            O que Fazer Hoje
+          </button>
+        </div>
+      </section>
+
+      <section className="mb-10">
+        <h2 className="text-base font-bold mb-3">
+          Estabelecimentos ({locaisFiltrados.length}{locaisFiltrados.length !== locaisDestaque.length ? ` de ${locaisDestaque.length}` : ''})
+        </h2>
+        <p className="text-xs text-[#626274] mb-3">
+          Quem paga plano <b className="text-[#D0D0E0]">Premium</b> ou <b className="text-[#D0D0E0]">Fundador</b> (ativo)
+          já entra sozinho em Em Alta/Dicas Trip, sem precisar marcar nada — os checkboxes abaixo são
+          pra você direcionar manualmente qualquer outro local, inclusive quem não paga, se o app
+          estiver vazio numa seção. O select &quot;Básico/Destaque/VIP&quot; só afeta a ordem de
+          desempate dentro da mesma seção (rotaciona sozinho a cada semana) — não decide quem entra.
+        </p>
+        {totalSeloDicas > 0 && (
+          <p className={`text-xs mb-3 ${totalSeloDicas > 8 ? 'text-amber-400' : 'text-[#A0A0B2]'}`}>
+            <b className={totalSeloDicas > 8 ? 'text-amber-300' : 'text-[#D0D0E0]'}>Selo Dicas LGBT+</b>:{' '}
+            {totalSeloDicas} local{totalSeloDicas !== 1 ? 'is' : ''} marcado{totalSeloDicas !== 1 ? 's' : ''} agora.{' '}
+            {totalSeloDicas > 8
+              ? 'Passou da faixa recomendada (até 8) pra manter a exclusividade — tudo bem se for por demanda, é só um aviso, não trava nada.'
+              : 'Recomendação: até 8 locais, pra manter a exclusividade do selo (a decisão é sempre sua).'}
+          </p>
+        )}
+        <div className="space-y-2">
+          {locaisFiltrados.length === 0 && <p className="text-xs text-[#626274]">Nenhum estabelecimento encontrado com esse filtro/busca.</p>}
+          {locaisFiltrados.map((l) => {
+            const rascunhoConteudoItem = lerRascunhoConteudo(l);
+            const selecaoExperiencia = selecaoAtualExperiencia(l);
+            const aberto = experienciaAberta[l.id] ?? selecaoExperiencia.length > 0;
+            return (
+            <div key={l.id} className="bg-[#161520] border border-[#232230] rounded-xl p-4 space-y-4">
+              <div className="flex justify-between items-start gap-4 flex-wrap">
+                <div>
+                  <h3 className="font-bold text-sm flex items-center gap-1.5">
+                    {l.nome}
+                    {l.fundador && (
+                      <span title="Membro Fundador" className="inline-flex items-center gap-0.5 text-[10px] font-bold text-[#FFD54F]">
+                        <Star size={11} fill="currentColor" /> Fundador
+                      </span>
+                    )}
+                  </h3>
+                  <p className="text-xs text-[#626274] mt-1">
+                    {CATEGORIA_REAL_LABEL_ADMIN[l.categoria] || l.categoria} · {[l.bairro, l.cidade].filter(Boolean).join(', ') || '—'}
+                    {l.plano_comercial_status === 'ativo'
+                      ? ` · Plano atual: ${l.plano_comercial}${pagaPlanoComDireitoADestaque(l) ? ' (entra automático em Em Alta/Dicas Trip)' : ''}`
+                      : ' · sem plano pago ainda'}
+                  </p>
+                  <p className="text-xs text-[#4CAF7D] mt-1 font-bold">
+                    Aparece em: {resumoSecoesLocal(l)} · Experiências: {resumoExperienciasLocal(l)}
+                  </p>
+                </div>
+                <select
+                  value={l.plano_destaque}
+                  onChange={(e) => atualizarDestaque(l.id, e.target.value as 'basico' | 'destaque' | 'vip')}
+                  disabled={processando === l.id}
+                  className="bg-[#0B0B0E] border border-[#232230] rounded-lg text-xs font-bold px-3 py-2 disabled:opacity-40 shrink-0"
+                  title="Prioridade de ordenação (desempate)"
+                >
+                  <option value="basico">Básico</option>
+                  <option value="destaque">Destaque</option>
+                  <option value="vip">VIP</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-3 flex-wrap border-t border-[#232230] pt-3">
+                {OPCOES_SECAO_LOCAL_RAPIDA.map((o) => (
+                  <label key={o.value} className="flex items-center gap-1.5 text-xs text-[#D0D0E0] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={l.destaque_secoes.includes(o.value)}
+                      disabled={processando === l.id}
+                      onChange={(e) => alternarSecaoInstantanea(l, o.value, e.target.checked)}
+                      className="accent-[#E1306C]"
+                    />
+                    {o.label}
+                  </label>
+                ))}
+              </div>
+
+              <div className="border-t border-[#232230] pt-3">
+                <label className="flex items-center gap-1.5 text-xs font-bold text-[#D0D0E0] cursor-pointer w-fit">
+                  <input
+                    type="checkbox"
+                    checked={aberto}
+                    onChange={() => setExperienciaAberta((atual) => ({ ...atual, [l.id]: !aberto }))}
+                  />
+                  Escolha pela Experiência {selecaoExperiencia.length > 0 ? `(${selecaoExperiencia.length}/3)` : ''}
+                  {aberto ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                </label>
+                {aberto && (
+                  <div className="flex flex-wrap gap-3 mt-2">
+                    {OPCOES_EXPERIENCIA.map((o) => (
+                      <label key={o.slug} className="flex items-center gap-1.5 text-xs text-[#D0D0E0] cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selecaoExperiencia.includes(o.slug)}
+                          disabled={processando === l.id}
+                          onChange={(e) => alternarExperiencia(l, o, e.target.checked)}
+                          className="accent-[#7E57C2]"
+                        />
+                        {o.label}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t border-[#232230] pt-3 space-y-3">
+                <p className="text-xs font-bold text-[#D0D0E0]">Conteúdo do local (o que aparece no app)</p>
+                <div className="flex items-start gap-4 flex-wrap">
+                  <div className="shrink-0">
+                    <p className="text-[10px] text-[#626274] mb-1">Logo / foto de capa</p>
+                    {l.foto_capa_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={l.foto_capa_url} alt={l.nome} className="w-16 h-16 rounded-lg object-cover border border-[#232230]" />
+                    ) : (
+                      <div className="w-16 h-16 rounded-lg bg-[#0B0B0E] border border-dashed border-[#232230] flex items-center justify-center text-[9px] text-[#626274] text-center px-1">
+                        sem foto
+                      </div>
+                    )}
+                    <label className="block mt-1 text-center text-[10px] font-bold text-[#E1306C] cursor-pointer hover:underline">
+                      {enviandoFoto === l.id ? 'Enviando...' : l.foto_capa_url ? 'Trocar' : 'Subir logo'}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        disabled={enviandoFoto === l.id}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) enviarFotoLocal(l, f, 'capa');
+                          e.target.value = '';
+                        }}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="shrink-0">
+                    <p className="text-[10px] text-[#626274] mb-1">Galeria de fotos ({l.galeria_fotos.length})</p>
+                    <div className="flex items-center gap-1.5 flex-wrap max-w-xs">
+                      {l.galeria_fotos.map((url) => (
+                        <div key={url} className="relative">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={url} alt="" className="w-12 h-12 rounded-md object-cover border border-[#232230]" />
+                          <button
+                            onClick={() => removerFotoGaleria(l, url)}
+                            title="Remover da galeria"
+                            className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] leading-none"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                      <label className="w-12 h-12 rounded-md border border-dashed border-[#232230] flex items-center justify-center text-[#E1306C] text-lg cursor-pointer">
+                        {enviandoFoto === l.id ? '…' : '+'}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={enviandoFoto === l.id}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) enviarFotoLocal(l, f, 'galeria');
+                            e.target.value = '';
+                          }}
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="flex-1 min-w-[220px] space-y-2">
+                    <input
+                      type="text"
+                      value={rascunhoConteudoItem.instagram}
+                      onChange={(e) => setRascunhoConteudo((atual) => ({ ...atual, [l.id]: { ...rascunhoConteudoItem, instagram: e.target.value } }))}
+                      placeholder="@instagram (sem o @, opcional)"
+                      className="w-full bg-[#0B0B0E] border border-[#232230] rounded-lg text-xs px-3 py-2"
+                    />
+                    <input
+                      type="text"
+                      value={rascunhoConteudoItem.video_url}
+                      onChange={(e) => setRascunhoConteudo((atual) => ({ ...atual, [l.id]: { ...rascunhoConteudoItem, video_url: e.target.value } }))}
+                      placeholder="Link de vídeo (opcional)"
+                      className="w-full bg-[#0B0B0E] border border-[#232230] rounded-lg text-xs px-3 py-2"
+                    />
+                    <input
+                      type="text"
+                      value={rascunhoConteudoItem.tags}
+                      onChange={(e) => setRascunhoConteudo((atual) => ({ ...atual, [l.id]: { ...rascunhoConteudoItem, tags: e.target.value } }))}
+                      placeholder="Tags separadas por vírgula"
+                      className="w-full bg-[#0B0B0E] border border-[#232230] rounded-lg text-xs px-3 py-2"
+                    />
+                  </div>
+                </div>
+                <textarea
+                  value={rascunhoConteudoItem.descricao}
+                  onChange={(e) => setRascunhoConteudo((atual) => ({ ...atual, [l.id]: { ...rascunhoConteudoItem, descricao: e.target.value } }))}
+                  placeholder="Descrição do local (aparece na página dele no app)"
+                  rows={2}
+                  className="w-full bg-[#0B0B0E] border border-[#232230] rounded-lg text-xs px-3 py-2"
+                />
+                <button
+                  onClick={() => salvarConteudoLocal(l)}
+                  disabled={processando === l.id}
+                  className="bg-[#232230] hover:bg-[#2C2A3A] text-[#D0D0E0] font-bold text-xs px-3 py-2 rounded-lg transition disabled:opacity-40"
+                >
+                  Salvar conteúdo
+                </button>
+              </div>
+            </div>
+            );
+          })}
+        </div>
+      </section>
+      </>
+      )}
+
+      {aba === 'eventos' && (
+      <>
+      {/* Rodada 46 — pedido direto da Andrea: filtro "O que Fazer Hoje"
+          vs "Todos os Eventos" dentro da aba própria de Eventos, mesma
+          ideia que Locais já tinha (filtroPrincipal). */}
+      <section className="mb-6">
+        <div className="flex items-center gap-2 mb-3">
+          <Search size={14} className="text-[#626274]" />
+          <input
+            type="text"
+            value={buscaEvento}
+            onChange={(e) => setBuscaEvento(e.target.value)}
+            placeholder="Buscar evento por nome..."
+            className="flex-1 bg-[#161520] border border-[#232230] rounded-lg text-xs px-3 py-2"
+          />
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            onClick={() => setFiltroEventos('todos')}
+            className={`text-xs font-bold px-3 py-1.5 rounded-full border transition ${
+              filtroEventos === 'todos'
+                ? 'bg-[#E1306C] border-[#E1306C] text-white'
+                : 'bg-[#161520] border-[#232230] text-[#A0A0B2] hover:bg-[#1D1C29]'
+            }`}
+          >
+            Todos os Eventos
+          </button>
+          <button
+            onClick={() => setFiltroEventos('hoje')}
+            className={`text-xs font-bold px-3 py-1.5 rounded-full border transition ${
+              filtroEventos === 'hoje'
+                ? 'bg-[#FFD54F] border-[#FFD54F] text-black'
+                : 'bg-[#161520] border-[#232230] text-[#FFD54F] hover:bg-[#1D1C29]'
+            }`}
+          >
+            O que Fazer Hoje
+          </button>
+        </div>
+      </section>
+
+      <section className="mb-10">
+        <h2 className="text-base font-bold mb-3">
+          ⭐ Destaque manual dos eventos ({eventosFiltrados.length}{eventosFiltrados.length !== eventosDestaque.length ? ` de ${eventosDestaque.length}` : ''})
+        </h2>
+        <p className="text-xs text-[#626274] mb-3">
+          Taxa única de R$69 por evento (cobrança manual por Pix/WhatsApp, igual ao fluxo de
+          plano pago dos bares) — depois de confirmar o pagamento, marca aqui como
+          &quot;Destaque&quot; ou &quot;VIP&quot;. Lista eventos já aprovados dos últimos 7 dias
+          pra frente (evento passado ainda aparece aqui por um tempo, com aviso, pra você
+          entender por que ele saiu do app). &quot;Topo da aba Eventos&quot; só muda a ORDEM
+          dentro do mesmo filtro de data que o usuário já escolher no app (Hoje/Amanhã/Fim de
+          semana...) — não faz o evento aparecer fora da data real dele. &quot;O que Fazer
+          Hoje&quot; fixa o evento manualmente nessa seção da tela inicial, independente da
+          data (útil pra festa recorrente ou pra promover uma festa antes do dia).
+        </p>
+        <div className="space-y-2">
+          {eventosFiltrados.length === 0 && (
+            <p className="text-xs text-[#626274]">Nenhum evento aprovado encontrado com esse filtro/busca.</p>
+          )}
+          {eventosFiltrados.map((ev) => {
+            const rascunho = lerRascunhoFixacao(ev.id, ev.destaque_secoes, ev.destaque_ate);
+            return (
+            <div key={ev.id} className="bg-[#161520] border border-[#232230] rounded-xl p-4 space-y-3">
+              <div className="flex justify-between items-center gap-4">
+                <div>
+                  <h3 className="font-bold text-sm">{ev.titulo}</h3>
+                  <p className="text-xs text-[#626274] mt-1">
+                    {ev.tipo} · {new Date(ev.data_inicio).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+                  </p>
+                  <p className="text-xs text-[#4CAF7D] mt-1 font-bold">
+                    {ev.plano_destaque !== 'basico' || ev.destaque_secoes.includes('destaque')
+                      ? '✓ Selo "Evento em destaque" aparece no card'
+                      : 'Sem selo de destaque no card ainda'}
+                    {ev.destaque_secoes.includes('evento_destaque') ? ' · fixado no topo da aba Eventos' : ''}
+                    {ev.destaque_secoes.includes('hoje') ? ' · aparece em O Que Fazer Hoje' : ''}
+                    {ev.destaque_secoes.includes('patrocinado') ? ' · Patrocinado' : ''}
+                  </p>
+                  {new Date(ev.data_inicio).getTime() < Date.now() && (
+                    <p className="text-xs text-[#E1306C] mt-1 font-bold">
+                      ⚠ Data já passou — some do app mesmo aprovado e destacado. Se é uma festa
+                      recorrente, atualize a data pra próxima edição pra ele voltar a aparecer.
+                    </p>
+                  )}
+                </div>
+                <select
+                  value={ev.plano_destaque}
+                  onChange={(e) => atualizarDestaqueEvento(ev.id, e.target.value as 'basico' | 'destaque' | 'vip')}
+                  disabled={processando === ev.id}
+                  className="bg-[#0B0B0E] border border-[#232230] rounded-lg text-xs font-bold px-3 py-2 shrink-0 disabled:opacity-40"
+                >
+                  <option value="basico">Básico</option>
+                  <option value="destaque">Destaque (R$69)</option>
+                  <option value="vip">VIP</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-3 flex-wrap">
+                {OPCOES_SECAO_EVENTO.map((o) => (
+                  <label key={o.value} className="flex items-center gap-1.5 text-xs text-[#D0D0E0] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={rascunho.secoes.includes(o.value)}
+                      onChange={() => alternarSecaoRascunho(ev.id, o.value, ev.destaque_secoes, ev.destaque_ate)}
+                      className="accent-[#E1306C]"
+                    />
+                    {o.label}
+                  </label>
+                ))}
+                <input
+                  type="date"
+                  value={rascunho.ate}
+                  onChange={(e) => setRascunhoFixacao((atual) => ({ ...atual, [ev.id]: { ...rascunho, ate: e.target.value } }))}
+                  className="bg-[#0B0B0E] border border-[#232230] rounded-lg text-xs px-3 py-2"
+                  title="Até quando (opcional — vazio = sem prazo)"
+                />
+                <button
+                  onClick={() => fixarDestaqueEvento(ev.id, rascunho.secoes, rascunho.ate)}
+                  disabled={processando === ev.id}
+                  className="bg-[#232230] hover:bg-[#2C2A3A] text-[#D0D0E0] font-bold text-xs px-3 py-2 rounded-lg transition disabled:opacity-40"
+                >
+                  Aplicar seções
+                </button>
+                {ev.destaque_secoes.length > 0 && (
+                  <span className="text-xs text-[#4CAF7D]">
+                    ✓ {ev.destaque_secoes.join(', ')}
+                    {ev.destaque_ate ? ` até ${new Date(ev.destaque_ate).toLocaleDateString('pt-BR')}` : ''}
+                  </span>
+                )}
+              </div>
+            </div>
+            );
+          })}
+        </div>
+      </section>
+      </>
+      )}
     </div>
   );
 }

@@ -24,7 +24,7 @@ import { supabase } from '../../lib/supabase';
 // a taxonomia de 10 categorias desenhada nas Rodadas 1-8 nunca chegou a
 // ser migrada pro banco real, ver `investigacao-tecnica-app.md`/Rodada 12).
 const CATEGORIA_LABEL: Record<string, string> = {
-  lugares: 'Bares & Vida Noturna',
+  lugares: 'Bares',
   gastronomia: 'Gastronomia',
   cultura: 'Cultura & Lazer',
   eventos: 'Festas & Eventos',
@@ -89,6 +89,26 @@ interface LocalRow {
   plano_comercial_status: string;
 }
 
+// Rodada 41 — "agenda da semana" (pedido da Andrea, Rodada 39: "Vamos
+// criar a agenda da semana com fotos e links"). Uma linha por dia com
+// programação (public.agenda_semanal, migration 023) — dia sem linha
+// ativa simplesmente não aparece aqui. Mesma decisão de gating que
+// tags/galeria/vídeo acima: é conteúdo promocional rico (foto + link),
+// então segue publicaRecursosPremium — só Premium/Fundador ativo mostra
+// pro usuário final no app. Se a Andrea preferir deixar isso visível pra
+// todo mundo (mais parecido com horário de funcionamento do que com
+// galeria), é só tirar o `publicaRecursosPremium(local) &&` abaixo.
+interface AgendaDia {
+  id: string;
+  dia_semana: number;
+  titulo: string;
+  descricao: string | null;
+  foto_url: string | null;
+  link: string | null;
+}
+
+const DIAS_SEMANA_AGENDA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+
 interface LocalBadge {
   id: string;
   rotulo: string;
@@ -111,6 +131,7 @@ export default function BusinessDetailScreen() {
 
   const [loading, setLoading] = useState(true);
   const [local, setLocal] = useState<LocalRow | null>(null);
+  const [agendaSemana, setAgendaSemana] = useState<AgendaDia[]>([]);
   const [badges, setBadges] = useState<LocalBadge[]>([]);
   const [avaliacoes, setAvaliacoes] = useState<Avaliacao[]>([]);
   const [minhaAvaliacao, setMinhaAvaliacao] = useState<Avaliacao | null>(null);
@@ -126,7 +147,7 @@ export default function BusinessDetailScreen() {
     if (!id) return;
     setLoading(true);
     try {
-      const [localRes, badgesRes, avaliacoesRes] = await Promise.all([
+      const [localRes, badgesRes, avaliacoesRes, agendaRes] = await Promise.all([
         supabase
           .from('locais')
           .select(
@@ -145,6 +166,12 @@ export default function BusinessDetailScreen() {
           .eq('local_id', id)
           .order('created_at', { ascending: false })
           .limit(5),
+        supabase
+          .from('agenda_semanal')
+          .select('id, dia_semana, titulo, descricao, foto_url, link')
+          .eq('local_id', id)
+          .eq('ativo', true)
+          .order('dia_semana', { ascending: true }),
       ]);
 
       if (localRes.error) throw localRes.error;
@@ -154,6 +181,7 @@ export default function BusinessDetailScreen() {
       registrarVisualizacaoPerfil((localRes.data as unknown as LocalRow).id);
       setBadges((badgesRes.data as any) || []);
       setAvaliacoes((avaliacoesRes.data as any) || []);
+      setAgendaSemana((agendaRes.data as any) || []);
 
       if (user?.id) {
         const [favRes, minhaRes] = await Promise.all([
@@ -430,6 +458,31 @@ export default function BusinessDetailScreen() {
               </TouchableOpacity>
             )}
 
+            {publicaRecursosPremium(local) && agendaSemana.length > 0 && (
+              <View style={{ marginTop: 16 }}>
+                <Text style={styles.sectionTitle}>Agenda da semana</Text>
+                <View style={{ marginTop: 8, gap: 10 }}>
+                  {agendaSemana.map((dia) => (
+                    <View key={dia.id} style={styles.agendaDiaBox}>
+                      {dia.foto_url && (
+                        <Image source={{ uri: dia.foto_url }} style={styles.agendaDiaFoto} resizeMode="cover" />
+                      )}
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.agendaDiaSemana}>{DIAS_SEMANA_AGENDA[dia.dia_semana]}</Text>
+                        <Text style={styles.agendaDiaTitulo}>{dia.titulo}</Text>
+                        {dia.descricao && <Text style={styles.agendaDiaDescricao}>{dia.descricao}</Text>}
+                        {dia.link && (
+                          <TouchableOpacity onPress={() => Linking.openURL(dia.link!)}>
+                            <Text style={styles.agendaDiaLink}>Ver mais</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+
             {local.horario_funcionamento && DIAS_SEMANA.some((d) => local.horario_funcionamento?.[d.chave]?.aberto) && (
               <View style={styles.horarioBox}>
                 <Text style={styles.sectionTitle}>Horário de funcionamento</Text>
@@ -591,6 +644,13 @@ const styles = StyleSheet.create({
 
   tagExperienciaChip: { backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
   tagExperienciaTexto: { color: '#D0D0E0', fontSize: 12, fontWeight: '700' },
+
+  agendaDiaBox: { flexDirection: 'row', gap: 12, backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230', borderRadius: 14, padding: 12, alignItems: 'center' },
+  agendaDiaFoto: { width: 64, height: 64, borderRadius: 10, backgroundColor: '#0B0B0E' },
+  agendaDiaSemana: { fontSize: 11, fontWeight: '800', color: '#E1306C', textTransform: 'uppercase' },
+  agendaDiaTitulo: { fontSize: 14, fontWeight: '700', color: '#FFF', marginTop: 2 },
+  agendaDiaDescricao: { fontSize: 12, color: '#A0A0B2', marginTop: 2 },
+  agendaDiaLink: { fontSize: 12, fontWeight: '700', color: '#E1306C', marginTop: 4, textDecorationLine: 'underline' },
 
   horarioBox: { marginTop: 16, marginBottom: 8, padding: 14, borderRadius: 14, backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230' },
   horarioLinha: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },

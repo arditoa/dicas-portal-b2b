@@ -1,6 +1,6 @@
 // 1. Categorias Principais Mapeadas
 export const CATEGORIES_LIST = [
-  { slug: 'bares', label: 'Bares & Vida Noturna', icon: 'coffee' },
+  { slug: 'bares', label: 'Bares', icon: 'coffee' },
   { slug: 'gastronomia', label: 'Gastronomia', icon: 'square' },
   { slug: 'festas', label: 'Festas & Eventos', icon: 'music' },
   { slug: 'cultura', label: 'Cultura & Lazer', icon: 'film' },

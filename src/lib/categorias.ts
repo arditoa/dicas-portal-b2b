@@ -135,7 +135,7 @@ export const CATEGORIA_ORDER: CategoriaSlugUI[] = [
 // Label de exibição por valor REAL do enum categoria_tipo (usado em telas
 // que mostram a categoria de um `locais` já carregado do banco).
 export const CATEGORIA_REAL_LABEL: Record<string, string> = {
-  lugares: 'Bares & Vida Noturna',
+  lugares: 'Bares',
   gastronomia: 'Gastronomia',
   cultura: 'Cultura & Lazer',
   eventos: 'Festas & Eventos',

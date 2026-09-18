@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '../../lib/authContext';
+import { deveExibirGlow, estaFixadoEm } from '../../lib/destaque';
 import { supabase } from '../../lib/supabase';
 
 const COLORS = {
@@ -107,6 +108,9 @@ interface EventoRow {
   publico_tags: string[];
   foto_capa_url: string | null;
   plano_destaque: 'basico' | 'destaque' | 'vip';
+  destaque_secao_fixada: string | null;
+  destaque_secoes: string[] | null;
+  destaque_ate: string | null;
   local_id: string | null;
   locais: { nome: string; bairro: string | null; cidade: string } | null;
   listas_vip: ListaVip[] | null;
@@ -176,7 +180,7 @@ export default function EventsScreen() {
       const { data, error } = await supabase
         .from('eventos')
         .select(
-          'id, titulo, descricao, data_inicio, data_fim, estilos_musicais, publico_tags, foto_capa_url, plano_destaque, local_id, locais(nome, bairro, cidade), listas_vip(id, titulo, vagas_limite, vagas_ocupadas, ativa)'
+          'id, titulo, descricao, data_inicio, data_fim, estilos_musicais, publico_tags, foto_capa_url, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, local_id, locais(nome, bairro, cidade), listas_vip(id, titulo, vagas_limite, vagas_ocupadas, ativa)'
         )
         .eq('status', 'aprovado')
         .gte('data_inicio', inicioHoje.toISOString())
@@ -228,12 +232,25 @@ export default function EventsScreen() {
     carregarEventos();
   }, [carregarEventos]);
 
-  const filteredEvents = events.filter((ev) => {
-    if (ev.dateTag !== dateFilter) return false;
-    if (selectedMusic !== 'todos_estilos' && !ev.estilos_musicais?.includes(selectedMusic)) return false;
-    if (selectedPublic !== 'todos_publicos' && !ev.publico_tags?.includes(selectedPublic)) return false;
-    return true;
-  });
+  // Rodada 41 — a agenda é cronológica por natureza (não faz sentido um
+  // evento da semana que vem furar na frente do de hoje só porque
+  // paga), então a única coisa que a fixação manual do /admin
+  // ("evento_destaque") faz aqui é furar a fila DENTRO do mesmo filtro
+  // de data já selecionado — o resto continua ordenado por data/hora
+  // como sempre foi (.filter preserva a ordem, e o sort abaixo é
+  // estável: só separa fixados do resto, sem embaralhar o restante).
+  const filteredEvents = events
+    .filter((ev) => {
+      if (ev.dateTag !== dateFilter) return false;
+      if (selectedMusic !== 'todos_estilos' && !ev.estilos_musicais?.includes(selectedMusic)) return false;
+      if (selectedPublic !== 'todos_publicos' && !ev.publico_tags?.includes(selectedPublic)) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const aFixado = estaFixadoEm(a, 'evento_destaque');
+      const bFixado = estaFixadoEm(b, 'evento_destaque');
+      return aFixado === bFixado ? 0 : aFixado ? -1 : 1;
+    });
 
   const handleEventClick = (eventItem: EventItem) => {
     if (!eventItem.listaVipAtiva) {
@@ -483,8 +500,21 @@ export default function EventsScreen() {
                       {item.locais ? `${item.locais.nome} • ${item.locais.bairro || item.locais.cidade}` : 'Local a confirmar'}
                     </Text>
                   )}
-                  {item.plano_destaque !== 'basico' && (
+                  {/* Rodada 45 — bug real reportado pela Andrea ("testei festa do
+                      founders no destaque e não foi"): o checkbox "Destaque (selo
+                      no card)" do /admin grava em destaque_secoes, mas esse selo
+                      aqui só reagia ao SELECT separado Básico/Destaque/VIP
+                      (plano_destaque) — a marcação da Andrea nunca tinha efeito
+                      visual nenhum. deveExibirGlow (mesma função que já vale pra
+                      locais) cobre os dois mecanismos. */}
+                  {(item.plano_destaque !== 'basico' || deveExibirGlow(item)) && (
                     <Text style={styles.eventPrice}>★ Evento em destaque</Text>
+                  )}
+                  {/* Rodada 46 — selo novo "Patrocinado" (destaque_secoes,
+                      migration 026): monetização avulsa, sem depender de
+                      plano_destaque — qualquer evento pode comprar. */}
+                  {estaFixadoEm(item, 'patrocinado') && (
+                    <Text style={styles.patrocinadoBadge}>Patrocinado</Text>
                   )}
                 </View>
 
@@ -709,6 +739,7 @@ const styles = StyleSheet.create({
   eventLocation: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
   eventLocationLink: { textDecorationLine: 'underline', color: COLORS.pink },
   eventPrice: { fontSize: 11, fontWeight: '700', color: COLORS.gold, marginTop: 4 },
+  patrocinadoBadge: { fontSize: 10, fontWeight: '700', color: COLORS.purple, marginTop: 2 },
 
   emptyBox: { padding: 30, alignItems: 'center', gap: 10, backgroundColor: COLORS.card, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, marginTop: 10 },
   emptyText: { fontSize: 13, color: COLORS.textSecondary, textAlign: 'center' },
