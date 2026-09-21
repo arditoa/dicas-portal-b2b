@@ -405,6 +405,30 @@ export default function FormularioCadastroRapido({ tipo, onSucesso }: Props) {
 
         if (error) throw error;
 
+        // Rodada 53 — bug real reportado pela Andrea: "as festas de
+        // cadastro também têm que ter acesso ao portal". Causa: o RPC
+        // acima nunca gravou contato_nome/contato_whatsapp (colunas de
+        // verdade, existentes desde a Rodada 26) — só embutia o WhatsApp
+        // como texto dentro de `descricao`. `/api/aprovar-evento` só cria
+        // login automático pro organizador quando a COLUNA
+        // contato_whatsapp está preenchida — sem isso, a aprovação nunca
+        // criava conta nenhuma pra quem cadastrou pelo cadastro rápido.
+        // Ver 028_contato_evento_cadastro_rapido.sql.
+        if (novoEventoId) {
+          try {
+            await supabase.rpc('cadastro_rapido_definir_contato_evento', {
+              p_id: novoEventoId,
+              p_contato_nome: nomeContato || null,
+              p_contato_whatsapp: whatsapp || null,
+            });
+          } catch (erroContato) {
+            // Não bloqueia o cadastro (o evento já foi criado) — mas sem
+            // isso o organizador não ganha acesso automático ao portal na
+            // aprovação, então vale investigar se aparecer no console.
+            console.warn('Evento criado, mas não foi possível gravar contato para acesso ao portal:', erroContato);
+          }
+        }
+
         if (fotoEvento && novoEventoId) {
           const url = await enviarFoto('fotos-eventos', novoEventoId, fotoEvento);
           await supabase.rpc('cadastro_rapido_definir_foto_evento', { p_id: novoEventoId, p_url: url });
