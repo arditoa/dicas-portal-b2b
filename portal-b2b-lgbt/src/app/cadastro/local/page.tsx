@@ -182,10 +182,20 @@ function formatCnpj(digits: string) {
     .replace(/(\d{4})(\d)/, '$1-$2');
 }
 
+// Rodada 52 — pedido direto da Andrea: CEP automático que preenche o
+// endereço, igual o CNPJ já faz (buscarCnpj acima). Máscara "00000-000".
+function formatCep(digits: string) {
+  const d = digits.slice(0, 8);
+  return d.replace(/^(\d{5})(\d)/, '$1-$2');
+}
+
 export default function CadastroLocalPage() {
   const [documento, setDocumento] = useState('');
   const [buscandoCnpj, setBuscandoCnpj] = useState(false);
   const [cnpjEncontrado, setCnpjEncontrado] = useState(false);
+  const [buscandoCep, setBuscandoCep] = useState(false);
+  const [cepEncontrado, setCepEncontrado] = useState(false);
+  const [cepNaoEncontrado, setCepNaoEncontrado] = useState(false);
 
   const [nomeResponsavel, setNomeResponsavel] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
@@ -247,6 +257,42 @@ export default function CadastroLocalPage() {
       console.warn('Não foi possível buscar o CNPJ na BrasilAPI:', err);
     } finally {
       setBuscandoCnpj(false);
+    }
+  };
+
+  // Rodada 52 — pedido direto da Andrea: CEP automático que preenche o
+  // endereço, igual o CNPJ já faz acima. Usa a ViaCEP (gratuita, sem
+  // chave, é a mesma API que a maioria dos sites brasileiros usa pra
+  // isso). Só preenche logradouro/bairro/cidade/UF — número e
+  // complemento continuam sendo digitados pela pessoa, porque a ViaCEP
+  // não sabe o número da casa/sala (às vezes devolve um "complemento"
+  // que é só uma faixa de números do próprio CEP, não o complemento de
+  // verdade de quem está preenchendo).
+  const buscarCep = async (valor: string) => {
+    const cepLimpo = digitsOnly(valor);
+    setCepEncontrado(false);
+    setCepNaoEncontrado(false);
+    if (cepLimpo.length !== 8) return;
+
+    setBuscandoCep(true);
+    try {
+      const resp = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+      if (!resp.ok) return;
+      const dados = await resp.json();
+      if (dados.erro) {
+        setCepNaoEncontrado(true);
+        return;
+      }
+      if (dados.logradouro) setLogradouro(dados.logradouro);
+      if (dados.bairro) setBairro(dados.bairro);
+      if (dados.localidade) setCidade(dados.localidade);
+      if (dados.uf) setUf(dados.uf);
+      setCepEncontrado(true);
+    } catch (err) {
+      // Silencioso de propósito — autofill é conveniência, não bloqueio.
+      console.warn('Não foi possível buscar o CEP na ViaCEP:', err);
+    } finally {
+      setBuscandoCep(false);
     }
   };
 
@@ -546,12 +592,25 @@ export default function CadastroLocalPage() {
                 <label className={labelClass}>CEP</label>
                 <input
                   type="text"
-                  value={cep}
-                  onChange={(e) => setCep(e.target.value)}
+                  inputMode="numeric"
+                  value={formatCep(digitsOnly(cep))}
+                  onChange={(e) => setCep(digitsOnly(e.target.value))}
+                  onBlur={(e) => buscarCep(e.target.value)}
                   placeholder="00000-000"
                   className={inputClass}
                   disabled={loading}
                 />
+                {buscandoCep && (
+                  <p className="text-xs text-[#A0A0B2] mt-2 flex items-center gap-1.5">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Buscando endereço do CEP...
+                  </p>
+                )}
+                {cepEncontrado && !buscandoCep && (
+                  <p className="text-xs text-emerald-400 mt-2">Endereço preenchido automaticamente — confira antes de enviar.</p>
+                )}
+                {cepNaoEncontrado && !buscandoCep && (
+                  <p className="text-xs text-amber-400 mt-2">CEP não encontrado — preencha o endereço manualmente.</p>
+                )}
               </div>
               <div className="md:col-span-2">
                 <label className={labelClass}>Logradouro</label>
