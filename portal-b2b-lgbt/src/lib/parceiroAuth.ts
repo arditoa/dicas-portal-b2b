@@ -59,15 +59,30 @@ export function emailSinteticoParceiro(telefoneNormalizado: string): string {
 }
 
 // Rodada 36 — extraído de /api/aprovar-local pra ser compartilhado com
-// /api/aprovar-evento (mesmo padrão de senha temporária pros dois
-// fluxos de login automático por WhatsApp).
-export function gerarSenhaTemporaria(): string {
-  // Sem O/0, I/1/L — evita confusão comum ao digitar uma senha recebida
-  // por WhatsApp num teclado de celular.
-  const alfabeto = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-  let senha = '';
-  for (let i = 0; i < 8; i++) {
-    senha += alfabeto[Math.floor(Math.random() * alfabeto.length)];
-  }
-  return senha;
+// /api/aprovar-evento (mesmo padrão de senha inicial pros dois fluxos de
+// login automático por WhatsApp).
+//
+// Rodada 51 — pedido direto da Andrea: em vez de uma senha aleatória de
+// 8 caracteres (difícil de comunicar de cabeça na hora da venda), a
+// senha inicial passa a ser derivada do próprio WhatsApp cadastrado —
+// fácil de falar/digitar. O parceiro pode (e deve) trocar por qualquer
+// outra depois em "Minha Página" (dashboard/perfil, já existe desde a
+// Rodada 22) — isso não muda, continua só opcional, não obrigatório.
+//
+// Não dá pra usar só "os 4 últimos dígitos" sozinhos: o Supabase Auth
+// exige senha com pelo menos 6 caracteres por padrão (configuração do
+// próprio projeto no painel, não deste código) — 4 dígitos isolados
+// seriam rejeitados na hora de criar a conta. Por isso prefixamos com
+// "dica" (do nome do app), ficando com 8 caracteres no total, mas ainda
+// fácil de falar: "dica" + os 4 últimos números do WhatsApp da pessoa.
+//
+// Importante (segurança, vale saber): por ser previsível pra quem já
+// sabe o WhatsApp da pessoa (dado que às vezes já é público), essa senha
+// é provisória por natureza — serve pra dar acesso rápido na aprovação/
+// venda, não pra ser a senha definitiva. Por isso continua valendo a
+// pena reforçar pro parceiro trocar em "Minha Página" no primeiro login.
+export function gerarSenhaInicial(telefoneOuWhatsapp: string): string {
+  const digitos = telefoneOuWhatsapp.replace(/\D/g, '');
+  const ultimosQuatro = digitos.slice(-4).padStart(4, '0');
+  return `dica${ultimosQuatro}`;
 }

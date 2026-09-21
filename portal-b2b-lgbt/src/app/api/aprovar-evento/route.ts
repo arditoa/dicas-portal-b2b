@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { normalizarTelefoneBR, emailSinteticoParceiro, gerarSenhaTemporaria } from '../../../lib/parceiroAuth';
+import { normalizarTelefoneBR, emailSinteticoParceiro, gerarSenhaInicial } from '../../../lib/parceiroAuth';
 
 // Rodada 36 — pedido direto da Andrea: organizador de evento/festa também
 // deve poder editar horário/layout/fotos depois de aprovado, igual o dono
@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
 
   if (precisaDeLogin) {
     telefone = normalizarTelefoneBR(evento.contato_whatsapp as string);
-    const senhaNova = gerarSenhaTemporaria();
+    const senhaNova = gerarSenhaInicial(telefone);
     const { data: criado, error: criarErr } = await admin.auth.admin.createUser({
       email: emailSinteticoParceiro(telefone),
       password: senhaNova,

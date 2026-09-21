@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { normalizarTelefoneBR, emailSinteticoParceiro, gerarSenhaTemporaria } from '../../../lib/parceiroAuth';
+import { normalizarTelefoneBR, emailSinteticoParceiro, gerarSenhaInicial } from '../../../lib/parceiroAuth';
 
 // Rota nova da Rodada 22 — pedido direto da Andrea depois de testar o
 // fluxo antigo (cadastro sem login -> parceiro cria conta com e-mail ->
@@ -89,13 +89,22 @@ export async function POST(req: NextRequest) {
   let contaNova = false;
 
   if (userId) {
-    // Local já tinha owner_id de uma aprovação anterior. Repara contas
-    // "quebradas" criadas ANTES desta correção (Rodada 23) — quando a
-    // conta ainda era criada só com telefone no Supabase Auth, e o login
-    // por telefone estava desativado no projeto ("Phone logins are
-    // disabled"), deixando a conta sem jeito nenhum de entrar. Se a conta
-    // já tem e-mail (sintético, criado por esta rota), não faz nada — só
-    // reforça o vínculo aprovado/owner_id abaixo, sem gerar senha nova.
+    // Local já tinha owner_id de uma aprovação anterior — este é o
+    // caminho do botão "Enviar acesso" na lista de locais já aprovados.
+    //
+    // Rodada 51 — bug real encontrado (relatado pela Andrea como "o
+    // portal admin parou de gerar senha"): esta rota só gerava senha
+    // nova aqui quando a conta estava "quebrada" (sem e-mail — contas
+    // criadas ANTES da correção da Rodada 23, quando o login ainda era
+    // só por telefone). Toda conta criada DE 2023 EM DIANTE já nasce com
+    // e-mail sintético, então esse `if` nunca era mais verdadeiro na
+    // prática — clicar em "Enviar acesso" pra qualquer local já aprovado
+    // simplesmente não fazia nada (sem erro, sem senha, silencioso). A
+    // intenção sempre foi também servir pra reenviar/gerar senha nova se
+    // o parceiro perdeu a antiga (ver comentário da Rodada 22 acima) —
+    // por isso agora SEMPRE gera uma senha nova aqui, e só monta o
+    // e-mail sintético de novo quando a conta realmente não tinha (caso
+    // de reparo).
     const { data: usuarioExistente, error: getErr } = await admin.auth.admin.getUserById(userId);
     if (getErr || !usuarioExistente?.user) {
       return NextResponse.json(
@@ -103,21 +112,20 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
+    const senhaNova = gerarSenhaInicial(telefone);
+    const atualizacaoConta: { password: string; email?: string; email_confirm?: true } = { password: senhaNova };
     if (!usuarioExistente.user.email) {
-      const senhaNova = gerarSenhaTemporaria();
-      const { error: repararErr } = await admin.auth.admin.updateUserById(userId, {
-        email: emailSinteticoParceiro(telefone),
-        email_confirm: true,
-        password: senhaNova,
-      });
-      if (repararErr) {
-        return NextResponse.json({ error: repararErr.message }, { status: 500 });
-      }
-      senhaGerada = senhaNova;
-      contaNova = false;
+      atualizacaoConta.email = emailSinteticoParceiro(telefone);
+      atualizacaoConta.email_confirm = true;
     }
+    const { error: senhaErr } = await admin.auth.admin.updateUserById(userId, atualizacaoConta);
+    if (senhaErr) {
+      return NextResponse.json({ error: senhaErr.message }, { status: 500 });
+    }
+    senhaGerada = senhaNova;
+    contaNova = false;
   } else {
-    const senhaNova = gerarSenhaTemporaria();
+    const senhaNova = gerarSenhaInicial(telefone);
     const { data: criado, error: criarErr } = await admin.auth.admin.createUser({
       email: emailSinteticoParceiro(telefone),
       password: senhaNova,
