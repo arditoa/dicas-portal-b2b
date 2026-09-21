@@ -1,12 +1,118 @@
 'use client';
 
-import { ArrowLeft, CheckCircle2, Loader2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ImagePlus, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { buscarCoordenadas } from '../../../lib/geocodificar';
 import { telefoneParecCurto } from '../../../lib/parceiroAuth';
+import { erroFotoNaoSuportada, TAMANHO_MAXIMO_FOTO_MB } from '../../../lib/validarFoto';
+
+// Rodada 49 — pedido direto da Andrea: dar a opção de já subir a foto de
+// capa aqui no cadastro público (antes só existia depois de aprovado, via
+// /admin ou o portal do parceiro). Sempre foi OPCIONAL — quem não tiver
+// foto na mão continua cadastrando normal e adiciona depois.
+//
+// Desafio técnico: o local ainda NÃO EXISTE no banco no momento da
+// escolha da foto (o formulário só faz o insert no submit). A RLS de
+// Storage (`fotos_locais_insert_pendente_anonimo`, migration 018) só
+// libera o upload pra uma pasta cujo nome seja o ID de um local que já
+// existe, pendente e sem dono — e pra ESSE anônimo conseguir ler esse ID
+// de volta depois do insert seria preciso passar pela policy de SELECT de
+// `locais`, que nunca deixa (mesmo bug que a migration 017 corrigiu pro
+// /cadastro/rapido). Em vez de duplicar aquela solução com RPCs novas,
+// aproveitei que a coluna `id` só tem DEFAULT (gen_random_uuid()), não é
+// "generated always" — ou seja, o cliente pode gerar o UUID e mandar
+// junto no insert. Assim: 1) gera o id aqui mesmo (crypto.randomUUID()),
+// 2) manda esse id no insert, 3) já com o id em mãos (sem precisar de
+// SELECT nenhum), sobe a foto pra `${id}/capa-...` e chama a MESMA RPC
+// que o /cadastro/rapido já usa (`cadastro_rapido_definir_foto_local`,
+// migration 017) pra gravar foto_capa_url — essa função é genérica (só
+// exige status='pendente' e owner_id nulo), não tem nada de "rápido"
+// específico nela, então reaproveitar é seguro e não precisa de
+// migration nova nenhuma.
+function CampoFotoCapa({
+  arquivo,
+  onSelect,
+  disabled,
+}: {
+  arquivo: File | null;
+  onSelect: (f: File | null) => void;
+  disabled?: boolean;
+}) {
+  const preview = arquivo ? URL.createObjectURL(arquivo) : null;
+  const [erroLocal, setErroLocal] = useState<string | null>(null);
+  return (
+    <div>
+      <label className={labelClass}>Foto de capa (opcional)</label>
+      <label
+        className={`flex items-center gap-3 border border-dashed border-[#232230] rounded-xl p-4 cursor-pointer hover:border-[#E1306C]/50 transition ${
+          disabled ? 'opacity-60 pointer-events-none' : ''
+        }`}
+      >
+        {preview ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={preview} alt="Pré-visualização" className="w-14 h-14 rounded-lg object-cover" />
+        ) : (
+          <div className="w-14 h-14 rounded-lg bg-[#161520] border border-[#232230] flex items-center justify-center">
+            <ImagePlus className="w-5 h-5 text-[#A0A0B2]" />
+          </div>
+        )}
+        <div className="text-xs text-[#A0A0B2]">
+          {arquivo ? (
+            <span className="text-white">{arquivo.name}</span>
+          ) : (
+            <>
+              Toque pra escolher a foto que aparece no app
+              <br />
+              JPG, PNG ou WebP, até {TAMANHO_MAXIMO_FOTO_MB}MB — pode adicionar depois também
+            </>
+          )}
+        </div>
+        <input
+          type="file"
+          accept="image/*"
+          className="hidden"
+          disabled={disabled}
+          onChange={(e) => {
+            const f = e.target.files?.[0] ?? null;
+            setErroLocal(null);
+            if (!f) {
+              onSelect(null);
+              return;
+            }
+            const erroFormato = erroFotoNaoSuportada(f);
+            if (erroFormato) {
+              setErroLocal(erroFormato);
+              onSelect(null);
+              return;
+            }
+            if (f.size > TAMANHO_MAXIMO_FOTO_MB * 1024 * 1024) {
+              setErroLocal(`Essa imagem passa de ${TAMANHO_MAXIMO_FOTO_MB}MB — escolha uma menor.`);
+              onSelect(null);
+              return;
+            }
+            onSelect(f);
+          }}
+        />
+      </label>
+      {erroLocal && <p className="text-xs text-red-400 mt-2 leading-relaxed">{erroLocal}</p>}
+    </div>
+  );
+}
+
+async function enviarFotoCapaLocal(localId: string, arquivo: File): Promise<string> {
+  const extensao = arquivo.name.split('.').pop() || 'jpg';
+  const caminho = `${localId}/capa-${Date.now()}.${extensao}`;
+  const { error } = await supabase.storage.from('fotos-locais').upload(caminho, arquivo, {
+    cacheControl: '3600',
+    upsert: false,
+  });
+  if (error) throw error;
+  const { data } = supabase.storage.from('fotos-locais').getPublicUrl(caminho);
+  return data.publicUrl;
+}
 
 // Espelha a taxonomia de categorias do app (src/lib/categorias.ts). "Festas"
 // não entra aqui porque no app ela abre a aba de Eventos (agenda), não uma
@@ -95,6 +201,7 @@ export default function CadastroLocalPage() {
   const [uf, setUf] = useState('');
   const [aceitouTermos, setAceitouTermos] = useState(false);
   const [publicoTags, setPublicoTags] = useState<string[]>(['todos']);
+  const [fotoCapa, setFotoCapa] = useState<File | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -184,7 +291,23 @@ export default function CadastroLocalPage() {
       // gravar. Nunca bloqueia o cadastro se falhar (ver geocodificar.ts).
       const coordenadas = await buscarCoordenadas(`${endereco}, Brasil`);
 
+      // Rodada 49 — gera o id aqui mesmo (o banco aceitaria de qualquer
+      // forma via DEFAULT gen_random_uuid(), isso só antecipa esse valor
+      // pro navegador já saber o id sem precisar de nenhum SELECT depois
+      // do insert — ver comentário grande acima de CampoFotoCapa).
+      // Fallback só pra navegador muito antigo sem crypto.randomUUID —
+      // gera um UUID v4 válido "na mão" (a coluna locais.id é do tipo
+      // uuid de verdade, não aceita qualquer string).
+      const novoId =
+        typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+              const r = (Math.random() * 16) | 0;
+              return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+            });
+
       const { error } = await supabase.from('locais').insert({
+        id: novoId,
         nome: nomeEspaco,
         categoria,
         cnpj: cnpjLimpo,
@@ -201,6 +324,20 @@ export default function CadastroLocalPage() {
       });
 
       if (error) throw error;
+
+      // Foto é opcional e nunca deve travar o cadastro em si — se o
+      // upload falhar por qualquer motivo, o local já foi criado
+      // normalmente e a foto pode ser adicionada depois (admin ou portal
+      // do parceiro), então só avisamos, não bloqueamos a tela de sucesso.
+      if (fotoCapa) {
+        try {
+          const url = await enviarFotoCapaLocal(novoId, fotoCapa);
+          await supabase.rpc('cadastro_rapido_definir_foto_local', { p_id: novoId, p_url: url });
+        } catch (erroFoto) {
+          console.warn('Cadastro criado, mas a foto de capa não subiu:', erroFoto);
+        }
+      }
+
       setSucesso(true);
     } catch (err: any) {
       console.error('Erro ao cadastrar local:', err);
@@ -374,6 +511,8 @@ export default function CadastroLocalPage() {
                 ))}
               </select>
             </div>
+
+            <CampoFotoCapa arquivo={fotoCapa} onSelect={setFotoCapa} disabled={loading} />
 
             <div>
               <label className={labelClass}>Predominância de público</label>

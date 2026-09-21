@@ -15,6 +15,7 @@ import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { buscarCoordenadas } from '../lib/geocodificar';
 import { telefoneParecCurto } from '../lib/parceiroAuth';
+import { erroFotoNaoSuportada } from '../lib/validarFoto';
 
 // Mesma taxonomia reduzida de /cadastro/local — ver src/lib/categorias.ts
 // (app) pra explicação completa de por que só essas 4 estão habilitadas.
@@ -121,6 +122,11 @@ function CampoFoto({
   disabled?: boolean;
 }) {
   const preview = arquivo ? URL.createObjectURL(arquivo) : null;
+  // Rodada 49 — antes, um arquivo inválido (HEIC/HEIF ou grande demais)
+  // era simplesmente ignorado sem nenhum aviso — quem escolhia a foto
+  // achava que tinha funcionado e só ia descobrir que não subiu nada
+  // muito depois (ou nunca). Ver validarFoto.ts pro motivo do HEIC.
+  const [erroLocal, setErroLocal] = useState<string | null>(null);
   return (
     <div>
       <label className={labelClass}>{label}</label>
@@ -155,12 +161,27 @@ function CampoFoto({
           disabled={disabled}
           onChange={(e) => {
             const f = e.target.files?.[0] ?? null;
-            if (f && !f.type.startsWith('image/')) return;
-            if (f && f.size > TAMANHO_MAXIMO_MB * 1024 * 1024) return;
+            setErroLocal(null);
+            if (!f) {
+              onSelect(null);
+              return;
+            }
+            const erroFormato = erroFotoNaoSuportada(f);
+            if (erroFormato) {
+              setErroLocal(erroFormato);
+              onSelect(null);
+              return;
+            }
+            if (f.size > TAMANHO_MAXIMO_MB * 1024 * 1024) {
+              setErroLocal(`Essa imagem passa de ${TAMANHO_MAXIMO_MB}MB — escolha uma menor.`);
+              onSelect(null);
+              return;
+            }
             onSelect(f);
           }}
         />
       </label>
+      {erroLocal && <p className="text-xs text-red-400 mt-2 leading-relaxed">{erroLocal}</p>}
     </div>
   );
 }

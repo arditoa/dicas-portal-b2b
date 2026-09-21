@@ -1,11 +1,101 @@
 'use client';
 
-import { ArrowLeft, Calendar, CheckCircle2, Loader2 } from 'lucide-react';
+import { ArrowLeft, Calendar, CheckCircle2, ImagePlus, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { telefoneParecCurto } from '../../../lib/parceiroAuth';
+import { erroFotoNaoSuportada, TAMANHO_MAXIMO_FOTO_MB } from '../../../lib/validarFoto';
+
+// Rodada 49 — pedido direto da Andrea: dar a opção de já subir o flier
+// aqui no cadastro público (antes só existia depois de aprovado, via
+// /admin ou dashboard/eventos do parceiro). Opcional, mesma lógica e
+// mesmo motivo técnico de CampoFotoCapa em /cadastro/local — ver o
+// comentário grande lá pra explicação completa (gerar o id no navegador
+// pra não precisar de SELECT depois do insert anônimo, e reaproveitar a
+// RPC genérica cadastro_rapido_definir_foto_evento sem migration nova).
+function CampoFlier({
+  arquivo,
+  onSelect,
+  disabled,
+}: {
+  arquivo: File | null;
+  onSelect: (f: File | null) => void;
+  disabled?: boolean;
+}) {
+  const preview = arquivo ? URL.createObjectURL(arquivo) : null;
+  const [erroLocal, setErroLocal] = useState<string | null>(null);
+  return (
+    <div>
+      <label className={labelClass}>Flier / arte do evento (opcional)</label>
+      <label
+        className={`flex items-center gap-3 border border-dashed border-[#232230] rounded-xl p-4 cursor-pointer hover:border-purple-500/50 transition ${
+          disabled ? 'opacity-60 pointer-events-none' : ''
+        }`}
+      >
+        {preview ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={preview} alt="Pré-visualização" className="w-14 h-14 rounded-lg object-cover" />
+        ) : (
+          <div className="w-14 h-14 rounded-lg bg-[#161520] border border-[#232230] flex items-center justify-center">
+            <ImagePlus className="w-5 h-5 text-[#A0A0B2]" />
+          </div>
+        )}
+        <div className="text-xs text-[#A0A0B2]">
+          {arquivo ? (
+            <span className="text-white">{arquivo.name}</span>
+          ) : (
+            <>
+              Toque pra escolher a arte que aparece no app
+              <br />
+              JPG, PNG ou WebP, até {TAMANHO_MAXIMO_FOTO_MB}MB — pode adicionar depois também
+            </>
+          )}
+        </div>
+        <input
+          type="file"
+          accept="image/*"
+          className="hidden"
+          disabled={disabled}
+          onChange={(e) => {
+            const f = e.target.files?.[0] ?? null;
+            setErroLocal(null);
+            if (!f) {
+              onSelect(null);
+              return;
+            }
+            const erroFormato = erroFotoNaoSuportada(f);
+            if (erroFormato) {
+              setErroLocal(erroFormato);
+              onSelect(null);
+              return;
+            }
+            if (f.size > TAMANHO_MAXIMO_FOTO_MB * 1024 * 1024) {
+              setErroLocal(`Essa imagem passa de ${TAMANHO_MAXIMO_FOTO_MB}MB — escolha uma menor.`);
+              onSelect(null);
+              return;
+            }
+            onSelect(f);
+          }}
+        />
+      </label>
+      {erroLocal && <p className="text-xs text-red-400 mt-2 leading-relaxed">{erroLocal}</p>}
+    </div>
+  );
+}
+
+async function enviarFlierEvento(eventoId: string, arquivo: File): Promise<string> {
+  const extensao = arquivo.name.split('.').pop() || 'jpg';
+  const caminho = `${eventoId}/flier-${Date.now()}.${extensao}`;
+  const { error } = await supabase.storage.from('fotos-eventos').upload(caminho, arquivo, {
+    cacheControl: '3600',
+    upsert: false,
+  });
+  if (error) throw error;
+  const { data } = supabase.storage.from('fotos-eventos').getPublicUrl(caminho);
+  return data.publicUrl;
+}
 
 // Precisam bater com o enum public.estilo_musical (001_migrar_para_locais.sql)
 const ESTILOS = [
@@ -68,6 +158,7 @@ export default function CadastroEventoPage() {
   const [publicoTags, setPublicoTags] = useState<string[]>(['todos']);
   const [nomeContato, setNomeContato] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
+  const [flier, setFlier] = useState<File | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -95,7 +186,23 @@ export default function CadastroEventoPage() {
         .filter(Boolean)
         .join('\n\n');
 
+      // Rodada 49 — mesmo raciocínio de /cadastro/local: gera o id aqui
+      // pra poder subir o flier (se ela escolher um) sem precisar de
+      // nenhum SELECT depois do insert anônimo. Ver comentário grande em
+      // CampoFlier/enviarFlierEvento acima.
+      // Fallback só pra navegador muito antigo sem crypto.randomUUID —
+      // gera um UUID v4 válido "na mão" (a coluna eventos.id é do tipo
+      // uuid de verdade, não aceita qualquer string).
+      const novoId =
+        typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+              const r = (Math.random() * 16) | 0;
+              return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+            });
+
       const { error } = await supabase.from('eventos').insert({
+        id: novoId,
         titulo,
         descricao: descricaoCompleta,
         data_inicio: new Date(dataInicio).toISOString(),
@@ -115,6 +222,19 @@ export default function CadastroEventoPage() {
       });
 
       if (error) throw error;
+
+      // Flier é opcional e nunca deve travar o cadastro — se o upload
+      // falhar, o evento já foi criado normalmente e o flier pode ser
+      // adicionado depois (admin ou dashboard/eventos do parceiro).
+      if (flier) {
+        try {
+          const url = await enviarFlierEvento(novoId, flier);
+          await supabase.rpc('cadastro_rapido_definir_foto_evento', { p_id: novoId, p_url: url });
+        } catch (erroFlier) {
+          console.warn('Evento criado, mas o flier não subiu:', erroFlier);
+        }
+      }
+
       setSucesso(true);
     } catch (err: any) {
       console.error('Erro ao cadastrar evento:', err);
@@ -259,6 +379,8 @@ export default function CadastroEventoPage() {
                 />
               </div>
             </div>
+
+            <CampoFlier arquivo={flier} onSelect={setFlier} disabled={loading} />
 
             <div>
               <label className={labelClass}>Estilo musical</label>

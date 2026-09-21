@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { normalizarTelefoneBR } from '../../lib/parceiroAuth';
+import { erroFotoNaoSuportada } from '../../lib/validarFoto';
 
 const URL_PORTAL = 'https://dicas-portal-b2b-dun.vercel.app'; // ajuste aqui quando o domínio definitivo (ex.: portal.vezpabar.com) estiver configurado
 
@@ -948,8 +949,14 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
     arquivo: File,
     destino: 'capa' | 'galeria'
   ) => {
-    if (!arquivo.type.startsWith('image/')) {
-      setErro('Selecione um arquivo de imagem.');
+    // Rodada 49 — a Andrea reportou que subiu uma foto de capa (Bar da
+    // Gra) e ela não apareceu no app. Causa mais provável: HEIC/HEIF
+    // (padrão do iPhone/Fotos no Mac) — o upload em si funciona (bucket
+    // aceita qualquer mime type), mas o <Image> do React Native não sabe
+    // decodificar esse formato e falha em silêncio. Ver validarFoto.ts.
+    const erroFormato = erroFotoNaoSuportada(arquivo);
+    if (erroFormato) {
+      setErro(erroFormato);
       return;
     }
     setEnviandoFoto(local.id);
@@ -1072,8 +1079,12 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
   // is_admin(), sem migration nova). Mesmo limite de 5MB que o portal do
   // parceiro já usa (dashboard/eventos/page.tsx).
   const enviarFlierEvento = async (ev: EventoDestaque, arquivo: File) => {
-    if (!arquivo.type.startsWith('image/')) {
-      setErro('Selecione um arquivo de imagem.');
+    // Rodada 49 — mesmo guard de enviarFotoLocal acima (ver validarFoto.ts):
+    // bloqueia HEIC/HEIF antes de gastar upload, já que o app não consegue
+    // exibir esse formato.
+    const erroFormato = erroFotoNaoSuportada(arquivo);
+    if (erroFormato) {
+      setErro(erroFormato);
       return;
     }
     if (arquivo.size > 5 * 1024 * 1024) {
