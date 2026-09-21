@@ -161,7 +161,15 @@ export async function POST(req: NextRequest) {
         );
       }
       userId = achou.id;
-      const { error: senhaErr } = await admin.auth.admin.updateUserById(userId, { password: senhaNova });
+      // Rodada 54 — mesma correção defensiva de aprovar-local: reaproveitar
+      // uma conta antiga também garante que ela não esteja bloqueada por
+      // confirmação pendente ou ban antigo (de anos de teste manual no
+      // painel do Supabase), não só a senha nova.
+      const { error: senhaErr } = await admin.auth.admin.updateUserById(userId, {
+        password: senhaNova,
+        email_confirm: true,
+        ban_duration: 'none',
+      });
       if (senhaErr) {
         return NextResponse.json({ error: senhaErr.message }, { status: 500 });
       }

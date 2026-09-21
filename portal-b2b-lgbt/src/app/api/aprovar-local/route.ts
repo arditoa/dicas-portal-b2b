@@ -112,11 +112,22 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
+    // Rodada 54 — sempre que reaproveitamos/resetamos uma conta, também
+    // forçamos email_confirm:true e ban_duration:'none' (não só a senha).
+    // Motivo: essa conta pode ter passado por anos de teste manual direto
+    // no painel do Supabase (a própria Vezpa Bar já teve profile apagado
+    // manualmente antes — ver 019) — se em algum desses testes a conta
+    // ficou sem confirmação ou banida por engano, só trocar a senha não
+    // desbloqueava o login, e o erro pro parceiro era só "credenciais
+    // inválidas", sem dizer o motivo real.
     const senhaNova = gerarSenhaInicial(telefone);
-    const atualizacaoConta: { password: string; email?: string; email_confirm?: true } = { password: senhaNova };
+    const atualizacaoConta: { password: string; email_confirm: true; ban_duration: string; email?: string } = {
+      password: senhaNova,
+      email_confirm: true,
+      ban_duration: 'none',
+    };
     if (!usuarioExistente.user.email) {
       atualizacaoConta.email = emailSinteticoParceiro(telefone);
-      atualizacaoConta.email_confirm = true;
     }
     const { error: senhaErr } = await admin.auth.admin.updateUserById(userId, atualizacaoConta);
     if (senhaErr) {
@@ -163,7 +174,14 @@ export async function POST(req: NextRequest) {
         );
       }
       userId = achou.id;
-      const { error: senhaErr } = await admin.auth.admin.updateUserById(userId, { password: senhaNova });
+      // Rodada 54 — mesmo motivo do comentário acima: reaproveitar uma
+      // conta antiga também garante que ela não esteja bloqueada por
+      // confirmação pendente ou ban antigo, não só a senha nova.
+      const { error: senhaErr } = await admin.auth.admin.updateUserById(userId, {
+        password: senhaNova,
+        email_confirm: true,
+        ban_duration: 'none',
+      });
       if (senhaErr) {
         return NextResponse.json({ error: senhaErr.message }, { status: 500 });
       }
