@@ -67,6 +67,16 @@ const TAMANHO_MAXIMO_MB = 5;
 const inputClass =
   'w-full bg-[#161520] border border-[#232230] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#E1306C] disabled:opacity-60';
 const labelClass = 'text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2';
+// Rodada 50 — a Andrea reportou o campo de data/hora ilegível na página
+// principal do cadastro rápido. O texto digitado já era branco
+// (inputClass já tinha text-white), mas o navegador desenha o ícone do
+// calendário/relógio e o mini-popup de seleção usando o tema CLARO por
+// padrão, sem saber que o fundo ao redor é escuro — ícone escuro em cima
+// de fundo escuro, quase invisível. `colorScheme: 'dark'` avisa o
+// navegador que esse campo está num contexto escuro, e ele já desenha o
+// ícone/popup nativo em branco sozinho (Chrome, Edge, Firefox e Safari
+// tratam isso automaticamente, sem precisar de CSS extra por navegador).
+const dateInputStyle = { colorScheme: 'dark' } as const;
 
 function toggleValue<T>(arr: T[], value: T): T[] {
   return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
@@ -595,6 +605,7 @@ export default function FormularioCadastroRapido({ tipo, onSucesso }: Props) {
                 value={dataInicio}
                 onChange={(e) => setDataInicio(e.target.value)}
                 className={inputClass}
+                style={dateInputStyle}
                 disabled={loading}
               />
             </div>
@@ -699,8 +710,11 @@ export default function FormularioCadastroRapido({ tipo, onSucesso }: Props) {
             disabled={loading}
           />
           <span>
-            Li e aceito os termos de cadastro de parceiro e autorizo o contato por WhatsApp sobre a
-            análise do meu cadastro.
+            Li e aceito os{' '}
+            <a href="/termos" target="_blank" rel="noopener noreferrer" className="text-[#E1306C] hover:underline">
+              termos de cadastro de parceiro
+            </a>{' '}
+            e autorizo o contato por WhatsApp sobre a análise do meu cadastro.
           </span>
         </label>
 

@@ -189,6 +189,7 @@ export default function CupomPage() {
                 value={validoAte}
                 onChange={(e) => setValidoAte(e.target.value)}
                 className="w-full bg-[#0B0B0E] border border-[#232230] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#E1306C]"
+                style={{ colorScheme: 'dark' }}
               />
             </div>
             <div>

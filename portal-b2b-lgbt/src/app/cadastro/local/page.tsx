@@ -646,8 +646,11 @@ export default function CadastroLocalPage() {
               disabled={loading}
             />
             <span>
-              Li e aceito os termos de cadastro de parceiro e autorizo o contato por WhatsApp sobre a
-              análise do meu cadastro.
+              Li e aceito os{' '}
+              <Link href="/termos" target="_blank" className="text-[#E1306C] hover:underline">
+                termos de cadastro de parceiro
+              </Link>{' '}
+              e autorizo o contato por WhatsApp sobre a análise do meu cadastro.
             </span>
           </label>
 

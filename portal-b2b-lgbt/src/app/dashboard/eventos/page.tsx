@@ -439,6 +439,7 @@ export default function DashboardEventosPage() {
                   value={paraDatetimeLocal(ev.data_inicio)}
                   onChange={(e) => atualizarCampo(ev.id, { data_inicio: paraISO(e.target.value) || ev.data_inicio })}
                   className="w-full bg-[#0B0B0E] border border-[#232230] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#E1306C]"
+                  style={{ colorScheme: 'dark' }}
                 />
               </div>
               <div>
@@ -448,6 +449,7 @@ export default function DashboardEventosPage() {
                   value={paraDatetimeLocal(ev.data_fim)}
                   onChange={(e) => atualizarCampo(ev.id, { data_fim: paraISO(e.target.value) })}
                   className="w-full bg-[#0B0B0E] border border-[#232230] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#E1306C]"
+                  style={{ colorScheme: 'dark' }}
                 />
               </div>
             </div>

@@ -2070,6 +2070,7 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
                   value={rascunho.ate}
                   onChange={(e) => setRascunhoFixacao((atual) => ({ ...atual, [ev.id]: { ...rascunho, ate: e.target.value } }))}
                   className="bg-[#0B0B0E] border border-[#232230] rounded-lg text-xs px-3 py-2"
+                  style={{ colorScheme: 'dark' }}
                   title="Até quando (opcional — vazio = sem prazo)"
                 />
                 <button

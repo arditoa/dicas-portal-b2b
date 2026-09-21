@@ -340,6 +340,7 @@ export default function CadastroEventoPage() {
                   value={dataInicio}
                   onChange={(e) => setDataInicio(e.target.value)}
                   className={inputClass}
+                  style={{ colorScheme: 'dark' }}
                   disabled={loading}
                 />
               </div>
@@ -350,6 +351,7 @@ export default function CadastroEventoPage() {
                   value={dataFim}
                   onChange={(e) => setDataFim(e.target.value)}
                   className={inputClass}
+                  style={{ colorScheme: 'dark' }}
                   disabled={loading}
                 />
               </div>
