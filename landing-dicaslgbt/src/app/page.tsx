@@ -252,12 +252,9 @@ export default function LandingPage() {
       {/* Seção 5 — Demonstração do aplicativo */}
       <section className="w-full border-t border-white/5 bg-white/[0.02]">
         <div className="max-w-6xl mx-auto px-6 py-16">
-          <h2 className="text-2xl sm:text-3xl font-extrabold mb-3 text-center">
+          <h2 className="text-2xl sm:text-3xl font-extrabold mb-10 text-center">
             Não estamos criando apenas mais um guia.
           </h2>
-          <p className="text-[#A0A0B2] text-sm sm:text-base text-center max-w-xl mx-auto mb-12">
-            Telas reais do aplicativo, ainda em desenvolvimento.
-          </p>
 
           <div className="flex flex-wrap justify-center gap-8 sm:gap-6 mb-14">
             {SCREENSHOTS.map((s, i) => (
