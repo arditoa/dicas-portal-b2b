@@ -33,6 +33,22 @@ import { URL_PORTAL } from '../lib/constants';
 // final virou a página própria /lancamento), e o conteúdo voltado a
 // usuário final foi pra /app e /sobre. Ver nota maior no rodapé deste
 // arquivo sobre a Seção 9 (formulário de cadastro).
+//
+// Rodada 59 (parte 4) — Andrea pediu pra agir como designer e ajustar o
+// layout. Nenhum texto mudou (continuam exatamente os do Guia); o que
+// mudou foi só a composição visual: (1) cada seção agora tem um wrapper
+// full-width (pro divisor/faixa de fundo ir de ponta a ponta) com um
+// <div> interno max-w/padding (antes os dois ficavam junto no mesmo
+// elemento) — isso permite (2) faixas de fundo bem sutis alternando a
+// cada seção (bg-white/[0.02]), pra quebrar a monotonia de 12 seções
+// seguidas exatamente da mesma cor solta no fundo preto; (3) um brilho
+// radial suave (rosa→roxo) atrás do título do hero, pra dar profundidade
+// em vez de um bloco preto chapado; (4) os "Números" ganharam um painel
+// próprio (cartão), em vez de ficarem soltos direto no fundo; (5) a
+// Seção 11 (Instituições, ainda sem logos pra mostrar) ficou com menos
+// espaço vertical — antes tinha o mesmo respiro de seções cheias de
+// conteúdo, mas só tem um ícone + um título, e isso deixava um vão vazio
+// estranho no meio da página.
 
 const PLANOS_PREVIEW = [
   { nome: 'Freemium', preco: 'R$0', destaque: false },
@@ -97,169 +113,195 @@ const PASSOS = [
 
 export default function LandingPage() {
   return (
-    <main className="min-h-screen bg-[#0B0B0E] text-white pb-24 sm:pb-0">
+    <main className="min-h-screen bg-[#0B0B0E] text-white pb-24 sm:pb-0 overflow-x-hidden">
       <Header />
 
       {/* Seção 1 — Primeira tela */}
-      <section className="w-full max-w-4xl mx-auto text-center px-6 pt-14 pb-16 fade-up">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#7E57C2]/10 border border-[#7E57C2]/30 text-[#B79EE8] text-xs font-semibold tracking-wide uppercase mb-6">
-          <Sparkles className="w-3.5 h-3.5" />
-          Cadastros antecipados abertos
-        </div>
-        <h1 className="text-4xl sm:text-6xl font-black tracking-tight leading-tight">
-          Sua empresa precisa estar neste futuro.
-        </h1>
-        <p className="text-[#A0A0B2] text-base sm:text-lg max-w-2xl mx-auto mt-6 leading-relaxed">
-          Cadastre gratuitamente seu negócio e esteja entre as primeiras empresas do Dicas LGBT+ App.
-          Conecte-se com pessoas que procuram lugares, serviços, eventos, destinos e experiências
-          comprometidas com a diversidade.
-        </p>
+      <section className="relative w-full overflow-hidden">
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 h-[560px]"
+          style={{
+            background:
+              'radial-gradient(55% 60% at 50% -10%, rgba(225,48,108,0.20), rgba(126,87,194,0.10) 45%, transparent 75%)',
+          }}
+          aria-hidden
+        />
+        <div className="relative w-full max-w-4xl mx-auto text-center px-6 pt-14 pb-16 fade-up">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#7E57C2]/10 border border-[#7E57C2]/30 text-[#B79EE8] text-xs font-semibold tracking-wide uppercase mb-6">
+            <Sparkles className="w-3.5 h-3.5" />
+            Cadastros antecipados abertos
+          </div>
+          <h1 className="text-4xl sm:text-6xl font-black tracking-tight leading-tight">
+            Sua empresa precisa estar neste futuro.
+          </h1>
+          <p className="text-[#A0A0B2] text-base sm:text-lg max-w-2xl mx-auto mt-6 leading-relaxed">
+            Cadastre gratuitamente seu negócio e esteja entre as primeiras empresas do Dicas LGBT+ App.
+            Conecte-se com pessoas que procuram lugares, serviços, eventos, destinos e experiências
+            comprometidas com a diversidade.
+          </p>
 
-        <div className="flex flex-col items-center gap-2 mt-10">
-          <a
-            href="#cadastro"
-            className="bg-[#E1306C] hover:bg-[#c2285c] text-white font-bold text-sm px-6 py-3.5 rounded-xl transition flex items-center gap-2"
-          >
-            Cadastrar minha empresa gratuitamente
-            <ArrowRight className="w-4 h-4" />
-          </a>
-          <span className="text-xs text-[#626274]">Leva cerca de 2 minutos. Análise em até 48 horas.</span>
-        </div>
+          <div className="flex flex-col items-center gap-2 mt-10">
+            <a
+              href="#cadastro"
+              className="bg-[#E1306C] hover:bg-[#c2285c] text-white font-bold text-sm px-6 py-3.5 rounded-xl transition flex items-center gap-2 shadow-[0_8px_30px_-8px_rgba(225,48,108,0.5)]"
+            >
+              Cadastrar minha empresa gratuitamente
+              <ArrowRight className="w-4 h-4" />
+            </a>
+            <span className="text-xs text-[#626274]">Leva cerca de 2 minutos. Análise em até 48 horas.</span>
+          </div>
 
-        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mt-8 text-xs">
-          <Link href="/app" className="text-[#A0A0B2] hover:text-white transition underline underline-offset-4">
-            Conhecer o aplicativo
-          </Link>
-          <Link href="/entrar" className="text-[#A0A0B2] hover:text-white transition">
-            Já sou parceiro: entrar
-          </Link>
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mt-8 text-xs">
+            <Link href="/app" className="text-[#A0A0B2] hover:text-white transition underline underline-offset-4">
+              Conhecer o aplicativo
+            </Link>
+            <Link href="/entrar" className="text-[#A0A0B2] hover:text-white transition">
+              Já sou parceiro: entrar
+            </Link>
+          </div>
         </div>
       </section>
 
       {/* Seção 2 — Atalhos do projeto */}
-      <section className="w-full max-w-6xl mx-auto px-6 py-16 border-t border-white/5">
-        <h2 className="text-2xl sm:text-3xl font-extrabold mb-8">Quer conhecer melhor o projeto?</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {ATALHOS.map((a) => (
-            <Link
-              key={a.href}
-              href={a.href}
-              className="group bg-[#161520] border border-[#232230] hover:border-[#E1306C]/50 rounded-2xl p-6 transition-all hover:-translate-y-1 flex flex-col justify-between"
-            >
-              <div>
-                <h3 className="font-bold mb-2">{a.titulo}</h3>
-                <p className="text-[#A0A0B2] text-sm leading-relaxed">{a.texto}</p>
-              </div>
-              <ArrowRight className="w-4 h-4 mt-5 text-[#E1306C] group-hover:translate-x-1 transition-transform" />
-            </Link>
-          ))}
+      <section className="w-full border-t border-white/5">
+        <div className="max-w-6xl mx-auto px-6 py-16">
+          <h2 className="text-2xl sm:text-3xl font-extrabold mb-8">Quer conhecer melhor o projeto?</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {ATALHOS.map((a) => (
+              <Link
+                key={a.href}
+                href={a.href}
+                className="group bg-[#161520] border border-[#232230] hover:border-[#E1306C]/50 rounded-2xl p-6 transition-all hover:-translate-y-1 flex flex-col justify-between"
+              >
+                <div>
+                  <h3 className="font-bold mb-2">{a.titulo}</h3>
+                  <p className="text-[#A0A0B2] text-sm leading-relaxed">{a.texto}</p>
+                </div>
+                <ArrowRight className="w-4 h-4 mt-5 text-[#E1306C] group-hover:translate-x-1 transition-transform" />
+              </Link>
+            ))}
+          </div>
         </div>
       </section>
 
       {/* Seção 3 — Números */}
-      <section className="w-full max-w-6xl mx-auto px-6 py-16 border-t border-white/5">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
-          {NUMEROS.map((n) => (
-            <div key={n.destaque}>
-              <div className="text-2xl sm:text-3xl font-black gradient-text">{n.destaque}</div>
-              <div className="text-xs sm:text-sm text-[#A0A0B2] mt-1">{n.texto}</div>
+      <section className="w-full border-t border-white/5 bg-white/[0.02]">
+        <div className="max-w-6xl mx-auto px-6 py-16">
+          <div className="bg-[#12121A] border border-[#232230] rounded-2xl px-6 sm:px-10 py-10">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 text-center">
+              {NUMEROS.map((n) => (
+                <div key={n.destaque}>
+                  <div className="text-2xl sm:text-3xl font-black gradient-text">{n.destaque}</div>
+                  <div className="text-xs sm:text-sm text-[#A0A0B2] mt-1.5">{n.texto}</div>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
         </div>
       </section>
 
       {/* Seção 4 — Oportunidade */}
-      <section className="w-full max-w-4xl mx-auto px-6 py-16 border-t border-white/5 text-center">
-        <h2 className="text-2xl sm:text-3xl font-extrabold">
-          Seu público já existe. Agora ele precisa encontrar você.
-        </h2>
-        <p className="text-[#A0A0B2] text-sm sm:text-base mt-4 leading-relaxed max-w-2xl mx-auto">
-          Todos os dias, pessoas LGBT+ procuram lugares para sair, comer, viajar, se cuidar e viver
-          novas experiências. O Dicas LGBT+ App vai aproximar essa comunidade das empresas que querem
-          ser descobertas por ela. Quem entra primeiro ajuda a construir o mapa e começa na frente.
-        </p>
-        <a
-          href="#cadastro"
-          className="inline-flex items-center gap-2 mt-8 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold text-sm px-6 py-3.5 rounded-xl transition"
-        >
-          Quero colocar minha empresa no mapa
-          <ArrowRight className="w-4 h-4" />
-        </a>
+      <section className="w-full border-t border-white/5">
+        <div className="max-w-4xl mx-auto px-6 py-16 text-center">
+          <h2 className="text-2xl sm:text-3xl font-extrabold">
+            Seu público já existe. Agora ele precisa encontrar você.
+          </h2>
+          <p className="text-[#A0A0B2] text-sm sm:text-base mt-4 leading-relaxed max-w-2xl mx-auto">
+            Todos os dias, pessoas LGBT+ procuram lugares para sair, comer, viajar, se cuidar e viver
+            novas experiências. O Dicas LGBT+ App vai aproximar essa comunidade das empresas que querem
+            ser descobertas por ela. Quem entra primeiro ajuda a construir o mapa e começa na frente.
+          </p>
+          <a
+            href="#cadastro"
+            className="inline-flex items-center gap-2 mt-8 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold text-sm px-6 py-3.5 rounded-xl transition"
+          >
+            Quero colocar minha empresa no mapa
+            <ArrowRight className="w-4 h-4" />
+          </a>
+        </div>
       </section>
 
       {/* Seção 5 — Demonstração do aplicativo */}
-      <section className="w-full max-w-6xl mx-auto px-6 py-16 border-t border-white/5">
-        <h2 className="text-2xl sm:text-3xl font-extrabold mb-10 text-center">
-          Não estamos criando apenas mais um guia.
-        </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-          {TELAS.map((t) => (
-            <div key={t.nome} className="bg-[#161520] border border-[#232230] rounded-2xl p-5 text-center">
-              <div className="w-10 h-10 mx-auto rounded-xl bg-[#E1306C]/10 border border-[#E1306C]/20 flex items-center justify-center text-[#E1306C] mb-4">
-                <t.icone className="w-5 h-5" />
+      <section className="w-full border-t border-white/5 bg-white/[0.02]">
+        <div className="max-w-6xl mx-auto px-6 py-16">
+          <h2 className="text-2xl sm:text-3xl font-extrabold mb-10 text-center">
+            Não estamos criando apenas mais um guia.
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+            {TELAS.map((t) => (
+              <div key={t.nome} className="bg-[#161520] border border-[#232230] rounded-2xl p-5 text-center">
+                <div className="w-10 h-10 mx-auto rounded-xl bg-[#E1306C]/10 border border-[#E1306C]/20 flex items-center justify-center text-[#E1306C] mb-4">
+                  <t.icone className="w-5 h-5" />
+                </div>
+                <h3 className="font-bold text-sm mb-1.5">{t.nome}</h3>
+                <p className="text-[#A0A0B2] text-[11px] leading-relaxed">{t.legenda}</p>
               </div>
-              <h3 className="font-bold text-sm mb-1.5">{t.nome}</h3>
-              <p className="text-[#A0A0B2] text-[11px] leading-relaxed">{t.legenda}</p>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </section>
 
       {/* Seção 6 — Benefícios */}
-      <section className="w-full max-w-6xl mx-auto px-6 py-16 border-t border-white/5">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {BENEFICIOS.map((b) => (
-            <div key={b.titulo} className="bg-[#161520] border border-[#232230] rounded-2xl p-6">
-              <h3 className="font-bold mb-2">{b.titulo}</h3>
-              <p className="text-[#A0A0B2] text-sm leading-relaxed">{b.texto}</p>
-            </div>
-          ))}
+      <section className="w-full border-t border-white/5">
+        <div className="max-w-6xl mx-auto px-6 py-16">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {BENEFICIOS.map((b) => (
+              <div key={b.titulo} className="bg-[#161520] border border-[#232230] rounded-2xl p-6">
+                <h3 className="font-bold mb-2">{b.titulo}</h3>
+                <p className="text-[#A0A0B2] text-sm leading-relaxed">{b.texto}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
       {/* Seção 7 — Categorias */}
-      <section className="w-full max-w-6xl mx-auto px-6 py-16 border-t border-white/5">
-        <h2 className="text-2xl sm:text-3xl font-extrabold mb-8 text-center">Tem lugar para o seu negócio aqui.</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-          {CATEGORIAS.map((c) => (
-            <a
-              key={c.nome}
-              href="#cadastro"
-              className="group bg-[#161520] border border-[#232230] hover:border-[#E1306C]/50 rounded-2xl p-6 text-center transition-all hover:-translate-y-1"
-            >
-              <div className="w-11 h-11 mx-auto rounded-xl bg-[#E1306C]/10 border border-[#E1306C]/20 flex items-center justify-center text-[#E1306C] mb-4">
-                <c.icone className="w-5 h-5" />
-              </div>
-              <h3 className="font-bold text-sm mb-2">{c.nome}</h3>
-              <span className="text-[11px] font-semibold text-[#E1306C] inline-flex items-center gap-1">
-                Cadastrar meu negócio <ArrowRight className="w-3 h-3" />
-              </span>
-            </a>
-          ))}
+      <section className="w-full border-t border-white/5 bg-white/[0.02]">
+        <div className="max-w-6xl mx-auto px-6 py-16">
+          <h2 className="text-2xl sm:text-3xl font-extrabold mb-8 text-center">Tem lugar para o seu negócio aqui.</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            {CATEGORIAS.map((c) => (
+              <a
+                key={c.nome}
+                href="#cadastro"
+                className="group bg-[#161520] border border-[#232230] hover:border-[#E1306C]/50 rounded-2xl p-6 text-center transition-all hover:-translate-y-1"
+              >
+                <div className="w-11 h-11 mx-auto rounded-xl bg-[#E1306C]/10 border border-[#E1306C]/20 flex items-center justify-center text-[#E1306C] mb-4">
+                  <c.icone className="w-5 h-5" />
+                </div>
+                <h3 className="font-bold text-sm mb-2">{c.nome}</h3>
+                <span className="text-[11px] font-semibold text-[#E1306C] inline-flex items-center gap-1">
+                  Cadastrar meu negócio <ArrowRight className="w-3 h-3" />
+                </span>
+              </a>
+            ))}
+          </div>
         </div>
       </section>
 
       {/* Seção 8 — Como funciona */}
-      <section className="w-full max-w-4xl mx-auto px-6 py-16 border-t border-white/5">
-        <h2 className="text-2xl sm:text-3xl font-extrabold mb-8 text-center">Como funciona</h2>
-        <ol className="space-y-4">
-          {PASSOS.map((p, i) => (
-            <li key={p} className="flex items-start gap-4 bg-[#161520] border border-[#232230] rounded-2xl p-5">
-              <span className="w-7 h-7 shrink-0 rounded-full bg-[#E1306C] text-white text-xs font-black flex items-center justify-center">
-                {i + 1}
-              </span>
-              <p className="text-sm text-[#D0D0E0] leading-relaxed pt-0.5">{p}</p>
-            </li>
-          ))}
-        </ol>
-        <div className="text-center mt-8">
-          <a
-            href="#cadastro"
-            className="inline-flex items-center gap-2 bg-[#E1306C] hover:bg-[#c2285c] text-white font-bold text-sm px-6 py-3.5 rounded-xl transition"
-          >
-            Começar meu cadastro gratuito
-            <ArrowRight className="w-4 h-4" />
-          </a>
+      <section className="w-full border-t border-white/5">
+        <div className="max-w-4xl mx-auto px-6 py-16">
+          <h2 className="text-2xl sm:text-3xl font-extrabold mb-8 text-center">Como funciona</h2>
+          <ol className="space-y-4">
+            {PASSOS.map((p, i) => (
+              <li key={p} className="flex items-start gap-4 bg-[#161520] border border-[#232230] rounded-2xl p-5">
+                <span className="w-7 h-7 shrink-0 rounded-full bg-[#E1306C] text-white text-xs font-black flex items-center justify-center">
+                  {i + 1}
+                </span>
+                <p className="text-sm text-[#D0D0E0] leading-relaxed pt-0.5">{p}</p>
+              </li>
+            ))}
+          </ol>
+          <div className="text-center mt-8">
+            <a
+              href="#cadastro"
+              className="inline-flex items-center gap-2 bg-[#E1306C] hover:bg-[#c2285c] text-white font-bold text-sm px-6 py-3.5 rounded-xl transition"
+            >
+              Começar meu cadastro gratuito
+              <ArrowRight className="w-4 h-4" />
+            </a>
+          </div>
         </div>
       </section>
 
@@ -267,153 +309,162 @@ export default function LandingPage() {
       {/* Rodada 59 (parte 3) — header virou sticky; scroll-mt aumentado
           (era scroll-mt-6) pra o título desta seção não ficar escondido
           atrás do header ao clicar em "Cadastrar minha empresa"/#cadastro. */}
-      <section id="cadastro" className="w-full max-w-4xl mx-auto px-6 py-16 border-t border-white/5 scroll-mt-24">
-        <div className="text-center mb-10">
-          <h2 className="text-2xl sm:text-3xl font-extrabold">Vamos colocar sua empresa no mapa?</h2>
-          <p className="text-[#A0A0B2] text-sm sm:text-base mt-3 max-w-xl mx-auto leading-relaxed">
-            Leva cerca de 2 minutos com os dados em mãos. Se precisar consultar alguma informação, você
-            pode concluir em até 5 minutos.
+      <section id="cadastro" className="w-full border-t border-white/5 bg-white/[0.02] scroll-mt-24">
+        <div className="max-w-4xl mx-auto px-6 py-16">
+          <div className="text-center mb-10">
+            <h2 className="text-2xl sm:text-3xl font-extrabold">Vamos colocar sua empresa no mapa?</h2>
+            <p className="text-[#A0A0B2] text-sm sm:text-base mt-3 max-w-xl mx-auto leading-relaxed">
+              Leva cerca de 2 minutos com os dados em mãos. Se precisar consultar alguma informação, você
+              pode concluir em até 5 minutos.
+            </p>
+          </div>
+
+          <p className="text-center text-xs font-bold text-[#626274] uppercase tracking-wide mb-5">
+            Como você quer participar?
           </p>
-        </div>
-
-        <p className="text-center text-xs font-bold text-[#626274] uppercase tracking-wide mb-5">
-          Como você quer participar?
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-          <Link
-            href={`${URL_PORTAL}/cadastro/local`}
-            className="group bg-[#161520] border border-[#232230] hover:border-[#E1306C]/50 rounded-2xl p-6 flex flex-col justify-between transition-all hover:-translate-y-1"
-          >
-            <div>
-              <div className="w-12 h-12 rounded-xl bg-[#E1306C]/10 border border-[#E1306C]/20 flex items-center justify-center text-[#E1306C] mb-5">
-                <Building2 className="w-6 h-6" />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            <Link
+              href={`${URL_PORTAL}/cadastro/local`}
+              className="group bg-[#161520] border border-[#232230] hover:border-[#E1306C]/50 rounded-2xl p-6 flex flex-col justify-between transition-all hover:-translate-y-1"
+            >
+              <div>
+                <div className="w-12 h-12 rounded-xl bg-[#E1306C]/10 border border-[#E1306C]/20 flex items-center justify-center text-[#E1306C] mb-5">
+                  <Building2 className="w-6 h-6" />
+                </div>
+                <h3 className="font-bold mb-2">Tenho um espaço ou empresa</h3>
+                <p className="text-[#A0A0B2] text-xs leading-relaxed">
+                  Negócio, contato e perfil (fotos, vibe, endereço). Cadastro gratuito, análise em até 48h.
+                </p>
               </div>
-              <h3 className="font-bold mb-2">Tenho um espaço ou empresa</h3>
-              <p className="text-[#A0A0B2] text-xs leading-relaxed">
-                Negócio, contato e perfil (fotos, vibe, endereço). Cadastro gratuito, análise em até 48h.
-              </p>
+              <span className="mt-6 flex items-center gap-2 text-xs font-semibold text-[#E1306C]">
+                Abrir cadastro de empresa
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </span>
+            </Link>
+
+            <Link
+              href={`${URL_PORTAL}/cadastro/evento`}
+              className="group bg-[#161520] border border-[#232230] hover:border-[#7E57C2]/50 rounded-2xl p-6 flex flex-col justify-between transition-all hover:-translate-y-1"
+            >
+              <div>
+                <div className="w-12 h-12 rounded-xl bg-[#7E57C2]/10 border border-[#7E57C2]/20 flex items-center justify-center text-[#7E57C2] mb-5">
+                  <Calendar className="w-6 h-6" />
+                </div>
+                <h3 className="font-bold mb-2">Produzo festas ou eventos</h3>
+                <p className="text-[#A0A0B2] text-xs leading-relaxed">
+                  Cadastre o produtor e envie cada evento para revisão antes da publicação.
+                </p>
+              </div>
+              <span className="mt-6 flex items-center gap-2 text-xs font-semibold text-[#7E57C2]">
+                Abrir cadastro de produtor/evento
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </span>
+            </Link>
+
+            <Link
+              href={`${URL_PORTAL}/cadastro/institucional`}
+              className="group bg-[#161520] border border-[#232230] hover:border-[#FFD54F]/50 rounded-2xl p-6 flex flex-col justify-between transition-all hover:-translate-y-1"
+            >
+              <div>
+                <div className="w-12 h-12 rounded-xl bg-[#FFD54F]/10 border border-[#FFD54F]/20 flex items-center justify-center text-[#FFD54F] mb-5">
+                  <Send className="w-6 h-6" />
+                </div>
+                <h3 className="font-bold mb-2">Represento uma instituição ou marca</h3>
+                <p className="text-[#A0A0B2] text-xs leading-relaxed">
+                  Fale com a equipe sobre parcerias institucionais, ONGs e marcas.
+                </p>
+              </div>
+              <span className="mt-6 flex items-center gap-2 text-xs font-semibold text-[#FFD54F]">
+                Falar com a equipe
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </span>
+            </Link>
+          </div>
+
+          {/* Planos — prévia honesta, mesma da Rodada 42 */}
+          <div className="bg-[#12121A] border border-[#232230] rounded-2xl p-6 sm:p-8 mt-10">
+            <h3 className="font-bold text-base mb-1">Comece de graça, cresça quando quiser</h3>
+            <p className="text-[#A0A0B2] text-sm mb-6">
+              O cadastro é sempre gratuito. Planos pagos aumentam sua visibilidade dentro do app — sem
+              contrato de fidelidade.
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              {PLANOS_PREVIEW.map((p) => (
+                <div
+                  key={p.nome}
+                  className={`rounded-xl border p-4 text-center ${
+                    p.destaque ? 'border-[#E1306C] bg-[#E1306C]/5' : 'border-[#232230] bg-[#161520]'
+                  }`}
+                >
+                  {p.tag && <div className="text-[9px] font-extrabold text-[#FFD54F] mb-1 uppercase">{p.tag}</div>}
+                  <div className="text-xs text-[#A0A0B2] font-semibold">{p.nome}</div>
+                  <div className="text-sm font-black mt-1">{p.preco}</div>
+                </div>
+              ))}
             </div>
-            <span className="mt-6 flex items-center gap-2 text-xs font-semibold text-[#E1306C]">
-              Abrir cadastro de empresa
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </span>
-          </Link>
-
-          <Link
-            href={`${URL_PORTAL}/cadastro/evento`}
-            className="group bg-[#161520] border border-[#232230] hover:border-[#7E57C2]/50 rounded-2xl p-6 flex flex-col justify-between transition-all hover:-translate-y-1"
-          >
-            <div>
-              <div className="w-12 h-12 rounded-xl bg-[#7E57C2]/10 border border-[#7E57C2]/20 flex items-center justify-center text-[#7E57C2] mb-5">
-                <Calendar className="w-6 h-6" />
-              </div>
-              <h3 className="font-bold mb-2">Produzo festas ou eventos</h3>
-              <p className="text-[#A0A0B2] text-xs leading-relaxed">
-                Cadastre o produtor e envie cada evento para revisão antes da publicação.
-              </p>
-            </div>
-            <span className="mt-6 flex items-center gap-2 text-xs font-semibold text-[#7E57C2]">
-              Abrir cadastro de produtor/evento
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </span>
-          </Link>
-
-          <Link
-            href={`${URL_PORTAL}/cadastro/institucional`}
-            className="group bg-[#161520] border border-[#232230] hover:border-[#FFD54F]/50 rounded-2xl p-6 flex flex-col justify-between transition-all hover:-translate-y-1"
-          >
-            <div>
-              <div className="w-12 h-12 rounded-xl bg-[#FFD54F]/10 border border-[#FFD54F]/20 flex items-center justify-center text-[#FFD54F] mb-5">
-                <Send className="w-6 h-6" />
-              </div>
-              <h3 className="font-bold mb-2">Represento uma instituição ou marca</h3>
-              <p className="text-[#A0A0B2] text-xs leading-relaxed">
-                Fale com a equipe sobre parcerias institucionais, ONGs e marcas.
-              </p>
-            </div>
-            <span className="mt-6 flex items-center gap-2 text-xs font-semibold text-[#FFD54F]">
-              Falar com a equipe
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </span>
-          </Link>
-        </div>
-
-        {/* Planos — prévia honesta, mesma da Rodada 42 */}
-        <div className="bg-[#12121A] border border-[#232230] rounded-2xl p-6 sm:p-8 mt-10">
-          <h3 className="font-bold text-base mb-1">Comece de graça, cresça quando quiser</h3>
-          <p className="text-[#A0A0B2] text-sm mb-6">
-            O cadastro é sempre gratuito. Planos pagos aumentam sua visibilidade dentro do app — sem
-            contrato de fidelidade.
-          </p>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-            {PLANOS_PREVIEW.map((p) => (
-              <div
-                key={p.nome}
-                className={`rounded-xl border p-4 text-center ${
-                  p.destaque ? 'border-[#E1306C] bg-[#E1306C]/5' : 'border-[#232230] bg-[#161520]'
-                }`}
-              >
-                {p.tag && <div className="text-[9px] font-extrabold text-[#FFD54F] mb-1 uppercase">{p.tag}</div>}
-                <div className="text-xs text-[#A0A0B2] font-semibold">{p.nome}</div>
-                <div className="text-sm font-black mt-1">{p.preco}</div>
-              </div>
-            ))}
           </div>
         </div>
       </section>
 
       {/* Seção 10 — Parceiro Fundador */}
-      <section className="w-full max-w-4xl mx-auto px-6 py-16 border-t border-white/5 text-center">
-        <h2 className="text-2xl sm:text-3xl font-extrabold">
-          Quer fazer parte desde o começo de um jeito ainda maior?
-        </h2>
-        <p className="text-[#A0A0B2] text-sm sm:text-base mt-4 max-w-2xl mx-auto leading-relaxed">
-          Conheça o programa Parceiro Fundador e tenha presença de destaque, benefícios exclusivos e
-          participação mais próxima na construção do Dicas LGBT+ App.
-        </p>
-        <Link
-          href="/parceiro-fundador"
-          className="inline-flex items-center gap-2 mt-8 bg-[#FFD54F] hover:bg-[#f0c53e] text-black font-bold text-sm px-6 py-3.5 rounded-xl transition"
-        >
-          Conhecer o Parceiro Fundador
-          <ArrowRight className="w-4 h-4" />
-        </Link>
+      <section className="w-full border-t border-white/5">
+        <div className="max-w-4xl mx-auto px-6 py-16 text-center">
+          <h2 className="text-2xl sm:text-3xl font-extrabold">
+            Quer fazer parte desde o começo de um jeito ainda maior?
+          </h2>
+          <p className="text-[#A0A0B2] text-sm sm:text-base mt-4 max-w-2xl mx-auto leading-relaxed">
+            Conheça o programa Parceiro Fundador e tenha presença de destaque, benefícios exclusivos e
+            participação mais próxima na construção do Dicas LGBT+ App.
+          </p>
+          <Link
+            href="/parceiro-fundador"
+            className="inline-flex items-center gap-2 mt-8 bg-[#FFD54F] hover:bg-[#f0c53e] text-black font-bold text-sm px-6 py-3.5 rounded-xl transition"
+          >
+            Conhecer o Parceiro Fundador
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
       </section>
 
-      {/* Seção 11 — Instituições */}
-      <section className="w-full max-w-4xl mx-auto px-6 py-16 border-t border-white/5 text-center">
-        <div className="inline-flex w-14 h-14 rounded-2xl bg-[#4CAF7D]/10 border border-[#4CAF7D]/20 items-center justify-center mb-6">
-          <Globe2 className="w-7 h-7 text-[#4CAF7D]" />
+      {/* Seção 11 — Instituições (ainda sem logos, ver nota no rodapé do
+          arquivo — por isso o espaço vertical mais curto que as demais). */}
+      <section className="w-full border-t border-white/5 bg-white/[0.02]">
+        <div className="max-w-4xl mx-auto px-6 py-10 text-center">
+          <div className="inline-flex w-14 h-14 rounded-2xl bg-[#4CAF7D]/10 border border-[#4CAF7D]/20 items-center justify-center mb-6">
+            <Globe2 className="w-7 h-7 text-[#4CAF7D]" />
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-extrabold">Construído com diálogo, comunidade e parceiros.</h2>
+          {/* Logos só entram aqui quando oficialmente autorizados — ver nota no rodapé do arquivo. */}
         </div>
-        <h2 className="text-2xl sm:text-3xl font-extrabold">Construído com diálogo, comunidade e parceiros.</h2>
-        {/* Logos só entram aqui quando oficialmente autorizados — ver nota no rodapé do arquivo. */}
       </section>
 
       {/* Seção 12 — Chamada final */}
-      <section className="w-full max-w-4xl mx-auto px-6 py-16 border-t border-white/5 text-center">
-        <div className="inline-flex w-14 h-14 rounded-2xl bg-[#E1306C]/10 border border-[#E1306C]/20 items-center justify-center mb-6">
-          <Heart className="w-7 h-7 text-[#E1306C]" />
-        </div>
-        <h2 className="text-2xl sm:text-3xl font-extrabold">
-          O mapa está começando a ganhar vida. Sua empresa pode estar nele desde o início.
-        </h2>
-        <a
-          href="#cadastro"
-          className="inline-flex items-center gap-2 mt-8 bg-[#E1306C] hover:bg-[#c2285c] text-white font-bold text-sm px-6 py-3.5 rounded-xl transition"
-        >
-          Cadastrar minha empresa gratuitamente
-          <ArrowRight className="w-4 h-4" />
-        </a>
-        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mt-8 text-xs text-[#626274]">
-          <span className="inline-flex items-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5 text-[#4CAF7D]" /> Selo Espaço Seguro
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <Compass className="w-3.5 h-3.5 text-[#7E57C2]" /> Bares, eventos e experiências reais
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <MapPin className="w-3.5 h-3.5 text-[#E1306C]" /> Feito por e para a comunidade LGBT+
-          </span>
+      <section className="w-full border-t border-white/5">
+        <div className="max-w-4xl mx-auto px-6 py-16 text-center">
+          <div className="inline-flex w-14 h-14 rounded-2xl bg-[#E1306C]/10 border border-[#E1306C]/20 items-center justify-center mb-6">
+            <Heart className="w-7 h-7 text-[#E1306C]" />
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-extrabold">
+            O mapa está começando a ganhar vida. Sua empresa pode estar nele desde o início.
+          </h2>
+          <a
+            href="#cadastro"
+            className="inline-flex items-center gap-2 mt-8 bg-[#E1306C] hover:bg-[#c2285c] text-white font-bold text-sm px-6 py-3.5 rounded-xl transition"
+          >
+            Cadastrar minha empresa gratuitamente
+            <ArrowRight className="w-4 h-4" />
+          </a>
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mt-8 text-xs text-[#626274]">
+            <span className="inline-flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-[#4CAF7D]" /> Selo Espaço Seguro
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Compass className="w-3.5 h-3.5 text-[#7E57C2]" /> Bares, eventos e experiências reais
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5 text-[#E1306C]" /> Feito por e para a comunidade LGBT+
+            </span>
+          </div>
         </div>
       </section>
 
