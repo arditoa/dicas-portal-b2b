@@ -276,8 +276,14 @@ export default function BusinessDetailScreen() {
           .eq('id', minhaAvaliacao.id);
         if (error) throw error;
       } else {
+        // Bug relatado pela Andrea (teste real como usuária): a avaliação
+        // nunca salvava. Causa: este insert nunca mandava user_id, e a
+        // policy de RLS "avaliacoes_insert_propria" exige
+        // `auth.uid() = user_id` — sem user_id no payload, a comparação
+        // é sempre falsa e o Supabase rejeita o insert (RLS violation).
         const { error } = await supabase.from('avaliacoes').insert({
           local_id: local.id,
+          user_id: user.id,
           nota: notaEscolhida,
           comentario: comentario.trim() || null,
         });
