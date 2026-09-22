@@ -68,11 +68,20 @@ const planos = [
     color: '#E1306C',
   },
   {
+    // Rodada 59 — Andrea corrigiu: "esse 3500 esta equivocado". O plano
+    // Fundador nunca foi mensal de verdade — é um pacote único de 12
+    // meses (R$3.490 à vista ou 12x R$349, ~R$4.188 parcelado), igual ao
+    // que a página /parceiro-fundador do site institucional já anuncia
+    // (Rodada 58, copy do Guia). R$3.500/mês era o valor errado, usado
+    // desde a Rodada 24.
+    // Rodada 59 (parte 2) — "5 VAGAS NO TOTAL" também estava errado;
+    // Andrea confirmou "10 oportunidades", batendo com "Lote 1 | 10
+    // oportunidades" que já estava certo em /parceiro-fundador.
     slug: 'fundador',
     nome: 'Fundador',
-    tag: '5 VAGAS NO TOTAL',
-    preco: 'R$3.500',
-    sub: '/mês',
+    tag: '10 VAGAS NO TOTAL',
+    preco: 'R$3.490',
+    sub: 'à vista (ou 12x R$349)',
     beneficios: [
       { text: 'Tudo do Premium', ok: true },
       { text: 'Banner permanente na Home', ok: true },

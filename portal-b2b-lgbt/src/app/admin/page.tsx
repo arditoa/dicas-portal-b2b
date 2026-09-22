@@ -96,7 +96,10 @@ const PLANO_PRECO: Record<string, string> = {
   starter: 'R$59/mês',
   intermediario: 'R$249/mês',
   premium: 'R$599/mês',
-  fundador: 'R$3.500/mês',
+  // Rodada 59 — Andrea corrigiu: "esse 3500 esta equivocado". Fundador
+  // não é mensalidade — é pacote único de 12 meses (mesmo valor de
+  // /planos e da página /parceiro-fundador do site institucional).
+  fundador: 'R$3.490 à vista (ou 12x R$349)',
 };
 
 type InteresseNoPlano = {
@@ -467,7 +470,7 @@ export default function AdminPage() {
   // Rodada 46: a Andrea ainda achou confuso — "Eventos" sobe de sub-aba
   // pra aba própria, no mesmo nível de "Locais". `subAbaCategorias` saiu
   // de existir; `aba` agora cobre os três níveis direto.
-  const [aba, setAba] = useState<'aprovacoes' | 'locais' | 'eventos'>('aprovacoes');
+  const [aba, setAba] = useState<'aprovacoes' | 'locais' | 'eventos' | 'fundador'>('aprovacoes');
   const [filtroPrincipal, setFiltroPrincipal] = useState<string>('todas');
   // Rodada 46 — filtro só da aba Eventos: "O que Fazer Hoje" (destaque_secoes
   // contém 'hoje', mesmo mecanismo que locais já tinham) vs todos.
@@ -546,6 +549,18 @@ export default function AdminPage() {
     Record<string, { descricao: string; instagram: string; video_url: string; tags: string; bairro_exibicao: string }>
   >({});
   const [enviandoFoto, setEnviandoFoto] = useState<string | null>(null);
+  // Rodada 57 — configurações globais (chave/valor, migration 030) e
+  // upload da arte de marketing do banner "Membro Fundador" (ver
+  // enviarArteMarketing/removerArteMarketing abaixo).
+  const [appConfig, setAppConfig] = useState<Record<string, string | null>>({});
+  const [enviandoArteMarketing, setEnviandoArteMarketing] = useState(false);
+  // Rodada 57 (2ª rodada) — busca da aba "Membro Fundador" nova (separada
+  // de buscaLocal, que é da aba "Locais" — Andrea disse "não achei aonde
+  // subo a foto menor do membro fundador [...] podemos fazer uma aba do
+  // membro fundador", então o upload de logo + toggle saíram de dentro do
+  // painel genérico "Conteúdo do local" pra uma aba própria e mais fácil
+  // de achar).
+  const [buscaFundador, setBuscaFundador] = useState('');
 
   const lerRascunhoConteudo = (l: LocalDestaque) =>
     rascunhoConteudo[l.id] ?? {
@@ -568,6 +583,7 @@ export default function AdminPage() {
       { data: badgesFundadorData },
       { data: eventosDestaqueData },
       { data: eventosComOrganizadorData },
+      { data: appConfigData },
     ] = await Promise.all([
         supabase
           .from('locais')
@@ -635,6 +651,10 @@ export default function AdminPage() {
           .not('criado_por', 'is', null)
           .not('contato_whatsapp', 'is', null)
           .order('titulo', { ascending: true }),
+        // Rodada 57 — configurações globais do app (chave/valor, migration
+        // 030), pra guardar a URL da arte de marketing do banner "Membro
+        // Fundador" que a Andrea vai subir aqui (ver appConfig abaixo).
+        supabase.from('app_config').select('chave, valor'),
       ]);
 
     setLocaisPendentes((locaisData as LocalPendente[]) || []);
@@ -656,6 +676,11 @@ export default function AdminPage() {
     );
     setEventosDestaque((eventosDestaqueData as EventoDestaque[]) || []);
     setEventosComOrganizador((eventosComOrganizadorData as EventoComOrganizador[]) || []);
+    const configMap: Record<string, string | null> = {};
+    (((appConfigData as { chave: string; valor: string | null }[]) || [])).forEach((c) => {
+      configMap[c.chave] = c.valor;
+    });
+    setAppConfig(configMap);
   }, []);
 
   useEffect(() => {
@@ -1050,6 +1075,59 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
     setProcessando(null);
   };
 
+  // Rodada 57 — upload de arte de marketing GLOBAL (não pertence a nenhum
+  // local — bucket próprio "arte-marketing" + tabela "app_config", ver
+  // migration 030). Primeiro uso: arte especial do banner "Membro
+  // Fundador" na Home ("a gente mesmo criará", nas palavras da Andrea) —
+  // escrito de forma genérica (recebe a `chave`) pra servir de padrão
+  // pra outra arte/config global que aparecer no futuro, sem precisar de
+  // upload dedicado novo cada vez.
+  const enviarArteMarketing = async (chave: string, arquivo: File) => {
+    const erroFormato = erroFotoNaoSuportada(arquivo);
+    if (erroFormato) {
+      setErro(erroFormato);
+      return;
+    }
+    setEnviandoArteMarketing(true);
+    setErro('');
+    try {
+      const extensao = arquivo.name.split('.').pop() || 'jpg';
+      const caminho = `${chave}-${Date.now()}.${extensao}`;
+      const { error: erroUpload } = await supabase.storage
+        .from('arte-marketing')
+        .upload(caminho, arquivo, { cacheControl: '3600', upsert: false });
+      if (erroUpload) throw erroUpload;
+      const { data } = supabase.storage.from('arte-marketing').getPublicUrl(caminho);
+      const url = data.publicUrl;
+
+      const { error: erroUpsert } = await supabase
+        .from('app_config')
+        .upsert({ chave, valor: url, atualizado_em: new Date().toISOString() }, { onConflict: 'chave' });
+      if (erroUpsert) throw erroUpsert;
+      setAppConfig((atual) => ({ ...atual, [chave]: url }));
+    } catch (e: any) {
+      setErro(e.message || 'Erro ao enviar arte.');
+    }
+    setEnviandoArteMarketing(false);
+  };
+
+  // Remove só a referência (chave -> null) — mesmo princípio de nunca
+  // apagar arquivo do storage direto (ver removerFotoGaleria acima).
+  // Volta o banner "Membro Fundador" pro design padrão sem foto.
+  const removerArteMarketing = async (chave: string) => {
+    setEnviandoArteMarketing(true);
+    setErro('');
+    const { error } = await supabase
+      .from('app_config')
+      .upsert({ chave, valor: null, atualizado_em: new Date().toISOString() }, { onConflict: 'chave' });
+    if (error) {
+      setErro(error.message);
+    } else {
+      setAppConfig((atual) => ({ ...atual, [chave]: null }));
+    }
+    setEnviandoArteMarketing(false);
+  };
+
   // Rodada 37 — toggle do selo "Membro Fundador" (local_badges), separado
   // do plano_destaque acima — é o que faz um local aparecer na seção
   // "Membro Fundador" do app (experience/[tag].tsx). Faz upsert manual
@@ -1242,6 +1320,20 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
     );
   });
 
+  // Rodada 57 (2ª rodada) — lista da aba própria "Membro Fundador": busca
+  // simples (nome/bairro/cidade), sem o chip de categoria da aba "Locais"
+  // (filtroPrincipal) — aqui qualquer local pode virar Membro Fundador,
+  // não faz sentido restringir por categoria.
+  const locaisFundadorFiltrados = locaisDestaque.filter((l) => {
+    const termo = buscaFundador.trim().toLowerCase();
+    if (!termo) return true;
+    return (
+      l.nome.toLowerCase().includes(termo) ||
+      (l.bairro || '').toLowerCase().includes(termo) ||
+      l.cidade.toLowerCase().includes(termo)
+    );
+  });
+
   // Rodada 47 — contagem de quem tem o Selo Dicas LGBT+ marcado. É só um
   // AVISO, nunca um bloqueio: a Andrea pediu explicitamente ter autonomia
   // pra ajustar mesmo com regra de negócio, "caso necessário devido a
@@ -1273,7 +1365,9 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
           ? 'Aprovações manuais — cadastros, vínculos de conta e leads institucionais.'
           : aba === 'locais'
           ? 'Busque e filtre locais por categoria, e marque selos/destaques de cada estabelecimento.'
-          : 'Busque e filtre eventos/festas, e marque em quais seções do app cada um aparece.'}
+          : aba === 'eventos'
+          ? 'Busque e filtre eventos/festas, e marque em quais seções do app cada um aparece.'
+          : 'Arte do banner e logo de cada local que aparece no selo "Membro Fundador" da Home.'}
       </p>
 
       {/* Rodada 44 — pedido direto da Andrea: separar o fluxo de
@@ -1306,6 +1400,21 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
           }`}
         >
           Eventos ({eventosDestaque.length})
+        </button>
+        {/* Rodada 57 (2ª rodada) — aba própria pedida pela Andrea: "não
+            achei aonde subo a foto menor do membro fundador [...] podemos
+            fazer uma aba do membro fundador". Antes o upload de logo
+            ficava escondido dentro de "Locais" > cada local > "Conteúdo do
+            local", e a arte do banner ficava num bloco recolhido acima das
+            abas — os dois mudaram pra cá, junto com o toggle que já
+            existia (alternarFundador). */}
+        <button
+          onClick={() => setAba('fundador')}
+          className={`text-sm font-bold px-4 py-2.5 border-b-2 -mb-px transition ${
+            aba === 'fundador' ? 'border-[#E1306C] text-white' : 'border-transparent text-[#626274] hover:text-[#A0A0B2]'
+          }`}
+        >
+          Membro Fundador ({locaisDestaque.filter((l) => l.fundador).length})
         </button>
       </div>
 
@@ -2206,6 +2315,150 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
             </div>
             );
           })}
+        </div>
+      </section>
+      </>
+      )}
+
+      {/* Rodada 57 (2ª rodada) — aba própria "Membro Fundador". Andrea:
+          "não achei aonde subo a foto menor do membro fundador. Ideal no
+          portal admin, podemos fazer uma aba do membro fundador, e ali
+          conseguimos editar também essa foto." Consolida aqui o que antes
+          estava espalhado: a arte do banner (bloco recolhido que ficava
+          acima das abas), o upload de logo por local (que ficava dentro
+          de Locais > cada local > "Conteúdo do local", junto de vários
+          outros campos) e o toggle que ativa/desativa o selo (que já
+          existia dentro de "Escolha pela experiência"). Nada de mecanismo
+          novo — alternarFundador/enviarFotoLocal/enviarArteMarketing já
+          existiam, só ganharam um lugar mais fácil de achar. */}
+      {aba === 'fundador' && (
+      <>
+      <section className="mb-10">
+        <h2 className="text-base font-bold mb-3">🎨 Arte do banner</h2>
+        <p className="text-xs text-[#626274] mb-3">
+          Imagem de fundo do banner &quot;Membro Fundador&quot; que aparece no topo da Home do
+          app (ao lado do &quot;Selo Dicas LGBT+&quot;). Formato paisagem funciona melhor — o
+          banner é bem mais largo que alto. Sem arte, o banner continua aparecendo do jeito
+          atual (texto sobre cor sólida), então não tem pressa nenhuma pra subir isso.
+        </p>
+        <div className="bg-[#161520] border border-[#232230] rounded-xl p-4 flex items-start gap-4 flex-wrap">
+          <div className="shrink-0">
+            {appConfig['membro_fundador_banner_url'] ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={appConfig['membro_fundador_banner_url']!}
+                alt="Arte do banner Membro Fundador"
+                className="w-40 h-24 rounded-lg object-cover border border-[#232230]"
+              />
+            ) : (
+              <div className="w-40 h-24 rounded-lg bg-[#0B0B0E] border border-dashed border-[#232230] flex items-center justify-center text-[9px] text-[#626274] text-center px-2">
+                sem arte — banner usa o visual padrão (texto sobre cor sólida)
+              </div>
+            )}
+            <div className="flex gap-2 mt-1.5">
+              <label className="text-[10px] font-bold text-[#E1306C] cursor-pointer hover:underline">
+                {enviandoArteMarketing
+                  ? 'Enviando...'
+                  : appConfig['membro_fundador_banner_url']
+                  ? 'Trocar'
+                  : 'Subir arte'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={enviandoArteMarketing}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) enviarArteMarketing('membro_fundador_banner_url', f);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+              {appConfig['membro_fundador_banner_url'] && (
+                <button
+                  onClick={() => removerArteMarketing('membro_fundador_banner_url')}
+                  disabled={enviandoArteMarketing}
+                  className="text-[10px] font-bold text-[#626274] hover:text-red-400 disabled:opacity-40"
+                >
+                  Remover
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mb-10">
+        <h2 className="text-base font-bold mb-3">
+          🏅 Locais — logo e selo ({locaisDestaque.filter((l) => l.fundador).length} com Membro Fundador ativo)
+        </h2>
+        <p className="text-xs text-[#626274] mb-3">
+          O logo aqui é usado nos avatares redondos do banner &quot;Membro Fundador&quot; da
+          Home (se o local não tiver logo próprio, usa a foto de capa dele como reserva). O
+          selo &quot;Membro Fundador&quot; é o mesmo de sempre (R$3.490 à vista ou 12x R$349) — marcar/
+          desmarcar aqui é idêntico a fazer isso em Locais &gt; Escolha pela Experiência.
+        </p>
+        <div className="flex items-center gap-2 mb-3">
+          <Search size={14} className="text-[#626274]" />
+          <input
+            type="text"
+            value={buscaFundador}
+            onChange={(e) => setBuscaFundador(e.target.value)}
+            placeholder="Buscar local por nome, bairro ou cidade..."
+            className="flex-1 bg-[#161520] border border-[#232230] rounded-lg text-xs px-3 py-2"
+          />
+        </div>
+        <div className="space-y-2">
+          {locaisFundadorFiltrados.length === 0 && (
+            <p className="text-xs text-[#626274]">Nenhum local encontrado com essa busca.</p>
+          )}
+          {locaisFundadorFiltrados.map((l) => (
+            <div
+              key={l.id}
+              className={`flex items-center gap-3 bg-[#161520] border rounded-xl p-3 ${
+                l.fundador ? 'border-[#FFD54F]/40' : 'border-[#232230]'
+              }`}
+            >
+              <div className="shrink-0">
+                {l.logo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={l.logo_url} alt={l.nome} className="w-12 h-12 rounded-full object-cover border border-[#232230]" />
+                ) : (
+                  <div className="w-12 h-12 rounded-full bg-[#0B0B0E] border border-dashed border-[#232230] flex items-center justify-center text-[8px] text-[#626274] text-center px-1">
+                    sem logo
+                  </div>
+                )}
+              </div>
+              <label className="text-[10px] font-bold text-[#E1306C] cursor-pointer hover:underline shrink-0">
+                {enviandoFoto === l.id ? 'Enviando...' : l.logo_url ? 'Trocar logo' : 'Subir logo'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={enviandoFoto === l.id}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) enviarFotoLocal(l, f, 'logo');
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-white truncate">{l.nome}</p>
+                <p className="text-[11px] text-[#626274] truncate">{l.bairro || l.cidade}</p>
+              </div>
+              <label className="flex items-center gap-1.5 text-xs font-bold text-[#D0D0E0] cursor-pointer shrink-0">
+                <input
+                  type="checkbox"
+                  checked={l.fundador}
+                  disabled={processando === l.id}
+                  onChange={(e) => alternarFundador(l.id, e.target.checked)}
+                  className="accent-[#FFD54F]"
+                />
+                Membro Fundador
+              </label>
+            </div>
+          ))}
         </div>
       </section>
       </>
