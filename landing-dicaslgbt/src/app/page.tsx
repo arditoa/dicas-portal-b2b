@@ -184,7 +184,10 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Seção 3 — Números */}
+      {/* Seção 3 — Números — Andrea confirmou que gostou do efeito
+          gradiente rosa→roxo (voltou atrás de um ajuste anterior que
+          tinha trocado por rosa sólido); o pedido real era sobre o topo
+          da página (Seção 1), não esta seção. */}
       <section className="w-full border-t border-white/5 bg-white/[0.02]">
         <div className="max-w-6xl mx-auto px-6 py-16">
           <div className="bg-[#12121A] border border-[#232230] rounded-2xl px-6 sm:px-10 py-10">

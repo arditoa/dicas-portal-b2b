@@ -28,15 +28,30 @@ export default function SobrePage() {
     <main className="min-h-screen bg-[#0B0B0E] text-white pb-24 sm:pb-0">
       <Header />
 
-      {/* 1. Hero */}
-      <section className="w-full max-w-3xl mx-auto text-center px-6 pt-14 pb-14">
-        <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight">
-          Informação que aproxima. Experiências que fazem a gente pertencer.
-        </h1>
-        <p className="text-[#A0A0B2] text-base sm:text-lg max-w-2xl mx-auto mt-6 leading-relaxed">
-          O Dicas LGBT+ conecta comunidade, lugares, eventos, marcas e destinos por meio de conteúdo,
-          experiências e tecnologia.
-        </p>
+      {/* 1. Hero — Andrea achou "muito branco" o topo desta página (fundo
+          preto liso + título todo branco, sem nenhuma cor até chegar nos
+          Números). Adicionei o mesmo brilho radial rosa/roxo que já está
+          no topo da Home, e o título ganhou o efeito gradiente que ela
+          confirmou que gosta (mesmo usado nos Números) — mesma ideia
+          visual, sem trocar uma palavra do texto do Guia. */}
+      <section className="relative w-full overflow-hidden">
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 h-[420px]"
+          style={{
+            background:
+              'radial-gradient(55% 60% at 50% -10%, rgba(225,48,108,0.20), rgba(126,87,194,0.10) 45%, transparent 75%)',
+          }}
+          aria-hidden
+        />
+        <div className="relative w-full max-w-3xl mx-auto text-center px-6 pt-14 pb-14">
+          <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight gradient-text">
+            Informação que aproxima. Experiências que fazem a gente pertencer.
+          </h1>
+          <p className="text-[#A0A0B2] text-base sm:text-lg max-w-2xl mx-auto mt-6 leading-relaxed">
+            O Dicas LGBT+ conecta comunidade, lugares, eventos, marcas e destinos por meio de conteúdo,
+            experiências e tecnologia.
+          </p>
+        </div>
       </section>
 
       {/* 2. História */}
@@ -47,7 +62,10 @@ export default function SobrePage() {
         </p>
       </section>
 
-      {/* 3. Números */}
+      {/* 3. Números — Andrea confirmou que gostou do efeito gradiente
+          rosa→roxo (voltou atrás de um ajuste anterior que tinha trocado
+          por rosa sólido); o pedido real era sobre o topo da página, não
+          esta seção. */}
       <section className="w-full max-w-4xl mx-auto px-6 py-14 border-t border-white/5">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
           {NUMEROS.map((n) => (
