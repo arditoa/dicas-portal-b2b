@@ -52,6 +52,13 @@ export default function FeaturedScreen() {
   const { tag } = useLocalSearchParams<{ tag?: string }>();
   const pageTitle = tag ? decodeURIComponent(tag) : 'Membro Fundador';
   const ehFundador = pageTitle.toLowerCase().includes('fundador');
+  // Rodada 56 (3ª rodada de ajuste) — banner "Selo Dicas LGBT+" subiu pro
+  // topo da Home (ao lado de Membro Fundador) e passou a abrir esta
+  // mesma tela genérica, igual Fundador. Selo Dicas usa destaque_secoes
+  // (mesmo mecanismo do Selo Dicas em todo o app — nunca plano_destaque,
+  // que é o campo comercial usado no branch "else" abaixo pra Destaque/
+  // VIP) — por isso precisa do próprio branch, não pode cair no "else".
+  const ehSeloDicas = pageTitle.toLowerCase().includes('selo dicas');
 
   const [loading, setLoading] = useState(true);
   const [parceiros, setParceiros] = useState<Parceiro[]>([]);
@@ -75,6 +82,20 @@ export default function FeaturedScreen() {
           if (error) throw error;
           const locais = ((data as any) || []).map((row: any) => row.locais).filter(Boolean);
           setParceiros(locais);
+        } else if (ehSeloDicas) {
+          // Selo Dicas LGBT+: curadoria editorial da Andrea, nunca vendida
+          // ("não se vende, apenas se conquista") — destaque_secoes contém
+          // 'selo_dicas', igual o resto do app (ver lib/destaque.ts e a
+          // Home). Sem ordenar por plano comercial (não é sobre quem paga).
+          const { data, error } = await supabase
+            .from('locais')
+            .select('id, nome, categoria, bairro, cidade, foto_capa_url, rating_media, rating_total, plano_destaque')
+            .eq('status', 'aprovado')
+            .contains('destaque_secoes', ['selo_dicas'])
+            .limit(20);
+
+          if (error) throw error;
+          setParceiros(((data as any) || []) as Parceiro[]);
         } else {
           const { data, error } = await supabase
             .from('locais')
@@ -95,7 +116,7 @@ export default function FeaturedScreen() {
         setLoading(false);
       }
     })();
-  }, [ehFundador]);
+  }, [ehFundador, ehSeloDicas]);
 
   const heroPartner = parceiros[0];
   const regularPartners = parceiros.slice(1);
@@ -133,13 +154,22 @@ export default function FeaturedScreen() {
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.heroTitleArea}>
-            <View style={styles.vipBadge}>
-              <Feather name="award" size={12} color={COLORS.gold} />
-              <Text style={styles.vipBadgeText}>SELEÇÃO EXCLUSIVA</Text>
+            <View
+              style={[
+                styles.vipBadge,
+                ehSeloDicas && { backgroundColor: 'rgba(225, 48, 108, 0.12)', borderColor: 'rgba(225, 48, 108, 0.3)' },
+              ]}
+            >
+              <Feather name={ehSeloDicas ? 'heart' : 'award'} size={12} color={ehSeloDicas ? COLORS.pink : COLORS.gold} />
+              <Text style={[styles.vipBadgeText, ehSeloDicas && { color: COLORS.pink }]}>
+                {ehSeloDicas ? 'CURADORIA EDITORIAL' : 'SELEÇÃO EXCLUSIVA'}
+              </Text>
             </View>
             <Text style={styles.mainTitle}>{pageTitle}</Text>
             <Text style={styles.subTitle}>
-              Locais parceiros de excelência que apoiam e constroem nossa comunidade.
+              {ehSeloDicas
+                ? 'Escolha editorial nossa — nunca é espaço pago, é conquistado.'
+                : 'Locais parceiros de excelência que apoiam e constroem nossa comunidade.'}
             </Text>
           </View>
 
@@ -169,11 +199,11 @@ export default function FeaturedScreen() {
                       style={styles.heroImage}
                       imageStyle={{ borderRadius: 20 }}
                     >
-                      <HeroContent partner={heroPartner} />
+                      <HeroContent partner={heroPartner} ehSeloDicas={ehSeloDicas} />
                     </ImageBackground>
                   ) : (
                     <View style={[styles.heroImage, styles.heroImageFallback]}>
-                      <HeroContent partner={heroPartner} />
+                      <HeroContent partner={heroPartner} ehSeloDicas={ehSeloDicas} />
                     </View>
                   )}
                 </TouchableOpacity>
@@ -221,30 +251,48 @@ export default function FeaturedScreen() {
             </>
           )}
 
-          <TouchableOpacity style={styles.ctaCard} onPress={handleSejaDestaqueWhatsApp} activeOpacity={0.85}>
-            <Feather name="shield" size={24} color={COLORS.purple} />
-            <Text style={styles.ctaTitle}>Seja um {pageTitle}</Text>
-            <Text style={styles.ctaSub}>
-              Posicione sua marca em destaque máximo para milhares de pessoas na comunidade.
-            </Text>
-            <View style={styles.ctaBtn}>
-              <Feather name="message-circle" size={14} color="#FFF" />
-              <Text style={styles.ctaBtnText}>Falar no WhatsApp</Text>
+          {ehSeloDicas ? (
+            // Rodada 56 (3ª rodada) — Selo Dicas "não se vende, apenas se
+            // conquista" (regra repetida várias vezes pela Andrea ao longo
+            // do projeto). O CTA padrão daqui embaixo ("Seja um Selo Dicas
+            // LGBT+... Falar no WhatsApp") venderia exatamente o que ela
+            // não quer — por isso troca pra um aviso neutro, sem botão de
+            // contato nenhum.
+            <View style={styles.ctaCard}>
+              <Feather name="heart" size={24} color={COLORS.pink} />
+              <Text style={styles.ctaTitle}>Como funciona o Selo Dicas LGBT+?</Text>
+              <Text style={styles.ctaSub}>
+                É uma escolha editorial da nossa curadoria — não pode ser comprado nem solicitado.
+              </Text>
             </View>
-          </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={styles.ctaCard} onPress={handleSejaDestaqueWhatsApp} activeOpacity={0.85}>
+              <Feather name="shield" size={24} color={COLORS.purple} />
+              <Text style={styles.ctaTitle}>Seja um {pageTitle}</Text>
+              <Text style={styles.ctaSub}>
+                Posicione sua marca em destaque máximo para milhares de pessoas na comunidade.
+              </Text>
+              <View style={styles.ctaBtn}>
+                <Feather name="message-circle" size={14} color="#FFF" />
+                <Text style={styles.ctaBtnText}>Falar no WhatsApp</Text>
+              </View>
+            </TouchableOpacity>
+          )}
         </ScrollView>
       </SafeAreaView>
     </View>
   );
 }
 
-function HeroContent({ partner }: { partner: Parceiro }) {
+function HeroContent({ partner, ehSeloDicas }: { partner: Parceiro; ehSeloDicas?: boolean }) {
   return (
     <View style={styles.heroGradient}>
       <View style={styles.heroTopBadges}>
-        <View style={styles.masterTag}>
-          <Feather name="star" size={10} color="#000" />
-          <Text style={styles.masterTagText}>DESTAQUE MASTER</Text>
+        <View style={[styles.masterTag, ehSeloDicas && { backgroundColor: COLORS.pink }]}>
+          <Feather name={ehSeloDicas ? 'heart' : 'star'} size={10} color={ehSeloDicas ? '#FFF' : '#000'} />
+          <Text style={[styles.masterTagText, ehSeloDicas && { color: '#FFF' }]}>
+            {ehSeloDicas ? 'SELO DICAS' : 'DESTAQUE MASTER'}
+          </Text>
         </View>
         <View style={styles.ratingTag}>
           <Feather name="star" size={10} color={COLORS.gold} />

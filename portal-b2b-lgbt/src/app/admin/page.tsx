@@ -298,6 +298,7 @@ function resumoSecoesLocal(l: LocalDestaque): string {
   if (l.destaque_secoes.includes('turismo')) partes.push('Dicas Trip');
   if (l.destaque_secoes.includes('patrocinado')) partes.push('Patrocinado');
   if (l.destaque_secoes.includes('selo_dicas')) partes.push('Selo Dicas LGBT+');
+  if (l.destaque_secoes.includes('destaque')) partes.push('Destaque da Semana');
   return partes.length > 0 ? partes.join(', ') : 'nenhuma seção marcada';
 }
 
@@ -347,11 +348,22 @@ function resumoExperienciasLocal(l: LocalDestaque): string {
 // valor gravado continua 'selo_dicas' em destaque_secoes; só o controle
 // mudou de lugar (ver resumoSecoesLocal/totalSeloDicas mais abaixo, que
 // continuam lendo o mesmo valor e não precisaram mudar).
+//
+// Rodada 56 (3ª rodada de ajuste) — "Destaque" volta pra cá (estava só
+// no seletor "Escolha pela experiência", removido na 2ª rodada quando
+// Selo Dicas tomou aquele lugar). Motivo: a Home agora tem uma seção
+// própria "Destaque da Semana" (mesmo lugar onde era o carrossel do
+// Selo Dicas) que lê exatamente esse valor via deveExibirGlow — sem
+// controle aqui, a Andrea não teria como marcar manualmente ninguém
+// além de quem já paga premium/fundador, e a seção ficaria vazia a
+// maior parte do tempo. Reaproveita o mesmo `destaque_secoes: ['destaque']`
+// de sempre (nada mudou no banco, só o controle voltou a existir).
 const OPCOES_SECAO_LOCAL_RAPIDA: { value: string; label: string }[] = [
   { value: 'em_alta', label: 'Em Alta' },
   { value: 'hoje', label: 'O que Fazer Hoje' },
   { value: 'turismo', label: 'Dicas Trip' },
   { value: 'patrocinado', label: 'Patrocinado' },
+  { value: 'destaque', label: 'Destaque da Semana' },
 ];
 
 // Rodada 46 — a Andrea reportou "eventos não sobem": a causa real era

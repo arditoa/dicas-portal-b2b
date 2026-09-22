@@ -39,6 +39,10 @@ const COLORS = {
   purple: '#7E57C2',
   safeSpace: '#4CAF7D',
   gold: '#FFD54F',
+  // Rodada 56 (4ª rodada) — "Destaque da Semana" usava o mesmo dourado de
+  // "Em Alta" (deveExibirGlow), o que reforçava a sensação de repetição
+  // que já tinha motivado o card deitado. Cor própria, só pra essa seção.
+  amber: '#FF9142',
 };
 
 const BANNERS_PRINCIPAIS = [
@@ -51,12 +55,19 @@ const BANNERS_PRINCIPAIS = [
     route: '/experience/Membro%20Fundador',
   },
   {
+    // Rodada 56 (3ª rodada de ajuste) — Andrea pediu pra trocar esse
+    // banner: "Selo Dicas" sobe pro topo, ao lado de "Membro Fundador"
+    // (mesmo padrão dos dois: um selo/conquista, não um plano pago —
+    // abre uma tela dedicada em /experience/[tag].tsx, sem CTA de venda
+    // pro Selo Dicas, ver comentário lá). "Destaque da Semana" desceu
+    // pro lugar que era do carrossel "Selo Dicas LGBT+" (ver seção
+    // abaixo de Categorias).
     id: 'b2',
-    tag: 'DESTAQUE DA SEMANA',
-    titulo: 'Espaços em destaque',
-    sub: 'Experiências exclusivas e atendimento acolhedor',
+    tag: 'SELO DICAS LGBT+',
+    titulo: 'Conheça o Selo Dicas',
+    sub: 'Curadoria editorial nossa — nunca é espaço pago',
     cor: '#E1306C',
-    route: '/experience/Destaque',
+    route: '/experience/Selo%20Dicas%20LGBT%2B',
   },
   {
     id: 'b3',
@@ -146,19 +157,31 @@ export default function HomeScreen() {
   const [favoritos, setFavoritos] = useState<string[]>([]);
 
   const [emAlta, setEmAlta] = useState<LocalCard[]>([]);
-  // Rodada 47 — "Selo Dicas LGBT+": curadoria editorial da Andrea, pedida
-  // por ela mesma ("não se vende, apenas se conquista"). Mecanismo igual
-  // a 'hoje'/'patrocinado' (destaque_secoes, migration 027), mas nunca
-  // ligado a plano pago — por isso fica numa seção própria, ANTES até de
-  // "Em Alta", com um selo visual diferente (rosa da marca, não o
-  // dourado do brilho automático de quem paga).
-  const [seloDicas, setSeloDicas] = useState<LocalCard[]>([]);
+  // Rodada 47 — criado como "Selo Dicas LGBT+", seção própria com
+  // curadoria editorial da Andrea. Rodada 56 (3ª rodada de ajuste) —
+  // ela pediu pra trocar de lugar com "Destaque da Semana": o Selo
+  // Dicas virou banner no topo (ao lado de Membro Fundador, mesmo
+  // padrão de selo/conquista — ver BANNERS_PRINCIPAIS), e esta seção
+  // (ANTES até de "Em Alta") passou a mostrar quem tem
+  // deveExibirGlow(item) = true — exatamente quem já ganha a borda/selo
+  // dourado "DESTAQUE" nos cards de "Em Alta" (quem paga premium/
+  // fundador automaticamente, OU quem a Andrea marcou manualmente com
+  // destaque_secoes: ['destaque'] no /admin) — não precisa de consulta
+  // nova ao banco, é derivado dos mesmos dados já buscados pra "Em
+  // Alta" (emAltaRes) logo abaixo.
+  const [destaqueSemana, setDestaqueSemana] = useState<LocalCard[]>([]);
   const [agendaHoje, setAgendaHoje] = useState<EventoHoje[]>([]);
   // Rodada 44 — locais fixados manualmente em "O que fazer hoje" pelo
   // /admin (destaque_secoes contém 'hoje'), além dos eventos automáticos
   // de hoje já buscados acima. Ver estaFixadoParaHoje em lib/destaque.ts.
   const [locaisHoje, setLocaisHoje] = useState<LocalCard[]>([]);
   const [dicasTrip, setDicasTrip] = useState<LocalTurismo[]>([]);
+  // Rodada 56 (4ª rodada) — logos dos locais com o selo "Membro Fundador"
+  // (local_badges.rotulo ilike '%fundador%'), pro banner de topo (ver
+  // comentário na renderização, seção BANNERS PRINCIPAIS). Mesmo
+  // mecanismo/consulta já usado em experience/[tag].tsx (branch
+  // ehFundador) — aqui só id/nome/foto pra desenhar avatares pequenos.
+  const [fundadorLogos, setFundadorLogos] = useState<{ id: string; nome: string; foto_capa_url: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
 
   const isUserLogged = !!session;
@@ -178,7 +201,7 @@ export default function HomeScreen() {
       // entra — quem paga premium/fundador entra automático, e a Andrea
       // pode incluir manualmente qualquer outro pelo /admin
       // (destaque_secoes) quando o app estiver vazio.
-      const [emAltaRes, agendaRes, hojeRes, tripRes, eventosHojeFixadosRes, seloDicasRes] = await Promise.all([
+      const [emAltaRes, agendaRes, hojeRes, tripRes, eventosHojeFixadosRes, fundadorRes] = await Promise.all([
         supabase
           .from('locais')
           .select(
@@ -225,19 +248,24 @@ export default function HomeScreen() {
           .eq('status', 'aprovado')
           .contains('destaque_secoes', ['hoje'])
           .limit(10),
-        // Rodada 47 — Selo Dicas LGBT+ (curadoria editorial, nunca
-        // paga — ver comentário do state acima). Busca um pouco mais que
-        // o teto recomendado (8) porque estaFixadoEm ainda filtra por
-        // destaque_ate abaixo (algum selo pode já ter vencido o prazo).
+        // Rodada 56 (4ª rodada) — logos pro banner "Membro Fundador" (ver
+        // fundadorLogos acima). Mesma consulta de experience/[tag].tsx
+        // (branch ehFundador): local_badges é o selo REAL, não um campo
+        // comercial — por isso não dá pra reaproveitar o lote de emAltaRes.
         supabase
-          .from('locais')
-          .select(
-            'id, nome, categoria, bairro, cidade, instagram, foto_capa_url, galeria_fotos, rating_media, rating_total, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status'
-          )
-          .eq('status', 'aprovado')
-          .contains('destaque_secoes', ['selo_dicas'])
+          .from('local_badges')
+          .select('locais!inner(id, nome, foto_capa_url, status)')
+          .ilike('rotulo', '%fundador%')
+          .eq('ativo', true)
+          .eq('locais.status', 'aprovado')
           .limit(12),
       ]);
+      // Rodada 47 — Selo Dicas LGBT+ tinha consulta própria aqui. Rodada 56
+      // (3ª rodada) — não precisa mais: o carrossel do Selo Dicas saiu da
+      // Home (virou banner + tela própria em /experience/[tag].tsx, que faz
+      // sua própria consulta) e "Destaque da Semana" ocupou este lugar,
+      // derivado do MESMO lote já buscado acima (emAltaRes) — ver
+      // listaDestaqueSemana logo abaixo.
 
       let listaEmAlta = (((emAltaRes.data as any) || []) as LocalCard[]).filter((item) =>
         deveIncluirEm(item, 'em_alta')
@@ -271,16 +299,28 @@ export default function HomeScreen() {
       listaTrip.sort(compararDestaque('dicas_trip'));
       setDicasTrip(listaTrip.slice(0, 8));
 
-      // Rodada 47 — Selo Dicas LGBT+: só entra quem a Andrea marcou de
-      // verdade E ainda está dentro do prazo (destaque_ate), igual o
-      // resto dos valores manuais de destaque_secoes.
-      const listaSeloDicas = (((seloDicasRes.data as any) || []) as LocalCard[]).filter((item) =>
-        estaFixadoEm(item, 'selo_dicas')
-      );
-      setSeloDicas(listaSeloDicas.slice(0, 8));
+      // Rodada 56 (3ª rodada) — "Destaque da Semana": mesmo critério que já
+      // decide o brilho/selo dourado "DESTAQUE" nos cards de Em Alta
+      // (deveExibirGlow — quem paga premium/fundador automaticamente, OU
+      // quem a Andrea marcou manualmente com destaque_secoes: ['destaque']
+      // no /admin). Derivado do lote já buscado pra Em Alta (emAltaRes),
+      // não do listaEmAlta já filtrado — porque um local pode ter o selo
+      // "destaque" sem necessariamente estar (ou entrar) em "Em Alta".
+      const listaDestaqueSemana = (((emAltaRes.data as any) || []) as LocalCard[])
+        .filter((item) => deveExibirGlow(item))
+        .sort(compararDestaque('destaque'));
+      setDestaqueSemana(listaDestaqueSemana.slice(0, 8));
+
+      // Rodada 56 (4ª rodada) — logos pro banner "Membro Fundador" (mesmo
+      // formato de linha aninhada de experience/[tag].tsx: local_badges
+      // trazendo locais!inner, precisa "desembrulhar" .locais de cada row).
+      const listaFundadorLogos = (((fundadorRes.data as any) || []) as { locais: any }[])
+        .map((row) => row.locais)
+        .filter(Boolean) as { id: string; nome: string; foto_capa_url: string | null }[];
+      setFundadorLogos(listaFundadorLogos);
 
       if (user?.id) {
-        const idsParaChecar = [...listaEmAlta.map((i) => i.id), ...listaTrip.map((i) => i.id), ...listaSeloDicas.map((i) => i.id)];
+        const idsParaChecar = [...listaEmAlta.map((i) => i.id), ...listaTrip.map((i) => i.id), ...listaDestaqueSemana.map((i) => i.id)];
         if (idsParaChecar.length > 0) {
           const { data: favs } = await supabase
             .from('favoritos_locais')
@@ -316,17 +356,24 @@ export default function HomeScreen() {
       return;
     }
 
-    const jaFavoritado = favoritos.includes(localId);
+    const favoritosAnteriores = favoritos;
+    const jaFavoritado = favoritosAnteriores.includes(localId);
+    // Rodada 56 (4ª rodada) — bug reportado pela Andrea: "salvei o vezpa e
+    // não apareceu nos favoritos" (o coração ficava rosa na hora, mas o
+    // local nunca aparecia em "Locais Salvos" no Perfil). Causa: o código
+    // atualizava a tela (otimista) sem nunca checar se o insert/delete no
+    // Supabase realmente deu certo — um erro (RLS, rede, etc.) passava
+    // batido, silencioso. Agora confere o retorno e, se falhar, desfaz o
+    // coração e avisa, em vez de fingir que salvou.
+    setFavoritos(jaFavoritado ? favoritosAnteriores.filter((id) => id !== localId) : [...favoritosAnteriores, localId]);
     try {
-      if (jaFavoritado) {
-        await supabase.from('favoritos_locais').delete().eq('local_id', localId).eq('user_id', user.id);
-        setFavoritos(favoritos.filter((id) => id !== localId));
-      } else {
-        await supabase.from('favoritos_locais').insert({ local_id: localId, user_id: user.id });
-        setFavoritos([...favoritos, localId]);
-      }
+      const { error } = jaFavoritado
+        ? await supabase.from('favoritos_locais').delete().eq('local_id', localId).eq('user_id', user.id)
+        : await supabase.from('favoritos_locais').insert({ local_id: localId, user_id: user.id });
+      if (error) throw error;
     } catch (err: any) {
-      Alert.alert('Erro', err?.message || 'Não foi possível atualizar seus favoritos.');
+      setFavoritos(favoritosAnteriores);
+      Alert.alert('Erro', err?.message || 'Não foi possível atualizar seus favoritos. Tenta de novo em alguns segundos.');
     }
   };
 
@@ -417,20 +464,60 @@ export default function HomeScreen() {
           snapToInterval={332}
           snapToAlignment="start"
         >
-          {BANNERS_PRINCIPAIS.map((b) => (
-            <TouchableOpacity
-              key={b.id}
-              style={styles.bannerCard}
-              activeOpacity={0.85}
-              onPress={() => router.push(b.route as any)}
-            >
-              <View style={[styles.bannerTag, { backgroundColor: b.cor }]}>
-                <Text style={styles.bannerTagText}>{b.tag}</Text>
-              </View>
-              <Text style={styles.bannerTitle}>{b.titulo}</Text>
-              <Text style={styles.bannerSub}>{b.sub}</Text>
-            </TouchableOpacity>
-          ))}
+          {BANNERS_PRINCIPAIS.map((b) => {
+            // Rodada 56 (4ª rodada) — Andrea pediu pra "reduzir as imagens e
+            // deixar talvez o logo dos locais" no banner "Membro Fundador",
+            // clicando num logo abrindo direto as informações do local
+            // ("assim ficam os logos dos locais aparente"). Só o card b1
+            // (Membro Fundador) ganha essa fileira de avatares pequenos —
+            // o b2 (Selo Dicas) continua igual. Se ainda não existe nenhum
+            // local com o selo fundador (fundadorLogos vazio), cai no
+            // banner estático de sempre — fallback pra não mostrar um card
+            // quebrado/vazio antes de existir conteúdo real.
+            const ehBannerFundador = b.id === 'b1';
+            const mostrarLogos = ehBannerFundador && fundadorLogos.length > 0;
+            const LOGOS_VISIVEIS = 6;
+            return (
+              <TouchableOpacity
+                key={b.id}
+                style={styles.bannerCard}
+                activeOpacity={0.85}
+                onPress={() => router.push(b.route as any)}
+              >
+                <View style={[styles.bannerTag, { backgroundColor: b.cor }]}>
+                  <Text style={styles.bannerTagText}>{b.tag}</Text>
+                </View>
+                <Text style={styles.bannerTitle}>{b.titulo}</Text>
+                <Text style={styles.bannerSub}>{b.sub}</Text>
+
+                {mostrarLogos && (
+                  <View style={styles.bannerLogosRow}>
+                    {fundadorLogos.slice(0, LOGOS_VISIVEIS).map((loc) => (
+                      <TouchableOpacity
+                        key={loc.id}
+                        style={styles.bannerLogoAvatar}
+                        activeOpacity={0.8}
+                        onPress={() => router.push(`/business/${loc.id}` as any)}
+                      >
+                        {loc.foto_capa_url ? (
+                          <Image source={{ uri: loc.foto_capa_url }} style={styles.bannerLogoImg} />
+                        ) : (
+                          <View style={[styles.bannerLogoImg, styles.bannerLogoImgVazio]}>
+                            <Feather name="award" size={12} color={COLORS.gold} />
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                    {fundadorLogos.length > LOGOS_VISIVEIS && (
+                      <View style={styles.bannerLogoMais}>
+                        <Text style={styles.bannerLogoMaisTexto}>+{fundadorLogos.length - LOGOS_VISIVEIS}</Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
 
         {/* CATEGORIAS */}
@@ -463,39 +550,41 @@ export default function HomeScreen() {
           </ScrollView>
         </View>
 
-        {/* SELO DICAS LGBT+ — Rodada 47: curadoria editorial da Andrea,
-            nunca vendida. Fica ANTES de "Em Alta" de propósito (o pedido
-            dela foi "no topo") e usa o rosa da marca, não o dourado do
-            brilho automático de quem paga, pra nunca parecer publicidade. */}
-        {seloDicas.length > 0 && (
+        {/* DESTAQUE DA SEMANA — Rodada 56 (3ª rodada de ajuste): aqui era o
+            carrossel "Selo Dicas LGBT+" (Rodada 47). Andrea pediu pra
+            trocar os dois de lugar — Selo Dicas virou banner no topo (ao
+            lado de Membro Fundador) e "Destaque da Semana" ocupou este
+            espaço, ANTES de "Em Alta". Usa o dourado (mesma cor do selo
+            "DESTAQUE" que já aparece nos cards de Em Alta — deveExibirGlow,
+            é literalmente o mesmo critério).
+            Rodada 56 (4ª rodada) — cards em pé (retrato), do mesmo tamanho
+            de "Em Alta" logo abaixo, ficavam estranhos um em cima do outro
+            (mesma pessoa/mesmo selo "DESTAQUE" duas vezes, em dois formatos
+            diferentes). Andrea sugeriu deixar "mais retangular e ir
+            passando pro lado" — trocado pra cards DEITADOS (paisagem, tipo
+            fita horizontal), formato bem diferente de Em Alta de propósito,
+            pra não parecer repetição do mesmo carrossel duas vezes. */}
+        {destaqueSemana.length > 0 && (
           <View style={styles.secaoBloco}>
             <View style={styles.sectionHeaderRow}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Feather name="heart" size={16} color={COLORS.pink} />
-                <Text style={styles.sectionTitulo}>Selo Dicas LGBT+</Text>
+                <Feather name="star" size={16} color={COLORS.amber} />
+                <Text style={styles.sectionTitulo}>Destaque da Semana</Text>
               </View>
             </View>
-            <Text style={styles.seloDicasSubtitulo}>Escolha editorial nossa — não é espaço pago.</Text>
+            <Text style={styles.seloDicasSubtitulo}>Espaços em evidência essa semana.</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carrosselPadding}>
-              {seloDicas.map((item) => {
+              {destaqueSemana.map((item) => {
                 const isFavorited = favoritos.includes(item.id);
                 const fotoUrl = fotoDestaqueUrl(item);
-                // Rodada 56c — a foto de fundo não aparecia mesmo carregando com
-                // sucesso (confirmado com log: onLoad disparava, sem erro). Causa:
-                // um <Image> com StyleSheet.absoluteFillObject dentro de um card
-                // sem altura fixa (só minHeight, altura real decidida pelo
-                // conteúdo) é um caso conhecido do Yoga/Flexbox onde o filho
-                // absoluto pode não receber uma altura resolvida pra "esticar"
-                // (a altura do pai depende do conteúdo, que por sua vez não
-                // conta com o filho absoluto — dependência circular). Trocado
-                // pelo <ImageBackground>, o componente do próprio React Native
-                // feito pra exatamente esse padrão (foto atrás de conteúdo),
-                // que não sofre desse problema porque a foto faz parte do
-                // próprio elemento dimensionado, não de um filho posicionado
-                // à parte. Card vira View comum quando não tem foto.
+                // Rodada 56c — mesma troca de <Image absoluteFillObject> por
+                // <ImageBackground> do card Em Alta (ver comentário lá).
+                // Aqui a altura já é FIXA (destaqueSemanaCard: height), sem
+                // o risco de dependência circular do Yoga/Flexbox — ainda
+                // assim mantido o mesmo componente por consistência.
                 const CardContainer = fotoUrl ? ImageBackground : View;
                 const cardContainerProps = fotoUrl
-                  ? { source: { uri: fotoUrl }, imageStyle: { borderRadius: 16 }, resizeMode: 'cover' as const }
+                  ? { source: { uri: fotoUrl }, imageStyle: { borderRadius: 14 }, resizeMode: 'cover' as const }
                   : {};
                 return (
                   <TouchableOpacity
@@ -503,7 +592,7 @@ export default function HomeScreen() {
                     onPress={() => router.push(`/business/${item.id}` as any)}
                     activeOpacity={0.88}
                   >
-                    <CardContainer style={[styles.emAltaCard, styles.seloDicasCard]} {...cardContainerProps}>
+                    <CardContainer style={[styles.destaqueSemanaCard, styles.destaqueSemanaCardDestacado]} {...cardContainerProps}>
                       {fotoUrl && (
                         <>
                           <View style={styles.emAltaOverlayTop} />
@@ -511,9 +600,9 @@ export default function HomeScreen() {
                         </>
                       )}
                       <View style={styles.emAltaHeaderRow}>
-                        <View style={styles.seloDicasBadge}>
-                          <Feather name="check-circle" size={10} color="#FFF" />
-                          <Text style={styles.seloDicasBadgeText}>Selo Dicas</Text>
+                        <View style={styles.destaqueSemanaBadge}>
+                          <Feather name="star" size={9} color="#000" />
+                          <Text style={styles.emAltaDestaqueBadgeText}>DESTAQUE</Text>
                         </View>
                         <TouchableOpacity
                           onPress={() => handleToggleFavorito(item.id)}
@@ -523,25 +612,11 @@ export default function HomeScreen() {
                         </TouchableOpacity>
                       </View>
 
-                      <Text style={styles.emAltaTitle}>{item.nome}</Text>
-                      <Text style={styles.emAltaMeta}>
-                        {item.bairro || item.cidade} • ★ {item.rating_total > 0 ? item.rating_media.toFixed(1) : '—'}
-                      </Text>
-
-                      <View style={styles.emAltaFooterRow}>
-                        {item.instagram ? (
-                          <TouchableOpacity
-                            style={styles.instaBtn}
-                            onPress={() => handleOpenInstagram(item.instagram!)}
-                            activeOpacity={0.8}
-                          >
-                            <Feather name="instagram" size={12} color={COLORS.pink} />
-                            <Text style={styles.instaBtnText}>@{item.instagram.replace(/^@/, '')}</Text>
-                          </TouchableOpacity>
-                        ) : (
-                          <View />
-                        )}
-                        <Feather name="chevron-right" size={16} color={COLORS.pink} />
+                      <View>
+                        <Text style={styles.emAltaTitle} numberOfLines={1}>{item.nome}</Text>
+                        <Text style={styles.emAltaMeta} numberOfLines={1}>
+                          {item.bairro || item.cidade} • ★ {item.rating_total > 0 ? item.rating_media.toFixed(1) : '—'}
+                        </Text>
                       </View>
                     </CardContainer>
                   </TouchableOpacity>
@@ -585,81 +660,93 @@ export default function HomeScreen() {
                 // Rodada 56c — mesma troca de <Image absoluteFillObject> por
                 // <ImageBackground> do card Selo Dicas acima (ver comentário lá).
                 const CardContainer = fotoUrl ? ImageBackground : View;
+                // Rodada 56 (4ª rodada) — só arredonda os cantos DE CIMA da
+                // foto (borderTopLeftRadius/borderTopRightRadius) porque
+                // agora ela só ocupa a metade de cima do card (ver
+                // emAltaCardFotoWrap) — cantos de baixo ficam retos, encaixando
+                // com o bloco de conteúdo (fundo sólido) logo abaixo.
                 const cardContainerProps = fotoUrl
-                  ? { source: { uri: fotoUrl }, imageStyle: { borderRadius: 16 }, resizeMode: 'cover' as const }
+                  ? { source: { uri: fotoUrl }, imageStyle: { borderTopLeftRadius: 16, borderTopRightRadius: 16 }, resizeMode: 'cover' as const }
                   : {};
+                // Rodada 56 (4ª rodada) — Andrea pediu pra "deixar a foto na
+                // metade, e aonde escrevemos o Instagram e bairro, deixar com
+                // fundo para aparecer melhor": card deixa de ser foto de
+                // fundo full-bleed (com gradiente por cima do texto) e passa
+                // a ter duas metades bem separadas — foto fixa em cima
+                // (emAltaCardFotoWrap) e um bloco com fundo sólido embaixo
+                // (emAltaCardConteudo) pra nome/bairro/Instagram ficarem
+                // sempre legíveis, com qualquer foto. emAltaOverlayTop/Bottom
+                // (gradiente escurecido) não são mais usados aqui — seguem em
+                // uso no card de "Destaque da Semana" acima, que continua
+                // full-bleed.
                 return (
                   <TouchableOpacity
                     key={item.id}
                     onPress={() => router.push(`/business/${item.id}` as any)}
                     activeOpacity={0.88}
                   >
-                    <CardContainer
-                      style={[styles.emAltaCard, destacado && styles.emAltaCardDestacado]}
-                      {...cardContainerProps}
-                    >
-                      {fotoUrl && (
-                        <>
-                          <View style={styles.emAltaOverlayTop} />
-                          <View style={styles.emAltaOverlayBottom} />
-                        </>
-                      )}
-                      <View style={styles.emAltaHeaderRow}>
-                        <View style={styles.emAltaHeaderLeftRow}>
-                          {/* Rodada 56 (2ª rodada de ajuste) — Andrea pediu pra
-                              tirar o avatar/logo circular do card "Em Alta"
-                              ("tirar o logo do em alta né?"). emAltaLogoAvatar
-                              fica sem uso — deixado no styles por segurança,
-                              não removido pra não arriscar quebrar outra
-                              referência não vista. */}
-                          <View style={styles.emAltaCategoryBadge}>
-                            <Text style={styles.emAltaCategoryText}>{CATEGORIA_REAL_LABEL[item.categoria] || item.categoria}</Text>
-                          </View>
-                          {/* Rodada 46 — selo "Patrocinado" (destaque_secoes,
-                              migration 026): monetização avulsa por local,
-                              independente do plano comercial. */}
-                          {estaFixadoEm(item, 'patrocinado') && (
-                            <View style={styles.patrocinadoBadge}>
-                              <Text style={styles.patrocinadoBadgeText}>Patrocinado</Text>
+                    <View style={[styles.emAltaCard, destacado && styles.emAltaCardDestacado]}>
+                      <CardContainer style={styles.emAltaCardFotoWrap} {...cardContainerProps}>
+                        <View style={styles.emAltaHeaderRow}>
+                          <View style={styles.emAltaHeaderLeftRow}>
+                            {/* Rodada 56 (2ª rodada de ajuste) — Andrea pediu pra
+                                tirar o avatar/logo circular do card "Em Alta"
+                                ("tirar o logo do em alta né?"). emAltaLogoAvatar
+                                fica sem uso — deixado no styles por segurança,
+                                não removido pra não arriscar quebrar outra
+                                referência não vista. */}
+                            <View style={styles.emAltaCategoryBadge}>
+                              <Text style={styles.emAltaCategoryText}>{CATEGORIA_REAL_LABEL[item.categoria] || item.categoria}</Text>
                             </View>
-                          )}
-                        </View>
-                        <TouchableOpacity
-                          onPress={() => handleToggleFavorito(item.id)}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        >
-                          <Feather name="heart" size={16} color={isFavorited ? COLORS.pink : COLORS.textMuted} />
-                        </TouchableOpacity>
-                      </View>
-
-                      {destacado && (
-                        <View style={styles.emAltaDestaqueBadge}>
-                          <Feather name="star" size={9} color="#000" />
-                          <Text style={styles.emAltaDestaqueBadgeText}>DESTAQUE</Text>
-                        </View>
-                      )}
-
-                      <Text style={styles.emAltaTitle}>{item.nome}</Text>
-                      <Text style={styles.emAltaMeta}>
-                        {item.bairro || item.cidade} • ★ {item.rating_total > 0 ? item.rating_media.toFixed(1) : '—'}
-                      </Text>
-
-                      <View style={styles.emAltaFooterRow}>
-                        {item.instagram ? (
+                            {/* Rodada 46 — selo "Patrocinado" (destaque_secoes,
+                                migration 026): monetização avulsa por local,
+                                independente do plano comercial. */}
+                            {estaFixadoEm(item, 'patrocinado') && (
+                              <View style={styles.patrocinadoBadge}>
+                                <Text style={styles.patrocinadoBadgeText}>Patrocinado</Text>
+                              </View>
+                            )}
+                          </View>
                           <TouchableOpacity
-                            style={styles.instaBtn}
-                            onPress={() => handleOpenInstagram(item.instagram!)}
-                            activeOpacity={0.8}
+                            style={styles.emAltaFavBtn}
+                            onPress={() => handleToggleFavorito(item.id)}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                           >
-                            <Feather name="instagram" size={12} color={COLORS.pink} />
-                            <Text style={styles.instaBtnText}>@{item.instagram.replace(/^@/, '')}</Text>
+                            <Feather name="heart" size={14} color={isFavorited ? COLORS.pink : '#FFFFFF'} />
                           </TouchableOpacity>
-                        ) : (
-                          <View />
+                        </View>
+                      </CardContainer>
+
+                      <View style={styles.emAltaCardConteudo}>
+                        {destacado && (
+                          <View style={styles.emAltaDestaqueBadge}>
+                            <Feather name="star" size={9} color="#000" />
+                            <Text style={styles.emAltaDestaqueBadgeText}>DESTAQUE</Text>
+                          </View>
                         )}
-                        <Feather name="chevron-right" size={16} color={COLORS.safeSpace} />
+
+                        <Text style={styles.emAltaTitle} numberOfLines={1}>{item.nome}</Text>
+                        <Text style={styles.emAltaMeta} numberOfLines={1}>
+                          {item.bairro || item.cidade} • ★ {item.rating_total > 0 ? item.rating_media.toFixed(1) : '—'}
+                        </Text>
+
+                        <View style={styles.emAltaFooterRow}>
+                          {item.instagram ? (
+                            <TouchableOpacity
+                              style={styles.instaBtn}
+                              onPress={() => handleOpenInstagram(item.instagram!)}
+                              activeOpacity={0.8}
+                            >
+                              <Feather name="instagram" size={12} color={COLORS.pink} />
+                              <Text style={styles.instaBtnText} numberOfLines={1}>@{item.instagram.replace(/^@/, '')}</Text>
+                            </TouchableOpacity>
+                          ) : (
+                            <View />
+                          )}
+                          <Feather name="chevron-right" size={16} color={COLORS.safeSpace} />
+                        </View>
                       </View>
-                    </CardContainer>
+                    </View>
                   </TouchableOpacity>
                 );
               })}
@@ -892,6 +979,36 @@ const styles = StyleSheet.create({
   bannerTagText: { fontSize: 10, fontWeight: '800', color: '#000' },
   bannerTitle: { fontSize: 16, fontWeight: '800', color: COLORS.textPrimary, marginBottom: 4 },
   bannerSub: { fontSize: 12, color: COLORS.textSecondary },
+  // Rodada 56 (4ª rodada) — fileira de logos dos locais com selo "Membro
+  // Fundador" dentro do banner (ver fundadorLogos/mostrarLogos no JSX).
+  // Avatares pequenos de propósito ("reduzir as imagens", pedido da
+  // Andrea) — bem diferente dos cards grandes de Em Alta/Destaque.
+  bannerLogosRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
+  bannerLogoAvatar: {
+    marginRight: -8,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: COLORS.card,
+  },
+  bannerLogoImg: { width: 30, height: 30, borderRadius: 15 },
+  bannerLogoImgVazio: {
+    backgroundColor: COLORS.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.gold,
+  },
+  bannerLogoMais: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: COLORS.background,
+    borderWidth: 2,
+    borderColor: COLORS.card,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bannerLogoMaisTexto: { fontSize: 10, fontWeight: '800', color: COLORS.textSecondary },
 
   secaoBloco: { marginBottom: 24 },
   sectionTituloPadrao: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary, paddingHorizontal: 16, marginBottom: 12 },
@@ -928,18 +1045,50 @@ const styles = StyleSheet.create({
     // opção da foto um pouco maior") — Rodada 56 reduziu pra 172/188
     // (ainda grande demais pra Andrea) — Rodada 56 (2ª rodada de ajuste,
     // "vamos agora reduzir um pouco o tamanho") reduz mais uma vez.
-    // Mantém a mesma estrutura (minHeight + justifyContent space-between:
-    // cabeçalho no topo, texto no rodapé), só num tamanho menor.
+    // Rodada 56 (4ª rodada) — card deixou de ser um único bloco com
+    // padding uniforme (foto de fundo cobrindo tudo) e virou duas
+    // metades empilhadas (emAltaCardFotoWrap + emAltaCardConteudo, ver
+    // comentário no JSX) — por isso sem padding/gap aqui, cada metade
+    // cuida do próprio espaçamento.
     width: 148,
-    minHeight: 164,
+    minHeight: 190,
     backgroundColor: COLORS.card,
     borderRadius: 16,
-    padding: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
-    justifyContent: 'space-between',
-    gap: 6,
     overflow: 'hidden',
+  },
+  // Rodada 56 (4ª rodada) — metade de cima do card, só a foto (altura
+  // fixa). backgroundColor é o fallback pra quando o local não tem foto
+  // (CardContainer vira <View> nesse caso — ver fotoDestaqueUrl/CardContainer
+  // no JSX) — mesmo sem foto, o cabeçalho (categoria/patrocinado/coração)
+  // continua legível porque não depende mais de contraste em cima de
+  // imagem.
+  emAltaCardFotoWrap: {
+    height: 84,
+    backgroundColor: COLORS.border,
+    padding: 8,
+  },
+  // Botão de favorito circular com fundo semi-transparente — antes o
+  // coração ficava solto em cima do overlay escuro do card inteiro; sem
+  // esse overlay (foto só ocupa a metade de cima agora), o próprio botão
+  // precisa do fundo pra continuar legível em qualquer foto.
+  emAltaFavBtn: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(11, 11, 14, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // Metade de baixo — fundo sólido (COLORS.card, nada de foto/overlay),
+  // é o "deixar com fundo pra aparecer melhor" que a Andrea pediu pro
+  // bairro/Instagram.
+  emAltaCardConteudo: {
+    flex: 1,
+    padding: 10,
+    gap: 4,
+    justifyContent: 'space-between',
   },
   // Rodada 47 — troca do overlay único e escuro (0.55 uniforme, "afogava"
   // a cor da foto) por dois blocos empilhados simulando um gradiente sem
@@ -999,14 +1148,42 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   emAltaDestaqueBadgeText: { fontSize: 8, fontWeight: '800', color: '#000' },
+  // Rodada 56 (4ª rodada) — variante âmbar de emAltaCardDestacado/
+  // emAltaDestaqueBadge, só pra "Destaque da Semana" (ver comentário do
+  // COLORS.amber lá em cima): mesmo visual de "brilho" do Em Alta, mas
+  // com cor própria pra não parecer o mesmo selo "DESTAQUE" duas vezes.
+  destaqueSemanaCardDestacado: {
+    borderColor: COLORS.amber,
+    borderWidth: 1.5,
+    shadowColor: COLORS.amber,
+    shadowOpacity: 0.45,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 6,
+  },
+  destaqueSemanaBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    alignSelf: 'flex-start',
+    backgroundColor: COLORS.amber,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginTop: 4,
+  },
   emAltaCategoryBadge: { backgroundColor: 'rgba(255, 213, 79, 0.15)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
   emAltaCategoryText: { fontSize: 10, fontWeight: '800', color: COLORS.gold },
   patrocinadoBadge: { backgroundColor: 'rgba(126, 87, 194, 0.18)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginLeft: 6 },
   patrocinadoBadgeText: { fontSize: 10, fontWeight: '800', color: COLORS.purple },
-  // Rodada 47 — Selo Dicas LGBT+: borda/selo rosa (cor da marca), de
-  // propósito diferente do dourado usado pelo brilho automático de quem
-  // paga (emAltaCardDestacado) — precisa ler como "escolha editorial",
-  // nunca como "espaço pago".
+  // Rodada 47 — estilo criado pro Selo Dicas LGBT+ (borda/selo rosa,
+  // "escolha editorial", nunca "espaço pago"). Rodada 56 (3ª rodada) —
+  // o carrossel do Selo Dicas saiu da Home (virou banner + tela própria),
+  // então seloDicasCard/seloDicasBadge/seloDicasBadgeText ficaram sem uso
+  // aqui — deixados no styles por segurança (risco zero, é só CSS não
+  // referenciado), não removidos. seloDicasSubtitulo continua em uso
+  // (reaproveitado pelo subtítulo de "Destaque da Semana" — nome ficou
+  // desatualizado, mas é só um estilo genérico de texto pequeno).
   seloDicasSubtitulo: { fontSize: 11, color: COLORS.textSecondary, paddingHorizontal: 16, marginTop: -6, marginBottom: 12 },
   seloDicasCard: {
     borderColor: COLORS.pink,
@@ -1027,6 +1204,28 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   seloDicasBadgeText: { fontSize: 10, fontWeight: '800', color: '#FFF' },
+  // Rodada 56 (3ª rodada) — "talvez com um layout menor", pedido da
+  // Andrea pro carrossel "Destaque da Semana" (que ocupou o lugar do
+  // Selo Dicas). Só sobrescreve tamanho/padding em cima de emAltaCard —
+  // resto do visual (cor dourada, badge, overlay) vem de
+  // emAltaCardDestacado/emAltaDestaqueBadge, reaproveitados como estão.
+  destaqueSemanaCard: {
+    // Rodada 56 (4ª rodada) — card deitado (paisagem), tamanho FIXO
+    // (não usa emAltaCard como base mais — self-contained), pra ficar
+    // visualmente diferente dos cards em pé de "Em Alta" logo abaixo.
+    // Reduzido de 260x104 pra 220x88 a pedido da Andrea ("reduzir um
+    // pouco o tamanho") — texto continua com 1 linha (numberOfLines),
+    // então cabe sem cortar nome/meta.
+    width: 220,
+    height: 88,
+    backgroundColor: COLORS.card,
+    borderRadius: 14,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    justifyContent: 'space-between',
+    overflow: 'hidden',
+  },
   emAltaTitle: { fontSize: 14, fontWeight: '800', color: COLORS.textPrimary, marginTop: 4 },
   emAltaMeta: { fontSize: 11, color: COLORS.textSecondary },
   emAltaFooterRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
