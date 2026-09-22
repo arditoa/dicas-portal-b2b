@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  ImageBackground,
   Linking,
   ScrollView,
   StyleSheet,
@@ -83,6 +84,13 @@ interface LocalCard {
   cidade: string;
   instagram: string | null;
   foto_capa_url: string | null;
+  // Rodada 56 — bug reportado pela Andrea: cards de destaque (Selo Dicas,
+  // Em Alta) ficavam sem foto nenhuma quando o parceiro só tinha subido
+  // fotos na galeria (recurso premium, dashboard/perfil) mas nunca
+  // preencheu especificamente a "foto de capa" (foto_capa_url, campo
+  // separado, opcional). Cai aqui pra servir de reserva — ver
+  // fotoDestaqueUrl() abaixo.
+  galeria_fotos: string[] | null;
   rating_media: number;
   rating_total: number;
   plano_destaque: 'basico' | 'destaque' | 'vip';
@@ -91,6 +99,21 @@ interface LocalCard {
   destaque_ate: string | null;
   plano_comercial: string | null;
   plano_comercial_status: string | null;
+}
+
+// Rodada 56 — foto de capa com reserva na galeria: todo plano pode
+// preencher foto_capa_url (é o campo "básico", sempre visível — ver
+// comentário equivalente em business/[id].tsx), mas na prática muita
+// gente só sobe fotos pela galeria (só Premium/Fundador tem esse upload,
+// dashboard/perfil) e esquece de definir a capa separadamente. Sem essa
+// reserva, o card de destaque fica com o fundo vazio mesmo o local tendo
+// fotos de verdade cadastradas — foi exatamente o caso da "Vezpa Bar &
+// Rooftop" depois do reset da Rodada 55. Não fura o limite de quem paga:
+// galeria_fotos só vem preenchida pra quem já tem/teve o upload de
+// galeria liberado (premium/fundador), então essa reserva nunca aparece
+// pra local freemium que nunca teve acesso a esse upload.
+function fotoDestaqueUrl(item: Pick<LocalCard, 'foto_capa_url' | 'galeria_fotos'>): string | null {
+  return item.foto_capa_url || item.galeria_fotos?.[0] || null;
 }
 
 interface EventoHoje {
@@ -159,7 +182,7 @@ export default function HomeScreen() {
         supabase
           .from('locais')
           .select(
-            'id, nome, categoria, bairro, cidade, instagram, foto_capa_url, rating_media, rating_total, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status'
+            'id, nome, categoria, bairro, cidade, instagram, foto_capa_url, galeria_fotos, rating_media, rating_total, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status'
           )
           .eq('status', 'aprovado')
           .limit(60),
@@ -177,7 +200,7 @@ export default function HomeScreen() {
         supabase
           .from('locais')
           .select(
-            'id, nome, categoria, bairro, cidade, instagram, foto_capa_url, rating_media, rating_total, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status'
+            'id, nome, categoria, bairro, cidade, instagram, foto_capa_url, galeria_fotos, rating_media, rating_total, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status'
           )
           .eq('status', 'aprovado')
           .contains('destaque_secoes', ['hoje'])
@@ -209,7 +232,7 @@ export default function HomeScreen() {
         supabase
           .from('locais')
           .select(
-            'id, nome, categoria, bairro, cidade, instagram, foto_capa_url, rating_media, rating_total, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status'
+            'id, nome, categoria, bairro, cidade, instagram, foto_capa_url, galeria_fotos, rating_media, rating_total, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status'
           )
           .eq('status', 'aprovado')
           .contains('destaque_secoes', ['selo_dicas'])
@@ -456,57 +479,71 @@ export default function HomeScreen() {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carrosselPadding}>
               {seloDicas.map((item) => {
                 const isFavorited = favoritos.includes(item.id);
+                const fotoUrl = fotoDestaqueUrl(item);
+                // Rodada 56c — a foto de fundo não aparecia mesmo carregando com
+                // sucesso (confirmado com log: onLoad disparava, sem erro). Causa:
+                // um <Image> com StyleSheet.absoluteFillObject dentro de um card
+                // sem altura fixa (só minHeight, altura real decidida pelo
+                // conteúdo) é um caso conhecido do Yoga/Flexbox onde o filho
+                // absoluto pode não receber uma altura resolvida pra "esticar"
+                // (a altura do pai depende do conteúdo, que por sua vez não
+                // conta com o filho absoluto — dependência circular). Trocado
+                // pelo <ImageBackground>, o componente do próprio React Native
+                // feito pra exatamente esse padrão (foto atrás de conteúdo),
+                // que não sofre desse problema porque a foto faz parte do
+                // próprio elemento dimensionado, não de um filho posicionado
+                // à parte. Card vira View comum quando não tem foto.
+                const CardContainer = fotoUrl ? ImageBackground : View;
+                const cardContainerProps = fotoUrl
+                  ? { source: { uri: fotoUrl }, imageStyle: { borderRadius: 16 }, resizeMode: 'cover' as const }
+                  : {};
                 return (
                   <TouchableOpacity
                     key={item.id}
-                    style={[styles.emAltaCard, styles.seloDicasCard]}
                     onPress={() => router.push(`/business/${item.id}` as any)}
                     activeOpacity={0.88}
                   >
-                    {item.foto_capa_url && (
-                      <>
-                        <Image
-                          source={{ uri: item.foto_capa_url }}
-                          style={StyleSheet.absoluteFillObject}
-                          resizeMode="cover"
-                        />
-                        <View style={styles.emAltaOverlayTop} />
-                        <View style={styles.emAltaOverlayBottom} />
-                      </>
-                    )}
-                    <View style={styles.emAltaHeaderRow}>
-                      <View style={styles.seloDicasBadge}>
-                        <Feather name="check-circle" size={10} color="#FFF" />
-                        <Text style={styles.seloDicasBadgeText}>Selo Dicas</Text>
-                      </View>
-                      <TouchableOpacity
-                        onPress={() => handleToggleFavorito(item.id)}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        <Feather name="heart" size={16} color={isFavorited ? COLORS.pink : '#FFFFFF'} />
-                      </TouchableOpacity>
-                    </View>
-
-                    <Text style={styles.emAltaTitle}>{item.nome}</Text>
-                    <Text style={styles.emAltaMeta}>
-                      {item.bairro || item.cidade} • ★ {item.rating_total > 0 ? item.rating_media.toFixed(1) : '—'}
-                    </Text>
-
-                    <View style={styles.emAltaFooterRow}>
-                      {item.instagram ? (
-                        <TouchableOpacity
-                          style={styles.instaBtn}
-                          onPress={() => handleOpenInstagram(item.instagram!)}
-                          activeOpacity={0.8}
-                        >
-                          <Feather name="instagram" size={12} color={COLORS.pink} />
-                          <Text style={styles.instaBtnText}>@{item.instagram.replace(/^@/, '')}</Text>
-                        </TouchableOpacity>
-                      ) : (
-                        <View />
+                    <CardContainer style={[styles.emAltaCard, styles.seloDicasCard]} {...cardContainerProps}>
+                      {fotoUrl && (
+                        <>
+                          <View style={styles.emAltaOverlayTop} />
+                          <View style={styles.emAltaOverlayBottom} />
+                        </>
                       )}
-                      <Feather name="chevron-right" size={16} color={COLORS.pink} />
-                    </View>
+                      <View style={styles.emAltaHeaderRow}>
+                        <View style={styles.seloDicasBadge}>
+                          <Feather name="check-circle" size={10} color="#FFF" />
+                          <Text style={styles.seloDicasBadgeText}>Selo Dicas</Text>
+                        </View>
+                        <TouchableOpacity
+                          onPress={() => handleToggleFavorito(item.id)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Feather name="heart" size={16} color={isFavorited ? COLORS.pink : '#FFFFFF'} />
+                        </TouchableOpacity>
+                      </View>
+
+                      <Text style={styles.emAltaTitle}>{item.nome}</Text>
+                      <Text style={styles.emAltaMeta}>
+                        {item.bairro || item.cidade} • ★ {item.rating_total > 0 ? item.rating_media.toFixed(1) : '—'}
+                      </Text>
+
+                      <View style={styles.emAltaFooterRow}>
+                        {item.instagram ? (
+                          <TouchableOpacity
+                            style={styles.instaBtn}
+                            onPress={() => handleOpenInstagram(item.instagram!)}
+                            activeOpacity={0.8}
+                          >
+                            <Feather name="instagram" size={12} color={COLORS.pink} />
+                            <Text style={styles.instaBtnText}>@{item.instagram.replace(/^@/, '')}</Text>
+                          </TouchableOpacity>
+                        ) : (
+                          <View />
+                        )}
+                        <Feather name="chevron-right" size={16} color={COLORS.pink} />
+                      </View>
+                    </CardContainer>
                   </TouchableOpacity>
                 );
               })}
@@ -544,76 +581,85 @@ export default function HomeScreen() {
                 // manualmente "destaque" no /admin) ganham uma borda
                 // brilhante + o logo/foto do local em destaque no card.
                 const destacado = deveExibirGlow(item);
+                const fotoUrl = fotoDestaqueUrl(item);
+                // Rodada 56c — mesma troca de <Image absoluteFillObject> por
+                // <ImageBackground> do card Selo Dicas acima (ver comentário lá).
+                const CardContainer = fotoUrl ? ImageBackground : View;
+                const cardContainerProps = fotoUrl
+                  ? { source: { uri: fotoUrl }, imageStyle: { borderRadius: 16 }, resizeMode: 'cover' as const }
+                  : {};
                 return (
                   <TouchableOpacity
                     key={item.id}
-                    style={[styles.emAltaCard, destacado && styles.emAltaCardDestacado]}
                     onPress={() => router.push(`/business/${item.id}` as any)}
                     activeOpacity={0.88}
                   >
-                    {item.foto_capa_url && (
-                      <>
-                        <Image
-                          source={{ uri: item.foto_capa_url }}
-                          style={StyleSheet.absoluteFillObject}
-                          resizeMode="cover"
-                        />
-                        <View style={styles.emAltaOverlayTop} />
-                        <View style={styles.emAltaOverlayBottom} />
-                      </>
-                    )}
-                    <View style={styles.emAltaHeaderRow}>
-                      <View style={styles.emAltaHeaderLeftRow}>
-                        {destacado && item.foto_capa_url && (
-                          <Image source={{ uri: item.foto_capa_url }} style={styles.emAltaLogoAvatar} />
-                        )}
-                        <View style={styles.emAltaCategoryBadge}>
-                          <Text style={styles.emAltaCategoryText}>{CATEGORIA_REAL_LABEL[item.categoria] || item.categoria}</Text>
-                        </View>
-                        {/* Rodada 46 — selo "Patrocinado" (destaque_secoes,
-                            migration 026): monetização avulsa por local,
-                            independente do plano comercial. */}
-                        {estaFixadoEm(item, 'patrocinado') && (
-                          <View style={styles.patrocinadoBadge}>
-                            <Text style={styles.patrocinadoBadgeText}>Patrocinado</Text>
-                          </View>
-                        )}
-                      </View>
-                      <TouchableOpacity
-                        onPress={() => handleToggleFavorito(item.id)}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        <Feather name="heart" size={16} color={isFavorited ? COLORS.pink : COLORS.textMuted} />
-                      </TouchableOpacity>
-                    </View>
-
-                    {destacado && (
-                      <View style={styles.emAltaDestaqueBadge}>
-                        <Feather name="star" size={9} color="#000" />
-                        <Text style={styles.emAltaDestaqueBadgeText}>DESTAQUE</Text>
-                      </View>
-                    )}
-
-                    <Text style={styles.emAltaTitle}>{item.nome}</Text>
-                    <Text style={styles.emAltaMeta}>
-                      {item.bairro || item.cidade} • ★ {item.rating_total > 0 ? item.rating_media.toFixed(1) : '—'}
-                    </Text>
-
-                    <View style={styles.emAltaFooterRow}>
-                      {item.instagram ? (
-                        <TouchableOpacity
-                          style={styles.instaBtn}
-                          onPress={() => handleOpenInstagram(item.instagram!)}
-                          activeOpacity={0.8}
-                        >
-                          <Feather name="instagram" size={12} color={COLORS.pink} />
-                          <Text style={styles.instaBtnText}>@{item.instagram.replace(/^@/, '')}</Text>
-                        </TouchableOpacity>
-                      ) : (
-                        <View />
+                    <CardContainer
+                      style={[styles.emAltaCard, destacado && styles.emAltaCardDestacado]}
+                      {...cardContainerProps}
+                    >
+                      {fotoUrl && (
+                        <>
+                          <View style={styles.emAltaOverlayTop} />
+                          <View style={styles.emAltaOverlayBottom} />
+                        </>
                       )}
-                      <Feather name="chevron-right" size={16} color={COLORS.safeSpace} />
-                    </View>
+                      <View style={styles.emAltaHeaderRow}>
+                        <View style={styles.emAltaHeaderLeftRow}>
+                          {/* Rodada 56 (2ª rodada de ajuste) — Andrea pediu pra
+                              tirar o avatar/logo circular do card "Em Alta"
+                              ("tirar o logo do em alta né?"). emAltaLogoAvatar
+                              fica sem uso — deixado no styles por segurança,
+                              não removido pra não arriscar quebrar outra
+                              referência não vista. */}
+                          <View style={styles.emAltaCategoryBadge}>
+                            <Text style={styles.emAltaCategoryText}>{CATEGORIA_REAL_LABEL[item.categoria] || item.categoria}</Text>
+                          </View>
+                          {/* Rodada 46 — selo "Patrocinado" (destaque_secoes,
+                              migration 026): monetização avulsa por local,
+                              independente do plano comercial. */}
+                          {estaFixadoEm(item, 'patrocinado') && (
+                            <View style={styles.patrocinadoBadge}>
+                              <Text style={styles.patrocinadoBadgeText}>Patrocinado</Text>
+                            </View>
+                          )}
+                        </View>
+                        <TouchableOpacity
+                          onPress={() => handleToggleFavorito(item.id)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Feather name="heart" size={16} color={isFavorited ? COLORS.pink : COLORS.textMuted} />
+                        </TouchableOpacity>
+                      </View>
+
+                      {destacado && (
+                        <View style={styles.emAltaDestaqueBadge}>
+                          <Feather name="star" size={9} color="#000" />
+                          <Text style={styles.emAltaDestaqueBadgeText}>DESTAQUE</Text>
+                        </View>
+                      )}
+
+                      <Text style={styles.emAltaTitle}>{item.nome}</Text>
+                      <Text style={styles.emAltaMeta}>
+                        {item.bairro || item.cidade} • ★ {item.rating_total > 0 ? item.rating_media.toFixed(1) : '—'}
+                      </Text>
+
+                      <View style={styles.emAltaFooterRow}>
+                        {item.instagram ? (
+                          <TouchableOpacity
+                            style={styles.instaBtn}
+                            onPress={() => handleOpenInstagram(item.instagram!)}
+                            activeOpacity={0.8}
+                          >
+                            <Feather name="instagram" size={12} color={COLORS.pink} />
+                            <Text style={styles.instaBtnText}>@{item.instagram.replace(/^@/, '')}</Text>
+                          </TouchableOpacity>
+                        ) : (
+                          <View />
+                        )}
+                        <Feather name="chevron-right" size={16} color={COLORS.safeSpace} />
+                      </View>
+                    </CardContainer>
                   </TouchableOpacity>
                 );
               })}
@@ -668,8 +714,8 @@ export default function HomeScreen() {
                   activeOpacity={0.85}
                 >
                   <View style={styles.agendaImageArea}>
-                    {item.foto_capa_url ? (
-                      <Image source={{ uri: item.foto_capa_url }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+                    {fotoDestaqueUrl(item) ? (
+                      <Image source={{ uri: fotoDestaqueUrl(item)! }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
                     ) : (
                       <Feather name="map-pin" size={24} color={COLORS.pink} />
                     )}
@@ -878,13 +924,14 @@ const styles = StyleSheet.create({
   carrosselPadding: { paddingHorizontal: 16, gap: 12 },
 
   emAltaCard: {
-    width: 220,
-    // Rodada 47 — pedido direto da Andrea: "deixar a opção da foto um
-    // pouco maior". Antes o card não tinha altura fixa (media pelo
-    // conteúdo, ~150px) — com minHeight + o mesmo justifyContent
-    // space-between de sempre, o cabeçalho fica no topo, o texto no
-    // rodapé, e a foto de fundo ganha uma área bem maior visível no meio.
-    minHeight: 260,
+    // Rodada 47 tinha aumentado pra width 220/minHeight 260 ("deixar a
+    // opção da foto um pouco maior") — Rodada 56 reduziu pra 172/188
+    // (ainda grande demais pra Andrea) — Rodada 56 (2ª rodada de ajuste,
+    // "vamos agora reduzir um pouco o tamanho") reduz mais uma vez.
+    // Mantém a mesma estrutura (minHeight + justifyContent space-between:
+    // cabeçalho no topo, texto no rodapé), só num tamanho menor.
+    width: 148,
+    minHeight: 164,
     backgroundColor: COLORS.card,
     borderRadius: 16,
     padding: 14,

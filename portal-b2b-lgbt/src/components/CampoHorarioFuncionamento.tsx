@@ -9,6 +9,16 @@ import { DIAS_SEMANA, HorarioFuncionamento } from '../lib/horarios';
 const inputClass =
   'w-full bg-[#161520] border border-[#232230] rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:border-[#E1306C] disabled:opacity-40';
 
+// Rodada 56 (2ª rodada de ajuste) — Andrea reportou "está escuro a parte
+// horário da banda no cadastro". Dois problemas juntos: (1) sem
+// `colorScheme: 'dark'`, o navegador desenha o ícone/relógio do
+// `<input type="time">` assumindo tema claro — em cima do fundo escuro
+// do input isso fica quase invisível; (2) a coluna de música ao vivo era
+// a única das três sem nenhum texto visível (só aria-label), então além
+// de "escura" ela não tinha como se identificar. Corrige as duas coisas
+// pros três horários (Abre/Fecha/Banda), não só o da banda.
+const inputStyle = { colorScheme: 'dark' as const };
+
 type Props = {
   value: HorarioFuncionamento;
   onChange: (novo: HorarioFuncionamento) => void;
@@ -45,33 +55,43 @@ export default function CampoHorarioFuncionamento({ value, onChange, disabled }:
 
             {info.aberto ? (
               <>
-                <span className="hidden sm:block text-[11px] text-[#626274]">Abre</span>
-                <input
-                  type="time"
-                  className={inputClass}
-                  disabled={disabled}
-                  value={info.abre || ''}
-                  onChange={(e) => atualizarDia(dia.chave, { abre: e.target.value })}
-                  aria-label={`Horário de abertura, ${dia.label}`}
-                />
-                <input
-                  type="time"
-                  className={inputClass}
-                  disabled={disabled}
-                  value={info.fecha || ''}
-                  onChange={(e) => atualizarDia(dia.chave, { fecha: e.target.value })}
-                  aria-label={`Horário de fechamento, ${dia.label}`}
-                  placeholder="Fecha"
-                />
-                <div className="flex items-center gap-1.5">
+                <div>
+                  <span className="hidden sm:block text-[11px] text-[#626274]">Abre</span>
                   <input
                     type="time"
                     className={inputClass}
+                    style={inputStyle}
                     disabled={disabled}
-                    value={info.musica_ao_vivo || ''}
-                    onChange={(e) => atualizarDia(dia.chave, { musica_ao_vivo: e.target.value })}
-                    aria-label={`Início da música ao vivo, ${dia.label} (opcional)`}
+                    value={info.abre || ''}
+                    onChange={(e) => atualizarDia(dia.chave, { abre: e.target.value })}
+                    aria-label={`Horário de abertura, ${dia.label}`}
                   />
+                </div>
+                <div>
+                  <span className="hidden sm:block text-[11px] text-[#626274]">Fecha</span>
+                  <input
+                    type="time"
+                    className={inputClass}
+                    style={inputStyle}
+                    disabled={disabled}
+                    value={info.fecha || ''}
+                    onChange={(e) => atualizarDia(dia.chave, { fecha: e.target.value })}
+                    aria-label={`Horário de fechamento, ${dia.label}`}
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="hidden sm:block text-[11px] text-[#E1306C] font-medium">Banda ao vivo</span>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="time"
+                      className={inputClass}
+                      style={inputStyle}
+                      disabled={disabled}
+                      value={info.musica_ao_vivo || ''}
+                      onChange={(e) => atualizarDia(dia.chave, { musica_ao_vivo: e.target.value })}
+                      aria-label={`Início da música ao vivo, ${dia.label} (opcional)`}
+                    />
+                  </div>
                 </div>
               </>
             ) : (

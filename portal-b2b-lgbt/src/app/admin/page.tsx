@@ -237,11 +237,27 @@ function localCombinaComFiltroPrincipal(l: LocalDestaque, filtro: string): boole
 
 // Rodada 44 — seletor único "Escolha pela experiência" (até 3), pedido
 // explícito da Andrea mesmo depois de eu levantar que Membro
-// Fundador/Destaque da Semana têm mecanismo próprio (local_badges /
+// Fundador/Selo Dicas LGBT+ têm mecanismo próprio (local_badges /
 // destaque_secoes) — ela confirmou que prefere ver tudo junto na mesma
 // lista do admin. `destino` decide pra onde a marcação realmente é
 // gravada (ver alternarExperiencia abaixo); a UI trata os 13 igual.
-type OpcaoExperiencia = { slug: string; label: string; destino: 'experiencias' | 'fundador' | 'destaque_semana' };
+//
+// Rodada 56 (2ª rodada de ajuste) — a Andrea pediu pra tirar "Destaque da
+// Semana" daqui e colocar "Selo Dicas LGBT+" no lugar dela, ao lado de
+// "Membro Fundador" ("o selo dicas LGBT pensei e deixar ao lado de
+// membro fundador. Excluir destaque da semana, e deixar no local dos
+// selos (atual)"). O valor gravado (`destaque_secoes`) continua sendo
+// 'selo_dicas' — só o controle que liga/desliga mudou de lugar: antes
+// vivia em OPCOES_SECAO_LOCAL_RAPIDA (linha ~332), agora vive aqui.
+//
+// Atenção — efeito colateral que a Andrea precisa saber: locais que já
+// estavam marcados com o valor antigo 'destaque' (via "Destaque da
+// Semana", agora removido) continuam com o brilho dourado/selo
+// "DESTAQUE" na Home (src/lib/destaque.ts, deveExibirGlow, no app),
+// porque esse dado não foi apagado — só o controle pra desmarcar
+// desapareceu daqui. Se algum local ficar "preso" com esse brilho, será
+// preciso desmarcar direto no banco (posso gerar o SQL se acontecer).
+type OpcaoExperiencia = { slug: string; label: string; destino: 'experiencias' | 'fundador' | 'selo_dicas' };
 const OPCOES_EXPERIENCIA: OpcaoExperiencia[] = [
   { slug: 'aniversario', label: 'Aniversário', destino: 'experiencias' },
   { slug: 'predominancia_lesbica', label: 'Predominância Lésbica', destino: 'experiencias' },
@@ -253,7 +269,7 @@ const OPCOES_EXPERIENCIA: OpcaoExperiencia[] = [
   { slug: 'drag_show', label: 'Drag Show', destino: 'experiencias' },
   { slug: 'aula_de_danca', label: 'Aula de Dança', destino: 'experiencias' },
   { slug: 'membro_fundador', label: 'Membro Fundador', destino: 'fundador' },
-  { slug: 'destaque_da_semana', label: 'Destaque da Semana', destino: 'destaque_semana' },
+  { slug: 'selo_dicas', label: 'Selo Dicas LGBT+ (conquista — nunca é venda)', destino: 'selo_dicas' },
   { slug: 'cupons_exclusivos', label: 'Cupons Exclusivos', destino: 'experiencias' },
   { slug: 'eventos', label: 'Eventos', destino: 'experiencias' },
 ];
@@ -264,7 +280,7 @@ const OPCOES_EXPERIENCIA: OpcaoExperiencia[] = [
 function selecaoAtualExperiencia(l: LocalDestaque): string[] {
   const selecao = [...(l.experiencias || [])];
   if (l.fundador) selecao.push('membro_fundador');
-  if (l.destaque_secoes.includes('destaque')) selecao.push('destaque_da_semana');
+  if (l.destaque_secoes.includes('selo_dicas')) selecao.push('selo_dicas');
   return selecao;
 }
 
@@ -324,12 +340,18 @@ function resumoExperienciasLocal(l: LocalDestaque): string {
 // baixo (destaque_secoes), só o rótulo e o contexto de negócio mudam —
 // por isso o label já deixa isso claro na própria lista, pra nunca virar
 // item de venda por engano numa conversa com parceiro.
+//
+// Rodada 56 (2ª rodada de ajuste) — "Selo Dicas LGBT+" saiu desta lista
+// rápida e foi pro seletor "Escolha pela experiência" (OPCOES_EXPERIENCIA
+// acima), ao lado de "Membro Fundador" — pedido direto da Andrea. O
+// valor gravado continua 'selo_dicas' em destaque_secoes; só o controle
+// mudou de lugar (ver resumoSecoesLocal/totalSeloDicas mais abaixo, que
+// continuam lendo o mesmo valor e não precisaram mudar).
 const OPCOES_SECAO_LOCAL_RAPIDA: { value: string; label: string }[] = [
   { value: 'em_alta', label: 'Em Alta' },
   { value: 'hoje', label: 'O que Fazer Hoje' },
   { value: 'turismo', label: 'Dicas Trip' },
   { value: 'patrocinado', label: 'Patrocinado' },
-  { value: 'selo_dicas', label: 'Selo Dicas LGBT+ (conquista — nunca é venda)' },
 ];
 
 // Rodada 46 — a Andrea reportou "eventos não sobem": a causa real era
@@ -1130,8 +1152,8 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
       await alternarFundador(l.id, marcar);
       return;
     }
-    if (opcao.destino === 'destaque_semana') {
-      await alternarSecaoInstantanea(l, 'destaque', marcar);
+    if (opcao.destino === 'selo_dicas') {
+      await alternarSecaoInstantanea(l, 'selo_dicas', marcar);
       return;
     }
 
