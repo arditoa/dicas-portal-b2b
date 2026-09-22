@@ -17,6 +17,7 @@ import {
   User,
   UtensilsCrossed,
 } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import Footer from '../components/Footer';
 import Header from '../components/Header';
@@ -83,6 +84,30 @@ const TELAS = [
   { nome: 'Agenda', legenda: 'Festas, eventos e programações por data.', icone: Calendar },
   { nome: 'Dicas Trip', legenda: 'Destinos, hospedagens, roteiros e experiências.', icone: Plane },
   { nome: 'Perfil', legenda: 'Favoritos, cupons, indicações e preferências.', icone: User },
+];
+
+// Rodada 60 — Andrea mandou 3 prints reais do app rodando (Início, área
+// Dicas Trip/experiências dentro do Início, e Mapa) pra colocar na Seção 5
+// da Home como prova visual de que o app já existe e funciona.
+const SCREENSHOTS = [
+  {
+    nome: 'Início',
+    arquivo: '/screenshots/app-inicio.jpg',
+    alt: 'Tela inicial do app Dicas LGBT+ mostrando destaques e categorias',
+    legenda: 'Destaques, categorias e locais em alta.',
+  },
+  {
+    nome: 'Dicas Trip',
+    arquivo: '/screenshots/app-dicas-trip.jpg',
+    alt: 'Tela do app com filtros por experiência e área Dicas Trip',
+    legenda: 'Experiências, filtros e curadoria por vibe.',
+  },
+  {
+    nome: 'Mapa',
+    arquivo: '/screenshots/app-mapa.jpg',
+    alt: 'Mapa interativo do app com espaços LGBT+ por bairro',
+    legenda: 'Espaços LGBT+ organizados por bairro e categoria.',
+  },
 ];
 
 const BENEFICIOS = [
@@ -227,9 +252,33 @@ export default function LandingPage() {
       {/* Seção 5 — Demonstração do aplicativo */}
       <section className="w-full border-t border-white/5 bg-white/[0.02]">
         <div className="max-w-6xl mx-auto px-6 py-16">
-          <h2 className="text-2xl sm:text-3xl font-extrabold mb-10 text-center">
+          <h2 className="text-2xl sm:text-3xl font-extrabold mb-3 text-center">
             Não estamos criando apenas mais um guia.
           </h2>
+          <p className="text-[#A0A0B2] text-sm sm:text-base text-center max-w-xl mx-auto mb-12">
+            Telas reais do aplicativo, ainda em desenvolvimento.
+          </p>
+
+          <div className="flex flex-wrap justify-center gap-8 sm:gap-6 mb-14">
+            {SCREENSHOTS.map((s, i) => (
+              <div
+                key={s.nome}
+                className={`flex flex-col items-center w-[220px] ${i === 1 ? 'sm:-translate-y-5' : ''}`}
+              >
+                <div className="relative w-full rounded-[2rem] border-[3px] border-[#2E2E3D] bg-[#0B0B0E] p-1.5 shadow-[0_20px_60px_-16px_rgba(225,48,108,0.28)]">
+                  <div className="pointer-events-none absolute top-1.5 left-1/2 -translate-x-1/2 w-16 h-4 bg-[#0B0B0E] rounded-b-xl z-10" />
+                  <div className="relative rounded-[1.6rem] overflow-hidden">
+                    <Image src={s.arquivo} alt={s.alt} width={720} height={1561} className="w-full h-auto" />
+                  </div>
+                </div>
+                <span className="mt-4 text-sm font-bold text-center">{s.nome}</span>
+                <span className="text-[#A0A0B2] text-[11px] mt-1 text-center leading-relaxed max-w-[200px]">
+                  {s.legenda}
+                </span>
+              </div>
+            ))}
+          </div>
+
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
             {TELAS.map((t) => (
               <div key={t.nome} className="bg-[#161520] border border-[#232230] rounded-2xl p-5 text-center">
