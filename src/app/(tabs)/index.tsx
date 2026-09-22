@@ -281,7 +281,7 @@ export default function HomeScreen() {
           .ilike('rotulo', '%fundador%')
           .eq('ativo', true)
           .eq('locais.status', 'aprovado')
-          .limit(12),
+          .limit(20),
         // Rodada 57 — arte de marketing global do banner "Membro Fundador"
         // (ver bannerFundadorArteUrl acima).
         supabase.from('app_config').select('valor').eq('chave', 'membro_fundador_banner_url').maybeSingle(),
@@ -503,7 +503,11 @@ export default function HomeScreen() {
             // quebrado/vazio antes de existir conteúdo real.
             const ehBannerFundador = b.id === 'b1';
             const mostrarLogos = ehBannerFundador && fundadorLogos.length > 0;
-            const LOGOS_VISIVEIS = 6;
+            // Rodada 59 (parte 6) - Andrea pediu pra abrir espaco pros
+            // 10 fundadores (mesmo lote de vagas da pagina do site
+            // /parceiro-fundador), comecando pelo Vezpa Bar. Antes so
+            // mostrava 6 avatares antes do badge "+N".
+            const LOGOS_VISIVEIS = 10;
             // Rodada 57 — "arte especial" do banner Membro Fundador, que a
             // própria Andrea vai criar e subir pelo /admin (ver
             // bannerFundadorArteUrl acima). Só troca o VISUAL de fundo —
