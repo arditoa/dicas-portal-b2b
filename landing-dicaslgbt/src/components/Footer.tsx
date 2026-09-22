@@ -11,7 +11,7 @@ import { INSTAGRAM_URL, NAV_ITEMS, SUPORTE_EMAIL, SUPORTE_WHATSAPP, linkWhatsapp
 // aqui: some da tela em vez de virar link morto quando não preenchido.
 export default function Footer() {
   return (
-    <footer className="w-full border-t border-[#232230] mt-16">
+    <footer className="w-full border-t border-white/5 mt-16">
       <div className="w-full max-w-6xl mx-auto px-6 py-12 grid grid-cols-2 sm:grid-cols-4 gap-8 text-xs">
         <div className="col-span-2 sm:col-span-1">
           <div className="relative h-8 w-14 mb-4">

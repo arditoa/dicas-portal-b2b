@@ -7,16 +7,23 @@ import { useState } from 'react';
 import { NAV_ITEMS } from '../lib/constants';
 
 // Rodada 58 — Guia_Configuracao_Site_Dicas_LGBT_App.docx, "Cabeçalho
-// global": logo à esquerda, menu com os 7 itens do mapa do site, link
+// global": logo à esquerda, menu com os itens do mapa do site, link
 // discreto "Já sou parceiro" → /entrar, e no celular menu recolhido
 // mostrando só logo + ícone do menu + "Entrar". Extraído da page.tsx
 // original (que só tinha logo + "Já é parceiro? Entrar") pra ficar
-// compartilhado entre as 9 páginas novas, em vez de repetir em cada uma.
+// compartilhado entre as páginas novas, em vez de repetir em cada uma.
+//
+// Rodada 59 (parte 3) — Andrea pediu pra "melhorar o topo": header virou
+// sticky com leve desfoque (mais premium, fica visível ao rolar a página
+// longa) e a borda inferior ficou mais sutil (branca translúcida em vez
+// de cinza sólido, ver nota na Seção 2/9-12 do page.tsx sobre os
+// divisores). "Área do Parceiro" saiu do menu por já duplicar este botão
+// "Já sou parceiro" — ver NAV_ITEMS em lib/constants.ts.
 export default function Header() {
   const [aberto, setAberto] = useState(false);
 
   return (
-    <header className="w-full border-b border-[#232230]/60">
+    <header className="w-full border-b border-white/5 sticky top-0 z-50 backdrop-blur-md bg-[#0B0B0E]/80">
       <div className="w-full max-w-6xl mx-auto flex items-center justify-between px-6 py-5">
         <Link href="/" className="relative h-9 w-36 sm:h-10 sm:w-44 shrink-0">
           <Image src="/logo-lockup.png" alt="Dicas LGBT+" fill className="object-contain object-left" priority />
@@ -53,7 +60,7 @@ export default function Header() {
       </div>
 
       {aberto && (
-        <nav className="lg:hidden flex flex-col gap-1 px-6 pb-5 border-t border-[#232230]/60 pt-3">
+        <nav className="lg:hidden flex flex-col gap-1 px-6 pb-5 border-t border-white/5 pt-3">
           {NAV_ITEMS.map((item) => (
             <Link
               key={item.href}

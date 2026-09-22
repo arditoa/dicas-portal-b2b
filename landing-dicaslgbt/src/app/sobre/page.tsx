@@ -40,7 +40,7 @@ export default function SobrePage() {
       </section>
 
       {/* 2. História */}
-      <section className="w-full max-w-3xl mx-auto px-6 py-14 border-t border-[#232230] text-center">
+      <section className="w-full max-w-3xl mx-auto px-6 py-14 border-t border-white/5 text-center">
         <h2 className="text-2xl sm:text-3xl font-extrabold mb-4">Uma história construída com a comunidade.</h2>
         <p className="text-[#A0A0B2] text-sm sm:text-base leading-relaxed">
           Quase 5 anos de atuação e a retomada do perfil em 2026 como sinal de força e reconstrução.
@@ -48,7 +48,7 @@ export default function SobrePage() {
       </section>
 
       {/* 3. Números */}
-      <section className="w-full max-w-4xl mx-auto px-6 py-14 border-t border-[#232230]">
+      <section className="w-full max-w-4xl mx-auto px-6 py-14 border-t border-white/5">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
           {NUMEROS.map((n) => (
             <div key={n.destaque}>
@@ -60,7 +60,7 @@ export default function SobrePage() {
       </section>
 
       {/* 4. Ecossistema */}
-      <section className="w-full max-w-4xl mx-auto px-6 py-14 border-t border-[#232230]">
+      <section className="w-full max-w-4xl mx-auto px-6 py-14 border-t border-white/5">
         <h2 className="text-2xl sm:text-3xl font-extrabold mb-8 text-center">O ecossistema Dicas LGBT+</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {ECOSSISTEMA.map((e) => (
@@ -72,12 +72,12 @@ export default function SobrePage() {
       </section>
 
       {/* 5. Propósito */}
-      <section className="w-full max-w-3xl mx-auto px-6 py-14 border-t border-[#232230] text-center">
+      <section className="w-full max-w-3xl mx-auto px-6 py-14 border-t border-white/5 text-center">
         <h2 className="text-2xl sm:text-3xl font-extrabold">Mais escolhas, mais visibilidade, mais pertencimento.</h2>
       </section>
 
       {/* 6. CTAs */}
-      <section className="w-full max-w-3xl mx-auto px-6 py-14 border-t border-[#232230] text-center flex flex-col sm:flex-row gap-3 justify-center">
+      <section className="w-full max-w-3xl mx-auto px-6 py-14 border-t border-white/5 text-center flex flex-col sm:flex-row gap-3 justify-center">
         <Link href="/app" className="inline-flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold text-sm px-6 py-3.5 rounded-xl transition">
           Conhecer o aplicativo
           <ArrowRight className="w-4 h-4" />

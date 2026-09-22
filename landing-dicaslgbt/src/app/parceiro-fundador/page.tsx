@@ -92,7 +92,7 @@ export default function ParceiroFundadorPage() {
       </section>
 
       {/* Seção 2 — Benefícios */}
-      <section className="w-full max-w-4xl mx-auto px-6 py-14 border-t border-[#232230]">
+      <section className="w-full max-w-4xl mx-auto px-6 py-14 border-t border-white/5">
         <ul className="space-y-3">
           {BENEFICIOS.map((b) => (
             <li key={b} className="flex items-start gap-3 bg-[#161520] border border-[#232230] rounded-2xl p-5">
@@ -107,7 +107,7 @@ export default function ParceiroFundadorPage() {
       </section>
 
       {/* Seção 3 — Vitrine de parceiros */}
-      <section className="w-full max-w-6xl mx-auto px-6 py-14 border-t border-[#232230]">
+      <section className="w-full max-w-6xl mx-auto px-6 py-14 border-t border-white/5">
         <h2 className="text-2xl sm:text-3xl font-extrabold mb-3 text-center">
           Quem já está construindo este futuro com a gente.
         </h2>
@@ -118,7 +118,7 @@ export default function ParceiroFundadorPage() {
       </section>
 
       {/* Seção 4 — FAQ */}
-      <section className="w-full max-w-3xl mx-auto px-6 py-14 border-t border-[#232230]">
+      <section className="w-full max-w-3xl mx-auto px-6 py-14 border-t border-white/5">
         <h2 className="text-2xl sm:text-3xl font-extrabold mb-8 text-center">Perguntas frequentes</h2>
         <div className="space-y-4">
           {FAQ.map((f) => (

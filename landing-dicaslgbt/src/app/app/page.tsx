@@ -46,7 +46,7 @@ export default function AppPage() {
       </section>
 
       {/* Proposta */}
-      <section className="w-full max-w-3xl mx-auto px-6 py-14 border-t border-[#232230] text-center">
+      <section className="w-full max-w-3xl mx-auto px-6 py-14 border-t border-white/5 text-center">
         <h2 className="text-2xl sm:text-3xl font-extrabold mb-4">Tudo o que você procura em um só lugar.</h2>
         <p className="text-[#A0A0B2] text-sm sm:text-base leading-relaxed max-w-xl mx-auto">
           Descubra, escolha, salve e planeje experiências — do rolê de hoje à próxima viagem.
@@ -54,7 +54,7 @@ export default function AppPage() {
       </section>
 
       {/* Telas */}
-      <section className="w-full max-w-6xl mx-auto px-6 py-14 border-t border-[#232230]">
+      <section className="w-full max-w-6xl mx-auto px-6 py-14 border-t border-white/5">
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
           {TELAS.map((t) => (
             <div key={t.nome} className="bg-[#161520] border border-[#232230] rounded-2xl p-5 text-center">
@@ -69,7 +69,7 @@ export default function AppPage() {
       </section>
 
       {/* Recursos */}
-      <section className="w-full max-w-4xl mx-auto px-6 py-14 border-t border-[#232230]">
+      <section className="w-full max-w-4xl mx-auto px-6 py-14 border-t border-white/5">
         <h2 className="text-xl font-extrabold mb-5 text-center">Recursos</h2>
         <div className="flex flex-wrap gap-2.5 justify-center">
           {RECURSOS.map((r) => (
@@ -81,7 +81,7 @@ export default function AppPage() {
       </section>
 
       {/* Categorias */}
-      <section className="w-full max-w-4xl mx-auto px-6 py-14 border-t border-[#232230]">
+      <section className="w-full max-w-4xl mx-auto px-6 py-14 border-t border-white/5">
         <h2 className="text-xl font-extrabold mb-5 text-center">Categorias</h2>
         <div className="flex flex-wrap gap-2.5 justify-center">
           {CATEGORIAS.map((c) => (
@@ -93,7 +93,7 @@ export default function AppPage() {
       </section>
 
       {/* Para usuários / Para empresas */}
-      <section className="w-full max-w-4xl mx-auto px-6 py-14 border-t border-[#232230] grid grid-cols-1 sm:grid-cols-2 gap-5">
+      <section className="w-full max-w-4xl mx-auto px-6 py-14 border-t border-white/5 grid grid-cols-1 sm:grid-cols-2 gap-5">
         <div className="bg-[#161520] border border-[#232230] rounded-2xl p-6">
           <h3 className="font-bold mb-2">Para usuários</h3>
           <p className="text-[#A0A0B2] text-sm leading-relaxed">
@@ -109,7 +109,7 @@ export default function AppPage() {
       </section>
 
       {/* Lançamento */}
-      <section className="w-full max-w-3xl mx-auto px-6 py-14 border-t border-[#232230] text-center">
+      <section className="w-full max-w-3xl mx-auto px-6 py-14 border-t border-white/5 text-center">
         <h2 className="text-2xl sm:text-3xl font-extrabold mb-6">O app ainda está a caminho das lojas.</h2>
         <Link href="/lancamento" className="inline-flex items-center gap-2 bg-[#E1306C] hover:bg-[#c2285c] text-white font-bold text-sm px-6 py-3.5 rounded-xl transition">
           Quero ser avisado(a)

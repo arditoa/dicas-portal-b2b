@@ -137,7 +137,7 @@ export default function LandingPage() {
       </section>
 
       {/* Seção 2 — Atalhos do projeto */}
-      <section className="w-full max-w-6xl mx-auto px-6 py-16 border-t border-[#232230]">
+      <section className="w-full max-w-6xl mx-auto px-6 py-16 border-t border-white/5">
         <h2 className="text-2xl sm:text-3xl font-extrabold mb-8">Quer conhecer melhor o projeto?</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {ATALHOS.map((a) => (
@@ -157,7 +157,7 @@ export default function LandingPage() {
       </section>
 
       {/* Seção 3 — Números */}
-      <section className="w-full max-w-6xl mx-auto px-6 py-16 border-t border-[#232230]">
+      <section className="w-full max-w-6xl mx-auto px-6 py-16 border-t border-white/5">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
           {NUMEROS.map((n) => (
             <div key={n.destaque}>
@@ -169,7 +169,7 @@ export default function LandingPage() {
       </section>
 
       {/* Seção 4 — Oportunidade */}
-      <section className="w-full max-w-4xl mx-auto px-6 py-16 border-t border-[#232230] text-center">
+      <section className="w-full max-w-4xl mx-auto px-6 py-16 border-t border-white/5 text-center">
         <h2 className="text-2xl sm:text-3xl font-extrabold">
           Seu público já existe. Agora ele precisa encontrar você.
         </h2>
@@ -188,7 +188,7 @@ export default function LandingPage() {
       </section>
 
       {/* Seção 5 — Demonstração do aplicativo */}
-      <section className="w-full max-w-6xl mx-auto px-6 py-16 border-t border-[#232230]">
+      <section className="w-full max-w-6xl mx-auto px-6 py-16 border-t border-white/5">
         <h2 className="text-2xl sm:text-3xl font-extrabold mb-10 text-center">
           Não estamos criando apenas mais um guia.
         </h2>
@@ -206,7 +206,7 @@ export default function LandingPage() {
       </section>
 
       {/* Seção 6 — Benefícios */}
-      <section className="w-full max-w-6xl mx-auto px-6 py-16 border-t border-[#232230]">
+      <section className="w-full max-w-6xl mx-auto px-6 py-16 border-t border-white/5">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {BENEFICIOS.map((b) => (
             <div key={b.titulo} className="bg-[#161520] border border-[#232230] rounded-2xl p-6">
@@ -218,7 +218,7 @@ export default function LandingPage() {
       </section>
 
       {/* Seção 7 — Categorias */}
-      <section className="w-full max-w-6xl mx-auto px-6 py-16 border-t border-[#232230]">
+      <section className="w-full max-w-6xl mx-auto px-6 py-16 border-t border-white/5">
         <h2 className="text-2xl sm:text-3xl font-extrabold mb-8 text-center">Tem lugar para o seu negócio aqui.</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           {CATEGORIAS.map((c) => (
@@ -240,7 +240,7 @@ export default function LandingPage() {
       </section>
 
       {/* Seção 8 — Como funciona */}
-      <section className="w-full max-w-4xl mx-auto px-6 py-16 border-t border-[#232230]">
+      <section className="w-full max-w-4xl mx-auto px-6 py-16 border-t border-white/5">
         <h2 className="text-2xl sm:text-3xl font-extrabold mb-8 text-center">Como funciona</h2>
         <ol className="space-y-4">
           {PASSOS.map((p, i) => (
@@ -264,7 +264,10 @@ export default function LandingPage() {
       </section>
 
       {/* Seção 9 — Formulário de cadastro */}
-      <section id="cadastro" className="w-full max-w-4xl mx-auto px-6 py-16 border-t border-[#232230] scroll-mt-6">
+      {/* Rodada 59 (parte 3) — header virou sticky; scroll-mt aumentado
+          (era scroll-mt-6) pra o título desta seção não ficar escondido
+          atrás do header ao clicar em "Cadastrar minha empresa"/#cadastro. */}
+      <section id="cadastro" className="w-full max-w-4xl mx-auto px-6 py-16 border-t border-white/5 scroll-mt-24">
         <div className="text-center mb-10">
           <h2 className="text-2xl sm:text-3xl font-extrabold">Vamos colocar sua empresa no mapa?</h2>
           <p className="text-[#A0A0B2] text-sm sm:text-base mt-3 max-w-xl mx-auto leading-relaxed">
@@ -360,7 +363,7 @@ export default function LandingPage() {
       </section>
 
       {/* Seção 10 — Parceiro Fundador */}
-      <section className="w-full max-w-4xl mx-auto px-6 py-16 border-t border-[#232230] text-center">
+      <section className="w-full max-w-4xl mx-auto px-6 py-16 border-t border-white/5 text-center">
         <h2 className="text-2xl sm:text-3xl font-extrabold">
           Quer fazer parte desde o começo de um jeito ainda maior?
         </h2>
@@ -378,7 +381,7 @@ export default function LandingPage() {
       </section>
 
       {/* Seção 11 — Instituições */}
-      <section className="w-full max-w-4xl mx-auto px-6 py-16 border-t border-[#232230] text-center">
+      <section className="w-full max-w-4xl mx-auto px-6 py-16 border-t border-white/5 text-center">
         <div className="inline-flex w-14 h-14 rounded-2xl bg-[#4CAF7D]/10 border border-[#4CAF7D]/20 items-center justify-center mb-6">
           <Globe2 className="w-7 h-7 text-[#4CAF7D]" />
         </div>
@@ -387,7 +390,7 @@ export default function LandingPage() {
       </section>
 
       {/* Seção 12 — Chamada final */}
-      <section className="w-full max-w-4xl mx-auto px-6 py-16 border-t border-[#232230] text-center">
+      <section className="w-full max-w-4xl mx-auto px-6 py-16 border-t border-white/5 text-center">
         <div className="inline-flex w-14 h-14 rounded-2xl bg-[#E1306C]/10 border border-[#E1306C]/20 items-center justify-center mb-6">
           <Heart className="w-7 h-7 text-[#E1306C]" />
         </div>
