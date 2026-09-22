@@ -658,11 +658,18 @@ export default function HomeScreen() {
                           <Feather name="star" size={9} color="#000" />
                           <Text style={styles.emAltaDestaqueBadgeText}>DESTAQUE</Text>
                         </View>
+                        {/* Rodada 57 (2ª rodada) — Andrea: "colocar fundo no
+                            coração". Diferente do Em Alta (emAltaFavBtn já
+                            tinha fundo circular escuro), este coração aqui
+                            ficava solto, sem nenhum fundo — some em cima de
+                            foto clara. Reaproveita o mesmo estilo do Em
+                            Alta pra ficar consistente. */}
                         <TouchableOpacity
+                          style={styles.emAltaFavBtn}
                           onPress={() => handleToggleFavorito(item.id)}
                           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         >
-                          <Feather name="heart" size={16} color={isFavorited ? COLORS.pink : '#FFFFFF'} />
+                          <Feather name="heart" size={14} color={isFavorited ? COLORS.pink : '#FFFFFF'} />
                         </TouchableOpacity>
                       </View>
 
@@ -1231,9 +1238,18 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     marginTop: 4,
   },
-  emAltaCategoryBadge: { backgroundColor: 'rgba(255, 213, 79, 0.15)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  // Rodada 57 (2ª rodada) — Andrea: "como melhorar as cores do início pra
+  // não atrapalhar com a foto? [...] colocar fundo [...] na descrição bar?"
+  // Fundo era rgba(255,213,79,0.15) — quase transparente, some em cima de
+  // foto clara/colorida. Trocado pelo mesmo fundo escuro semi-transparente
+  // do emAltaFavBtn (coração), pra ficar consistente e legível em
+  // qualquer foto, mantendo o texto dourado por cima.
+  emAltaCategoryBadge: { backgroundColor: 'rgba(11, 11, 14, 0.55)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
   emAltaCategoryText: { fontSize: 10, fontWeight: '800', color: COLORS.gold },
-  patrocinadoBadge: { backgroundColor: 'rgba(126, 87, 194, 0.18)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginLeft: 6 },
+  // Rodada 57 (2ª rodada) — mesmo ajuste do emAltaCategoryBadge acima (era
+  // rgba(126,87,194,0.18), pouco contraste em cima de foto); texto roxo
+  // continua legível sobre o fundo escuro.
+  patrocinadoBadge: { backgroundColor: 'rgba(11, 11, 14, 0.55)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginLeft: 6 },
   patrocinadoBadgeText: { fontSize: 10, fontWeight: '800', color: COLORS.purple },
   // Rodada 47 — estilo criado pro Selo Dicas LGBT+ (borda/selo rosa,
   // "escolha editorial", nunca "espaço pago"). Rodada 56 (3ª rodada) —

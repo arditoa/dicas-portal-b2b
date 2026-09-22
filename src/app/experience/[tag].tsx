@@ -330,14 +330,22 @@ const styles = StyleSheet.create({
   emptyBox: { alignItems: 'center', gap: 10, backgroundColor: COLORS.card, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, padding: 30, marginBottom: 20 },
   emptyText: { fontSize: 12, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 18 },
 
-  heroCard: { width: '100%', height: 320, borderRadius: 20, marginBottom: 24, borderWidth: 1, borderColor: COLORS.border, overflow: 'hidden' },
+  // Rodada 59 (parte 5) — Andrea achou o card grande demais ao entrar
+  // nesta tela (revisão final antes de enviar o app pra aprovação):
+  // 320px de altura ficava pesado, principalmente com só 1 parceiro
+  // aprovado até agora. Reduzido pra caber melhor sem cortar o texto.
+  heroCard: { width: '100%', height: 240, borderRadius: 20, marginBottom: 24, borderWidth: 1, borderColor: COLORS.border, overflow: 'hidden' },
   heroImage: { width: '100%', height: '100%' },
   heroImageFallback: { backgroundColor: '#1A1926' },
   heroGradient: { flex: 1, backgroundColor: 'rgba(11, 11, 14, 0.55)', borderRadius: 20, padding: 16, justifyContent: 'space-between' },
   heroTopBadges: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  masterTag: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: COLORS.gold, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-  masterTagText: { fontSize: 9, fontWeight: '900', color: '#000' },
-  ratingTag: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#0B0B0E', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  // Rodada 59 (parte 5) — Andrea achou os dois badges do topo do card
+  // desproporcionais (o de nota ficava bem mais estreito e mais baixo
+  // que "DESTAQUE MASTER"). Mesmo padding horizontal e mesma altura
+  // mínima nos dois agora, então ficam pareados visualmente.
+  masterTag: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: COLORS.gold, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, minHeight: 26 },
+  masterTagText: { fontSize: 10, fontWeight: '900', color: '#000' },
+  ratingTag: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#0B0B0E', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, minHeight: 26 },
   ratingTagText: { fontSize: 11, fontWeight: '700', color: '#FFF' },
 
   heroBottomContent: { gap: 4 },
