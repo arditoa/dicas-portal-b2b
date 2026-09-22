@@ -309,7 +309,12 @@ export default function ProfileScreen() {
               onPress={() => handleCliqueExigente('/favorites')}
               activeOpacity={0.8}
             >
-              <Feather name="bookmark" size={20} color={COLORS.pink} />
+              {/* Rodada 57 — era "bookmark" (ícone de fita/bandeirinha):
+                  Andrea reportou confusão porque salvar um local em
+                  qualquer card da Home usa o coração (handleToggleFavorito),
+                  então o stat de "Locais Salvos" aqui devia usar o MESMO
+                  ícone do resto do app — um só símbolo pro mesmo conceito. */}
+              <Feather name="heart" size={20} color={COLORS.pink} />
               <Text style={styles.statNum}>{isLogado ? totalSalvos : 0}</Text>
               <Text style={styles.statLabel}>Locais Salvos</Text>
             </TouchableOpacity>
@@ -519,7 +524,7 @@ export default function ProfileScreen() {
 
             <TouchableOpacity
               style={styles.menuItem}
-              onPress={() => Linking.openURL('https://camaralgbtoficial.com.br')}
+              onPress={() => Linking.openURL('https://camaralgbt.com.br/')}
               activeOpacity={0.7}
             >
               <View style={[styles.menuIconBg, { backgroundColor: 'rgba(255, 213, 79, 0.15)' }]}>

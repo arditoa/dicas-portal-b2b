@@ -161,6 +161,17 @@ type LocalDestaque = {
   descricao: string | null;
   instagram: string | null;
   foto_capa_url: string | null;
+  // Rodada 57 — logo do local, separado da foto de capa. Pedido dela:
+  // "Membro Fundador, deixar o admin subir o logo do local" — o botão
+  // que já existia aqui ("Subir logo") na verdade gravava em
+  // foto_capa_url (foto do ambiente, não um logo de verdade); agora tem
+  // upload dedicado pra logo_url, usado pelos avatares do banner "Membro
+  // Fundador" na Home do app (com fallback pra foto_capa_url se vazio).
+  logo_url: string | null;
+  // Rodada 57 — "bairro para exibir" (ver mesmo campo em
+  // dashboard/perfil/page.tsx): só texto de apresentação, nunca usado
+  // pra geocodificação.
+  bairro_exibicao: string | null;
   galeria_fotos: string[];
   video_url: string | null;
   tags: string[];
@@ -532,7 +543,7 @@ export default function AdminPage() {
   // grava quando ela clica "Salvar conteúdo"); upload de foto já sobe
   // e grava na hora (não faz sentido rascunho pra isso).
   const [rascunhoConteudo, setRascunhoConteudo] = useState<
-    Record<string, { descricao: string; instagram: string; video_url: string; tags: string }>
+    Record<string, { descricao: string; instagram: string; video_url: string; tags: string; bairro_exibicao: string }>
   >({});
   const [enviandoFoto, setEnviandoFoto] = useState<string | null>(null);
 
@@ -542,6 +553,7 @@ export default function AdminPage() {
       instagram: l.instagram || '',
       video_url: l.video_url || '',
       tags: (l.tags || []).join(', '),
+      bairro_exibicao: l.bairro_exibicao || '',
     };
 
   const carregarFilas = useCallback(async () => {
@@ -590,7 +602,7 @@ export default function AdminPage() {
         supabase
           .from('locais')
           .select(
-            'id, nome, categoria, cidade, bairro, plano_destaque, plano_comercial, plano_comercial_status, destaque_secoes, destaque_ate, experiencias, descricao, instagram, foto_capa_url, galeria_fotos, video_url, tags'
+            'id, nome, categoria, cidade, bairro, bairro_exibicao, plano_destaque, plano_comercial, plano_comercial_status, destaque_secoes, destaque_ate, experiencias, descricao, instagram, foto_capa_url, logo_url, galeria_fotos, video_url, tags'
           )
           .eq('status', 'aprovado')
           .order('nome', { ascending: true }),
@@ -961,6 +973,7 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
         .split(',')
         .map((t) => t.trim())
         .filter(Boolean),
+      bairro_exibicao: rascunho.bairro_exibicao.trim() || null,
     };
     setLocaisDestaque((atual) => atual.map((item) => (item.id === l.id ? { ...item, ...patch } : item)));
     const { error } = await supabase.from('locais').update(patch).eq('id', l.id);
@@ -981,7 +994,7 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
   const enviarFotoLocal = async (
     local: LocalDestaque,
     arquivo: File,
-    destino: 'capa' | 'galeria'
+    destino: 'capa' | 'galeria' | 'logo'
   ) => {
     // Rodada 49 — a Andrea reportou que subiu uma foto de capa (Bar da
     // Gra) e ela não apareceu no app. Causa mais provável: HEIC/HEIF
@@ -1008,6 +1021,8 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
       const patch =
         destino === 'capa'
           ? { foto_capa_url: url }
+          : destino === 'logo'
+          ? { logo_url: url }
           : { galeria_fotos: [...(local.galeria_fotos || []), url] };
       setLocaisDestaque((atual) => atual.map((item) => (item.id === local.id ? { ...item, ...patch } : item)));
       const { error: erroUpdate } = await supabase.from('locais').update(patch).eq('id', local.id);
@@ -1854,7 +1869,7 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
                 <p className="text-xs font-bold text-[#D0D0E0]">Conteúdo do local (o que aparece no app)</p>
                 <div className="flex items-start gap-4 flex-wrap">
                   <div className="shrink-0">
-                    <p className="text-[10px] text-[#626274] mb-1">Logo / foto de capa</p>
+                    <p className="text-[10px] text-[#626274] mb-1">Foto de capa</p>
                     {l.foto_capa_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={l.foto_capa_url} alt={l.nome} className="w-16 h-16 rounded-lg object-cover border border-[#232230]" />
@@ -1864,7 +1879,7 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
                       </div>
                     )}
                     <label className="block mt-1 text-center text-[10px] font-bold text-[#E1306C] cursor-pointer hover:underline">
-                      {enviandoFoto === l.id ? 'Enviando...' : l.foto_capa_url ? 'Trocar' : 'Subir logo'}
+                      {enviandoFoto === l.id ? 'Enviando...' : l.foto_capa_url ? 'Trocar' : 'Subir capa'}
                       <input
                         type="file"
                         accept="image/*"
@@ -1873,6 +1888,39 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
                         onChange={(e) => {
                           const f = e.target.files?.[0];
                           if (f) enviarFotoLocal(l, f, 'capa');
+                          e.target.value = '';
+                        }}
+                      />
+                    </label>
+                  </div>
+
+                  {/* Rodada 57 — pedido da Andrea: "Membro Fundador, deixar
+                      o admin subir o logo do local". Antes só existia o
+                      upload de "Foto de capa" acima (que o botão chamava,
+                      de forma confusa, de "Subir logo" — mas gravava em
+                      foto_capa_url, a foto do ambiente). Agora é um campo
+                      de verdade, separado: logo_url, usado pelos avatares
+                      redondos do banner "Membro Fundador" na Home. */}
+                  <div className="shrink-0">
+                    <p className="text-[10px] text-[#626274] mb-1">Logo (Membro Fundador)</p>
+                    {l.logo_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={l.logo_url} alt={l.nome} className="w-16 h-16 rounded-full object-cover border border-[#232230]" />
+                    ) : (
+                      <div className="w-16 h-16 rounded-full bg-[#0B0B0E] border border-dashed border-[#232230] flex items-center justify-center text-[9px] text-[#626274] text-center px-1">
+                        sem logo
+                      </div>
+                    )}
+                    <label className="block mt-1 text-center text-[10px] font-bold text-[#E1306C] cursor-pointer hover:underline">
+                      {enviandoFoto === l.id ? 'Enviando...' : l.logo_url ? 'Trocar' : 'Subir logo'}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        disabled={enviandoFoto === l.id}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) enviarFotoLocal(l, f, 'logo');
                           e.target.value = '';
                         }}
                       />
@@ -1932,6 +1980,13 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
                       value={rascunhoConteudoItem.tags}
                       onChange={(e) => setRascunhoConteudo((atual) => ({ ...atual, [l.id]: { ...rascunhoConteudoItem, tags: e.target.value } }))}
                       placeholder="Tags separadas por vírgula"
+                      className="w-full bg-[#0B0B0E] border border-[#232230] rounded-lg text-xs px-3 py-2"
+                    />
+                    <input
+                      type="text"
+                      value={rascunhoConteudoItem.bairro_exibicao}
+                      onChange={(e) => setRascunhoConteudo((atual) => ({ ...atual, [l.id]: { ...rascunhoConteudoItem, bairro_exibicao: e.target.value } }))}
+                      placeholder={`Bairro pra exibir (opcional — hoje mostra "${l.bairro || l.cidade}")`}
                       className="w-full bg-[#0B0B0E] border border-[#232230] rounded-lg text-xs px-3 py-2"
                     />
                   </div>

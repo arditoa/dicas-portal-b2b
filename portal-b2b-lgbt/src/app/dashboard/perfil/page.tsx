@@ -125,6 +125,12 @@ type Local = {
   subcategoria: string | null;
   descricao: string | null;
   bairro: string | null;
+  // Rodada 57 — "bairro para exibir": campo só de apresentação, pedido
+  // da Andrea ("Augusta fica melhor que Consolação"). NUNCA usado pra
+  // geocodificação/endereço real (buscarCoordenadas continua usando só
+  // `bairro`) — só troca o texto mostrado nos cards/telas do app quando
+  // preenchido (ver fallback no app: bairro_exibicao || bairro || cidade).
+  bairro_exibicao: string | null;
   cidade: string;
   endereco: string | null;
   instagram: string | null;
@@ -132,6 +138,11 @@ type Local = {
   contato_email: string | null;
   contato_telefone: string | null;
   foto_capa_url: string | null;
+  // Rodada 57 — logo do local (separado da foto de capa), pro banner
+  // "Membro Fundador" da Home usar em vez da foto de capa (que costuma
+  // ser uma foto do ambiente, não um logo). Opcional — app cai pra
+  // foto_capa_url quando não tiver logo_url.
+  logo_url: string | null;
   lat: number | null;
   lng: number | null;
   publico_tags: string[];
@@ -153,6 +164,7 @@ export default function MinhaPaginaPage() {
   const [salvo, setSalvo] = useState(false);
   const [erro, setErro] = useState('');
   const [enviandoFoto, setEnviandoFoto] = useState(false);
+  const [enviandoLogo, setEnviandoLogo] = useState(false);
 
   // Rodada 22: muita conta de parceiro agora nasce com senha temporária
   // gerada na aprovação (ver /api/aprovar-local) — este bloco é o único
@@ -166,6 +178,7 @@ export default function MinhaPaginaPage() {
   const [buscandoCoordenadas, setBuscandoCoordenadas] = useState(false);
   const inputArquivoRef = useRef<HTMLInputElement>(null);
   const inputGaleriaRef = useRef<HTMLInputElement>(null);
+  const inputLogoRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     (async () => {
@@ -177,7 +190,7 @@ export default function MinhaPaginaPage() {
       const { data, error } = await supabase
         .from('locais')
         .select(
-          'id, nome, categoria, subcategoria, descricao, bairro, cidade, endereco, lat, lng, instagram, contato_nome, contato_email, contato_telefone, foto_capa_url, publico_tags, tags, plano_comercial, plano_comercial_status, status, plano_destaque, horario_funcionamento, galeria_fotos, video_url'
+          'id, nome, categoria, subcategoria, descricao, bairro, bairro_exibicao, cidade, endereco, lat, lng, instagram, contato_nome, contato_email, contato_telefone, foto_capa_url, logo_url, publico_tags, tags, plano_comercial, plano_comercial_status, status, plano_destaque, horario_funcionamento, galeria_fotos, video_url'
         )
         .eq('owner_id', userData.user.id)
         .maybeSingle();
@@ -284,6 +297,41 @@ export default function MinhaPaginaPage() {
     setEnviandoFoto(false);
   };
 
+  // Rodada 57 — logo do local, mesmo bucket/padrão de enviarFoto (capa),
+  // só muda o prefixo do caminho ("logo-" em vez de "capa-") e o campo
+  // que recebe a URL (logo_url em vez de foto_capa_url).
+  const enviarLogo = async (arquivo: File) => {
+    if (!local) return;
+    setErro('');
+
+    if (!arquivo.type.startsWith('image/')) {
+      setErro('Envie um arquivo de imagem (JPG, PNG ou WebP).');
+      return;
+    }
+    if (arquivo.size > TAMANHO_MAXIMO_MB * 1024 * 1024) {
+      setErro(`A imagem precisa ter até ${TAMANHO_MAXIMO_MB}MB.`);
+      return;
+    }
+
+    setEnviandoLogo(true);
+    const extensao = arquivo.name.split('.').pop() || 'jpg';
+    const caminho = `${local.id}/logo-${Date.now()}.${extensao}`;
+
+    const { error: erroUpload } = await supabase.storage
+      .from('fotos-locais')
+      .upload(caminho, arquivo, { cacheControl: '3600', upsert: false });
+
+    if (erroUpload) {
+      setErro(`Não deu pra enviar o logo: ${erroUpload.message}`);
+      setEnviandoLogo(false);
+      return;
+    }
+
+    const { data } = supabase.storage.from('fotos-locais').getPublicUrl(caminho);
+    setLocal({ ...local, logo_url: data.publicUrl });
+    setEnviandoLogo(false);
+  };
+
   const enviarFotoGaleria = async (arquivo: File) => {
     if (!local) return;
     setErro('');
@@ -335,6 +383,7 @@ export default function MinhaPaginaPage() {
         subcategoria: local.subcategoria,
         descricao: local.descricao,
         bairro: local.bairro,
+        bairro_exibicao: local.bairro_exibicao,
         cidade: local.cidade,
         endereco: local.endereco,
         instagram: local.instagram,
@@ -342,6 +391,7 @@ export default function MinhaPaginaPage() {
         contato_email: local.contato_email,
         contato_telefone: local.contato_telefone,
         foto_capa_url: local.foto_capa_url,
+        logo_url: local.logo_url,
         lat: local.lat,
         lng: local.lng,
         publico_tags: local.publico_tags,
@@ -492,6 +542,45 @@ export default function MinhaPaginaPage() {
           <p className="text-[10px] text-[#626274] mt-1">
             JPG, PNG ou WebP, até {TAMANHO_MAXIMO_MB}MB. A foto já aparece pro usuário final assim que
             você clicar em &quot;Salvar&quot; mais abaixo.
+          </p>
+        </div>
+
+        <div>
+          <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">Logo do local (opcional)</label>
+          {local.logo_url && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={local.logo_url}
+              alt="Prévia do logo"
+              className="w-20 h-20 object-cover rounded-full mb-2 border border-[#232230]"
+              onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
+            />
+          )}
+          <input
+            ref={inputLogoRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const arquivo = e.target.files?.[0];
+              if (arquivo) enviarLogo(arquivo);
+              e.target.value = '';
+            }}
+          />
+          <button
+            type="button"
+            disabled={enviandoLogo}
+            onClick={() => inputLogoRef.current?.click()}
+            className="w-full bg-[#161520] border border-dashed border-[#232230] hover:border-[#E1306C]/50 rounded-xl py-3.5 px-4 text-[#D0D0E0] text-sm font-bold flex items-center justify-center gap-2 transition"
+          >
+            {enviandoLogo ? <Loader2 className="animate-spin" size={16} /> : <Upload size={16} />}
+            {enviandoLogo ? 'Enviando...' : local.logo_url ? 'Trocar logo' : 'Enviar logo do computador/celular'}
+          </button>
+          <p className="text-[10px] text-[#626274] mt-1">
+            JPG, PNG ou WebP, até {TAMANHO_MAXIMO_MB}MB. Diferente da foto de capa (que costuma ser uma
+            foto do ambiente) — o logo é usado onde o app mostra locais em formato de selo/avatar
+            pequeno e redondo, como no banner &quot;Membro Fundador&quot;. Sem logo, o app usa a foto de
+            capa nesses lugares.
           </p>
         </div>
 
@@ -789,6 +878,24 @@ export default function MinhaPaginaPage() {
               className="w-full bg-[#161520] border border-[#232230] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#E1306C]"
             />
           </div>
+        </div>
+
+        <div>
+          <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">
+            Bairro para exibir no app (opcional)
+          </label>
+          <input
+            type="text"
+            value={local.bairro_exibicao || ''}
+            onChange={(e) => setLocal({ ...local, bairro_exibicao: e.target.value })}
+            placeholder={`Deixe em branco pra mostrar "${local.bairro || 'seu bairro'}"`}
+            className="w-full bg-[#161520] border border-[#232230] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#E1306C]"
+          />
+          <p className="text-[10px] text-[#626274] mt-1">
+            Só muda o texto mostrado pro usuário do app — não muda o endereço real nem a localização no
+            mapa. Preencha só se um nome mais conhecido representar melhor onde você fica, por exemplo
+            &quot;Augusta&quot; em vez de &quot;Consolação&quot;.
+          </p>
         </div>
 
         <div>

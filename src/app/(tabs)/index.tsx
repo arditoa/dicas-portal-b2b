@@ -92,6 +92,12 @@ interface LocalCard {
   nome: string;
   categoria: string;
   bairro: string | null;
+  // Rodada 57 — "bairro para exibir" (portal, dashboard/perfil e admin):
+  // texto opcional, só de apresentação, pra quando o bairro oficial não é
+  // o nome que o público reconhece (exemplo da Andrea: "Augusta" em vez
+  // de "Consolação"). NUNCA usado pra geocodificação — só troca o texto
+  // mostrado. Ver bairroExibicao() abaixo.
+  bairro_exibicao: string | null;
   cidade: string;
   instagram: string | null;
   foto_capa_url: string | null;
@@ -127,11 +133,20 @@ function fotoDestaqueUrl(item: Pick<LocalCard, 'foto_capa_url' | 'galeria_fotos'
   return item.foto_capa_url || item.galeria_fotos?.[0] || null;
 }
 
+// Rodada 57 — mesmo padrão de fotoDestaqueUrl acima: "bairro para exibir"
+// (bairro_exibicao) é opcional, então cai pro bairro oficial e, por
+// último, pra cidade — igual o fallback que já existia inline em cada
+// card (`item.bairro || item.cidade`), só que priorizando o texto de
+// exibição quando o local tiver preenchido um.
+function bairroExibicao(item: Pick<LocalCard, 'bairro_exibicao' | 'bairro' | 'cidade'>): string {
+  return item.bairro_exibicao || item.bairro || item.cidade;
+}
+
 interface EventoHoje {
   id: string;
   titulo: string;
   data_inicio: string;
-  locais: { nome: string; bairro: string | null } | null;
+  locais: { nome: string; bairro: string | null; bairro_exibicao: string | null } | null;
 }
 
 interface LocalTurismo {
@@ -181,7 +196,15 @@ export default function HomeScreen() {
   // comentário na renderização, seção BANNERS PRINCIPAIS). Mesmo
   // mecanismo/consulta já usado em experience/[tag].tsx (branch
   // ehFundador) — aqui só id/nome/foto pra desenhar avatares pequenos.
-  const [fundadorLogos, setFundadorLogos] = useState<{ id: string; nome: string; foto_capa_url: string | null }[]>([]);
+  const [fundadorLogos, setFundadorLogos] = useState<
+    { id: string; nome: string; foto_capa_url: string | null; logo_url: string | null }[]
+  >([]);
+  // Rodada 57 — arte de marketing GLOBAL do banner "Membro Fundador"
+  // (config chave/valor, migration 030 — ver admin/page.tsx, seção "Arte
+  // de marketing"). Opcional: null enquanto a Andrea não subir nada, e o
+  // banner continua no visual padrão de sempre (ver mostrarLogos/
+  // BANNERS_PRINCIPAIS abaixo).
+  const [bannerFundadorArteUrl, setBannerFundadorArteUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const isUserLogged = !!session;
@@ -201,17 +224,17 @@ export default function HomeScreen() {
       // entra — quem paga premium/fundador entra automático, e a Andrea
       // pode incluir manualmente qualquer outro pelo /admin
       // (destaque_secoes) quando o app estiver vazio.
-      const [emAltaRes, agendaRes, hojeRes, tripRes, eventosHojeFixadosRes, fundadorRes] = await Promise.all([
+      const [emAltaRes, agendaRes, hojeRes, tripRes, eventosHojeFixadosRes, fundadorRes, appConfigRes] = await Promise.all([
         supabase
           .from('locais')
           .select(
-            'id, nome, categoria, bairro, cidade, instagram, foto_capa_url, galeria_fotos, rating_media, rating_total, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status'
+            'id, nome, categoria, bairro, bairro_exibicao, cidade, instagram, foto_capa_url, galeria_fotos, rating_media, rating_total, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status'
           )
           .eq('status', 'aprovado')
           .limit(60),
         supabase
           .from('eventos')
-          .select('id, titulo, data_inicio, locais(nome, bairro)')
+          .select('id, titulo, data_inicio, locais(nome, bairro, bairro_exibicao)')
           .eq('status', 'aprovado')
           .gte('data_inicio', inicioHoje.toISOString())
           .lte('data_inicio', fimHoje.toISOString())
@@ -223,7 +246,7 @@ export default function HomeScreen() {
         supabase
           .from('locais')
           .select(
-            'id, nome, categoria, bairro, cidade, instagram, foto_capa_url, galeria_fotos, rating_media, rating_total, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status'
+            'id, nome, categoria, bairro, bairro_exibicao, cidade, instagram, foto_capa_url, galeria_fotos, rating_media, rating_total, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status'
           )
           .eq('status', 'aprovado')
           .contains('destaque_secoes', ['hoje'])
@@ -244,7 +267,7 @@ export default function HomeScreen() {
         // 026 libera 'hoje' também pra destaque_secoes de eventos).
         supabase
           .from('eventos')
-          .select('id, titulo, data_inicio, destaque_secoes, destaque_ate, locais(nome, bairro)')
+          .select('id, titulo, data_inicio, destaque_secoes, destaque_ate, locais(nome, bairro, bairro_exibicao)')
           .eq('status', 'aprovado')
           .contains('destaque_secoes', ['hoje'])
           .limit(10),
@@ -254,11 +277,14 @@ export default function HomeScreen() {
         // comercial — por isso não dá pra reaproveitar o lote de emAltaRes.
         supabase
           .from('local_badges')
-          .select('locais!inner(id, nome, foto_capa_url, status)')
+          .select('locais!inner(id, nome, foto_capa_url, logo_url, status)')
           .ilike('rotulo', '%fundador%')
           .eq('ativo', true)
           .eq('locais.status', 'aprovado')
           .limit(12),
+        // Rodada 57 — arte de marketing global do banner "Membro Fundador"
+        // (ver bannerFundadorArteUrl acima).
+        supabase.from('app_config').select('valor').eq('chave', 'membro_fundador_banner_url').maybeSingle(),
       ]);
       // Rodada 47 — Selo Dicas LGBT+ tinha consulta própria aqui. Rodada 56
       // (3ª rodada) — não precisa mais: o carrossel do Selo Dicas saiu da
@@ -316,8 +342,9 @@ export default function HomeScreen() {
       // trazendo locais!inner, precisa "desembrulhar" .locais de cada row).
       const listaFundadorLogos = (((fundadorRes.data as any) || []) as { locais: any }[])
         .map((row) => row.locais)
-        .filter(Boolean) as { id: string; nome: string; foto_capa_url: string | null }[];
+        .filter(Boolean) as { id: string; nome: string; foto_capa_url: string | null; logo_url: string | null }[];
       setFundadorLogos(listaFundadorLogos);
+      setBannerFundadorArteUrl(((appConfigRes.data as any)?.valor as string | undefined) || null);
 
       if (user?.id) {
         const idsParaChecar = [...listaEmAlta.map((i) => i.id), ...listaTrip.map((i) => i.id), ...listaDestaqueSemana.map((i) => i.id)];
@@ -477,13 +504,32 @@ export default function HomeScreen() {
             const ehBannerFundador = b.id === 'b1';
             const mostrarLogos = ehBannerFundador && fundadorLogos.length > 0;
             const LOGOS_VISIVEIS = 6;
+            // Rodada 57 — "arte especial" do banner Membro Fundador, que a
+            // própria Andrea vai criar e subir pelo /admin (ver
+            // bannerFundadorArteUrl acima). Só troca o VISUAL de fundo —
+            // tag/título/subtítulo/logos continuam os mesmos por cima,
+            // com um escurecido (mesmo padrão dos cards de foto de Em
+            // Alta/Destaque da Semana) pra manter o texto branco legível
+            // em qualquer arte. Sem arte enviada, cai no card de sempre
+            // (cor sólida, sem imagem) — não é preciso esperar nada.
+            const temArteFundador = ehBannerFundador && !!bannerFundadorArteUrl;
+            const BannerContainer = temArteFundador ? ImageBackground : View;
+            const bannerContainerProps = temArteFundador
+              ? { source: { uri: bannerFundadorArteUrl! }, imageStyle: { borderRadius: 16 }, resizeMode: 'cover' as const }
+              : {};
             return (
               <TouchableOpacity
                 key={b.id}
-                style={styles.bannerCard}
                 activeOpacity={0.85}
                 onPress={() => router.push(b.route as any)}
               >
+                <BannerContainer style={styles.bannerCard} {...bannerContainerProps}>
+                {temArteFundador && (
+                  <>
+                    <View style={styles.emAltaOverlayTop} />
+                    <View style={styles.emAltaOverlayBottom} />
+                  </>
+                )}
                 <View style={[styles.bannerTag, { backgroundColor: b.cor }]}>
                   <Text style={styles.bannerTagText}>{b.tag}</Text>
                 </View>
@@ -492,22 +538,29 @@ export default function HomeScreen() {
 
                 {mostrarLogos && (
                   <View style={styles.bannerLogosRow}>
-                    {fundadorLogos.slice(0, LOGOS_VISIVEIS).map((loc) => (
-                      <TouchableOpacity
-                        key={loc.id}
-                        style={styles.bannerLogoAvatar}
-                        activeOpacity={0.8}
-                        onPress={() => router.push(`/business/${loc.id}` as any)}
-                      >
-                        {loc.foto_capa_url ? (
-                          <Image source={{ uri: loc.foto_capa_url }} style={styles.bannerLogoImg} />
-                        ) : (
-                          <View style={[styles.bannerLogoImg, styles.bannerLogoImgVazio]}>
-                            <Feather name="award" size={12} color={COLORS.gold} />
-                          </View>
-                        )}
-                      </TouchableOpacity>
-                    ))}
+                    {fundadorLogos.slice(0, LOGOS_VISIVEIS).map((loc) => {
+                      // Rodada 57 — agora prioriza o logo de verdade
+                      // (logo_url, upload dedicado no portal/admin) e só
+                      // cai pra foto de capa quando o local ainda não subiu
+                      // um logo próprio.
+                      const avatarUrl = loc.logo_url || loc.foto_capa_url;
+                      return (
+                        <TouchableOpacity
+                          key={loc.id}
+                          style={styles.bannerLogoAvatar}
+                          activeOpacity={0.8}
+                          onPress={() => router.push(`/business/${loc.id}` as any)}
+                        >
+                          {avatarUrl ? (
+                            <Image source={{ uri: avatarUrl }} style={styles.bannerLogoImg} />
+                          ) : (
+                            <View style={[styles.bannerLogoImg, styles.bannerLogoImgVazio]}>
+                              <Feather name="award" size={12} color={COLORS.gold} />
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
                     {fundadorLogos.length > LOGOS_VISIVEIS && (
                       <View style={styles.bannerLogoMais}>
                         <Text style={styles.bannerLogoMaisTexto}>+{fundadorLogos.length - LOGOS_VISIVEIS}</Text>
@@ -515,6 +568,7 @@ export default function HomeScreen() {
                     )}
                   </View>
                 )}
+                </BannerContainer>
               </TouchableOpacity>
             );
           })}
@@ -615,7 +669,7 @@ export default function HomeScreen() {
                       <View>
                         <Text style={styles.emAltaTitle} numberOfLines={1}>{item.nome}</Text>
                         <Text style={styles.emAltaMeta} numberOfLines={1}>
-                          {item.bairro || item.cidade} • ★ {item.rating_total > 0 ? item.rating_media.toFixed(1) : '—'}
+                          {bairroExibicao(item)} • ★ {item.rating_total > 0 ? item.rating_media.toFixed(1) : '—'}
                         </Text>
                       </View>
                     </CardContainer>
@@ -727,7 +781,7 @@ export default function HomeScreen() {
 
                         <Text style={styles.emAltaTitle} numberOfLines={1}>{item.nome}</Text>
                         <Text style={styles.emAltaMeta} numberOfLines={1}>
-                          {item.bairro || item.cidade} • ★ {item.rating_total > 0 ? item.rating_media.toFixed(1) : '—'}
+                          {bairroExibicao(item)} • ★ {item.rating_total > 0 ? item.rating_media.toFixed(1) : '—'}
                         </Text>
 
                         <View style={styles.emAltaFooterRow}>
@@ -784,7 +838,7 @@ export default function HomeScreen() {
                   <View style={styles.agendaContent}>
                     <Text style={styles.agendaHorario}>
                       {new Date(item.data_inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} •{' '}
-                      {item.locais?.bairro || 'Local a confirmar'}
+                      {(item.locais && (item.locais.bairro_exibicao || item.locais.bairro)) || 'Local a confirmar'}
                     </Text>
                     <Text style={styles.agendaTitulo}>{item.titulo}</Text>
                     <Text style={styles.agendaDiferencial}>{item.locais?.nome || ''}</Text>
@@ -809,7 +863,7 @@ export default function HomeScreen() {
                   </View>
                   <View style={styles.agendaContent}>
                     <Text style={styles.agendaHorario}>
-                      {CATEGORIA_REAL_LABEL[item.categoria] || item.categoria} • {item.bairro || item.cidade}
+                      {CATEGORIA_REAL_LABEL[item.categoria] || item.categoria} • {bairroExibicao(item)}
                     </Text>
                     <Text style={styles.agendaTitulo}>{item.nome}</Text>
                     <Text style={styles.agendaDiferencial}>Aberto hoje</Text>
@@ -974,6 +1028,11 @@ const styles = StyleSheet.create({
     marginRight: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
+    // Rodada 57 — adicionado pro banner "Membro Fundador" poder virar
+    // ImageBackground (arte de marketing) sem o overlay escurecido
+    // (emAltaOverlayTop/Bottom, absolute) vazar quadrado por cima dos
+    // cantos arredondados do card.
+    overflow: 'hidden',
   },
   bannerTag: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginBottom: 8 },
   bannerTagText: { fontSize: 10, fontWeight: '800', color: '#000' },
