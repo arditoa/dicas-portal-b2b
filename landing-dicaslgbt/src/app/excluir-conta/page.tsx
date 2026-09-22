@@ -1,6 +1,7 @@
-import { ArrowLeft, Mail, MessageCircle, ShieldCheck, Trash2 } from 'lucide-react';
-import Image from 'next/image';
-import Link from 'next/link';
+import { Mail, MessageCircle, ShieldCheck, Trash2 } from 'lucide-react';
+import Footer from '../../components/Footer';
+import Header from '../../components/Header';
+import { SUPORTE_EMAIL, SUPORTE_WHATSAPP } from '../../lib/constants';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,23 +9,18 @@ export const dynamic = 'force-dynamic';
 // tem que existir uma página pública na web explicando como pedir a
 // exclusão da conta — é este arquivo (ver claude/auditoria-final-
 // publicacao.md, seção "Exclusão de conta", bloqueador nomeado
-// nomeadamente pra essa página). Preencher os 2 contatos abaixo antes de
-// publicar — deixados vazios de propósito, ver aviso da Andrea no chat.
-const SUPORTE_EMAIL = process.env.NEXT_PUBLIC_SUPORTE_EMAIL || '';
-const SUPORTE_WHATSAPP = process.env.NEXT_PUBLIC_SUPORTE_WHATSAPP || '';
+// nomeadamente pra essa página). Preencher os 2 contatos no .env antes
+// de publicar — deixados vazios de propósito, ver aviso da Andrea no
+// chat. Rodada 58: passou a usar o mesmo Header/Footer das 9 páginas
+// novas (antes tinha um cabeçalho próprio, só com link "Voltar" + logo)
+// e as constantes SUPORTE_EMAIL/SUPORTE_WHATSAPP centralizadas em
+// lib/constants.ts em vez de duplicadas aqui.
 
 export default function ExcluirContaPage() {
   return (
-    <main className="min-h-screen bg-[#0B0B0E] text-white px-6 py-12">
-      <div className="max-w-2xl mx-auto">
-        <Link href="/" className="inline-flex items-center gap-2 text-sm text-[#A0A0B2] hover:text-white mb-8">
-          <ArrowLeft className="w-4 h-4" /> Voltar
-        </Link>
-
-        <div className="relative h-9 w-36 mb-8">
-          <Image src="/logo-lockup.png" alt="Dicas LGBT+" fill className="object-contain object-left" />
-        </div>
-
+    <main className="min-h-screen bg-[#0B0B0E] text-white">
+      <Header />
+      <div className="max-w-2xl mx-auto px-6 py-12">
         <div className="flex items-center gap-3 mb-2">
           <div className="w-9 h-9 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center">
             <Trash2 className="w-4 h-4 text-red-400" />
@@ -91,6 +87,7 @@ export default function ExcluirContaPage() {
           </div>
         </div>
       </div>
+      <Footer />
     </main>
   );
 }
