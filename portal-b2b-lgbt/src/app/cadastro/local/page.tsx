@@ -8,6 +8,7 @@ import { supabase } from '../../../lib/supabase';
 import { buscarCoordenadas } from '../../../lib/geocodificar';
 import { telefoneParecCurto } from '../../../lib/parceiroAuth';
 import { erroFotoNaoSuportada, TAMANHO_MAXIMO_FOTO_MB } from '../../../lib/validarFoto';
+import { CLASSIFICACOES_LGBT } from '../../../lib/classificacaoLgbt';
 
 // Rodada 49 — pedido direto da Andrea: dar a opção de já subir a foto de
 // capa aqui no cadastro público (antes só existia depois de aprovado, via
@@ -202,6 +203,7 @@ export default function CadastroLocalPage() {
   const [nomeEspaco, setNomeEspaco] = useState('');
   const [nomeVeioDaRazaoSocial, setNomeVeioDaRazaoSocial] = useState(false);
   const [categoria, setCategoria] = useState<string>('');
+  const [classificacaoLgbt, setClassificacaoLgbt] = useState<string>('');
   const [cep, setCep] = useState('');
   const [logradouro, setLogradouro] = useState('');
   const [numero, setNumero] = useState('');
@@ -364,6 +366,7 @@ export default function CadastroLocalPage() {
         lng: coordenadas?.lng ?? null,
         contato_nome: nomeResponsavel,
         contato_telefone: whatsapp,
+        classificacao_lgbt: classificacaoLgbt || null,
         publico_tags: publicoTags.length > 0 ? publicoTags : ['todos'],
         // status / safe_space / plano_destaque / owner_id são forçados pelo
         // trigger enforce_local_seguro_insert no banco — não mandamos aqui.
@@ -556,6 +559,33 @@ export default function CadastroLocalPage() {
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div>
+              <label className={labelClass}>Relação com a comunidade LGBT+ (opcional)</label>
+              <div className="flex flex-wrap gap-2">
+                {CLASSIFICACOES_LGBT.map((c) => {
+                  const ativo = classificacaoLgbt === c.value;
+                  return (
+                    <button
+                      key={c.value}
+                      type="button"
+                      onClick={() => setClassificacaoLgbt(ativo ? '' : c.value)}
+                      disabled={loading}
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
+                        ativo
+                          ? 'bg-[#7E57C2] border-[#7E57C2] text-white'
+                          : 'bg-[#161520] border-[#232230] text-[#A0A0B2] hover:border-[#7E57C2]/50'
+                      }`}
+                    >
+                      {c.emoji} {c.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-[#626274] mt-2">
+                Escolha a opção que melhor descreve o espaço, seguindo a metodologia da Câmara de Comércio LGBT+. Selecione no máximo uma — clique de novo pra desmarcar.
+              </p>
             </div>
 
             <CampoFotoCapa arquivo={fotoCapa} onSelect={setFotoCapa} disabled={loading} />

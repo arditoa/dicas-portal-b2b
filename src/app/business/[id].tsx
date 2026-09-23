@@ -19,6 +19,7 @@ import {
 import { useAuth } from '../../lib/authContext';
 import { registrarCliqueInstagram, registrarVisualizacaoPerfil } from '../../lib/analytics';
 import { supabase } from '../../lib/supabase';
+import { CLASSIFICACOES_LGBT } from '../../lib/classificacaoLgbt';
 
 // Precisam bater com o enum public.categoria_tipo real (só 6 valores —
 // a taxonomia de 10 categorias desenhada nas Rodadas 1-8 nunca chegou a
@@ -87,6 +88,7 @@ interface LocalRow {
   tags: string[] | null;
   plano_comercial: string;
   plano_comercial_status: string;
+  classificacao_lgbt: string | null;
 }
 
 // Rodada 41 — "agenda da semana" (pedido da Andrea, Rodada 39: "Vamos
@@ -124,6 +126,27 @@ interface Avaliacao {
   perfis_publicos: { display_name: string; avatar_url: string | null } | null;
 }
 
+// Rodada 59 (parte 8) — bug real reportado pela Andrea: ativou um cupom
+// "entrada gratis" pro Vezpa Bar no portal (tabela cupons já tinha o
+// registro certinho) e ele nunca apareceu em lugar nenhum do app. Causa:
+// o fluxo de resgate (check-in no local -> código de 5 min -> a casa
+// valida no portal) foi desenhado no banco na migration 010, mas nunca
+// foi construído em NENHUMA tela — nem aqui, nem no portal. Esta seção
+// cobre o lado do app: mostrar o cupom ativo e deixar o usuário fazer o
+// check-in que gera o código.
+interface CupomLocal {
+  id: string;
+  titulo: string;
+  descricao: string | null;
+}
+
+interface CheckinAtivo {
+  id: string;
+  codigo: string;
+  expira_em: string;
+  cupom_id: string | null;
+}
+
 export default function BusinessDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -143,15 +166,20 @@ export default function BusinessDetailScreen() {
   const [comentario, setComentario] = useState('');
   const [enviandoReview, setEnviandoReview] = useState(false);
 
+  const [cupons, setCupons] = useState<CupomLocal[]>([]);
+  const [meuCheckin, setMeuCheckin] = useState<CheckinAtivo | null>(null);
+  const [fazendoCheckin, setFazendoCheckin] = useState(false);
+
   const carregarDados = useCallback(async () => {
     if (!id) return;
     setLoading(true);
     try {
-      const [localRes, badgesRes, avaliacoesRes, agendaRes] = await Promise.all([
+      const agora = new Date().toISOString();
+      const [localRes, badgesRes, avaliacoesRes, agendaRes, cuponsRes] = await Promise.all([
         supabase
           .from('locais')
           .select(
-            'id, nome, categoria, subcategoria, descricao, endereco, bairro, cidade, lat, lng, instagram, foto_capa_url, safe_space, plano_destaque, rating_media, rating_total, horario_funcionamento, galeria_fotos, video_url, tags, plano_comercial, plano_comercial_status'
+            'id, nome, categoria, subcategoria, descricao, endereco, bairro, cidade, lat, lng, instagram, foto_capa_url, safe_space, plano_destaque, rating_media, rating_total, horario_funcionamento, galeria_fotos, video_url, tags, plano_comercial, plano_comercial_status, classificacao_lgbt'
           )
           .eq('id', id)
           .single(),
@@ -172,6 +200,16 @@ export default function BusinessDetailScreen() {
           .eq('local_id', id)
           .eq('ativo', true)
           .order('dia_semana', { ascending: true }),
+        // Rodada 59 (parte 8) — cupons ativos deste local (ver interface
+        // CupomLocal acima). valido_de/valido_ate são opcionais — só
+        // filtra quando preenchidos.
+        supabase
+          .from('cupons')
+          .select('id, titulo, descricao, valido_de, valido_ate')
+          .eq('local_id', id)
+          .eq('ativo', true)
+          .or(`valido_de.is.null,valido_de.lte.${agora}`)
+          .or(`valido_ate.is.null,valido_ate.gte.${agora}`),
       ]);
 
       if (localRes.error) throw localRes.error;
@@ -182,9 +220,10 @@ export default function BusinessDetailScreen() {
       setBadges((badgesRes.data as any) || []);
       setAvaliacoes((avaliacoesRes.data as any) || []);
       setAgendaSemana((agendaRes.data as any) || []);
+      setCupons((cuponsRes.data as any) || []);
 
       if (user?.id) {
-        const [favRes, minhaRes] = await Promise.all([
+        const [favRes, minhaRes, checkinRes] = await Promise.all([
           supabase
             .from('favoritos_locais')
             .select('local_id')
@@ -197,12 +236,27 @@ export default function BusinessDetailScreen() {
             .eq('local_id', id)
             .eq('user_id', user.id)
             .maybeSingle(),
+          // Rodada 59 (parte 8) — check-in pendente do usuário pra este
+          // local (ainda não validado nem cancelado), pra mostrar o
+          // código de novo se ele saiu da tela e voltou antes de usar.
+          supabase
+            .from('checkins')
+            .select('id, codigo, expira_em, cupom_id')
+            .eq('local_id', id)
+            .eq('user_id', user.id)
+            .is('validado_em', null)
+            .is('cancelado_em', null)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle(),
         ]);
         setIsFavorito(!!favRes.data);
         setMinhaAvaliacao((minhaRes.data as any) || null);
+        setMeuCheckin((checkinRes.data as any) || null);
       } else {
         setIsFavorito(false);
         setMinhaAvaliacao(null);
+        setMeuCheckin(null);
       }
     } catch (err) {
       console.error('Erro ao carregar local:', err);
@@ -221,6 +275,35 @@ export default function BusinessDetailScreen() {
       { text: 'Agora não', style: 'cancel' },
       { text: 'Entrar / Criar Conta', onPress: () => router.push('/(tabs)/profile') },
     ]);
+  };
+
+  // Rodada 59 (parte 8) — gera o check-in (código de 5 min, criado pelo
+  // trigger enforce_checkin_seguro_insert no banco) pra resgatar o cupom.
+  // A casa confirma esse código no portal (validar_checkin) — só isso
+  // libera o cupom de verdade em cupons_resgatados.
+  const handleFazerCheckin = async (cupomId: string) => {
+    if (!user) {
+      exigirLogin('Crie sua conta ou entre para fazer check-in e resgatar este cupom.');
+      return;
+    }
+    setFazendoCheckin(true);
+    try {
+      const { data, error } = await supabase
+        .from('checkins')
+        .insert({ local_id: id, cupom_id: cupomId })
+        .select('id, codigo, expira_em, cupom_id')
+        .single();
+
+      if (error) throw error;
+      setMeuCheckin(data as unknown as CheckinAtivo);
+    } catch (err: any) {
+      const mensagem = (err?.message || '').includes('últimas 12 horas')
+        ? 'Você já fez check-in nesse local nas últimas 12 horas — tente de novo mais tarde.'
+        : err?.message || 'Não foi possível fazer o check-in. Tente novamente.';
+      Alert.alert('Check-in', mensagem);
+    } finally {
+      setFazendoCheckin(false);
+    }
   };
 
   const handleToggleFavorito = async () => {
@@ -429,6 +512,73 @@ export default function BusinessDetailScreen() {
               <Feather name="map-pin" size={18} color="#FFF" style={{ marginRight: 8 }} />
               <Text style={styles.actionBtnText}>Ver no Mapa</Text>
             </TouchableOpacity>
+
+            {local.classificacao_lgbt && (() => {
+              const classificacao = CLASSIFICACOES_LGBT.find((c) => c.value === local.classificacao_lgbt);
+              if (!classificacao) return null;
+              return (
+                <View style={styles.classificacaoCard}>
+                  <Text style={styles.classificacaoEmoji}>{classificacao.emoji}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.classificacaoLabel}>{classificacao.label}</Text>
+                    <Text style={styles.classificacaoDescricao}>{classificacao.descricao}</Text>
+                  </View>
+                </View>
+              );
+            })()}
+
+            {cupons.length > 0 && (() => {
+              const cupomAtivoDoCheckin = meuCheckin
+                ? cupons.find((c) => c.id === meuCheckin.cupom_id) || cupons[0]
+                : null;
+              const checkinExpirado = meuCheckin ? new Date(meuCheckin.expira_em).getTime() < Date.now() : false;
+              const horaExpira = meuCheckin
+                ? new Date(meuCheckin.expira_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                : '';
+
+              return (
+                <View style={styles.cupomCard}>
+                  <View style={styles.cupomHeaderRow}>
+                    <Feather name="tag" size={14} color="#FFD54F" />
+                    <Text style={styles.cupomHeaderText}>Cupom disponível</Text>
+                  </View>
+
+                  {meuCheckin && !checkinExpirado ? (
+                    <>
+                      <Text style={styles.cupomTitulo}>{cupomAtivoDoCheckin?.titulo || 'Seu check-in'}</Text>
+                      <View style={styles.codigoBox}>
+                        <Text style={styles.codigoLabel}>Mostre este código no caixa</Text>
+                        <Text style={styles.codigoTexto}>{meuCheckin.codigo}</Text>
+                        <Text style={styles.codigoValidade}>Válido até {horaExpira}</Text>
+                      </View>
+                    </>
+                  ) : (
+                    cupons.map((cupom) => (
+                      <View key={cupom.id} style={{ marginBottom: 8 }}>
+                        <Text style={styles.cupomTitulo}>{cupom.titulo}</Text>
+                        {cupom.descricao && <Text style={styles.cupomDescricao}>{cupom.descricao}</Text>}
+                        <TouchableOpacity
+                          style={[styles.actionBtn, styles.cupomBtn, fazendoCheckin && { opacity: 0.6 }]}
+                          onPress={() => handleFazerCheckin(cupom.id)}
+                          disabled={fazendoCheckin}
+                        >
+                          <Feather name="check-circle" size={18} color="#FFF" style={{ marginRight: 8 }} />
+                          <Text style={styles.actionBtnText}>
+                            {fazendoCheckin ? 'Fazendo check-in...' : 'Fazer check-in pra resgatar'}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))
+                  )}
+
+                  {meuCheckin && checkinExpirado && (
+                    <Text style={styles.cupomExpiradoTexto}>
+                      Seu código anterior expirou — faça check-in de novo pra gerar um código válido.
+                    </Text>
+                  )}
+                </View>
+              );
+            })()}
 
             {publicaRecursosPremium(local) && local.tags && local.tags.length > 0 && (
               <View style={{ marginTop: 16 }}>
@@ -643,6 +793,24 @@ const styles = StyleSheet.create({
 
   actionBtn: { flexDirection: 'row', height: 48, backgroundColor: '#E1306C', borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
   mapBtn: { backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230' },
+  // Rodada 59 (parte 8) — card de cupom ativo/check-in.
+  cupomCard: { backgroundColor: '#161520', borderWidth: 1, borderColor: '#FFD54F30', borderRadius: 16, padding: 16, marginBottom: 18 },
+  // Rodada 60 — selo de classificação da relação com a comunidade LGBT+
+  // (Câmara de Comércio LGBT+), pedido pra ficar visível perto do cupom.
+  classificacaoCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: '#161520', borderWidth: 1, borderColor: '#7E57C230', borderRadius: 14, padding: 12, marginBottom: 18 },
+  classificacaoEmoji: { fontSize: 20 },
+  classificacaoLabel: { fontSize: 13, fontWeight: '800', color: '#FFF' },
+  classificacaoDescricao: { fontSize: 11, color: '#A0A0B2', marginTop: 2, lineHeight: 15 },
+  cupomHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
+  cupomHeaderText: { fontSize: 11, fontWeight: '800', color: '#FFD54F', textTransform: 'uppercase', letterSpacing: 0.5 },
+  cupomTitulo: { fontSize: 15, fontWeight: '800', color: '#FFF', marginBottom: 4 },
+  cupomDescricao: { fontSize: 12, color: '#A0A0B2', lineHeight: 17, marginBottom: 10 },
+  cupomBtn: { backgroundColor: '#7E57C2', marginBottom: 0 },
+  codigoBox: { backgroundColor: '#0B0B0E', borderRadius: 12, borderWidth: 1, borderColor: '#232230', padding: 14, alignItems: 'center', marginTop: 4 },
+  codigoLabel: { fontSize: 11, color: '#A0A0B2', marginBottom: 6 },
+  codigoTexto: { fontSize: 26, fontWeight: '900', color: '#FFD54F', letterSpacing: 4 },
+  codigoValidade: { fontSize: 11, color: '#A0A0B2', marginTop: 6 },
+  cupomExpiradoTexto: { fontSize: 12, color: '#A0A0B2', marginTop: 4 },
   videoBtn: { backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230' },
   actionBtnText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
 

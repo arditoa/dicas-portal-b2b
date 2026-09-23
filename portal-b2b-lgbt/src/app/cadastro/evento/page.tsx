@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { telefoneParecCurto } from '../../../lib/parceiroAuth';
 import { erroFotoNaoSuportada, TAMANHO_MAXIMO_FOTO_MB } from '../../../lib/validarFoto';
+import { CLASSIFICACOES_LGBT } from '../../../lib/classificacaoLgbt';
 
 // Rodada 49 — pedido direto da Andrea: dar a opção de já subir o flier
 // aqui no cadastro público (antes só existia depois de aprovado, via
@@ -155,10 +156,15 @@ export default function CadastroEventoPage() {
   const [nomeLocal, setNomeLocal] = useState('');
   const [cidade, setCidade] = useState('');
   const [estilos, setEstilos] = useState<string[]>([]);
+  const [classificacaoLgbt, setClassificacaoLgbt] = useState<string>('');
   const [publicoTags, setPublicoTags] = useState<string[]>(['todos']);
   const [nomeContato, setNomeContato] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [flier, setFlier] = useState<File | null>(null);
+  // Rodada 59 (parte 7) — Andrea pediu pra já oferecer a opção de Lista
+  // VIP aqui no cadastro público, em vez de só depois no dashboard (ver
+  // migration 031, trigger criar_lista_vip_ao_aprovar_evento).
+  const [querListaVip, setQuerListaVip] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -208,6 +214,7 @@ export default function CadastroEventoPage() {
         data_inicio: new Date(dataInicio).toISOString(),
         data_fim: dataFim ? new Date(dataFim).toISOString() : null,
         estilos_musicais: estilos,
+        classificacao_lgbt: classificacaoLgbt || null,
         publico_tags: publicoTags.length ? publicoTags : ['todos'],
         // Rodada 26 — colunas próprias de contato (015_contato_organizador_
         // eventos.sql), além de continuarem no texto de descricaoCompleta
@@ -217,6 +224,9 @@ export default function CadastroEventoPage() {
         // de tentar extrair de texto livre.
         contato_nome: nomeContato || null,
         contato_whatsapp: whatsapp || null,
+        // Rodada 59 (parte 7) — se marcado, a Lista VIP já nasce criada
+        // sozinha quando o evento for aprovado (ver migration 031).
+        quer_lista_vip: querListaVip,
         // status / plano_destaque / criado_por são forçados pelo trigger
         // enforce_evento_seguro_insert no banco.
       });
@@ -255,8 +265,18 @@ export default function CadastroEventoPage() {
             quando for aprovado.
           </p>
           <p className="text-[#A0A0B2] text-sm leading-relaxed">
-            Depois de aprovado, você pode abrir uma <strong className="text-white">Lista VIP</strong>{' '}
-            pra este evento direto no portal do parceiro, em &quot;Meus eventos&quot;.
+            {querListaVip ? (
+              <>
+                Sua <strong className="text-white">Lista VIP</strong> já vai nascer aberta assim que o
+                evento for aprovado — você acompanha e aprova quem pede entrada direto no portal do
+                parceiro, em &quot;Meus eventos&quot;.
+              </>
+            ) : (
+              <>
+                Depois de aprovado, você pode abrir uma <strong className="text-white">Lista VIP</strong>{' '}
+                pra este evento direto no portal do parceiro, em &quot;Meus eventos&quot;.
+              </>
+            )}
           </p>
           <Link href="/" className="inline-block mt-4 text-purple-400 hover:underline text-sm font-medium">
             Voltar para o início
@@ -385,6 +405,33 @@ export default function CadastroEventoPage() {
             <CampoFlier arquivo={flier} onSelect={setFlier} disabled={loading} />
 
             <div>
+              <label className={labelClass}>Relação com a comunidade LGBT+ (opcional)</label>
+              <div className="flex flex-wrap gap-2">
+                {CLASSIFICACOES_LGBT.map((c) => {
+                  const ativo = classificacaoLgbt === c.value;
+                  return (
+                    <button
+                      key={c.value}
+                      type="button"
+                      onClick={() => setClassificacaoLgbt(ativo ? '' : c.value)}
+                      disabled={loading}
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
+                        ativo
+                          ? 'bg-[#7E57C2] border-[#7E57C2] text-white'
+                          : 'bg-[#161520] border-[#232230] text-[#A0A0B2] hover:border-[#7E57C2]/50'
+                      }`}
+                    >
+                      {c.emoji} {c.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-[#626274] mt-2">
+                Escolha a opção que melhor descreve o evento, seguindo a metodologia da Câmara de Comércio LGBT+. Selecione no máximo uma — clique de novo pra desmarcar.
+              </p>
+            </div>
+
+            <div>
               <label className={labelClass}>Estilo musical</label>
               <div className="flex flex-wrap gap-2">
                 {ESTILOS.map((estilo) => (
@@ -459,6 +506,26 @@ export default function CadastroEventoPage() {
                 )}
               </div>
             </div>
+          </div>
+
+          <div className="bg-[#12121A] border border-[#232230] rounded-2xl p-6">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={querListaVip}
+                onChange={(e) => setQuerListaVip(e.target.checked)}
+                disabled={loading}
+                className="mt-0.5 w-4 h-4 accent-purple-600"
+              />
+              <span>
+                <span className="block text-sm font-bold text-white">Quero abrir Lista VIP para este evento</span>
+                <span className="block text-xs text-[#A0A0B2] mt-1 leading-relaxed">
+                  Assim que o evento for aprovado, a Lista VIP já é criada automaticamente — você não
+                  precisa voltar aqui depois. Dá pra ajustar vagas e aprovar convidados pelo portal do
+                  parceiro em qualquer momento.
+                </span>
+              </span>
+            </label>
           </div>
 
           <button
