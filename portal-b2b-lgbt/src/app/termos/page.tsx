@@ -8,13 +8,12 @@ import Link from 'next/link';
 // lugar nenhum do site (confirmado: nenhuma rota /termos ou arquivo
 // mencionando "termos" existia antes desta rodada, fora esse checkbox).
 //
-// Este texto é um RASCUNHO que escrevi com base no que o cadastro já
-// pede/faz de verdade no código (dados coletados, fluxo de aprovação,
-// planos, uso de fotos, Selo Dicas) — não é orientação jurídica e não
-// substitui revisão de um advogado/contador antes de valer oficialmente.
-// A Andrea pediu explicitamente esse rascunho pra revisar; o aviso
-// abaixo deixa isso claro pra qualquer parceiro que ler também, até ela
-// (ou quem ela definir) confirmar o texto final.
+// Este texto foi escrito com base no que o cadastro já pede/faz de
+// verdade no código (dados coletados, fluxo de aprovação, planos, uso
+// de fotos, Selo Dicas). Rodada 60 — Andrea decidiu publicar como termo
+// oficial e pediu a remoção do aviso de rascunho. Continua não sendo
+// orientação jurídica de um advogado/contador — a decisão de tratar
+// este texto como termo oficial foi da Andrea.
 export default function TermosPage() {
   return (
     <div className="min-h-screen bg-[#0B0B0E] text-white p-6 md:p-12">
@@ -36,13 +35,8 @@ export default function TermosPage() {
           <span className="text-sm text-[#A0A0B2] font-medium">Termos de cadastro de parceiro</span>
         </div>
 
-        <div className="bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs p-4 rounded-xl mb-8 leading-relaxed">
-          <strong>Este texto ainda é um rascunho</strong>, preparado a partir do que o cadastro
-          coleta e faz de verdade hoje. Não é orientação jurídica e ainda precisa de revisão antes
-          de valer como termo oficial. Última atualização: 21/09/2026.
-        </div>
-
-        <h1 className="text-2xl font-black mb-6">Termos de cadastro de parceiro</h1>
+        <h1 className="text-2xl font-black mb-2">Termos de cadastro de parceiro</h1>
+        <p className="text-xs text-[#626274] mb-6">Última atualização: 23/09/2026.</p>
 
         <div className="space-y-6 text-sm text-[#D0D0E0] leading-relaxed">
           <section>
@@ -67,7 +61,18 @@ export default function TermosPage() {
           </section>
 
           <section>
-            <h2 className="text-white font-bold mb-2">3. Aprovação, edição e remoção</h2>
+            <h2 className="text-white font-bold mb-2">3. Seus direitos sobre os dados (LGPD)</h2>
+            <p>
+              Usamos os dados enviados neste cadastro apenas para os fins descritos aqui — análise
+              do cadastro, contato sobre ele e funcionamento do portal do parceiro — e não os
+              compartilhamos com terceiros para fins de marketing. De acordo com a Lei Geral de
+              Proteção de Dados (LGPD), você pode solicitar acesso, correção ou exclusão dos seus
+              dados a qualquer momento, pelo WhatsApp de contato informado no cadastro.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-white font-bold mb-2">4. Aprovação, edição e remoção</h2>
             <p>
               O Dicas LGBT+ pode aprovar, recusar, editar (por exemplo corrigir categoria ou
               formato de imagem) ou remover qualquer cadastro, a qualquer momento, especialmente
@@ -78,7 +83,7 @@ export default function TermosPage() {
           </section>
 
           <section>
-            <h2 className="text-white font-bold mb-2">4. Fotos e conteúdo enviado</h2>
+            <h2 className="text-white font-bold mb-2">5. Fotos e conteúdo enviado</h2>
             <p>
               Ao enviar fotos, flier ou outro material, você declara ter o direito de usá-las e
               autoriza o Dicas LGBT+ a exibi-las no app, no site e em materiais de divulgação da
@@ -89,7 +94,7 @@ export default function TermosPage() {
           </section>
 
           <section>
-            <h2 className="text-white font-bold mb-2">5. Planos e cobrança</h2>
+            <h2 className="text-white font-bold mb-2">6. Planos e cobrança</h2>
             <p>
               O cadastro básico é gratuito. Alguns recursos de visibilidade (destaque, selo
               patrocinado, planos pagos) têm cobrança manual, combinada por Pix ou WhatsApp — não
@@ -99,7 +104,7 @@ export default function TermosPage() {
           </section>
 
           <section>
-            <h2 className="text-white font-bold mb-2">6. Selo Dicas LGBT+</h2>
+            <h2 className="text-white font-bold mb-2">7. Selo Dicas LGBT+</h2>
             <p>
               O Selo Dicas LGBT+ é uma curadoria editorial da nossa equipe — nunca é vendido nem
               pode ser comprado, independente do plano contratado.
@@ -107,7 +112,7 @@ export default function TermosPage() {
           </section>
 
           <section>
-            <h2 className="text-white font-bold mb-2">7. Alterações nestes termos</h2>
+            <h2 className="text-white font-bold mb-2">8. Alterações nestes termos</h2>
             <p>
               Podemos atualizar este texto conforme o app evolui. A versão vigente é sempre a
               publicada nesta página.
@@ -115,7 +120,7 @@ export default function TermosPage() {
           </section>
 
           <section>
-            <h2 className="text-white font-bold mb-2">8. Dúvidas</h2>
+            <h2 className="text-white font-bold mb-2">9. Dúvidas</h2>
             <p>Qualquer dúvida sobre estes termos, fale com a gente pelo WhatsApp de contato do cadastro.</p>
           </section>
         </div>
