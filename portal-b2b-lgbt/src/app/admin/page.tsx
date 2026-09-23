@@ -99,7 +99,9 @@ const PLANO_PRECO: Record<string, string> = {
   // Rodada 59 — Andrea corrigiu: "esse 3500 esta equivocado". Fundador
   // não é mensalidade — é pacote único de 12 meses (mesmo valor de
   // /planos e da página /parceiro-fundador do site institucional).
-  fundador: 'R$3.490 à vista (ou 12x R$349)',
+  // Atualização — "12x R$349" agora lidera (mais vendável), R$3.490 à
+  // vista fica como opção entre parênteses.
+  fundador: 'R$349/mês × 12 (ou R$3.490 à vista)',
 };
 
 type InteresseNoPlano = {
@@ -2395,7 +2397,7 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
         <p className="text-xs text-[#626274] mb-3">
           O logo aqui é usado nos avatares redondos do banner &quot;Membro Fundador&quot; da
           Home (se o local não tiver logo próprio, usa a foto de capa dele como reserva). O
-          selo &quot;Membro Fundador&quot; é o mesmo de sempre (R$3.490 à vista ou 12x R$349) — marcar/
+          selo &quot;Membro Fundador&quot; é o mesmo de sempre (12x R$349, ou R$3.490 à vista) — marcar/
           desmarcar aqui é idêntico a fazer isso em Locais &gt; Escolha pela Experiência.
         </p>
         <div className="flex items-center gap-2 mb-3">

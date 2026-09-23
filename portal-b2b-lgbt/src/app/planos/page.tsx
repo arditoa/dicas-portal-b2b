@@ -77,11 +77,15 @@ const planos = [
     // Rodada 59 (parte 2) — "5 VAGAS NO TOTAL" também estava errado;
     // Andrea confirmou "10 oportunidades", batendo com "Lote 1 | 10
     // oportunidades" que já estava certo em /parceiro-fundador.
+    // Atualização — Andrea pediu pra liderar com "12x R$349" em vez de
+    // "R$3.490", pra parecer mais barato/vendável (mesmo pacote de 12
+    // meses, só troca qual número fica em destaque). R$3.490 à vista
+    // continua disponível, agora como opção secundária no "sub".
     slug: 'fundador',
     nome: 'Fundador',
     tag: '10 VAGAS NO TOTAL',
-    preco: 'R$3.490',
-    sub: 'à vista (ou 12x R$349)',
+    preco: 'R$349',
+    sub: '/mês × 12 (ou R$3.490 à vista)',
     beneficios: [
       { text: 'Tudo do Premium', ok: true },
       { text: 'Banner permanente na Home', ok: true },

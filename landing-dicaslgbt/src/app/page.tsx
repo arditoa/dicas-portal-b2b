@@ -61,7 +61,9 @@ const PLANOS_PREVIEW = [
   // /parceiro-fundador. O R$3.500/mês era o valor errado.
   // Rodada 59 (parte 2) — "5 vagas" também estava errado; Andrea
   // confirmou "10 oportunidades", batendo com /parceiro-fundador.
-  { nome: 'Fundador', preco: 'R$3.490 à vista', destaque: false, tag: '10 vagas no total' },
+  // Atualização — "12x R$349" agora lidera (mais vendável que R$3.490 à
+  // vista de cara nesse card pequeno).
+  { nome: 'Fundador', preco: '12x R$349', destaque: false, tag: '10 vagas no total' },
 ];
 
 const ATALHOS = [

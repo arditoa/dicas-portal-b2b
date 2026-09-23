@@ -15,7 +15,8 @@ const PLANO_INFO: Record<string, { nome: string; preco: string }> = {
   premium: { nome: 'Premium', preco: 'R$599/mês' },
   // Rodada 59 — Andrea corrigiu: "esse 3500 esta equivocado". Fundador
   // não é mensalidade, é pacote único de 12 meses.
-  fundador: { nome: 'Fundador', preco: 'R$3.490 à vista (ou 12x R$349)' },
+  // Atualização — "12x R$349" agora lidera (mais vendável).
+  fundador: { nome: 'Fundador', preco: 'R$349/mês × 12 (ou R$3.490 à vista)' },
 };
 
 const STATUS_PLANO_INFO: Record<string, { label: string; cor: string }> = {

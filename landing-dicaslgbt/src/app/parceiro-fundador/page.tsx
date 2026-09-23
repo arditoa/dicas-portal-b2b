@@ -15,6 +15,10 @@ export const dynamic = 'force-dynamic';
 // /admin do portal estava equivocado — não é mais uma colisão em aberto,
 // já corrigido nos dois lugares pra bater com esta página.
 //
+// Atualização — Andrea pediu pra liderar com "12x R$349" em vez de
+// "R$3.490 à vista" (mais vendável); o valor em si não mudou, só qual
+// número aparece primeiro.
+//
 // Rodada 59 (parte 2) — o "Lote 1 | 10 oportunidades" desta página x "5
 // vagas no total" em /planos e na home do site: Andrea confirmou "10
 // oportunidades" como o número certo. /planos e a home corrigidos pra
@@ -85,7 +89,7 @@ export default function ParceiroFundadorPage() {
           O Parceiro Fundador participa do Dicas LGBT+ App desde o começo, com presença de destaque,
           benefícios exclusivos e participação mais próxima na construção da plataforma.
         </p>
-        <p className="text-white font-bold text-lg mt-6">R$ 3.490 à vista no Pix ou 12x de R$ 349 no cartão.</p>
+        <p className="text-white font-bold text-lg mt-6">12x de R$ 349 no cartão (ou R$ 3.490 à vista no Pix).</p>
         <div className="mt-8">
           <BotaoWhatsapp />
         </div>
