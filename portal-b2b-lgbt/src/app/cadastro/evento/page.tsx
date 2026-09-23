@@ -178,6 +178,10 @@ export default function CadastroEventoPage() {
       setErrorMsg('Preencha o título e a data do evento.');
       return;
     }
+    if (!classificacaoLgbt) {
+      setErrorMsg('Escolha a relação do evento com a comunidade LGBT+.');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -405,8 +409,8 @@ export default function CadastroEventoPage() {
             <CampoFlier arquivo={flier} onSelect={setFlier} disabled={loading} />
 
             <div>
-              <label className={labelClass}>Relação com a comunidade LGBT+ (opcional)</label>
-              <div className="flex flex-wrap gap-2">
+              <label className={labelClass}>Relação com a comunidade LGBT+ *</label>
+              <div className="flex flex-col gap-2">
                 {CLASSIFICACOES_LGBT.map((c) => {
                   const ativo = classificacaoLgbt === c.value;
                   return (
@@ -415,19 +419,22 @@ export default function CadastroEventoPage() {
                       type="button"
                       onClick={() => setClassificacaoLgbt(ativo ? '' : c.value)}
                       disabled={loading}
-                      className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
+                      className={`text-left px-4 py-3 rounded-xl border transition ${
                         ativo
-                          ? 'bg-[#7E57C2] border-[#7E57C2] text-white'
-                          : 'bg-[#161520] border-[#232230] text-[#A0A0B2] hover:border-[#7E57C2]/50'
+                          ? 'bg-[#7E57C2]/15 border-[#7E57C2] ring-1 ring-[#7E57C2]'
+                          : 'bg-[#161520] border-[#232230] hover:border-[#7E57C2]/50'
                       }`}
                     >
-                      {c.emoji} {c.label}
+                      <span className={`text-sm font-semibold ${ativo ? 'text-white' : 'text-[#E5E5F0]'}`}>
+                        {c.emoji} {c.label}
+                      </span>
+                      <p className="text-xs text-[#A0A0B2] mt-1 leading-relaxed">{c.descricao}</p>
                     </button>
                   );
                 })}
               </div>
               <p className="text-xs text-[#626274] mt-2">
-                Escolha a opção que melhor descreve o evento, seguindo a metodologia da Câmara de Comércio LGBT+. Selecione no máximo uma — clique de novo pra desmarcar.
+                Escolha a opção que melhor descreve o evento, seguindo a metodologia da Câmara de Comércio LGBT+. Selecione uma — clique de novo pra desmarcar.
               </p>
             </div>
 
