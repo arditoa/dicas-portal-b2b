@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import WaitlistForm from '../components/WaitlistForm';
 import Footer from '../components/Footer';
 import Header from '../components/Header';
 import MobileFixedCta from '../components/MobileFixedCta';
@@ -453,6 +454,21 @@ export default function LandingPage() {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Rodada 61 — Andrea pediu de volta: bastante usuário final se
+              cadastrando na feira também, sem ter empresa. A Rodada 58
+              tinha tirado isso da Home (Guia queria a Home 100% focada em
+              empresa, lista de usuário final só em /lancamento) — decisão
+              revertida agora com base no interesse real observado, não
+              precisa mandar ninguém pra outra página. */}
+          <div className="border-t border-white/10 mt-10 pt-10 text-center">
+            <p className="text-sm font-bold text-white mb-1">É usuário do aplicativo? Entre também na lista de espera</p>
+            <p className="text-[#A0A0B2] text-xs sm:text-sm mb-6 max-w-md mx-auto">
+              Cadastre-se pra ser avisado(a) por e-mail e WhatsApp quando o Dicas LGBT+ App abrir — sem custo,
+              sem compromisso.
+            </p>
+            <WaitlistForm origemLabel="Home — abaixo do cadastro de empresa" />
           </div>
         </div>
       </section>

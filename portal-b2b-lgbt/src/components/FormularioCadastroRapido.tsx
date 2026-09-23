@@ -23,11 +23,12 @@ const CATEGORIAS = [
   { value: 'lugares', label: 'Bares', disabled: false },
   { value: 'gastronomia', label: 'Gastronomia', disabled: false },
   { value: 'cultura', label: 'Cultura', disabled: false },
-  { value: 'turismo', label: 'Dicas Trip', disabled: false },
+  { value: 'turismo', label: 'Turismo / Agências de turismo', disabled: false },
   { value: 'beleza', label: 'Beleza', disabled: true },
   { value: 'mais18', label: 'Espaços 18+', disabled: true },
   { value: 'lojas', label: 'Lojas', disabled: true },
-  { value: 'servicos', label: 'Serviços', disabled: true },
+  { value: 'servicos', label: 'Serviços', disabled: false },
+  { value: 'produtos', label: 'Produtos', disabled: false },
   { value: 'lazer', label: 'Lazer', disabled: true },
 ] as const;
 

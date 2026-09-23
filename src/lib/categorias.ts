@@ -23,6 +23,7 @@ export type CategoriaSlugUI =
   | 'mais18'
   | 'lojas'
   | 'servicos'
+  | 'produtos'
   | 'lazer';
 
 export interface CategoriaConfig {
@@ -103,11 +104,20 @@ export const CATEGORIAS: Record<CategoriaSlugUI, CategoriaConfig> = {
     label: 'Serviços',
     icon: 'briefcase',
     color: '#7E57C2',
-    // "Serviços" já existe no enum real, mas continua marcada "Em breve"
-    // por decisão de produto da Andrea (Rodada 2) — não é limitação
-    // técnica, então não habilitei sozinho.
+    // "Serviços" já existia no enum real, ficava "Em breve" por decisão
+    // de produto da Andrea (Rodada 2). Habilitado agora, a pedido dela
+    // (bastante interesse real na feira) — nenhuma migration necessária,
+    // o valor real 'servicos' do enum já existia desde a Rodada 1.
     categoriaReal: 'servicos',
-    emBreve: true,
+  },
+  produtos: {
+    slug: 'produtos',
+    label: 'Produtos',
+    icon: 'package',
+    color: '#FFD54F',
+    // Categoria nova de verdade (Rodada 61) — 'produtos' não existia no
+    // enum categoria_tipo antes; ver migration 033.
+    categoriaReal: 'produtos',
   },
   lazer: {
     slug: 'lazer',
@@ -129,6 +139,7 @@ export const CATEGORIA_ORDER: CategoriaSlugUI[] = [
   'mais18',
   'lojas',
   'servicos',
+  'produtos',
   'lazer',
 ];
 
@@ -141,4 +152,5 @@ export const CATEGORIA_REAL_LABEL: Record<string, string> = {
   eventos: 'Festas & Eventos',
   turismo: 'Turismo',
   servicos: 'Serviços Inclusivos',
+  produtos: 'Produtos',
 };
