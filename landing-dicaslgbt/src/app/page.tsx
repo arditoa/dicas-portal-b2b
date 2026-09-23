@@ -212,6 +212,26 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Seção 2.1 — Lista de espera do usuário final (Rodada 61) —
+          Andrea pediu pra subir pra bem mais perto do topo: bastante
+          usuário final se cadastrando na feira também, sem ter empresa.
+          A Rodada 58 tinha tirado isso da Home (Guia queria a Home 100%
+          focada em empresa, lista de usuário final só em /lancamento) —
+          decisão revertida com base no interesse real observado. Ficou
+          logo abaixo dos atalhos (Seção 2) em vez de esperar até a Seção
+          9 (formulário de empresa), pra reduzir o quanto precisa rolar
+          a página. */}
+      <section className="w-full border-t border-white/5 bg-white/[0.02]">
+        <div className="max-w-2xl mx-auto px-6 py-16 text-center">
+          <p className="text-sm font-bold text-white mb-1">É usuário do aplicativo? Entre também na lista de espera</p>
+          <p className="text-[#A0A0B2] text-xs sm:text-sm mb-6 max-w-md mx-auto">
+            Cadastre-se pra ser avisado(a) por e-mail e WhatsApp quando o Dicas LGBT+ App abrir — sem custo,
+            sem compromisso.
+          </p>
+          <WaitlistForm origemLabel="Home — abaixo dos atalhos" />
+        </div>
+      </section>
+
       {/* Seção 3 — Números — Andrea confirmou que gostou do efeito
           gradiente rosa→roxo (voltou atrás de um ajuste anterior que
           tinha trocado por rosa sólido); o pedido real era sobre o topo
@@ -454,21 +474,6 @@ export default function LandingPage() {
                 </div>
               ))}
             </div>
-          </div>
-
-          {/* Rodada 61 — Andrea pediu de volta: bastante usuário final se
-              cadastrando na feira também, sem ter empresa. A Rodada 58
-              tinha tirado isso da Home (Guia queria a Home 100% focada em
-              empresa, lista de usuário final só em /lancamento) — decisão
-              revertida agora com base no interesse real observado, não
-              precisa mandar ninguém pra outra página. */}
-          <div className="border-t border-white/10 mt-10 pt-10 text-center">
-            <p className="text-sm font-bold text-white mb-1">É usuário do aplicativo? Entre também na lista de espera</p>
-            <p className="text-[#A0A0B2] text-xs sm:text-sm mb-6 max-w-md mx-auto">
-              Cadastre-se pra ser avisado(a) por e-mail e WhatsApp quando o Dicas LGBT+ App abrir — sem custo,
-              sem compromisso.
-            </p>
-            <WaitlistForm origemLabel="Home — abaixo do cadastro de empresa" />
           </div>
         </div>
       </section>
