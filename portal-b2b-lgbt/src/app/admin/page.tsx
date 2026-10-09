@@ -5,6 +5,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { normalizarTelefoneBR } from '../../lib/parceiroAuth';
 import { erroFotoNaoSuportada } from '../../lib/validarFoto';
+import PainelPontosProximos from '../../components/PainelPontosProximos';
+import PainelValidacaoHospedagem from '../../components/PainelValidacaoHospedagem';
+import PainelDestinos from '../../components/PainelDestinos';
 
 const URL_PORTAL = 'https://dicas-portal-b2b-dun.vercel.app'; // ajuste aqui quando o domínio definitivo (ex.: portal.vezpabar.com) estiver configurado
 
@@ -474,7 +477,7 @@ export default function AdminPage() {
   // Rodada 46: a Andrea ainda achou confuso — "Eventos" sobe de sub-aba
   // pra aba própria, no mesmo nível de "Locais". `subAbaCategorias` saiu
   // de existir; `aba` agora cobre os três níveis direto.
-  const [aba, setAba] = useState<'aprovacoes' | 'locais' | 'eventos' | 'fundador'>('aprovacoes');
+  const [aba, setAba] = useState<'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos'>('aprovacoes');
   const [filtroPrincipal, setFiltroPrincipal] = useState<string>('todas');
   // Rodada 46 — filtro só da aba Eventos: "O que Fazer Hoje" (destaque_secoes
   // contém 'hoje', mesmo mecanismo que locais já tinham) vs todos.
@@ -672,14 +675,28 @@ export default function AdminPage() {
         .filter((b) => b.ativo)
         .map((b) => b.local_id)
     );
+    // Rodada 61 — Andrea reportou ordem inconsistente na lista de locais
+    // quando o nome foi cadastrado tudo em CAIXA ALTA ou tudo minúsculo.
+    // O `.order('nome')` do Supabase/Postgres depende da collation do
+    // banco (não é garantidamente "A, a, B, b..." como a gente espera) —
+    // reordenar aqui no cliente com localeCompare + sensitivity: 'base'
+    // garante ordem alfabética de verdade, ignorando maiúsculas/minúsculas,
+    // independente de como cada dono digitou o nome.
+    const ordenarPorNome = <T extends { nome: string }>(lista: T[]) =>
+      [...lista].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
+    const ordenarPorTitulo = <T extends { titulo: string }>(lista: T[]) =>
+      [...lista].sort((a, b) => a.titulo.localeCompare(b.titulo, 'pt-BR', { sensitivity: 'base' }));
+
     setLocaisDestaque(
-      ((locaisDestaqueData as Omit<LocalDestaque, 'fundador'>[]) || []).map((l) => ({
-        ...l,
-        fundador: idsComFundadorAtivo.has(l.id),
-      }))
+      ordenarPorNome(
+        ((locaisDestaqueData as Omit<LocalDestaque, 'fundador'>[]) || []).map((l) => ({
+          ...l,
+          fundador: idsComFundadorAtivo.has(l.id),
+        }))
+      )
     );
     setEventosDestaque((eventosDestaqueData as EventoDestaque[]) || []);
-    setEventosComOrganizador((eventosComOrganizadorData as EventoComOrganizador[]) || []);
+    setEventosComOrganizador(ordenarPorTitulo((eventosComOrganizadorData as EventoComOrganizador[]) || []));
     const configMap: Record<string, string | null> = {};
     (((appConfigData as { chave: string; valor: string | null }[]) || [])).forEach((c) => {
       configMap[c.chave] = c.valor;
@@ -1371,6 +1388,8 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
           ? 'Busque e filtre locais por categoria, e marque selos/destaques de cada estabelecimento.'
           : aba === 'eventos'
           ? 'Busque e filtre eventos/festas, e marque em quais seções do app cada um aparece.'
+          : aba === 'destinos'
+          ? 'Cidades do Dicas Trip: foto de capa, frase, tags, melhor época e roteiro em destaque.'
           : 'Arte do banner e logo de cada local que aparece no selo "Membro Fundador" da Home.'}
       </p>
 
@@ -1419,6 +1438,15 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
           }`}
         >
           Membro Fundador ({locaisDestaque.filter((l) => l.fundador).length})
+        </button>
+        {/* Rodada 65 — cidades do Dicas Trip (tabela destinos, migration 036/038) */}
+        <button
+          onClick={() => setAba('destinos')}
+          className={`text-sm font-bold px-4 py-2.5 border-b-2 -mb-px transition ${
+            aba === 'destinos' ? 'border-[#E1306C] text-white' : 'border-transparent text-[#626274] hover:text-[#A0A0B2]'
+          }`}
+        >
+          Destinos
         </button>
       </div>
 
@@ -1500,6 +1528,8 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
 
       {aba === 'aprovacoes' && (
       <>
+      <PainelValidacaoHospedagem />
+      <PainelPontosProximos />
       <div className="flex flex-wrap gap-2 mb-8">
         {totalPendente === 0 && (
           <span className="text-xs bg-[#4CAF7D]/10 text-[#4CAF7D] border border-[#4CAF7D]/30 px-3 py-1.5 rounded-full font-bold">
@@ -1579,7 +1609,7 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
               <div>
                 <h3 className="font-bold text-sm">{l.nome}</h3>
                 <p className="text-xs text-[#A0A0B2] capitalize">
-                  {l.categoria} · {l.bairro ? `${l.bairro}, ` : ''}{l.cidade} · CNPJ {l.cnpj || '—'}
+                  {l.categoria} · {l.bairro ? `${l.bairro}, ` : ''}{l.cidade} · CNPJ/CPF {l.cnpj || '—'}
                 </p>
                 <p className="text-xs text-[#626274] mt-1">
                   Contato: {l.contato_nome || '—'} · {l.contato_telefone || '—'} · {l.contato_email || '—'}
@@ -1730,7 +1760,7 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
             <div key={v.id} className="bg-[#161520] border border-[#232230] rounded-xl p-4 flex justify-between items-start gap-4">
               <div>
                 <h3 className="font-bold text-sm">{v.locais?.nome || '(local não encontrado)'}</h3>
-                <p className="text-xs text-[#A0A0B2]">CNPJ informado: {v.documento_informado}</p>
+                <p className="text-xs text-[#A0A0B2]">CNPJ/CPF informado: {v.documento_informado}</p>
                 <p className="text-xs text-[#626274] mt-1">
                   Confira o telefone/e-mail do cadastro original ({v.locais?.contato_telefone || '—'} /{' '}
                   {v.locais?.contato_email || '—'}) antes de aprovar.
@@ -2335,6 +2365,8 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
           existia dentro de "Escolha pela experiência"). Nada de mecanismo
           novo — alternarFundador/enviarFotoLocal/enviarArteMarketing já
           existiam, só ganharam um lugar mais fácil de achar. */}
+      {aba === 'destinos' && <PainelDestinos />}
+
       {aba === 'fundador' && (
       <>
       <section className="mb-10">

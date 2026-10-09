@@ -134,6 +134,11 @@ type Local = {
   bairro_exibicao: string | null;
   cidade: string;
   endereco: string | null;
+  // Rodada 61 (fazer direito) — só usados por Serviços (atendimento_tipo/
+  // especialidade) ou Produtos (link_loja_online); ver migration 034.
+  atendimento_tipo: string | null;
+  especialidade: string | null;
+  link_loja_online: string | null;
   instagram: string | null;
   contato_nome: string | null;
   contato_email: string | null;
@@ -191,7 +196,7 @@ export default function MinhaPaginaPage() {
       const { data, error } = await supabase
         .from('locais')
         .select(
-          'id, nome, categoria, subcategoria, descricao, bairro, bairro_exibicao, cidade, endereco, lat, lng, instagram, contato_nome, contato_email, contato_telefone, foto_capa_url, logo_url, publico_tags, tags, plano_comercial, plano_comercial_status, status, plano_destaque, horario_funcionamento, galeria_fotos, video_url'
+          'id, nome, categoria, subcategoria, descricao, bairro, bairro_exibicao, cidade, endereco, atendimento_tipo, especialidade, link_loja_online, lat, lng, instagram, contato_nome, contato_email, contato_telefone, foto_capa_url, logo_url, publico_tags, tags, plano_comercial, plano_comercial_status, status, plano_destaque, horario_funcionamento, galeria_fotos, video_url'
         )
         .eq('owner_id', userData.user.id)
         .maybeSingle();
@@ -387,6 +392,9 @@ export default function MinhaPaginaPage() {
         bairro_exibicao: local.bairro_exibicao,
         cidade: local.cidade,
         endereco: local.endereco,
+        atendimento_tipo: local.categoria === 'servicos' ? (local.atendimento_tipo || null) : null,
+        especialidade: local.categoria === 'servicos' ? (local.especialidade || null) : null,
+        link_loja_online: local.categoria === 'produtos' ? (local.link_loja_online || null) : null,
         instagram: local.instagram,
         contato_nome: local.contato_nome,
         contato_email: local.contato_email,
@@ -638,6 +646,49 @@ export default function MinhaPaginaPage() {
           </div>
         </div>
 
+        {local.categoria === 'servicos' && (
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">Atendimento</label>
+              <select
+                value={local.atendimento_tipo || ''}
+                onChange={(e) => setLocal({ ...local, atendimento_tipo: e.target.value || null })}
+                className="w-full bg-[#161520] border border-[#232230] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#E1306C]"
+              >
+                <option value="">Selecione...</option>
+                <option value="presencial">Presencial</option>
+                <option value="online">Online / à distância</option>
+                <option value="ambos">Presencial e online</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">Especialidade</label>
+              <input
+                type="text"
+                value={local.especialidade || ''}
+                onChange={(e) => setLocal({ ...local, especialidade: e.target.value })}
+                placeholder="Ex: Advocacia LGBT+, Psicologia, Estética"
+                className="w-full bg-[#161520] border border-[#232230] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#E1306C]"
+              />
+            </div>
+          </div>
+        )}
+
+        {local.categoria === 'produtos' && (
+          <div>
+            <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">
+              Link da loja online (opcional)
+            </label>
+            <input
+              type="url"
+              value={local.link_loja_online || ''}
+              onChange={(e) => setLocal({ ...local, link_loja_online: e.target.value })}
+              placeholder="https://..."
+              className="w-full bg-[#161520] border border-[#232230] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#E1306C]"
+            />
+          </div>
+        )}
+
         <div>
           <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">
             Tags de público (aparece nos filtros do app e do mapa)
@@ -870,10 +921,12 @@ export default function MinhaPaginaPage() {
             />
           </div>
           <div>
-            <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">Cidade</label>
+            <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">
+              Cidade{['servicos', 'turismo', 'produtos'].includes(local.categoria) ? ' (opcional)' : ''}
+            </label>
             <input
               type="text"
-              required
+              required={!['servicos', 'turismo', 'produtos'].includes(local.categoria)}
               value={local.cidade}
               onChange={(e) => setLocal({ ...local, cidade: e.target.value })}
               className="w-full bg-[#161520] border border-[#232230] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#E1306C]"

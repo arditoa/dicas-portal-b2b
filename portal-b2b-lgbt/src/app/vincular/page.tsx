@@ -8,7 +8,10 @@ import { supabase } from '../../lib/supabase';
 // Fluxo: o cadastro público (/cadastro/local) é sempre anônimo — não pede
 // login. Então quem se cadastrou lá pode não ter (ainda) uma conta. Esta
 // tela é o passo 2: criar/entrar na conta e pedir pra ligar essa conta ao
-// local já cadastrado, achando ele pelo CNPJ. A aprovação é sempre manual
+// local já cadastrado, achando ele pelo CNPJ ou CPF (Rodada 61 — o
+// cadastro já aceita os dois, então essa busca precisa aceitar também,
+// senão quem cadastrou com CPF fica sem conseguir vincular a conta).
+// A aprovação é sempre manual
 // (a Andrea confere pelo /admin) — ver 005_planos_comerciais_e_vinculo_local.sql.
 type LocalEncontrado = {
   id: string;
@@ -48,8 +51,8 @@ export default function VincularLocalPage() {
     setResultado(null);
     setNaoEncontrado(false);
     const cnpjLimpo = digitsOnly(cnpj);
-    if (cnpjLimpo.length !== 14) {
-      setErro('Digite o CNPJ completo (14 dígitos).');
+    if (cnpjLimpo.length !== 11 && cnpjLimpo.length !== 14) {
+      setErro('Digite o CNPJ (14 números) ou CPF (11 números) completo.');
       return;
     }
     setBuscando(true);
@@ -153,7 +156,7 @@ export default function VincularLocalPage() {
       <div className="max-w-md mx-auto">
         <h1 className="text-2xl font-black mb-2">Vincular meu local já cadastrado</h1>
         <p className="text-[#A0A0B2] text-sm mb-8">
-          Digite o CNPJ que você usou no cadastro público do seu espaço.
+          Digite o CNPJ ou CPF que você usou no cadastro público do seu espaço.
         </p>
 
         <form onSubmit={buscarLocal} className="space-y-4">
@@ -161,7 +164,7 @@ export default function VincularLocalPage() {
             type="text"
             value={cnpj}
             onChange={(e) => setCnpj(e.target.value)}
-            placeholder="00.000.000/0000-00"
+            placeholder="CPF (11 números) ou CNPJ (14 números)"
             className="w-full bg-[#161520] border border-[#232230] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#E1306C]"
           />
           {erro && <p className="text-red-400 text-xs">{erro}</p>}
@@ -177,7 +180,7 @@ export default function VincularLocalPage() {
 
         {naoEncontrado && (
           <div className="mt-6 bg-[#161520] border border-[#232230] p-4 rounded-xl text-sm text-[#A0A0B2]">
-            Não achamos nenhum local aprovado e sem responsável com esse CNPJ. Isso pode ser porque:
+            Não achamos nenhum local aprovado e sem responsável com esse CNPJ/CPF. Isso pode ser porque:
             ainda não cadastrou (
             <Link href="/cadastro/local" className="text-[#E1306C] font-bold hover:underline">
               cadastre aqui

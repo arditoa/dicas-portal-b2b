@@ -1,5 +1,5 @@
 'use client';
-import { ArrowLeft, Loader2, Plus, Tag, Trash2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Plus, QrCode, Tag, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -32,6 +32,15 @@ export default function CupomPage() {
   const [erro, setErro] = useState('');
   const [salvando, setSalvando] = useState(false);
   const [mostrarForm, setMostrarForm] = useState(false);
+
+  // Rodada 59 (parte 8) — "Fluxo completo" pra ativar cupom de verdade:
+  // aqui o dono do local confere o código de 6 letras que o app mostrou
+  // pro cliente depois do check-in e chama validar_checkin (migration 010,
+  // security definer) — ela confirma o check-in e já resgata o cupom
+  // vinculado (cupons_resgatados) na mesma chamada.
+  const [codigoValidar, setCodigoValidar] = useState('');
+  const [validando, setValidando] = useState(false);
+  const [resultadoValidacao, setResultadoValidacao] = useState<{ tipo: 'sucesso' | 'erro'; mensagem: string } | null>(null);
 
   const [titulo, setTitulo] = useState('');
   const [descricao, setDescricao] = useState('');
@@ -120,6 +129,34 @@ export default function CupomPage() {
     await carregarCupons(localId);
   };
 
+  const handleValidarCheckin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!codigoValidar.trim()) return;
+    setValidando(true);
+    setResultadoValidacao(null);
+    try {
+      const { data, error } = await supabase.rpc('validar_checkin', { p_codigo: codigoValidar.trim() });
+      if (error) throw error;
+      const checkin = data as { cupom_id: string | null } | null;
+      let mensagemCupom = '';
+      if (checkin?.cupom_id) {
+        const { data: cupomData } = await supabase
+          .from('cupons')
+          .select('titulo')
+          .eq('id', checkin.cupom_id)
+          .maybeSingle();
+        mensagemCupom = cupomData?.titulo ? ` — cupom "${cupomData.titulo}" liberado.` : ' — cupom liberado.';
+      }
+      setResultadoValidacao({ tipo: 'sucesso', mensagem: `Check-in confirmado!${mensagemCupom}` });
+      setCodigoValidar('');
+      if (localId) await carregarCupons(localId);
+    } catch (err: any) {
+      setResultadoValidacao({ tipo: 'erro', mensagem: err?.message || 'Não foi possível validar esse código.' });
+    } finally {
+      setValidando(false);
+    }
+  };
+
   if (carregando) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -145,6 +182,44 @@ export default function CupomPage() {
         >
           <Plus size={14} /> Novo cupom
         </button>
+      </div>
+
+      <div className="bg-[#161520] border border-[#232230] rounded-2xl p-6 mb-8">
+        <h2 className="text-sm font-bold flex items-center gap-2 mb-1">
+          <QrCode size={16} className="text-[#E1306C]" /> Validar check-in
+        </h2>
+        <p className="text-[#A0A0B2] text-xs mb-4">
+          Peça pro cliente mostrar o código de 6 letras que apareceu no app dele e digite aqui pra confirmar a
+          chegada e liberar o cupom.
+        </p>
+        <form onSubmit={handleValidarCheckin} className="flex gap-3">
+          <input
+            type="text"
+            value={codigoValidar}
+            onChange={(e) => setCodigoValidar(e.target.value.toUpperCase())}
+            placeholder="Ex: A1B2C3"
+            maxLength={6}
+            className="flex-1 bg-[#0B0B0E] border border-[#232230] rounded-xl py-3 px-4 text-white text-sm uppercase tracking-widest text-center font-bold focus:outline-none focus:border-[#E1306C]"
+          />
+          <button
+            type="submit"
+            disabled={validando || !codigoValidar.trim()}
+            className="bg-[#E1306C] hover:bg-[#C2285C] disabled:opacity-50 text-white text-xs font-bold px-5 rounded-xl transition"
+          >
+            {validando ? 'Validando...' : 'Validar'}
+          </button>
+        </form>
+        {resultadoValidacao && (
+          <div
+            className={`mt-4 text-xs p-3 rounded-xl border ${
+              resultadoValidacao.tipo === 'sucesso'
+                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                : 'bg-red-500/10 border-red-500/20 text-red-400'
+            }`}
+          >
+            {resultadoValidacao.mensagem}
+          </div>
+        )}
       </div>
 
       {erro && <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl text-xs mb-6">{erro}</div>}

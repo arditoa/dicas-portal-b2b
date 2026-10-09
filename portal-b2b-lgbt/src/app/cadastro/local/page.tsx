@@ -184,6 +184,22 @@ function formatCnpj(digits: string) {
     .replace(/(\d{4})(\d)/, '$1-$2');
 }
 
+function formatCpf(digits: string) {
+  const d = digits.slice(0, 11);
+  return d
+    .replace(/^(\d{3})(\d)/, '$1.$2')
+    .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/^(\d{3})\.(\d{3})\.(\d{3})(\d)/, '$1.$2.$3-$4');
+}
+
+// Rodada 61 — Andrea pediu pra aceitar CPF também, não só CNPJ (mesma
+// regra que o /cadastro/rapido já usa). Até 11 dígitos mascara como CPF,
+// de 12 a 14 mascara como CNPJ — cobre digitar direto ou colar formatado.
+function formatDocumento(digits: string) {
+  const d = digits.slice(0, 14);
+  return d.length <= 11 ? formatCpf(d) : formatCnpj(d);
+}
+
 // Rodada 52 — pedido direto da Andrea: CEP automático que preenche o
 // endereço, igual o CNPJ já faz (buscarCnpj acima). Máscara "00000-000".
 function formatCep(digits: string) {
@@ -205,6 +221,12 @@ export default function CadastroLocalPage() {
   const [nomeVeioDaRazaoSocial, setNomeVeioDaRazaoSocial] = useState(false);
   const [categoria, setCategoria] = useState<string>('');
   const [classificacaoLgbt, setClassificacaoLgbt] = useState<string>('');
+  // Rodada 61 (fazer direito) — campos que só fazem sentido pra
+  // Serviços (atendimento_tipo/especialidade) ou Produtos
+  // (link_loja_online); ver migration 034.
+  const [atendimentoTipo, setAtendimentoTipo] = useState<string>('');
+  const [especialidade, setEspecialidade] = useState('');
+  const [linkLojaOnline, setLinkLojaOnline] = useState('');
   const [cep, setCep] = useState('');
   const [logradouro, setLogradouro] = useState('');
   const [numero, setNumero] = useState('');
@@ -215,6 +237,12 @@ export default function CadastroLocalPage() {
   const [aceitouTermos, setAceitouTermos] = useState(false);
   const [publicoTags, setPublicoTags] = useState<string[]>(['todos']);
   const [fotoCapa, setFotoCapa] = useState<File | null>(null);
+
+  // Serviços/Turismo/Produtos podem não ter um endereço físico público
+  // (atendimento remoto, agência sem loja de rua, loja 100% online) —
+  // endereço vira opcional pra essas categorias. Bares/Gastronomia/
+  // Cultura/Eventos continuam exigindo endereço normalmente.
+  const enderecoObrigatorio = !['servicos', 'turismo', 'produtos'].includes(categoria);
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -307,8 +335,8 @@ export default function CadastroLocalPage() {
       setErrorMsg('É preciso aceitar os termos pra continuar.');
       return;
     }
-    if (digitsOnly(documento).length < 11) {
-      setErrorMsg('CNPJ inválido.');
+    if (digitsOnly(documento).length !== 11 && digitsOnly(documento).length !== 14) {
+      setErrorMsg('Informe um CNPJ (14 números) ou CPF (11 números) válido.');
       return;
     }
     if (!categoria) {
@@ -333,16 +361,22 @@ export default function CadastroLocalPage() {
         .maybeSingle();
 
       if (existente) {
-        setErrorMsg('Já existe um local cadastrado com este CNPJ.');
+        setErrorMsg('Já existe um local cadastrado com este CNPJ/CPF.');
         setLoading(false);
         return;
       }
 
-      const endereco = `${logradouro}, ${numero}${complemento ? ' - ' + complemento : ''} - ${cidade}/${uf}`;
+      // Serviços/Turismo/Produtos podem enviar isso tudo vazio (endereço
+      // opcional pra essas categorias) — nesse caso não monta uma string
+      // de endereço só com traços e barras vazias.
+      const temEndereco = Boolean(logradouro.trim() || numero.trim() || cidade.trim() || uf.trim());
+      const endereco = temEndereco
+        ? `${logradouro}, ${numero}${complemento ? ' - ' + complemento : ''} - ${cidade}/${uf}`
+        : '';
 
       // Best-effort: tenta achar lat/lng pelo endereço completo antes de
       // gravar. Nunca bloqueia o cadastro se falhar (ver geocodificar.ts).
-      const coordenadas = await buscarCoordenadas(`${endereco}, Brasil`);
+      const coordenadas = temEndereco ? await buscarCoordenadas(`${endereco}, Brasil`) : null;
 
       // Rodada 49 — gera o id aqui mesmo (o banco aceitaria de qualquer
       // forma via DEFAULT gen_random_uuid(), isso só antecipa esse valor
@@ -373,6 +407,9 @@ export default function CadastroLocalPage() {
         contato_telefone: whatsapp,
         classificacao_lgbt: classificacaoLgbt || null,
         publico_tags: publicoTags.length > 0 ? publicoTags : ['todos'],
+        atendimento_tipo: categoria === 'servicos' ? (atendimentoTipo || null) : null,
+        especialidade: categoria === 'servicos' ? (especialidade || null) : null,
+        link_loja_online: categoria === 'produtos' ? (linkLojaOnline || null) : null,
         // status / safe_space / plano_destaque / owner_id são forçados pelo
         // trigger enforce_local_seguro_insert no banco — não mandamos aqui.
       });
@@ -460,17 +497,20 @@ export default function CadastroLocalPage() {
             <h2 className="text-sm font-bold text-white">Dados do responsável</h2>
 
             <div>
-              <label className={labelClass}>CNPJ</label>
+              <label className={labelClass}>CNPJ ou CPF</label>
               <input
                 type="text"
                 required
-                value={formatCnpj(digitsOnly(documento))}
+                value={formatDocumento(digitsOnly(documento))}
                 onChange={(e) => setDocumento(digitsOnly(e.target.value))}
                 onBlur={(e) => buscarCnpj(e.target.value)}
-                placeholder="00.000.000/0000-00"
+                placeholder="CPF (11 números) ou CNPJ (14 números)"
                 className={inputClass}
                 disabled={loading}
               />
+              <p className="text-xs text-[#626274] mt-1">
+                Ainda não tem CNPJ? Pode usar seu CPF por enquanto.
+              </p>
               {buscandoCnpj && (
                 <p className="text-xs text-[#A0A0B2] mt-2 flex items-center gap-1.5">
                   <Loader2 className="w-3 h-3 animate-spin" /> Buscando dados do CNPJ...
@@ -566,6 +606,53 @@ export default function CadastroLocalPage() {
               </select>
             </div>
 
+            {categoria === 'servicos' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>Atendimento</label>
+                  <select
+                    value={atendimentoTipo}
+                    onChange={(e) => setAtendimentoTipo(e.target.value)}
+                    className={inputClass}
+                    disabled={loading}
+                  >
+                    <option value="">Selecione...</option>
+                    <option value="presencial">Presencial</option>
+                    <option value="online">Online / à distância</option>
+                    <option value="ambos">Presencial e online</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClass}>Especialidade</label>
+                  <input
+                    type="text"
+                    value={especialidade}
+                    onChange={(e) => setEspecialidade(e.target.value)}
+                    placeholder="Ex: Advocacia LGBT+, Psicologia, Estética"
+                    className={inputClass}
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+            )}
+
+            {categoria === 'produtos' && (
+              <div>
+                <label className={labelClass}>Link da loja online (opcional)</label>
+                <input
+                  type="url"
+                  value={linkLojaOnline}
+                  onChange={(e) => setLinkLojaOnline(e.target.value)}
+                  placeholder="https://..."
+                  className={inputClass}
+                  disabled={loading}
+                />
+                <p className="text-xs text-[#626274] mt-2">
+                  Se vender online (site próprio, Instagram Shopping, marketplace), cole o link aqui.
+                </p>
+              </div>
+            )}
+
             <div>
               <label className={labelClass}>Relação com a comunidade LGBT+ *</label>
               <div className="flex flex-col gap-2">
@@ -625,6 +712,12 @@ export default function CadastroLocalPage() {
               </p>
             </div>
 
+            {!enderecoObrigatorio && (
+              <p className="text-xs text-[#626274] -mb-2">
+                Endereço é opcional pra essa categoria — preencha se tiver um ponto físico de atendimento, ou deixe em branco.
+              </p>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className={labelClass}>CEP</label>
@@ -651,10 +744,10 @@ export default function CadastroLocalPage() {
                 )}
               </div>
               <div className="md:col-span-2">
-                <label className={labelClass}>Logradouro</label>
+                <label className={labelClass}>Logradouro{enderecoObrigatorio ? '' : ' (opcional)'}</label>
                 <input
                   type="text"
-                  required
+                  required={enderecoObrigatorio}
                   value={logradouro}
                   onChange={(e) => setLogradouro(e.target.value)}
                   placeholder="Rua / Avenida"
@@ -666,10 +759,10 @@ export default function CadastroLocalPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className={labelClass}>Número</label>
+                <label className={labelClass}>Número{enderecoObrigatorio ? '' : ' (opcional)'}</label>
                 <input
                   type="text"
-                  required
+                  required={enderecoObrigatorio}
                   value={numero}
                   onChange={(e) => setNumero(e.target.value)}
                   className={inputClass}
@@ -691,10 +784,10 @@ export default function CadastroLocalPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="md:col-span-2">
-                <label className={labelClass}>Bairro</label>
+                <label className={labelClass}>Bairro{enderecoObrigatorio ? '' : ' (opcional)'}</label>
                 <input
                   type="text"
-                  required
+                  required={enderecoObrigatorio}
                   value={bairro}
                   onChange={(e) => setBairro(e.target.value)}
                   className={inputClass}
@@ -702,10 +795,10 @@ export default function CadastroLocalPage() {
                 />
               </div>
               <div>
-                <label className={labelClass}>Cidade</label>
+                <label className={labelClass}>Cidade{enderecoObrigatorio ? '' : ' (opcional)'}</label>
                 <input
                   type="text"
-                  required
+                  required={enderecoObrigatorio}
                   value={cidade}
                   onChange={(e) => setCidade(e.target.value)}
                   className={inputClass}
@@ -713,9 +806,9 @@ export default function CadastroLocalPage() {
                 />
               </div>
               <div>
-                <label className={labelClass}>UF</label>
+                <label className={labelClass}>UF{enderecoObrigatorio ? '' : ' (opcional)'}</label>
                 <select
-                  required
+                  required={enderecoObrigatorio}
                   value={uf}
                   onChange={(e) => setUf(e.target.value)}
                   className={inputClass}

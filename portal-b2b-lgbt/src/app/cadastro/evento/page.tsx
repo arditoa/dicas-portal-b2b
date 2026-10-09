@@ -8,6 +8,7 @@ import { supabase } from '../../../lib/supabase';
 import { telefoneParecCurto } from '../../../lib/parceiroAuth';
 import { erroFotoNaoSuportada, TAMANHO_MAXIMO_FOTO_MB } from '../../../lib/validarFoto';
 import { CLASSIFICACOES_LGBT } from '../../../lib/classificacaoLgbt';
+import { GRUPOS_EVENTO, LEGADO_EVENTO, TAGS_EVENTO_AUTOMATICAS, TAGS_RESERVADAS, slugTag } from '../../../lib/taxonomia';
 
 // Rodada 49 — pedido direto da Andrea: dar a opção de já subir o flier
 // aqui no cadastro público (antes só existia depois de aprovado, via
@@ -137,17 +138,6 @@ function toggleValue<T>(arr: T[], value: T): T[] {
   return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
 }
 
-// "todos" ("Todas as opções") funciona como reset — marcá-la limpa as
-// outras; marcar qualquer outra tag tira o "todos" (evita a combinação sem
-// sentido de "todas as opções" + uma tag específica ao mesmo tempo).
-function alternarPublico(atual: string[], valor: string): string[] {
-  if (valor === 'todos') return ['todos'];
-  const semTodos = atual.filter((v) => v !== 'todos');
-  const ligado = semTodos.includes(valor);
-  const novo = ligado ? semTodos.filter((v) => v !== valor) : [...semTodos, valor];
-  return novo.length > 0 ? novo : ['todos'];
-}
-
 export default function CadastroEventoPage() {
   const [titulo, setTitulo] = useState('');
   const [descricao, setDescricao] = useState('');
@@ -155,9 +145,11 @@ export default function CadastroEventoPage() {
   const [dataFim, setDataFim] = useState('');
   const [nomeLocal, setNomeLocal] = useState('');
   const [cidade, setCidade] = useState('');
-  const [estilos, setEstilos] = useState<string[]>([]);
+  const [estilos] = useState<string[]>([]);
   const [classificacaoLgbt, setClassificacaoLgbt] = useState<string>('');
-  const [publicoTags, setPublicoTags] = useState<string[]>(['todos']);
+  const [publicoTags] = useState<string[]>(['todos']);
+  // Rodada 63 — tags oficiais da aba de festas (eventos.tags, migration 036)
+  const [tagsEvento, setTagsEvento] = useState<string[]>([]);
   const [nomeContato, setNomeContato] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [flier, setFlier] = useState<File | null>(null);
@@ -211,15 +203,24 @@ export default function CadastroEventoPage() {
               return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
             });
 
-      const { error } = await supabase.from('eventos').insert({
+      // Rodada 63 — estilo musical e público agora vêm das tags oficiais;
+      // os campos antigos (enum) continuam preenchidos pelos equivalentes,
+      // pra nada quebrar no app/admin.
+      const estilosValidos = new Set<string>(ESTILOS.map((e) => e.value));
+      const publicosValidos = new Set<string>(PUBLICOS.map((e) => e.value));
+      const legado = tagsEvento.flatMap((t) => LEGADO_EVENTO[t] || []);
+      const estilosFinal = Array.from(new Set([...estilos, ...legado.filter((v) => estilosValidos.has(v))]));
+      const publicoFinal = Array.from(new Set([...publicoTags.filter((v) => v !== 'todos'), ...legado.filter((v) => publicosValidos.has(v) && v !== 'todos')]));
+
+      const payload: Record<string, unknown> = {
         id: novoId,
         titulo,
         descricao: descricaoCompleta,
         data_inicio: new Date(dataInicio).toISOString(),
         data_fim: dataFim ? new Date(dataFim).toISOString() : null,
-        estilos_musicais: estilos,
+        estilos_musicais: estilosFinal,
         classificacao_lgbt: classificacaoLgbt || null,
-        publico_tags: publicoTags.length ? publicoTags : ['todos'],
+        publico_tags: publicoFinal.length ? publicoFinal : ['todos'],
         // Rodada 26 — colunas próprias de contato (015_contato_organizador_
         // eventos.sql), além de continuarem no texto de descricaoCompleta
         // acima (mantido por compatibilidade visual com o que a Andrea já
@@ -233,7 +234,15 @@ export default function CadastroEventoPage() {
         quer_lista_vip: querListaVip,
         // status / plano_destaque / criado_por são forçados pelo trigger
         // enforce_evento_seguro_insert no banco.
-      });
+        tags: tagsEvento,
+      };
+
+      let { error } = await supabase.from('eventos').insert(payload);
+      // Se o banco ainda não tem a coluna `tags` (migration 036), envia sem ela.
+      if (error && /tags/.test(error.message || '')) {
+        delete payload.tags;
+        ({ error } = await supabase.from('eventos').insert(payload));
+      }
 
       if (error) throw error;
 
@@ -438,47 +447,46 @@ export default function CadastroEventoPage() {
               </p>
             </div>
 
-            <div>
-              <label className={labelClass}>Estilo musical</label>
-              <div className="flex flex-wrap gap-2">
-                {ESTILOS.map((estilo) => (
-                  <button
-                    key={estilo.value}
-                    type="button"
-                    onClick={() => setEstilos((prev) => toggleValue(prev, estilo.value))}
-                    disabled={loading}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${
-                      estilos.includes(estilo.value)
-                        ? 'bg-purple-600 border-purple-600 text-white'
-                        : 'bg-transparent border-[#232230] text-[#A0A0B2] hover:border-purple-500/50'
-                    }`}
-                  >
-                    {estilo.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className={labelClass}>Público</label>
-              <div className="flex flex-wrap gap-2">
-                {PUBLICOS.map((publico) => (
-                  <button
-                    key={publico.value}
-                    type="button"
-                    onClick={() => setPublicoTags((prev) => alternarPublico(prev, publico.value))}
-                    disabled={loading}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${
-                      publicoTags.includes(publico.value)
-                        ? 'bg-purple-600 border-purple-600 text-white'
-                        : 'bg-transparent border-[#232230] text-[#A0A0B2] hover:border-purple-500/50'
-                    }`}
-                  >
-                    {publico.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+            {/* Rodada 63 — tags oficiais (src/lib/taxonomia.ts). Tipo, estilo
+                musical e público ficam abertos; o resto em "mais detalhes". */}
+            {GRUPOS_EVENTO.map((g, i) => {
+              const opcoes = g.tags.map((t) => ({ t, s: slugTag(t) })).filter((o) => !TAGS_EVENTO_AUTOMATICAS.includes(o.s) && !TAGS_RESERVADAS.includes(o.s));
+              const chips = (
+                <div className="flex flex-wrap gap-2">
+                  {opcoes.map(({ t, s }) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setTagsEvento((prev) => toggleValue(prev, s))}
+                      disabled={loading}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${
+                        tagsEvento.includes(s)
+                          ? 'bg-purple-600 border-purple-600 text-white'
+                          : 'bg-transparent border-[#232230] text-[#A0A0B2] hover:border-purple-500/50'
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              );
+              if (i < 3) {
+                return (
+                  <div key={g.id}>
+                    <label className={labelClass}>{g.titulo}</label>
+                    {chips}
+                  </div>
+                );
+              }
+              return (
+                <details key={g.id} className="group">
+                  <summary className={`${labelClass} cursor-pointer select-none`}>
+                    {g.titulo} {opcoes.some((o) => tagsEvento.includes(o.s)) ? '•' : '(opcional)'}
+                  </summary>
+                  <div className="mt-2">{chips}</div>
+                </details>
+              );
+            })}
           </div>
 
           <div className="bg-[#12121A] border border-[#232230] rounded-2xl p-6 space-y-4">

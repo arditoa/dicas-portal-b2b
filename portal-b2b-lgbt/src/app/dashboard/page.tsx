@@ -224,30 +224,67 @@ export default function DashboardPage() {
               <ShieldCheck size={13} /> Espaço Seguro
             </span>
           )}
-          <Link
-            href="/dashboard/lista-vip"
-            className="bg-[#232230] hover:bg-[#2D2B3D] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"
-          >
-            Lista VIP
-          </Link>
+          {/* Rodada 61 (fazer direito) — Lista VIP, Meus eventos e Agenda
+              da semana são conceitos de bar/festa (check-in físico, agenda
+              semanal recorrente) que não fazem sentido pra Serviços/
+              Turismo/Produtos, então ficam escondidos pra essas categorias.
+              Cupons e o link de perfil continuam pra todo mundo — são a
+              base que a Andrea pediu pra manter (cupom + acesso ao
+              dashboard + descrição do local). */}
+          {!['servicos', 'turismo', 'produtos'].includes(local.categoria) && (
+            <Link
+              href="/dashboard/lista-vip"
+              className="bg-[#232230] hover:bg-[#2D2B3D] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"
+            >
+              Lista VIP
+            </Link>
+          )}
           <Link
             href="/dashboard/cupons"
             className="bg-[#232230] hover:bg-[#2D2B3D] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"
           >
             Cupons
           </Link>
-          <Link
-            href="/dashboard/eventos"
-            className="bg-[#232230] hover:bg-[#2D2B3D] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"
-          >
-            Meus eventos
-          </Link>
-          <Link
-            href="/dashboard/agenda"
-            className="bg-[#232230] hover:bg-[#2D2B3D] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"
-          >
-            Agenda da semana
-          </Link>
+          {local.categoria === 'produtos' && (
+            <Link
+              href="/dashboard/produtos"
+              className="bg-[#232230] hover:bg-[#2D2B3D] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"
+            >
+              Catálogo de produtos
+            </Link>
+          )}
+          {local.categoria === 'turismo' && (
+            <Link
+              href="/dashboard/pacotes"
+              className="bg-[#232230] hover:bg-[#2D2B3D] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"
+            >
+              Pacotes e roteiros
+            </Link>
+          )}
+          {local.categoria === 'turismo' && (
+            <Link
+              href="/dashboard/hospedagem"
+              className="bg-[#232230] hover:bg-[#2D2B3D] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"
+            >
+              Cadastro da hospedagem
+            </Link>
+          )}
+          {!['servicos', 'turismo', 'produtos'].includes(local.categoria) && (
+            <Link
+              href="/dashboard/eventos"
+              className="bg-[#232230] hover:bg-[#2D2B3D] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"
+            >
+              Meus eventos
+            </Link>
+          )}
+          {!['servicos', 'turismo', 'produtos'].includes(local.categoria) && (
+            <Link
+              href="/dashboard/agenda"
+              className="bg-[#232230] hover:bg-[#2D2B3D] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"
+            >
+              Agenda da semana
+            </Link>
+          )}
           <Link
             href="/dashboard/perfil"
             className="bg-[#232230] hover:bg-[#2D2B3D] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"
