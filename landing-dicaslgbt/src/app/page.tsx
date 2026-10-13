@@ -1,249 +1,183 @@
 import {
   ArrowRight,
-  Building2,
-  Calendar,
-  Check,
-  Compass,
-  Globe2,
+  ChevronDown,
+  Drama,
+  Flower2,
+  FileText,
+  Handshake,
   Heart,
-  Map as MapIcon,
-  MapPin,
-  Palette,
+  Hotel,
+  MessageCircleQuestion,
+  Martini,
   PartyPopper,
   Plane,
+  Rocket,
   Send,
-  ShieldCheck,
-  Sparkles,
-  User,
+  Store,
+  Ticket,
+  TrendingUp,
   UtensilsCrossed,
+  Users,
+  Video,
 } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
-import WaitlistForm from '../components/WaitlistForm';
+import type { ReactNode } from 'react';
+import FotoTile from '../components/FotoTile';
 import Footer from '../components/Footer';
 import Header from '../components/Header';
 import MobileFixedCta from '../components/MobileFixedCta';
-import { URL_PORTAL } from '../lib/constants';
+import PhoneMock from '../components/PhoneMock';
+import { FOTOS } from '../lib/fotos';
+import { INSTAGRAM_URL, URL_PORTAL } from '../lib/constants';
 
-// Rodada 58 — Página inicial reescrita ponta a ponta seguindo
-// Guia_Configuracao_Site_Dicas_LGBT_App.docx, Seção 2 ("Página inicial —
-// cadastro de empresas"), na ordem e com os textos exatos do documento.
-// Mudança de framing importante em relação à Rodada 42: lá a Home falava
-// com usuário final E empresa na mesma página (hero + lista de espera +
-// cards de negócio, todos misturados). O Guia divide isso — a Home passa
-// a ser 100% focada em cadastro de EMPRESA (a lista de espera do usuário
-// final virou a página própria /lancamento), e o conteúdo voltado a
-// usuário final foi pra /app e /sobre. Ver nota maior no rodapé deste
-// arquivo sobre a Seção 9 (formulário de cadastro).
+// Home reescrita a partir do modelo visual enviado pela Andrea (8 blocos
+// numerados + rodapé). O backup da Home anterior (Guia, Rodada 58/59) está
+// em `page.home-antiga.txt`, na raiz desta pasta.
 //
-// Rodada 59 (parte 4) — Andrea pediu pra agir como designer e ajustar o
-// layout. Nenhum texto mudou (continuam exatamente os do Guia); o que
-// mudou foi só a composição visual: (1) cada seção agora tem um wrapper
-// full-width (pro divisor/faixa de fundo ir de ponta a ponta) com um
-// <div> interno max-w/padding (antes os dois ficavam junto no mesmo
-// elemento) — isso permite (2) faixas de fundo bem sutis alternando a
-// cada seção (bg-white/[0.02]), pra quebrar a monotonia de 12 seções
-// seguidas exatamente da mesma cor solta no fundo preto; (3) um brilho
-// radial suave (rosa→roxo) atrás do título do hero, pra dar profundidade
-// em vez de um bloco preto chapado; (4) os "Números" ganharam um painel
-// próprio (cartão), em vez de ficarem soltos direto no fundo; (5) a
-// Seção 11 (Instituições, ainda sem logos pra mostrar) ficou com menos
-// espaço vertical — antes tinha o mesmo respiro de seções cheias de
-// conteúdo, mas só tem um ícone + um título, e isso deixava um vão vazio
-// estranho no meio da página.
+// Destinos: o botão principal leva direto ao cadastro de empresa do portal
+// (URL_PORTAL/cadastro/local). Cadastro de evento e de instituição seguem
+// acessíveis no bloco 05 (âncora #cadastro, usada pelo menu e pela barra
+// fixa do celular). As respostas do FAQ vêm do que já estava publicado
+// (análise em até 48 h, retorno por e-mail e WhatsApp, acesso antecipado).
 
-const PLANOS_PREVIEW = [
-  { nome: 'Freemium', preco: 'R$0', destaque: false },
-  { nome: 'Starter', preco: 'R$59/mês', destaque: false },
-  { nome: 'Intermediário', preco: 'R$249/mês', destaque: false },
-  { nome: 'Premium', preco: 'R$599/mês', destaque: true },
-  // Rodada 59 — Andrea confirmou: Fundador não é mensal, é pacote único
-  // de 12 meses (R$3.490 à vista ou 12x R$349) — bate com a página
-  // /parceiro-fundador. O R$3.500/mês era o valor errado.
-  // Rodada 59 (parte 2) — "5 vagas" também estava errado; Andrea
-  // confirmou "10 oportunidades", batendo com /parceiro-fundador.
-  // Atualização — "12x R$349" agora lidera (mais vendável que R$3.490 à
-  // vista de cara nesse card pequeno).
-  { nome: 'Fundador', preco: '12x R$349', destaque: false, tag: '10 vagas no total' },
-];
+const CADASTRO_EMPRESA = `${URL_PORTAL}/cadastro/local`;
+const CADASTRO_EVENTO = `${URL_PORTAL}/cadastro/evento`;
+const CADASTRO_INSTITUCIONAL = `${URL_PORTAL}/cadastro/institucional`;
 
-const ATALHOS = [
-  { titulo: 'Sobre o Dicas LGBT+', texto: 'Conheça nossa história, propósito e trajetória.', href: '/sobre' },
-  { titulo: 'Dicas LGBT+ App', texto: 'Veja como o aplicativo vai funcionar.', href: '/app' },
-  { titulo: 'Dicas Trip', texto: 'Conheça a área de turismo do aplicativo.', href: '/dicas-trip' },
-  { titulo: 'Lista de lançamento', texto: 'Quero ser avisado quando o app for lançado.', href: '/lancamento' },
-];
-
-const NUMEROS = [
-  { destaque: 'Quase 5 anos', texto: 'conectando comunidade e empresas' },
-  { destaque: 'Mais de 100', texto: 'empresas atendidas' },
-  { destaque: '35 mil', texto: 'pessoas no Instagram' },
-  { destaque: 'Cerca de 1 milhão', texto: 'de impressões mensais' },
-];
-
-const TELAS = [
-  { nome: 'Início', legenda: 'Destaques, categorias e sugestões do que fazer hoje.', icone: Sparkles },
-  { nome: 'Mapa', legenda: 'Lugares organizados por proximidade, categoria e experiência.', icone: MapIcon },
-  { nome: 'Agenda', legenda: 'Festas, eventos e programações por data.', icone: Calendar },
-  { nome: 'Dicas Trip', legenda: 'Destinos, hospedagens, roteiros e experiências.', icone: Plane },
-  { nome: 'Perfil', legenda: 'Favoritos, cupons, indicações e preferências.', icone: User },
-];
-
-// Rodada 60 — Andrea mandou 3 prints reais do app rodando (Início, área
-// Dicas Trip/experiências dentro do Início, e Mapa) pra colocar na Seção 5
-// da Home como prova visual de que o app já existe e funciona.
-const SCREENSHOTS = [
-  {
-    nome: 'Início',
-    arquivo: '/screenshots/app-inicio.jpg',
-    alt: 'Tela inicial do app Dicas LGBT+ mostrando destaques e categorias',
-    legenda: 'Destaques, categorias e locais em alta.',
-  },
-  {
-    nome: 'Dicas Trip',
-    arquivo: '/screenshots/app-dicas-trip.jpg',
-    alt: 'Tela do app com filtros por experiência e área Dicas Trip',
-    legenda: 'Experiências, filtros e curadoria por vibe.',
-  },
-  {
-    nome: 'Mapa',
-    arquivo: '/screenshots/app-mapa.jpg',
-    alt: 'Mapa interativo do app com espaços LGBT+ por bairro',
-    legenda: 'Espaços LGBT+ organizados por bairro e categoria.',
-  },
-];
-
-const BENEFICIOS = [
-  { titulo: 'Pioneirismo', texto: 'Esteja entre as primeiras empresas disponíveis no lançamento.' },
-  { titulo: 'Visibilidade segmentada', texto: 'Seja encontrada por pessoas interessadas na sua categoria e experiência.' },
-  { titulo: 'Perfil do negócio', texto: 'Apresente fotos, contatos, público, vibe e diferenciais.' },
-  { titulo: 'Agenda e eventos', texto: 'Mostre o que acontece no seu espaço e mantenha o público atualizado.' },
-  { titulo: 'Possibilidades comerciais', texto: 'Conheça opções futuras de cupons, destaques e campanhas.' },
-  { titulo: 'Dados e resultados', texto: 'Nos planos comerciais, acompanhe visibilidade e interações.' },
+const VANTAGENS = [
+  { titulo: 'Visibilidade antecipada', texto: 'Seu negócio entre os primeiros no mapa do app.', icone: Rocket },
+  { titulo: 'Conexão com a comunidade', texto: 'Atrai um público que valoriza espaços seguros e inclusivos.', icone: Users },
+  { titulo: 'Crescimento para o seu negócio', texto: 'Esteja pronto para as oportunidades do lançamento.', icone: TrendingUp },
 ];
 
 const CATEGORIAS = [
-  { nome: 'Bares', icone: Building2 },
-  { nome: 'Gastronomia', icone: UtensilsCrossed },
-  { nome: 'Cultura', icone: Palette },
-  { nome: 'Experiências', icone: Sparkles },
-  { nome: 'Turismo', icone: Plane },
-  { nome: 'Festas e eventos', icone: PartyPopper },
+  { nome: 'Bares', icone: Martini, cor: 'text-[#F0258C]' },
+  { nome: 'Festas', icone: PartyPopper, cor: 'text-[#B65CFF]' },
+  { nome: 'Gastronomia', icone: UtensilsCrossed, cor: 'text-[#FFB020]' },
+  { nome: 'Cultura', icone: Drama, cor: 'text-[#FFC53D]' },
+  { nome: 'Experiências', icone: Ticket, cor: 'text-[#FFE14D]' },
+  { nome: 'Turismo', icone: Plane, cor: 'text-[#2FA8FF]' },
+  { nome: 'Beleza', icone: Flower2, cor: 'text-[#FF5CA8]' },
+  { nome: '18+', icone: Heart, cor: 'text-[#F0258C]' },
 ];
 
 const PASSOS = [
-  'Faça o cadastro e conte o essencial sobre seu negócio.',
-  'A equipe confere as informações em até 48 horas.',
-  'O retorno é enviado por e-mail e WhatsApp.',
-  'Empresas aprovadas recebem acesso antecipado para testar e verificar o perfil.',
-  'O perfil fica preparado para a chegada dos usuários no lançamento público.',
+  { titulo: 'Faça seu cadastro', texto: 'Preencha as informações do seu negócio.', icone: FileText },
+  { titulo: 'Envie para análise', texto: 'Nossa equipe vai revisar seu cadastro.', icone: Send },
+  {
+    titulo: 'Prepare seu perfil para o lançamento',
+    texto: 'Estando aprovado, seu negócio estará no mapa do Dicas LGBT+.',
+    icone: Store,
+  },
 ];
 
-export default function LandingPage() {
+const DUVIDAS = [
+  {
+    p: 'O cadastro da minha empresa é realmente gratuito?',
+    r: 'Sim. O cadastro é gratuito e dá acesso ao plano Freemium. Os planos comerciais, com mais destaque e recursos, são opcionais e só são contratados se você quiser.',
+  },
+  {
+    p: 'Quem pode se cadastrar no Dicas LGBT+?',
+    r: 'Negócios, produtores de eventos e instituições que acolhem, respeitam e apoiam a comunidade LGBTQIA+: bares, restaurantes, hotéis, espaços culturais, serviços e mais. Todo cadastro passa pela análise da nossa equipe.',
+  },
+  {
+    p: 'Quanto tempo leva para a minha empresa ser analisada?',
+    r: 'A equipe confere as informações em até 48 horas. O retorno é enviado por e-mail e WhatsApp.',
+  },
+  {
+    p: 'Minha empresa já estará no app imediatamente?',
+    r: 'Não de imediato. Empresas aprovadas recebem acesso antecipado para testar e verificar o perfil, que fica preparado para a chegada dos usuários no lançamento público.',
+  },
+  {
+    p: 'Posso editar as informações depois?',
+    r: 'Sim. Depois de aprovada, você acessa a Área do Parceiro com o seu login e atualiza o perfil do seu negócio quando precisar.',
+  },
+];
+
+const BOTAO_PRINCIPAL =
+  'inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#F0258C] to-[#B620E0] px-7 py-4 text-sm font-bold text-white shadow-[0_10px_40px_-10px_rgba(240,37,140,0.7)] transition hover:brightness-110';
+
+function Num({ n, claro = false }: { n: string; claro?: boolean }) {
   return (
-    <main className="min-h-screen bg-[#0B0B0E] text-white pb-24 sm:pb-0 overflow-x-hidden">
+    <div className="mb-4 flex items-center gap-3" aria-hidden>
+      <span
+        className={`flex h-8 w-8 items-center justify-center rounded-full border text-[11px] font-bold ${
+          claro ? 'border-[#D81B7E] text-[#D81B7E]' : 'border-[#F0258C] text-[#F0258C]'
+        }`}
+      >
+        {n}
+      </span>
+      <span className={`h-px w-10 ${claro ? 'bg-[#D81B7E]/50' : 'bg-[#F0258C]/60'}`} />
+    </div>
+  );
+}
+
+function Titulo({ children, claro = false }: { children: ReactNode; claro?: boolean }) {
+  return (
+    <h2
+      className={`font-display text-4xl font-extrabold leading-[1.02] sm:text-5xl ${claro ? 'text-[#1B1030]' : 'text-white'}`}
+    >
+      {children}
+    </h2>
+  );
+}
+
+export default function Home() {
+  return (
+    <main className="min-h-screen overflow-x-hidden bg-[#0B0B0E] pb-24 text-white sm:pb-0">
       <Header />
 
-      {/* Seção 1 — Primeira tela */}
+      {/* 01 — Hero */}
       <section className="relative w-full overflow-hidden">
         <div
-          className="pointer-events-none absolute inset-x-0 top-0 h-[560px]"
+          className="pointer-events-none absolute inset-0"
           style={{
             background:
-              'radial-gradient(55% 60% at 50% -10%, rgba(225,48,108,0.20), rgba(126,87,194,0.10) 45%, transparent 75%)',
+              'radial-gradient(60% 50% at 85% 25%, rgba(126,87,194,0.35), transparent 70%), radial-gradient(50% 45% at 10% 95%, rgba(240,37,140,0.22), transparent 70%)',
           }}
           aria-hidden
         />
-        <div className="relative w-full max-w-4xl mx-auto text-center px-6 pt-14 pb-16 fade-up">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#7E57C2]/10 border border-[#7E57C2]/30 text-[#B79EE8] text-xs font-semibold tracking-wide uppercase mb-6">
-            <Sparkles className="w-3.5 h-3.5" />
-            Cadastros antecipados abertos
+        <div className="relative mx-auto grid w-full max-w-6xl items-center gap-12 px-6 pb-16 pt-12 lg:grid-cols-[1.1fr_0.9fr] lg:pb-24 lg:pt-16">
+          <div>
+            <Num n="01" />
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#F0258C]">Cadastro gratuito para empresas</p>
+            <h1 className="font-display mt-4 text-5xl font-extrabold leading-[0.98] sm:text-7xl">
+              Sua empresa pode estar entre os primeiros lugares <span className="text-[#F0258C]">no mapa</span>
+            </h1>
+            <p className="mt-6 max-w-lg text-base leading-relaxed text-[#CFC8DC] sm:text-lg">
+              Cadastre sua empresa gratuitamente e prepare seu perfil para o lançamento do Dicas LGBT+.
+            </p>
+            <div className="mt-8">
+              <a href={CADASTRO_EMPRESA} className={BOTAO_PRINCIPAL}>
+                Quero cadastrar minha empresa
+                <ArrowRight className="h-4 w-4" />
+              </a>
+              <p className="mt-4 text-xs text-[#B5ADC4]">Gratuito • 2 a 5 minutos • Sujeito à análise</p>
+            </div>
           </div>
-          <h1 className="text-4xl sm:text-6xl font-black tracking-tight leading-tight">
-            Sua empresa precisa estar neste futuro.
-          </h1>
-          <p className="text-[#A0A0B2] text-base sm:text-lg max-w-2xl mx-auto mt-6 leading-relaxed">
-            Cadastre gratuitamente seu negócio e esteja entre as primeiras empresas do Dicas LGBT+ App.
-            Conecte-se com pessoas que procuram lugares, serviços, eventos, destinos e experiências
-            comprometidas com a diversidade.
-          </p>
-
-          <div className="flex flex-col items-center gap-2 mt-10">
-            <a
-              href="#cadastro"
-              className="bg-[#E1306C] hover:bg-[#c2285c] text-white font-bold text-sm px-6 py-3.5 rounded-xl transition flex items-center gap-2 shadow-[0_8px_30px_-8px_rgba(225,48,108,0.5)]"
-            >
-              Cadastrar minha empresa gratuitamente
-              <ArrowRight className="w-4 h-4" />
-            </a>
-            <span className="text-xs text-[#626274]">Leva cerca de 2 minutos. Análise em até 48 horas.</span>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mt-8 text-xs">
-            <Link href="/app" className="text-[#A0A0B2] hover:text-white transition underline underline-offset-4">
-              Conhecer o aplicativo
-            </Link>
-            <Link href="/entrar" className="text-[#A0A0B2] hover:text-white transition">
-              Já sou parceiro: entrar
-            </Link>
-          </div>
+          <PhoneMock />
         </div>
       </section>
 
-      {/* Seção 2 — Atalhos do projeto */}
-      <section className="w-full border-t border-white/5">
-        <div className="max-w-6xl mx-auto px-6 py-16">
-          <h2 className="text-2xl sm:text-3xl font-extrabold mb-8">Quer conhecer melhor o projeto?</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {ATALHOS.map((a) => (
-              <Link
-                key={a.href}
-                href={a.href}
-                className="group bg-[#161520] border border-[#232230] hover:border-[#E1306C]/50 rounded-2xl p-6 transition-all hover:-translate-y-1 flex flex-col justify-between"
-              >
-                <div>
-                  <h3 className="font-bold mb-2">{a.titulo}</h3>
-                  <p className="text-[#A0A0B2] text-sm leading-relaxed">{a.texto}</p>
-                </div>
-                <ArrowRight className="w-4 h-4 mt-5 text-[#E1306C] group-hover:translate-x-1 transition-transform" />
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Seção 2.1 — Lista de espera do usuário final (Rodada 61) —
-          Andrea pediu pra subir pra bem mais perto do topo: bastante
-          usuário final se cadastrando na feira também, sem ter empresa.
-          A Rodada 58 tinha tirado isso da Home (Guia queria a Home 100%
-          focada em empresa, lista de usuário final só em /lancamento) —
-          decisão revertida com base no interesse real observado. Ficou
-          logo abaixo dos atalhos (Seção 2) em vez de esperar até a Seção
-          9 (formulário de empresa), pra reduzir o quanto precisa rolar
-          a página. */}
-      <section className="w-full border-t border-white/5 bg-white/[0.02]">
-        <div className="max-w-2xl mx-auto px-6 py-16 text-center">
-          <p className="text-sm font-bold text-white mb-1">É usuário do aplicativo? Entre também na lista de espera</p>
-          <p className="text-[#A0A0B2] text-xs sm:text-sm mb-6 max-w-md mx-auto">
-            Cadastre-se pra ser avisado(a) por e-mail e WhatsApp quando o Dicas LGBT+ App abrir — sem custo,
-            sem compromisso.
-          </p>
-          <WaitlistForm origemLabel="Home — abaixo dos atalhos" />
-        </div>
-      </section>
-
-      {/* Seção 3 — Números — Andrea confirmou que gostou do efeito
-          gradiente rosa→roxo (voltou atrás de um ajuste anterior que
-          tinha trocado por rosa sólido); o pedido real era sobre o topo
-          da página (Seção 1), não esta seção. */}
-      <section className="w-full border-t border-white/5 bg-white/[0.02]">
-        <div className="max-w-6xl mx-auto px-6 py-16">
-          <div className="bg-[#12121A] border border-[#232230] rounded-2xl px-6 sm:px-10 py-10">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 text-center">
-              {NUMEROS.map((n) => (
-                <div key={n.destaque}>
-                  <div className="text-2xl sm:text-3xl font-black gradient-text">{n.destaque}</div>
-                  <div className="text-xs sm:text-sm text-[#A0A0B2] mt-1.5">{n.texto}</div>
+      {/* 02 — O mapa começa a ser construído agora */}
+      <section className="w-full bg-[#F7F2FB] text-[#1B1030]">
+        <div className="mx-auto w-full max-w-6xl px-6 py-16">
+          <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
+            <div>
+              <Num n="02" claro />
+              <Titulo claro>O mapa começa a ser construído agora</Titulo>
+              <p className="mt-4 max-w-md text-sm leading-relaxed text-[#4A3F5C] sm:text-base">
+                Seja um dos primeiros negócios a fazer parte do Dicas LGBT+ e ganhe visibilidade desde o início.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              {VANTAGENS.map((v) => (
+                <div key={v.titulo} className="rounded-2xl border border-[#E8D9F3] bg-white p-5 shadow-sm">
+                  <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-[#FCE4F1] text-[#D81B7E]">
+                    <v.icone className="h-5 w-5" />
+                  </div>
+                  <h3 className="text-sm font-bold">{v.titulo}</h3>
+                  <p className="mt-1.5 text-xs leading-relaxed text-[#4A3F5C]">{v.texto}</p>
                 </div>
               ))}
             </div>
@@ -251,291 +185,206 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Seção 4 — Oportunidade */}
-      <section className="w-full border-t border-white/5">
-        <div className="max-w-4xl mx-auto px-6 py-16 text-center">
-          <h2 className="text-2xl sm:text-3xl font-extrabold">
-            Seu público já existe. Agora ele precisa encontrar você.
-          </h2>
-          <p className="text-[#A0A0B2] text-sm sm:text-base mt-4 leading-relaxed max-w-2xl mx-auto">
-            Todos os dias, pessoas LGBT+ procuram lugares para sair, comer, viajar, se cuidar e viver
-            novas experiências. O Dicas LGBT+ App vai aproximar essa comunidade das empresas que querem
-            ser descobertas por ela. Quem entra primeiro ajuda a construir o mapa e começa na frente.
-          </p>
-          <a
-            href="#cadastro"
-            className="inline-flex items-center gap-2 mt-8 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold text-sm px-6 py-3.5 rounded-xl transition"
-          >
-            Quero colocar minha empresa no mapa
-            <ArrowRight className="w-4 h-4" />
-          </a>
-        </div>
-      </section>
-
-      {/* Seção 5 — Demonstração do aplicativo */}
-      <section className="w-full border-t border-white/5 bg-white/[0.02]">
-        <div className="max-w-6xl mx-auto px-6 py-16">
-          <h2 className="text-2xl sm:text-3xl font-extrabold mb-10 text-center">
-            Não estamos criando apenas mais um guia.
-          </h2>
-
-          <div className="flex flex-wrap justify-center gap-8 sm:gap-6 mb-14">
-            {SCREENSHOTS.map((s, i) => (
-              <div
-                key={s.nome}
-                className={`flex flex-col items-center w-[220px] ${i === 1 ? 'sm:-translate-y-5' : ''}`}
-              >
-                <div className="relative w-full rounded-[2rem] border-[3px] border-[#2E2E3D] bg-[#0B0B0E] p-1.5 shadow-[0_20px_60px_-16px_rgba(225,48,108,0.28)]">
-                  <div className="pointer-events-none absolute top-1.5 left-1/2 -translate-x-1/2 w-16 h-4 bg-[#0B0B0E] rounded-b-xl z-10" />
-                  <div className="relative rounded-[1.6rem] overflow-hidden">
-                    <Image src={s.arquivo} alt={s.alt} width={720} height={1561} className="w-full h-auto" />
-                  </div>
-                </div>
-                <span className="mt-4 text-sm font-bold text-center">{s.nome}</span>
-                <span className="text-[#A0A0B2] text-[11px] mt-1 text-center leading-relaxed max-w-[200px]">
-                  {s.legenda}
-                </span>
-              </div>
-            ))}
+      {/* 03 — O que a comunidade vai encontrar */}
+      <section className="w-full">
+        <div className="mx-auto grid w-full max-w-6xl gap-8 px-6 py-16 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
+          <div>
+            <Num n="03" />
+            <Titulo>O que a comunidade vai encontrar</Titulo>
+            <p className="mt-4 max-w-md text-sm leading-relaxed text-[#CFC8DC] sm:text-base">
+              Seu negócio pode estar em uma ou mais categorias no mapa do Dicas LGBT+.
+            </p>
           </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-            {TELAS.map((t) => (
-              <div key={t.nome} className="bg-[#161520] border border-[#232230] rounded-2xl p-5 text-center">
-                <div className="w-10 h-10 mx-auto rounded-xl bg-[#E1306C]/10 border border-[#E1306C]/20 flex items-center justify-center text-[#E1306C] mb-4">
-                  <t.icone className="w-5 h-5" />
-                </div>
-                <h3 className="font-bold text-sm mb-1.5">{t.nome}</h3>
-                <p className="text-[#A0A0B2] text-[11px] leading-relaxed">{t.legenda}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Seção 6 — Benefícios */}
-      <section className="w-full border-t border-white/5">
-        <div className="max-w-6xl mx-auto px-6 py-16">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {BENEFICIOS.map((b) => (
-              <div key={b.titulo} className="bg-[#161520] border border-[#232230] rounded-2xl p-6">
-                <h3 className="font-bold mb-2">{b.titulo}</h3>
-                <p className="text-[#A0A0B2] text-sm leading-relaxed">{b.texto}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Seção 7 — Categorias */}
-      <section className="w-full border-t border-white/5 bg-white/[0.02]">
-        <div className="max-w-6xl mx-auto px-6 py-16">
-          <h2 className="text-2xl sm:text-3xl font-extrabold mb-8 text-center">Tem lugar para o seu negócio aqui.</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {CATEGORIAS.map((c) => (
-              <a
+              <div
                 key={c.nome}
-                href="#cadastro"
-                className="group bg-[#161520] border border-[#232230] hover:border-[#E1306C]/50 rounded-2xl p-6 text-center transition-all hover:-translate-y-1"
+                className="flex flex-col items-center gap-2.5 rounded-2xl border border-white/10 bg-[#14111C] px-2 py-5"
               >
-                <div className="w-11 h-11 mx-auto rounded-xl bg-[#E1306C]/10 border border-[#E1306C]/20 flex items-center justify-center text-[#E1306C] mb-4">
-                  <c.icone className="w-5 h-5" />
-                </div>
-                <h3 className="font-bold text-sm mb-2">{c.nome}</h3>
-                <span className="text-[11px] font-semibold text-[#E1306C] inline-flex items-center gap-1">
-                  Cadastrar meu negócio <ArrowRight className="w-3 h-3" />
-                </span>
-              </a>
+                <c.icone className={`h-7 w-7 ${c.cor}`} />
+                <span className="text-[11px] font-semibold text-[#E6E0F0] sm:text-xs">{c.nome}</span>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Seção 8 — Como funciona */}
+      {/* 04 — Acontece fora da tela */}
       <section className="w-full border-t border-white/5">
-        <div className="max-w-4xl mx-auto px-6 py-16">
-          <h2 className="text-2xl sm:text-3xl font-extrabold mb-8 text-center">Como funciona</h2>
-          <ol className="space-y-4">
+        <div className="mx-auto grid w-full max-w-6xl gap-8 px-6 py-16 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
+          <div>
+            <Num n="04" />
+            <Titulo>O Dicas LGBT+ acontece fora da tela</Titulo>
+            <p className="mt-4 max-w-md text-sm leading-relaxed text-[#CFC8DC] sm:text-base">
+              A gente está na rua, nos eventos e nas histórias que a comunidade vive.
+            </p>
+            {INSTAGRAM_URL && (
+              <a
+                href={INSTAGRAM_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-6 inline-flex items-center gap-2 rounded-full border border-[#F0258C]/60 px-5 py-3 text-sm font-bold text-white transition hover:bg-[#F0258C]/10"
+              >
+                Ver nossos conteúdos
+                <ArrowRight className="h-4 w-4" />
+              </a>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <FotoTile
+              src={FOTOS.parada}
+              alt="Equipe do Dicas LGBT+ na Parada"
+              legenda="Na Parada"
+              icone={Heart}
+              tom="pink"
+              className="row-span-2 min-h-[260px]"
+            />
+            <FotoTile
+              src={FOTOS.bastidores}
+              alt="Bastidores das gravações do Dicas LGBT+"
+              legenda="Bastidores das gravações"
+              icone={Video}
+              tom="purple"
+              className="min-h-[124px]"
+            />
+            <FotoTile
+              src={FOTOS.festas}
+              alt="Festas e eventos cobertos pelo Dicas LGBT+"
+              legenda="Festas e eventos que cobrimos"
+              icone={PartyPopper}
+              tom="pink"
+              className="min-h-[124px]"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* 05 — É simples começar */}
+      <section id="cadastro" className="w-full scroll-mt-24 bg-[#F7F2FB] text-[#1B1030]">
+        <div className="mx-auto w-full max-w-4xl px-6 py-16">
+          <Num n="05" claro />
+          <Titulo claro>É simples começar</Titulo>
+          <p className="mt-4 max-w-md text-sm leading-relaxed text-[#4A3F5C] sm:text-base">
+            Cadastre sua empresa em poucos minutos e prepare seu perfil.
+          </p>
+          <ol className="mt-8 space-y-3">
             {PASSOS.map((p, i) => (
-              <li key={p} className="flex items-start gap-4 bg-[#161520] border border-[#232230] rounded-2xl p-5">
-                <span className="w-7 h-7 shrink-0 rounded-full bg-[#E1306C] text-white text-xs font-black flex items-center justify-center">
+              <li key={p.titulo} className="flex items-center gap-4 rounded-2xl border border-[#E8D9F3] bg-white p-4 shadow-sm sm:p-5">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#F0258C] to-[#B620E0] text-sm font-bold text-white">
                   {i + 1}
                 </span>
-                <p className="text-sm text-[#D0D0E0] leading-relaxed pt-0.5">{p}</p>
+                <p.icone className="hidden h-6 w-6 shrink-0 text-[#D81B7E] sm:block" />
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-sm font-bold sm:text-base">{p.titulo}</h3>
+                  <p className="mt-0.5 text-xs leading-relaxed text-[#4A3F5C] sm:text-sm">{p.texto}</p>
+                </div>
               </li>
             ))}
           </ol>
-          <div className="text-center mt-8">
-            <a
-              href="#cadastro"
-              className="inline-flex items-center gap-2 bg-[#E1306C] hover:bg-[#c2285c] text-white font-bold text-sm px-6 py-3.5 rounded-xl transition"
-            >
-              Começar meu cadastro gratuito
-              <ArrowRight className="w-4 h-4" />
+          <div className="mt-8 flex flex-col items-start gap-4">
+            <a href={CADASTRO_EMPRESA} className={BOTAO_PRINCIPAL}>
+              Quero cadastrar minha empresa
+              <ArrowRight className="h-4 w-4" />
             </a>
+            <p className="text-xs text-[#4A3F5C]">
+              Produz festas ou eventos?{' '}
+              <a href={CADASTRO_EVENTO} className="font-semibold text-[#D81B7E] underline underline-offset-4">
+                Cadastro de evento
+              </a>
+              {' · '}Representa uma instituição ou marca?{' '}
+              <a href={CADASTRO_INSTITUCIONAL} className="font-semibold text-[#D81B7E] underline underline-offset-4">
+                Falar com a equipe
+              </a>
+            </p>
           </div>
         </div>
       </section>
 
-      {/* Seção 9 — Formulário de cadastro */}
-      {/* Rodada 59 (parte 3) — header virou sticky; scroll-mt aumentado
-          (era scroll-mt-6) pra o título desta seção não ficar escondido
-          atrás do header ao clicar em "Cadastrar minha empresa"/#cadastro. */}
-      <section id="cadastro" className="w-full border-t border-white/5 bg-white/[0.02] scroll-mt-24">
-        <div className="max-w-4xl mx-auto px-6 py-16">
-          <div className="text-center mb-10">
-            <h2 className="text-2xl sm:text-3xl font-extrabold">Vamos colocar sua empresa no mapa?</h2>
-            <p className="text-[#A0A0B2] text-sm sm:text-base mt-3 max-w-xl mx-auto leading-relaxed">
-              Leva cerca de 2 minutos com os dados em mãos. Se precisar consultar alguma informação, você
-              pode concluir em até 5 minutos.
+      {/* 06 — Seu negócio tem espaço nesse mapa */}
+      <section className="w-full">
+        <div className="mx-auto grid w-full max-w-6xl gap-8 px-6 py-16 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
+          <div>
+            <Num n="06" />
+            <Titulo>Seu negócio tem espaço nesse mapa</Titulo>
+            <p className="mt-4 max-w-md text-sm leading-relaxed text-[#CFC8DC] sm:text-base">
+              O Dicas LGBT+ é para negócios e iniciativas que acolhem, respeitam e apoiam a comunidade LGBTQIA+.
             </p>
-          </div>
-
-          <p className="text-center text-xs font-bold text-[#626274] uppercase tracking-wide mb-5">
-            Como você quer participar?
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            <Link
-              href={`${URL_PORTAL}/cadastro/local`}
-              className="group bg-[#161520] border border-[#232230] hover:border-[#E1306C]/50 rounded-2xl p-6 flex flex-col justify-between transition-all hover:-translate-y-1"
-            >
-              <div>
-                <div className="w-12 h-12 rounded-xl bg-[#E1306C]/10 border border-[#E1306C]/20 flex items-center justify-center text-[#E1306C] mb-5">
-                  <Building2 className="w-6 h-6" />
-                </div>
-                <h3 className="font-bold mb-2">Tenho um espaço ou empresa</h3>
-                <p className="text-[#A0A0B2] text-xs leading-relaxed">
-                  Negócio, contato e perfil (fotos, vibe, endereço). Cadastro gratuito, análise em até 48h.
-                </p>
-              </div>
-              <span className="mt-6 flex items-center gap-2 text-xs font-semibold text-[#E1306C]">
-                Abrir cadastro de empresa
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </span>
-            </Link>
-
-            <Link
-              href={`${URL_PORTAL}/cadastro/evento`}
-              className="group bg-[#161520] border border-[#232230] hover:border-[#7E57C2]/50 rounded-2xl p-6 flex flex-col justify-between transition-all hover:-translate-y-1"
-            >
-              <div>
-                <div className="w-12 h-12 rounded-xl bg-[#7E57C2]/10 border border-[#7E57C2]/20 flex items-center justify-center text-[#7E57C2] mb-5">
-                  <Calendar className="w-6 h-6" />
-                </div>
-                <h3 className="font-bold mb-2">Produzo festas ou eventos</h3>
-                <p className="text-[#A0A0B2] text-xs leading-relaxed">
-                  Cadastre o produtor e envie cada evento para revisão antes da publicação.
-                </p>
-              </div>
-              <span className="mt-6 flex items-center gap-2 text-xs font-semibold text-[#7E57C2]">
-                Abrir cadastro de produtor/evento
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </span>
-            </Link>
-
-            <Link
-              href={`${URL_PORTAL}/cadastro/institucional`}
-              className="group bg-[#161520] border border-[#232230] hover:border-[#FFD54F]/50 rounded-2xl p-6 flex flex-col justify-between transition-all hover:-translate-y-1"
-            >
-              <div>
-                <div className="w-12 h-12 rounded-xl bg-[#FFD54F]/10 border border-[#FFD54F]/20 flex items-center justify-center text-[#FFD54F] mb-5">
-                  <Send className="w-6 h-6" />
-                </div>
-                <h3 className="font-bold mb-2">Represento uma instituição ou marca</h3>
-                <p className="text-[#A0A0B2] text-xs leading-relaxed">
-                  Fale com a equipe sobre parcerias institucionais, ONGs e marcas.
-                </p>
-              </div>
-              <span className="mt-6 flex items-center gap-2 text-xs font-semibold text-[#FFD54F]">
-                Falar com a equipe
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </span>
-            </Link>
-          </div>
-
-          {/* Planos — prévia honesta, mesma da Rodada 42 */}
-          <div className="bg-[#12121A] border border-[#232230] rounded-2xl p-6 sm:p-8 mt-10">
-            <h3 className="font-bold text-base mb-1">Comece de graça, cresça quando quiser</h3>
-            <p className="text-[#A0A0B2] text-sm mb-6">
-              O cadastro é sempre gratuito. Planos pagos aumentam sua visibilidade dentro do app — sem
-              contrato de fidelidade.
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-              {PLANOS_PREVIEW.map((p) => (
-                <div
-                  key={p.nome}
-                  className={`rounded-xl border p-4 text-center ${
-                    p.destaque ? 'border-[#E1306C] bg-[#E1306C]/5' : 'border-[#232230] bg-[#161520]'
-                  }`}
-                >
-                  {p.tag && <div className="text-[9px] font-extrabold text-[#FFD54F] mb-1 uppercase">{p.tag}</div>}
-                  <div className="text-xs text-[#A0A0B2] font-semibold">{p.nome}</div>
-                  <div className="text-sm font-black mt-1">{p.preco}</div>
-                </div>
-              ))}
+            <div className="mt-6 flex max-w-md items-start gap-3 rounded-2xl border border-[#F0258C]/30 bg-[#F0258C]/10 p-4">
+              <Handshake className="mt-0.5 h-6 w-6 shrink-0 text-[#F0258C]" />
+              <p className="text-xs leading-relaxed text-[#E6E0F0]">
+                Cadastro gratuito e sujeito à análise. Buscamos locais que realmente tenham um compromisso com a
+                inclusão e o respeito.
+              </p>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* Seção 10 — Parceiro Fundador */}
-      <section className="w-full border-t border-white/5">
-        <div className="max-w-4xl mx-auto px-6 py-16 text-center">
-          <h2 className="text-2xl sm:text-3xl font-extrabold">
-            Quer fazer parte desde o começo de um jeito ainda maior?
-          </h2>
-          <p className="text-[#A0A0B2] text-sm sm:text-base mt-4 max-w-2xl mx-auto leading-relaxed">
-            Conheça o programa Parceiro Fundador e tenha presença de destaque, benefícios exclusivos e
-            participação mais próxima na construção do Dicas LGBT+ App.
-          </p>
-          <Link
-            href="/parceiro-fundador"
-            className="inline-flex items-center gap-2 mt-8 bg-[#FFD54F] hover:bg-[#f0c53e] text-black font-bold text-sm px-6 py-3.5 rounded-xl transition"
-          >
-            Conhecer o Parceiro Fundador
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-        </div>
-      </section>
-
-      {/* Seção 11 — Instituições (ainda sem logos, ver nota no rodapé do
-          arquivo — por isso o espaço vertical mais curto que as demais). */}
-      <section className="w-full border-t border-white/5 bg-white/[0.02]">
-        <div className="max-w-4xl mx-auto px-6 py-10 text-center">
-          <div className="inline-flex w-14 h-14 rounded-2xl bg-[#4CAF7D]/10 border border-[#4CAF7D]/20 items-center justify-center mb-6">
-            <Globe2 className="w-7 h-7 text-[#4CAF7D]" />
+          <div className="grid grid-cols-2 gap-3">
+            <FotoTile src={FOTOS.bares} alt="Bares e casas noturnas" legenda="Bares e casas noturnas" icone={Martini} tom="pink" className="min-h-[150px]" />
+            <FotoTile src={FOTOS.restaurantes} alt="Restaurantes e cafeterias" legenda="Restaurantes e cafeterias" icone={UtensilsCrossed} tom="amber" className="min-h-[150px]" />
+            <FotoTile src={FOTOS.cultura} alt="Espaços culturais e eventos" legenda="Espaços culturais e eventos" icone={Drama} tom="purple" className="min-h-[150px]" />
+            <FotoTile src={FOTOS.hoteis} alt="Hotéis, turismo e serviços" legenda="Hotéis, turismo e serviços" icone={Hotel} tom="blue" className="min-h-[150px]" />
           </div>
-          <h2 className="text-2xl sm:text-3xl font-extrabold">Construído com diálogo, comunidade e parceiros.</h2>
-          {/* Logos só entram aqui quando oficialmente autorizados — ver nota no rodapé do arquivo. */}
         </div>
       </section>
 
-      {/* Seção 12 — Chamada final */}
-      <section className="w-full border-t border-white/5">
-        <div className="max-w-4xl mx-auto px-6 py-16 text-center">
-          <div className="inline-flex w-14 h-14 rounded-2xl bg-[#E1306C]/10 border border-[#E1306C]/20 items-center justify-center mb-6">
-            <Heart className="w-7 h-7 text-[#E1306C]" />
+      {/* 07 — Chamado final */}
+      <section className="w-full overflow-hidden bg-gradient-to-br from-[#F0258C] via-[#C21FBF] to-[#6B2BD9]">
+        <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-6 py-16 lg:grid-cols-[1.1fr_0.9fr]">
+          <div>
+            <Num n="07" />
+            <h2 className="font-display text-4xl font-extrabold leading-[1.02] text-white sm:text-6xl">
+              Sua empresa precisa estar neste futuro
+            </h2>
+            <p className="mt-5 max-w-lg text-sm leading-relaxed text-white/90 sm:text-base">
+              Ajude a construir o maior guia de lugares, eventos e experiências LGBTQIA+ do Brasil. Cadastre sua
+              empresa gratuitamente e faça parte desde o início.
+            </p>
+            <div className="mt-7">
+              <a
+                href={CADASTRO_EMPRESA}
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-7 py-4 text-sm font-bold text-[#B01A6E] shadow-lg shadow-black/20 transition hover:bg-[#FFF3FA]"
+              >
+                Quero cadastrar minha empresa
+                <ArrowRight className="h-4 w-4" />
+              </a>
+              <p className="mt-4 text-xs text-white/85">Gratuito • 2 a 5 minutos • Sujeito à análise</p>
+            </div>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-extrabold">
-            O mapa está começando a ganhar vida. Sua empresa pode estar nele desde o início.
-          </h2>
-          <a
-            href="#cadastro"
-            className="inline-flex items-center gap-2 mt-8 bg-[#E1306C] hover:bg-[#c2285c] text-white font-bold text-sm px-6 py-3.5 rounded-xl transition"
-          >
-            Cadastrar minha empresa gratuitamente
-            <ArrowRight className="w-4 h-4" />
-          </a>
-          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mt-8 text-xs text-[#626274]">
-            <span className="inline-flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-[#4CAF7D]" /> Selo Espaço Seguro
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <Compass className="w-3.5 h-3.5 text-[#7E57C2]" /> Bares, eventos e experiências reais
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <MapPin className="w-3.5 h-3.5 text-[#E1306C]" /> Feito por e para a comunidade LGBT+
-            </span>
+          <div className="relative mx-auto aspect-[4/3] w-full max-w-md">
+            <FotoTile
+              src={FOTOS.cta}
+              alt="Pessoas celebrando juntas"
+              legenda=""
+              icone={Heart}
+              tom="purple"
+              className="absolute inset-0 !rounded-[2.5rem] border-white/20"
+            />
+            <p className="font-marker pointer-events-none absolute -right-1 top-4 w-40 rotate-6 text-right text-xl leading-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] sm:text-2xl">
+              MAIS ESPAÇOS REAIS PARA TODAS AS PESSOAS
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* 08 — Dúvidas frequentes */}
+      <section id="duvidas" className="w-full scroll-mt-24 bg-[#F7F2FB] text-[#1B1030]">
+        <div className="mx-auto grid w-full max-w-5xl gap-8 px-6 py-16 lg:grid-cols-[0.7fr_1.3fr]">
+          <div>
+            <Num n="08" claro />
+            <Titulo claro>Dúvidas frequentes</Titulo>
+            <div className="mt-6 flex h-24 w-24 items-center justify-center rounded-[2rem] bg-gradient-to-br from-[#F0258C] to-[#6B2BD9] text-white shadow-lg">
+              <MessageCircleQuestion className="h-12 w-12" />
+            </div>
+          </div>
+          <div className="divide-y divide-[#E3D3F0] rounded-2xl border border-[#E8D9F3] bg-white">
+            {DUVIDAS.map((d) => (
+              <details key={d.p} className="group px-5">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-4 text-sm font-semibold sm:text-base [&::-webkit-details-marker]:hidden">
+                  {d.p}
+                  <ChevronDown className="h-4 w-4 shrink-0 text-[#D81B7E] transition-transform group-open:rotate-180" />
+                </summary>
+                <p className="pb-4 text-sm leading-relaxed text-[#4A3F5C]">{d.r}</p>
+              </details>
+            ))}
           </div>
         </div>
       </section>
@@ -545,18 +394,3 @@ export default function LandingPage() {
     </main>
   );
 }
-
-// NOTA (Rodada 58, não remover): a Seção 9 do Guia especifica um
-// formulário multi-etapa completo, com campos, máscaras de CPF/CNPJ,
-// texto de ajuda por campo e mensagem de conclusão própria, diretamente
-// nesta página. Decisão desta rodada: em vez de reconstruir esse
-// formulário do zero aqui (o que criaria um SEGUNDO lugar gravando
-// cadastro de local/evento/institucional, arriscando duplicar/perder
-// dados e ignorar toda a lógica de aprovação que o portal já tem em
-// produção), a Seção 9 virou um "roteador" pros 3 formulários REAIS que
-// já existem e funcionam no portal (/cadastro/local, /cadastro/evento,
-// /cadastro/institucional). O detalhamento campo a campo do Guia
-// (máscaras, textos de ajuda, barra de progresso, upload com limite,
-// etc.) é material valioso pra uma rodada futura de melhorar ESSES
-// formulários reais no portal — não foi descartado, só não implementado
-// aqui hoje. Ver "Pendente" no doc de registro desta rodada.

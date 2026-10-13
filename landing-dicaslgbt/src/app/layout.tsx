@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { URL_SITE } from '../lib/constants';
+import { fontDisplay, fontMarker } from '../lib/fonts';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,7 +34,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR">
-      <body className="bg-[#0B0B0E] text-white antialiased">{children}</body>
+      <body className={`${fontDisplay.variable} ${fontMarker.variable} bg-[#0B0B0E] text-white antialiased`}>{children}</body>
     </html>
   );
 }

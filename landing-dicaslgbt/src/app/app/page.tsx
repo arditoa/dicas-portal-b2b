@@ -1,8 +1,9 @@
-import { ArrowRight, Calendar, Map as MapIcon, Plane, Sparkles, User } from 'lucide-react';
+import { ArrowRight, Calendar, Map as MapIcon, Plane, Smartphone, Sparkles, User } from 'lucide-react';
 import Link from 'next/link';
 import Footer from '../../components/Footer';
 import Header from '../../components/Header';
 import MobileFixedCta from '../../components/MobileFixedCta';
+import { URL_APP_WEB } from '../../lib/constants';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,6 +36,17 @@ export default function AppPage() {
           combinam com você.
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center mt-8">
+          {URL_APP_WEB && (
+            <a
+              href={URL_APP_WEB}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-[#E1306C] to-[#7E57C2] hover:opacity-90 text-white font-bold text-sm px-6 py-3.5 rounded-xl transition"
+            >
+              <Smartphone className="w-4 h-4" />
+              Testar o app agora
+            </a>
+          )}
           <Link href="/lancamento" className="inline-flex items-center justify-center gap-2 bg-[#E1306C] hover:bg-[#c2285c] text-white font-bold text-sm px-6 py-3.5 rounded-xl transition">
             Entrar na lista de lançamento
             <ArrowRight className="w-4 h-4" />
@@ -43,6 +55,11 @@ export default function AppPage() {
             Cadastrar minha empresa
           </Link>
         </div>
+        {URL_APP_WEB && (
+          <p className="text-[#626274] text-xs mt-4">
+            Versão de teste no navegador. O app nas lojas chega em breve.
+          </p>
+        )}
       </section>
 
       {/* Proposta */}

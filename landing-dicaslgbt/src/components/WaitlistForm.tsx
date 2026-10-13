@@ -60,7 +60,17 @@ export default function WaitlistForm({
       if (error) throw error;
       setEnviado(true);
     } catch (err: unknown) {
-      setErro(err instanceof Error ? err.message : 'Não foi possível enviar. Tente novamente.');
+      // O erro do Supabase (PostgrestError) é um objeto comum, não uma
+      // instância de Error — "err instanceof Error" nunca era true aqui,
+      // então a mensagem real (ex.: RLS, tabela, coluna) nunca aparecia,
+      // só o texto genérico. Corrigido pra mostrar err.message sempre que
+      // existir, seja qual for o formato do erro.
+      const mensagemErro =
+        err && typeof err === 'object' && 'message' in err && typeof (err as { message: unknown }).message === 'string'
+          ? (err as { message: string }).message
+          : undefined;
+      setErro(mensagemErro || 'Não foi possível enviar. Tente novamente.');
+      console.error('Erro ao enviar lista de espera:', err);
     } finally {
       setLoading(false);
     }

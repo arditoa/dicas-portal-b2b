@@ -19,6 +19,12 @@ export const URL_PORTAL = 'https://dicas-portal-b2b-dun.vercel.app';
 // URL real do site institucional (Rodada 59 — domínio próprio confirmado
 // pela Andrea). Usado no metadata do layout (Open Graph / canonical).
 export const URL_SITE = 'https://www.dicaslgbt.com.br';
+// Endereço da versão web do app (build `expo export -p web`, publicado em
+// projeto Vercel separado — nunca no do portal nem no deste site). Enquanto
+// estiver vazio, o botão "Testar o app agora" da página /app não aparece
+// (em vez de virar link morto). Preencher aqui depois do primeiro deploy
+// do app web, ou pela variável NEXT_PUBLIC_URL_APP_WEB na Vercel.
+export const URL_APP_WEB = process.env.NEXT_PUBLIC_URL_APP_WEB || 'https://dicas-lgbt-app-web.vercel.app';
 export const SUPORTE_EMAIL = process.env.NEXT_PUBLIC_SUPORTE_EMAIL || '';
 // Rodada 59 (parte 3) — o rodapé estava caindo no aviso "contatos não
 // configurados" em produção porque as Environment Variables ainda não
