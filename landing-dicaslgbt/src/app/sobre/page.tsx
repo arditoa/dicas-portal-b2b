@@ -4,6 +4,14 @@ import Footer from '../../components/Footer';
 import Header from '../../components/Header';
 import MobileFixedCta from '../../components/MobileFixedCta';
 
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Sobre o Dicas LGBT+',
+  description:
+    'Conheça a história, o propósito e a trajetória do Dicas LGBT+.',
+};
+
 export const dynamic = 'force-dynamic';
 
 // Rodada 58 — Guia, Seção 4 "Página Sobre o Dicas LGBT+" (URL /sobre).

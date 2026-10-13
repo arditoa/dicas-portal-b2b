@@ -5,6 +5,14 @@ import Header from '../../components/Header';
 import MobileFixedCta from '../../components/MobileFixedCta';
 import { WHATSAPP_COMERCIAL, linkWhatsapp } from '../../lib/constants';
 
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Parceiro Fundador',
+  description:
+    'Seja Parceiro Fundador do Dicas LGBT+: 10 oportunidades no Lote 1, com presença Premium por 12 meses. R$ 3.490 à vista ou 12x de R$ 349.',
+};
+
 export const dynamic = 'force-dynamic';
 
 // Rodada 58 — Guia, Seção 3 "Página Parceiro Fundador" (URL /parceiro-fundador).
@@ -60,6 +68,8 @@ function BotaoWhatsapp() {
   }
   return (
     <a
+      data-track="whatsapp_fundador"
+      data-onde="pagina_fundador"
       href={linkWhatsapp(WHATSAPP_COMERCIAL, 'Olá! Quero ser Parceiro Fundador do Dicas LGBT+.')}
       target="_blank"
       rel="noopener noreferrer"

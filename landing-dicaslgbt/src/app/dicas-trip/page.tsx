@@ -4,6 +4,14 @@ import Footer from '../../components/Footer';
 import Header from '../../components/Header';
 import MobileFixedCta from '../../components/MobileFixedCta';
 
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Dicas Trip',
+  description:
+    'Conheça o Dicas Trip, a área de turismo do Dicas LGBT+: destinos, hospedagens, roteiros e experiências.',
+};
+
 export const dynamic = 'force-dynamic';
 
 // Rodada 58 — Guia, Seção 6 "Página Dicas Trip" (URL /dicas-trip). Textos

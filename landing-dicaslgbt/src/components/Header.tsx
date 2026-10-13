@@ -23,7 +23,7 @@ export default function Header() {
   const [aberto, setAberto] = useState(false);
 
   return (
-    <header className="w-full border-b border-white/5 sticky top-0 z-50 backdrop-blur-md bg-[#0B0B0E]/80">
+    <header className="w-full sticky top-0 z-50 backdrop-blur-md bg-[#0B0B0E]/80">
       <div className="w-full max-w-6xl mx-auto flex items-center justify-between px-6 py-5">
         <Link href="/" className="relative h-9 w-36 sm:h-10 sm:w-44 shrink-0">
           <Image src="/logo-lockup.png" alt="Dicas LGBT+" fill className="object-contain object-left" priority />
@@ -39,6 +39,8 @@ export default function Header() {
         </nav>
         <Link
           href="/entrar"
+          data-track="entrar_parceiro"
+          data-onde="header"
           className="hidden lg:inline-flex text-xs font-medium bg-white/5 hover:bg-white/10 text-white px-4 py-2 rounded-xl border border-white/10 transition shrink-0"
         >
           Já sou parceiro
@@ -46,7 +48,7 @@ export default function Header() {
 
         {/* Mobile — só logo + ícone do menu + Entrar, como pede o Guia */}
         <div className="flex lg:hidden items-center gap-3">
-          <Link href="/entrar" className="text-xs font-semibold text-white">
+          <Link href="/entrar" data-track="entrar_parceiro" data-onde="header" className="text-xs font-semibold text-white">
             Entrar
           </Link>
           <button
@@ -58,6 +60,8 @@ export default function Header() {
           </button>
         </div>
       </div>
+
+      <div className="h-1 w-full bg-gradient-to-r from-[#F0258C] via-[#B620E0] to-[#6B2BD9]" aria-hidden />
 
       {aberto && (
         <nav className="lg:hidden flex flex-col gap-1 px-6 pb-5 border-t border-white/5 pt-3">

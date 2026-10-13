@@ -5,6 +5,14 @@ import Header from '../../components/Header';
 import MobileFixedCta from '../../components/MobileFixedCta';
 import { URL_APP_WEB } from '../../lib/constants';
 
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Aplicativo',
+  description:
+    'Conheça o aplicativo Dicas LGBT+: mapa, categorias, agenda de eventos, Dicas Trip e perfil. Entre na lista de lançamento.',
+};
+
 export const dynamic = 'force-dynamic';
 
 // Rodada 58 — Guia, Seção 5 "Página Dicas LGBT+ App" (URL /app). Textos
@@ -39,6 +47,8 @@ export default function AppPage() {
           {URL_APP_WEB && (
             <a
               href={URL_APP_WEB}
+              data-track="testar_app"
+              data-onde="pagina_app"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-[#E1306C] to-[#7E57C2] hover:opacity-90 text-white font-bold text-sm px-6 py-3.5 rounded-xl transition"

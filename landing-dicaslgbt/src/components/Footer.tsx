@@ -20,7 +20,7 @@ const ICONE =
 
 export default function Footer() {
   return (
-    <footer className="mt-0 w-full border-t border-white/5 bg-[#0B0B0E]">
+    <footer className="mt-0 w-full border-t-4 border-[#F0258C]/40 bg-[#0B0B0E]">
       <div className="mx-auto grid w-full max-w-6xl gap-10 px-6 py-14 text-sm sm:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr_1.2fr]">
         <div>
           <div className="relative mb-4 h-10 w-44">
@@ -31,13 +31,15 @@ export default function Footer() {
           </p>
           <div className="mt-5 flex items-center gap-2.5">
             {INSTAGRAM_URL && (
-              <a href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer" aria-label="Instagram do Dicas LGBT+" className={ICONE}>
+              <a href={INSTAGRAM_URL} data-track="instagram" data-onde="rodape" target="_blank" rel="noopener noreferrer" aria-label="Instagram do Dicas LGBT+" className={ICONE}>
                 <Instagram className="h-4 w-4" />
               </a>
             )}
             {SUPORTE_WHATSAPP && (
               <a
                 href={linkWhatsapp(SUPORTE_WHATSAPP, 'Olá! Vim pelo site do Dicas LGBT+.')}
+                data-track="whatsapp"
+                data-onde="rodape"
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="WhatsApp do Dicas LGBT+"
@@ -71,7 +73,7 @@ export default function Footer() {
           <h3 className="mb-3 text-xs font-bold text-white">Para empresas</h3>
           <ul className="space-y-2 text-xs">
             <li>
-              <a href={`${URL_PORTAL}/cadastro/local`} className="text-[#A0A0B2] transition hover:text-white">
+              <a href={`${URL_PORTAL}/cadastro/local`} data-track="cadastro_empresa" data-onde="rodape" className="text-[#A0A0B2] transition hover:text-white">
                 Cadastrar minha empresa
               </a>
             </li>
@@ -89,6 +91,8 @@ export default function Footer() {
               <li>
                 <a
                   href={linkWhatsapp(SUPORTE_WHATSAPP, 'Olá! Vim pelo site do Dicas LGBT+.')}
+                  data-track="whatsapp"
+                  data-onde="rodape"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-[#A0A0B2] transition hover:text-white"
@@ -112,6 +116,8 @@ export default function Footer() {
           </p>
           <Link
             href="/lancamento"
+            data-track="lista_lancamento"
+            data-onde="rodape"
             className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#F0258C] to-[#B620E0] px-5 py-2.5 text-xs font-bold text-white transition hover:brightness-110"
           >
             Entrar na lista

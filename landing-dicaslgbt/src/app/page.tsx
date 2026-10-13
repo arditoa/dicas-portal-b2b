@@ -1,22 +1,22 @@
 import {
   ArrowRight,
   ChevronDown,
-  Drama,
-  Flower2,
+  CircleHelp,
+  Coffee,
+  Compass,
+  Eye,
   FileText,
-  Handshake,
+  Film,
   Heart,
-  Hotel,
-  MessageCircleQuestion,
-  Martini,
-  PartyPopper,
-  Plane,
-  Rocket,
+  Lock,
+  MapPin,
+  Moon,
+  Music,
+  Scissors,
   Send,
-  Store,
-  Ticket,
+  Shield,
+  Smile,
   TrendingUp,
-  UtensilsCrossed,
   Users,
   Video,
 } from 'lucide-react';
@@ -45,20 +45,21 @@ const CADASTRO_EVENTO = `${URL_PORTAL}/cadastro/evento`;
 const CADASTRO_INSTITUCIONAL = `${URL_PORTAL}/cadastro/institucional`;
 
 const VANTAGENS = [
-  { titulo: 'Visibilidade antecipada', texto: 'Seu negócio entre os primeiros no mapa do app.', icone: Rocket },
+  { titulo: 'Visibilidade antecipada', texto: 'Seu negócio entre os primeiros no mapa do app.', icone: Eye },
   { titulo: 'Conexão com a comunidade', texto: 'Atrai um público que valoriza espaços seguros e inclusivos.', icone: Users },
   { titulo: 'Crescimento para o seu negócio', texto: 'Esteja pronto para as oportunidades do lançamento.', icone: TrendingUp },
 ];
 
+// Ícones (Feather) e cores iguais aos de src/lib/categorias.ts do app.
 const CATEGORIAS = [
-  { nome: 'Bares', icone: Martini, cor: 'text-[#F0258C]' },
-  { nome: 'Festas', icone: PartyPopper, cor: 'text-[#B65CFF]' },
-  { nome: 'Gastronomia', icone: UtensilsCrossed, cor: 'text-[#FFB020]' },
-  { nome: 'Cultura', icone: Drama, cor: 'text-[#FFC53D]' },
-  { nome: 'Experiências', icone: Ticket, cor: 'text-[#FFE14D]' },
-  { nome: 'Turismo', icone: Plane, cor: 'text-[#2FA8FF]' },
-  { nome: 'Beleza', icone: Flower2, cor: 'text-[#FF5CA8]' },
-  { nome: '18+', icone: Heart, cor: 'text-[#F0258C]' },
+  { nome: 'Bares', icone: Moon, cor: 'text-[#E1306C]' },
+  { nome: 'Festas', icone: Music, cor: 'text-[#FFB74D]' },
+  { nome: 'Gastronomia', icone: Coffee, cor: 'text-[#FFD54F]' },
+  { nome: 'Cultura', icone: Film, cor: 'text-[#4FC3F7]' },
+  { nome: 'Experiências', icone: Smile, cor: 'text-[#4FC3F7]' },
+  { nome: 'Turismo', icone: Compass, cor: 'text-[#81C784]' },
+  { nome: 'Beleza', icone: Scissors, cor: 'text-[#E1306C]' },
+  { nome: '18+', icone: Lock, cor: 'text-[#7E57C2]' },
 ];
 
 const PASSOS = [
@@ -67,7 +68,7 @@ const PASSOS = [
   {
     titulo: 'Prepare seu perfil para o lançamento',
     texto: 'Estando aprovado, seu negócio estará no mapa do Dicas LGBT+.',
-    icone: Store,
+    icone: MapPin,
   },
 ];
 
@@ -101,13 +102,13 @@ function Num({ n, claro = false }: { n: string; claro?: boolean }) {
   return (
     <div className="mb-4 flex items-center gap-3" aria-hidden>
       <span
-        className={`flex h-8 w-8 items-center justify-center rounded-full border text-[11px] font-bold ${
+        className={`flex h-9 w-9 items-center justify-center rounded-full border-2 text-xs font-extrabold ${
           claro ? 'border-[#D81B7E] text-[#D81B7E]' : 'border-[#F0258C] text-[#F0258C]'
         }`}
       >
         {n}
       </span>
-      <span className={`h-px w-10 ${claro ? 'bg-[#D81B7E]/50' : 'bg-[#F0258C]/60'}`} />
+      <span className={`h-[3px] w-16 rounded-full ${claro ? 'bg-gradient-to-r from-[#D81B7E] to-[#6B2BD9]' : 'bg-gradient-to-r from-[#F0258C] to-[#7E57C2]'}`} />
     </div>
   );
 }
@@ -148,7 +149,7 @@ export default function Home() {
               Cadastre sua empresa gratuitamente e prepare seu perfil para o lançamento do Dicas LGBT+.
             </p>
             <div className="mt-8">
-              <a href={CADASTRO_EMPRESA} className={BOTAO_PRINCIPAL}>
+              <a href={CADASTRO_EMPRESA} data-track="cadastro_empresa" data-onde="topo" className={BOTAO_PRINCIPAL}>
                 Quero cadastrar minha empresa
                 <ArrowRight className="h-4 w-4" />
               </a>
@@ -210,7 +211,7 @@ export default function Home() {
       </section>
 
       {/* 04 — Acontece fora da tela */}
-      <section className="w-full border-t border-white/5">
+      <section className="w-full border-t-2 border-[#F0258C]/30">
         <div className="mx-auto grid w-full max-w-6xl gap-8 px-6 py-16 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
           <div>
             <Num n="04" />
@@ -221,6 +222,8 @@ export default function Home() {
             {INSTAGRAM_URL && (
               <a
                 href={INSTAGRAM_URL}
+                data-track="instagram"
+                data-onde="conteudos"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="mt-6 inline-flex items-center gap-2 rounded-full border border-[#F0258C]/60 px-5 py-3 text-sm font-bold text-white transition hover:bg-[#F0258C]/10"
@@ -251,7 +254,7 @@ export default function Home() {
               src={FOTOS.festas}
               alt="Festas e eventos cobertos pelo Dicas LGBT+"
               legenda="Festas e eventos que cobrimos"
-              icone={PartyPopper}
+              icone={Music}
               tom="pink"
               className="min-h-[124px]"
             />
@@ -282,17 +285,17 @@ export default function Home() {
             ))}
           </ol>
           <div className="mt-8 flex flex-col items-start gap-4">
-            <a href={CADASTRO_EMPRESA} className={BOTAO_PRINCIPAL}>
+            <a href={CADASTRO_EMPRESA} data-track="cadastro_empresa" data-onde="passos" className={BOTAO_PRINCIPAL}>
               Quero cadastrar minha empresa
               <ArrowRight className="h-4 w-4" />
             </a>
             <p className="text-xs text-[#4A3F5C]">
               Produz festas ou eventos?{' '}
-              <a href={CADASTRO_EVENTO} className="font-semibold text-[#D81B7E] underline underline-offset-4">
+              <a href={CADASTRO_EVENTO} data-track="cadastro_evento" data-onde="passos" className="font-semibold text-[#D81B7E] underline underline-offset-4">
                 Cadastro de evento
               </a>
               {' · '}Representa uma instituição ou marca?{' '}
-              <a href={CADASTRO_INSTITUCIONAL} className="font-semibold text-[#D81B7E] underline underline-offset-4">
+              <a href={CADASTRO_INSTITUCIONAL} data-track="cadastro_institucional" data-onde="passos" className="font-semibold text-[#D81B7E] underline underline-offset-4">
                 Falar com a equipe
               </a>
             </p>
@@ -310,7 +313,7 @@ export default function Home() {
               O Dicas LGBT+ é para negócios e iniciativas que acolhem, respeitam e apoiam a comunidade LGBTQIA+.
             </p>
             <div className="mt-6 flex max-w-md items-start gap-3 rounded-2xl border border-[#F0258C]/30 bg-[#F0258C]/10 p-4">
-              <Handshake className="mt-0.5 h-6 w-6 shrink-0 text-[#F0258C]" />
+              <Shield className="mt-0.5 h-6 w-6 shrink-0 text-[#F0258C]" />
               <p className="text-xs leading-relaxed text-[#E6E0F0]">
                 Cadastro gratuito e sujeito à análise. Buscamos locais que realmente tenham um compromisso com a
                 inclusão e o respeito.
@@ -318,10 +321,10 @@ export default function Home() {
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <FotoTile src={FOTOS.bares} alt="Bares e casas noturnas" legenda="Bares e casas noturnas" icone={Martini} tom="pink" className="min-h-[150px]" />
-            <FotoTile src={FOTOS.restaurantes} alt="Restaurantes e cafeterias" legenda="Restaurantes e cafeterias" icone={UtensilsCrossed} tom="amber" className="min-h-[150px]" />
-            <FotoTile src={FOTOS.cultura} alt="Espaços culturais e eventos" legenda="Espaços culturais e eventos" icone={Drama} tom="purple" className="min-h-[150px]" />
-            <FotoTile src={FOTOS.hoteis} alt="Hotéis, turismo e serviços" legenda="Hotéis, turismo e serviços" icone={Hotel} tom="blue" className="min-h-[150px]" />
+            <FotoTile src={FOTOS.bares} alt="Bares e casas noturnas" legenda="Bares e casas noturnas" icone={Moon} tom="pink" className="min-h-[150px]" />
+            <FotoTile src={FOTOS.restaurantes} alt="Restaurantes e cafeterias" legenda="Restaurantes e cafeterias" icone={Coffee} tom="amber" className="min-h-[150px]" />
+            <FotoTile src={FOTOS.cultura} alt="Espaços culturais e eventos" legenda="Espaços culturais e eventos" icone={Film} tom="purple" className="min-h-[150px]" />
+            <FotoTile src={FOTOS.hoteis} alt="Hotéis, turismo e serviços" legenda="Hotéis, turismo e serviços" icone={Compass} tom="blue" className="min-h-[150px]" />
           </div>
         </div>
       </section>
@@ -341,6 +344,8 @@ export default function Home() {
             <div className="mt-7">
               <a
                 href={CADASTRO_EMPRESA}
+                data-track="cadastro_empresa"
+                data-onde="final"
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-7 py-4 text-sm font-bold text-[#B01A6E] shadow-lg shadow-black/20 transition hover:bg-[#FFF3FA]"
               >
                 Quero cadastrar minha empresa
@@ -372,13 +377,13 @@ export default function Home() {
             <Num n="08" claro />
             <Titulo claro>Dúvidas frequentes</Titulo>
             <div className="mt-6 flex h-24 w-24 items-center justify-center rounded-[2rem] bg-gradient-to-br from-[#F0258C] to-[#6B2BD9] text-white shadow-lg">
-              <MessageCircleQuestion className="h-12 w-12" />
+              <CircleHelp className="h-12 w-12" />
             </div>
           </div>
           <div className="divide-y divide-[#E3D3F0] rounded-2xl border border-[#E8D9F3] bg-white">
             {DUVIDAS.map((d) => (
               <details key={d.p} className="group px-5">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-4 text-sm font-semibold sm:text-base [&::-webkit-details-marker]:hidden">
+                <summary data-track="faq_pergunta" data-onde={d.p.slice(0, 60)} className="flex cursor-pointer list-none items-center justify-between gap-4 py-4 text-sm font-semibold sm:text-base [&::-webkit-details-marker]:hidden">
                   {d.p}
                   <ChevronDown className="h-4 w-4 shrink-0 text-[#D81B7E] transition-transform group-open:rotate-180" />
                 </summary>

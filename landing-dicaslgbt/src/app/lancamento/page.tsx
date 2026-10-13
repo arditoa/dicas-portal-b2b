@@ -3,6 +3,14 @@ import Footer from '../../components/Footer';
 import Header from '../../components/Header';
 import WaitlistForm from '../../components/WaitlistForm';
 
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Lista de lançamento',
+  description:
+    'Entre na lista de lançamento e seja avisado(a) quando o app Dicas LGBT+ chegar.',
+};
+
 export const dynamic = 'force-dynamic';
 
 // Rodada 58 — Guia, Seção 7 "Página Lista de lançamento" (URL /lancamento).
