@@ -47,9 +47,9 @@ import { URL_PORTAL } from '../lib/constants';
 const CADASTRO_EMPRESA = `${URL_PORTAL}/cadastro/local`;
 
 const PERGUNTAS = [
-  'O público LGBT+ consegue encontrar e identificar seu negócio facilmente nos meios digitais?',
-  'Você quer que o público LGBT+ encontre seu espaço, mas não sabe como?',
-  'Novas pessoas encontram seu espaço/serviço ou só quem já conhece vai até você?',
+  'O público LGBT+ consegue encontrar e identificar o seu negócio nos meios digitais?',
+  'Você quer ser encontrado pelo público LGBT+, mas não sabe por onde começar?',
+  'Novas pessoas conhecem o seu espaço ou serviço, ou só quem já conhece chega até você?',
   'Já pensou em fazer parte de um mapa de busca LGBT+?',
 ];
 
@@ -218,9 +218,9 @@ export default function Home() {
               Um ecossistema que une o público LGBT+ <span className="gradient-text">a negócios que acolhem</span>
             </Titulo>
             <p className="mt-4 max-w-xl text-sm leading-relaxed text-[#4A3F5C] sm:text-base">
-              Um ecossistema que une o público LGBT+ com negócios que geram acolhimento e querem atender este público,
-              dentro de um aplicativo! Tem festas, eventos, bares, gastronomia, cultura, viagens, serviços, experiências e
-              lazer, estética e beleza, saúde LGBT+, empregabilidade e muito mais…
+              Um ecossistema que une o público LGBT+ a negócios que acolhem e querem atender esse público, tudo dentro de um
+              aplicativo. Reúne festas, eventos, bares, gastronomia, cultura, viagens, serviços, experiências e lazer,
+              estética e beleza, saúde LGBT+, empregabilidade e muito mais.
             </p>
             <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
               {CATEGORIAS.map((c) => (
@@ -234,11 +234,11 @@ export default function Home() {
               ))}
             </div>
             <p className="mt-6 max-w-xl text-sm leading-relaxed text-[#4A3F5C] sm:text-base">
-              Tudo reunido em um só app, para facilitar a busca pelo próximo date, happy hour, rolê com a galera ou aquela
-              viagem dos sonhos. <strong className="text-[#1B1030]">Menos caça ao rolê. Mais vida acontecendo.</strong>
+              Tudo em um só app, para facilitar a busca pelo próximo date, happy hour, rolê com a galera ou aquela viagem
+              dos sonhos. <strong className="text-[#1B1030]">Menos caça ao rolê. Mais vida acontecendo.</strong>
             </p>
             <p className="mt-3 max-w-xl text-sm leading-relaxed text-[#4A3F5C] sm:text-base">
-              Para quem empreende, é uma nova forma de apresentar seu negócio a pessoas que estão procurando onde ir e o
+              Para quem empreende, é uma nova forma de apresentar o seu negócio a pessoas que estão procurando onde ir e o
               que fazer.
             </p>
           </div>
@@ -268,8 +268,8 @@ export default function Home() {
               Seu negócio pode fazer parte do <span className="gradient-text">Mapa Dicas LGBT+</span>
             </Titulo>
             <p className="mt-4 max-w-md text-sm leading-relaxed text-[#CFC8DC] sm:text-base">
-              Encontre os lugares próximos a você em nosso mapa, com filtros de busca. O Mapa Dicas LGBT+ reúne as dicas da
-              sua preferência para acertar no roteiro!
+              Encontre os lugares próximos a você no mapa, com filtros de busca. O Mapa Dicas LGBT+ reúne as dicas da sua
+              preferência para acertar no roteiro.
             </p>
             <a href={CADASTRO_EMPRESA} data-track="cadastro_empresa" data-onde="mapa" className={`${BOTAO_PRINCIPAL} mt-7`}>
               Quero cadastrar meu negócio gratuitamente
@@ -298,8 +298,8 @@ export default function Home() {
             Um cadastro simples <span className="gradient-text">de 2 minutos</span>
           </Titulo>
           <p className="mt-4 max-w-2xl text-sm leading-relaxed text-[#4A3F5C] sm:text-base">
-            <strong className="text-[#1B1030]">Coloque seu negócio no radar.</strong> Conte pra gente quem vocês são, que
-            experiência oferecem e onde encontrar vocês. Nossa equipe analisa as informações antes da entrada no app.
+            <strong className="text-[#1B1030]">Coloque seu negócio no radar.</strong> Conte quem vocês são, que experiência
+            oferecem e onde encontrar vocês. Nossa equipe analisa as informações antes da entrada no app.
           </p>
           <ol className="mt-8 grid gap-3 sm:grid-cols-3">
             {PASSOS.map((p, i) => (
@@ -337,7 +337,7 @@ export default function Home() {
               </Titulo>
               <p className="mt-3 text-lg font-semibold text-white">A gente já vive esses rolês com você</p>
               <p className="mt-3 text-sm leading-relaxed text-[#CFC8DC] sm:text-base">
-                Da gravação à pista, o Dicas LGBT+ tá na rua mostrando lugares, eventos e histórias da nossa comunidade.
+                Da gravação à pista, o Dicas LGBT+ está na rua mostrando lugares, eventos e histórias da nossa comunidade.
               </p>
             </div>
             <Link href="/sobre" data-track="conheca_dicas" data-onde="galeria" className={`${BOTAO_CONTORNO} self-start`}>
@@ -367,7 +367,7 @@ export default function Home() {
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#FFD1EA]">Lista Antecipada</p>
             <h2 className="font-display mt-3 text-4xl font-extrabold uppercase leading-[1.02] text-white sm:text-6xl">
-              E você, já tá na lista pra descobrir seu próximo rolê?
+              E você, já está na lista para descobrir o seu próximo rolê?
             </h2>
           </div>
           <div>
