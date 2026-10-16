@@ -1,5 +1,6 @@
 import { ArrowRight, Gift, Heart, MapPin, Music, Share2, ShoppingBag, Sparkles, Ticket, Wine, Zap } from 'lucide-react';
 import type { Metadata } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
 import FotoTile from '../../components/FotoTile';
 import Footer from '../../components/Footer';
@@ -151,7 +152,7 @@ export default function ListaAntecipadaPage() {
       <section className="w-full">
         <div className="mx-auto w-full max-w-5xl px-6 py-16 text-center">
           <h2 className="font-display text-4xl font-extrabold uppercase leading-[1.02] sm:text-5xl">
-            Chegou primeiro? <span className="gradient-text">Tem vantagem</span> 👀
+            Chegou primeiro? <span className="gradient-text">Tem vantagem 👀</span>
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-[#CFC8DC] sm:text-base">
             As 100 primeiras pessoas inscritas na lista que fizerem o download e o cadastro no app no lançamento vão
