@@ -51,10 +51,12 @@ export function linkWhatsapp(numero: string, mensagem: string) {
 // "Área do Parceiro" daqui pra não duplicar o mesmo destino duas vezes
 // no cabeçalho.
 export const NAV_ITEMS = [
-  { label: 'Cadastrar empresa', href: '/#cadastro' },
-  { label: 'Parceiro Fundador', href: '/parceiro-fundador' },
-  { label: 'Sobre o Dicas', href: '/sobre' },
-  { label: 'Aplicativo', href: '/app' },
+  { label: 'Início', href: '/' },
+  { label: 'Conheça o Dicas LGBT+', href: '/sobre' },
+  { label: 'Receber novidades', href: '/lista-antecipada' },
+  { label: 'O que minha empresa ganha?', href: '/#empresa-ganha' },
+  { label: 'Conheça o App', href: '/app' },
   { label: 'Dicas Trip', href: '/dicas-trip' },
-  { label: 'Lista de lançamento', href: '/lancamento' },
+  { label: 'Dicas Lab', href: '/dicas-lab' },
+  { label: 'Membros Fundadores', href: '/parceiro-fundador' },
 ] as const;

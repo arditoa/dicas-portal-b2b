@@ -11,5 +11,10 @@ export const FOTOS = {
   restaurantes: '', // Seção 6 — "Restaurantes e cafeterias"
   cultura: '', // Seção 6 — "Espaços culturais e eventos"
   hoteis: '', // Seção 6 — "Hotéis, turismo e serviços"
-  cta: '', // Seção 7 — foto ao lado do chamado final
+  cta: '', // (reserva) foto ao lado do chamado final
+  renanEmerson: '', // Home e Lista Antecipada — Renan e Emerson em gravação/festa
+  lugares: '', // Home — "Lugares que já mostramos"
+  lab1: '', // Home — Dicas Lab: consultoria e planejamento
+  lab2: '', // Home — Dicas Lab: treinamentos
+  lab3: '', // Home — Dicas Lab: estratégia e crescimento
 };

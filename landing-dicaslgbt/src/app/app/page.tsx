@@ -57,7 +57,7 @@ export default function AppPage() {
               Testar o app agora
             </a>
           )}
-          <Link href="/lancamento" className="inline-flex items-center justify-center gap-2 bg-[#E1306C] hover:bg-[#c2285c] text-white font-bold text-sm px-6 py-3.5 rounded-xl transition">
+          <Link href="/lista-antecipada" className="inline-flex items-center justify-center gap-2 bg-[#E1306C] hover:bg-[#c2285c] text-white font-bold text-sm px-6 py-3.5 rounded-xl transition">
             Entrar na lista de lançamento
             <ArrowRight className="w-4 h-4" />
           </Link>
@@ -138,7 +138,7 @@ export default function AppPage() {
       {/* Lançamento */}
       <section className="w-full max-w-3xl mx-auto px-6 py-14 border-t border-white/5 text-center">
         <h2 className="text-2xl sm:text-3xl font-extrabold mb-6">O app ainda está a caminho das lojas.</h2>
-        <Link href="/lancamento" className="inline-flex items-center gap-2 bg-[#E1306C] hover:bg-[#c2285c] text-white font-bold text-sm px-6 py-3.5 rounded-xl transition">
+        <Link href="/lista-antecipada" className="inline-flex items-center gap-2 bg-[#E1306C] hover:bg-[#c2285c] text-white font-bold text-sm px-6 py-3.5 rounded-xl transition">
           Quero ser avisado(a)
           <ArrowRight className="w-4 h-4" />
         </Link>

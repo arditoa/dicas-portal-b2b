@@ -12,7 +12,8 @@ const NAVEGACAO = [
   { label: 'Conheça o Dicas LGBT+', href: '/sobre' },
   { label: 'Aplicativo', href: '/app' },
   { label: 'Dicas Trip', href: '/dicas-trip' },
-  { label: 'Lista de lançamento', href: '/lancamento' },
+  { label: 'Dicas Lab', href: '/dicas-lab' },
+  { label: 'Lista Antecipada', href: '/lista-antecipada' },
 ];
 
 const ICONE =
@@ -115,12 +116,12 @@ export default function Footer() {
             Novidades sobre o app, lançamentos e oportunidades para o seu negócio.
           </p>
           <Link
-            href="/lancamento"
-            data-track="lista_lancamento"
+            href="/lista-antecipada"
+            data-track="lista_antecipada"
             data-onde="rodape"
             className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#F0258C] to-[#B620E0] px-5 py-2.5 text-xs font-bold text-white transition hover:brightness-110"
           >
-            Entrar na lista
+            Entrar na Lista Antecipada
             <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>

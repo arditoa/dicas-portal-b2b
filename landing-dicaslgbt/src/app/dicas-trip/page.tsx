@@ -66,7 +66,7 @@ export default function DicasTripPage() {
 
       {/* CTAs */}
       <section className="w-full max-w-3xl mx-auto px-6 py-14 border-t border-white/5 text-center flex flex-col sm:flex-row gap-3 justify-center">
-        <Link href="/lancamento" className="inline-flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold text-sm px-6 py-3.5 rounded-xl transition">
+        <Link href="/lista-antecipada" className="inline-flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold text-sm px-6 py-3.5 rounded-xl transition">
           Quero acompanhar o lançamento
           <ArrowRight className="w-4 h-4" />
         </Link>
