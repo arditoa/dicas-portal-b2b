@@ -13,3 +13,6 @@ expo-env.d.ts
 # @end expo-cli
 .vercel
 .env*
+
+# Dados reais de contato do Pipeline (nao subir para o git)
+supabase-migration/042_pipeline_dados_iniciais.sql

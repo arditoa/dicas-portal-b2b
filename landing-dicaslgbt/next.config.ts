@@ -20,6 +20,24 @@ const nextConfig: NextConfig = {
       { source: '/cadastro-evento', destination: `${portal}/cadastro/evento`, permanent: false },
     ];
   },
+  // Página interna do Pipeline comercial (login próprio, só equipe).
+  // Não aparece em menu nem no sitemap; o endereço /equipe serve o arquivo
+  // public/equipe-app/pipeline.html. noindex + sem cache para não ficar
+  // guardado em buscador nem em cache de navegador compartilhado.
+  async rewrites() {
+    return [{ source: '/equipe', destination: '/equipe-app/pipeline.html' }];
+  },
+  async headers() {
+    const interno = [
+      { key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive, nosnippet' },
+      { key: 'Cache-Control', value: 'no-store' },
+      { key: 'Referrer-Policy', value: 'no-referrer' },
+    ];
+    return [
+      { source: '/equipe', headers: interno },
+      { source: '/equipe-app/:path*', headers: interno },
+    ];
+  },
 };
 
 export default nextConfig;
