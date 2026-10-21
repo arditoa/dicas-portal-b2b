@@ -15,7 +15,9 @@ import {
   aparicoesPorDia,
   blocoFixoDiario,
   chaveSemana,
+  VITRINE_HOME_MAX,
   deveMostrarRodizio,
+  elegivelVitrineHome,
   inicioDoSlot,
   rodizioComPrioridade,
   slotAtual,
@@ -24,6 +26,9 @@ import {
 type L = {
   id: string;
   nome: string;
+  categoria: string | null;
+  foto_capa_url: string | null;
+  galeria_fotos: string[] | null;
   plano_comercial: string | null;
   plano_comercial_status: string | null;
   destaque_secoes: string[] | null;
@@ -54,7 +59,7 @@ export default function PainelRodizio() {
     const [l, c, fb] = await Promise.all([
       supabase
         .from('locais')
-        .select('id, nome, plano_comercial, plano_comercial_status, destaque_secoes, destaque_ate')
+        .select('id, nome, categoria, foto_capa_url, galeria_fotos, plano_comercial, plano_comercial_status, destaque_secoes, destaque_ate')
         .eq('status', 'aprovado')
         .limit(500),
       supabase.from('app_config').select('chave, valor').in('chave', ['rodizio_tamanho', 'rodizio_intervalo_min', 'fundadores_max_topo']),
@@ -90,7 +95,8 @@ export default function PainelRodizio() {
     const noPrazo = (l: L) => !l.destaque_ate || new Date(l.destaque_ate).getTime() >= Date.now();
     const fixosL = locais.filter((l) => idsF.has(l.id) || (!!l.destaque_secoes?.includes('patrocinado') && noPrazo(l)));
     const idsFix = new Set(fixosL.map((l) => l.id));
-    const pool = locais.filter((l) => !idsFix.has(l.id));
+    // Mesma regra do app: só lugares de experiência e com foto entram em "Em alta agora".
+    const pool = locais.filter((l) => !idsFix.has(l.id) && elegivelVitrineHome(l));
     const p = pool.filter(prioritario);
     const ids = new Set(p.map((x) => x.id));
     return { fixos: fixosL, prioritarios: p, demais: pool.filter((x) => !ids.has(x.id)) };
@@ -99,18 +105,19 @@ export default function PainelRodizio() {
   const fundadoresL = useMemo(() => fixos.filter((l) => idsFundadores.includes(l.id)), [fixos, idsFundadores]);
   const topoHoje = useMemo(() => blocoFixoDiario(fundadoresL, fundMax), [fundadoresL, fundMax]);
   const poolTam = prioritarios.length + demais.length;
-  const mostraBloco = deveMostrarRodizio(poolTam, tamanho);
+  const qtdHome = Math.min(tamanho, VITRINE_HOME_MAX);
+  const mostraBloco = deveMostrarRodizio(poolTam, qtdHome);
 
   const agora = slotAtual(Date.now(), intervalo);
   const semana = chaveSemana();
   const linhas = useMemo(() => {
     return Array.from({ length: 12 }, (_, k) => {
       const slot = agora + k;
-      return { slot, inicio: inicioDoSlot(slot, intervalo), itens: rodizioComPrioridade(prioritarios, demais, slot, tamanho, semana) };
+      return { slot, inicio: inicioDoSlot(slot, intervalo), itens: rodizioComPrioridade(prioritarios, demais, slot, qtdHome, semana) };
     });
-  }, [agora, intervalo, tamanho, prioritarios, demais, semana]);
+  }, [agora, intervalo, qtdHome, prioritarios, demais, semana]);
 
-  const porDia = aparicoesPorDia(Math.max(demais.length, 0), Math.max(tamanho - prioritarios.length, 0), intervalo);
+  const porDia = aparicoesPorDia(Math.max(demais.length, 0), Math.max(qtdHome - prioritarios.length, 0), intervalo);
 
   async function salvar() {
     setSalvando(true);
@@ -160,7 +167,7 @@ export default function PainelRodizio() {
             ? <p className="mt-1">Há prioritários suficientes: só eles rodam.</p>
             : <p className="mt-1">Os prioritários aparecem sempre; as outras {tamanho - prioritarios.length} vaga(s) rodam entre os demais (cada um aparece cerca de {porDia.toFixed(1)}x por dia).</p>}
           <p className="mt-1">Para cada local aparecer 2x por dia seriam necessários {Math.round((24 * 60 / intervalo) * tamanho / 2)} locais no rodízio.</p>
-          <p className="mt-1">O rodízio vale para o bloco "Em alta agora" (abaixo dos fundadores) e para a página Em Alta. A ordem do ciclo muda uma vez por semana. {mostraBloco ? 'O bloco aparece na Home.' : `O bloco fica escondido enquanto houver menos de ${Math.max(2, tamanho)} locais para rodar (hoje: ${poolTam}).`}</p>
+          <p className="mt-1">O bloco "Em alta agora" da Home mostra até {VITRINE_HOME_MAX} locais, só bares, festas/eventos, gastronomia, cultura e turismo, e só com foto. Serviços e lojas ficam nas suas categorias. A página Em Alta usa todos os locais. A ordem do ciclo muda uma vez por semana. {mostraBloco ? 'O bloco aparece na Home.' : `O bloco fica escondido enquanto houver menos de ${Math.max(2, qtdHome)} locais elegíveis (hoje: ${poolTam}).`}</p>
         </div>
       </div>
 

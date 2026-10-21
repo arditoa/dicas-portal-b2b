@@ -19,6 +19,7 @@ import { CONFIG_RODIZIO_PADRAO, lerConfigRodizio } from '../../lib/rodizioConfig
 import { abertoAgora, fechaAs } from '../../lib/horario';
 import { useI18n } from '../../lib/i18n';
 import { textoLocalizacao } from '../../lib/localizacao';
+import { formatarNome } from '../../lib/texto';
 import { supabase } from '../../lib/supabase';
 
 const C = {
@@ -103,7 +104,7 @@ export default function SecaoScreen() {
       const paraItem = (l: any, extra: Partial<Item> = {}): Item => ({
         chave: `l-${l.id}`,
         rota: `/business/${l.id}`,
-        titulo: l.nome,
+        titulo: formatarNome(l.nome),
         linha1: [l.subcategoria || CATEGORIA_REAL_LABEL[l.categoria] || l.categoria, bairro(l)].filter(Boolean).join(' • '),
         foto: foto(l),
         seloCategoria: seloDaCategoria(l),

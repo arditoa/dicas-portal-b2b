@@ -104,3 +104,20 @@ export function blocoFixoDiario<T extends { id: string }>(itens: T[], max: numbe
 export function deveMostrarRodizio(qtdNoPool: number, tamanho: number): boolean {
   return qtdNoPool >= Math.max(2, tamanho);
 }
+
+// ---------------------------------------------------------------------------
+// Rodada 78 — quem pode aparecer no bloco "Em alta agora" da Home.
+// Só lugares de experiência (bares/vida noturna, festas e eventos, gastronomia,
+// cultura e turismo) e só com foto: serviços e lojas continuam nas suas próprias
+// categorias, e card sem foto parece incompleto.
+// ---------------------------------------------------------------------------
+export const CATEGORIAS_VITRINE_HOME = new Set(['lugares', 'eventos', 'gastronomia', 'cultura', 'turismo']);
+export const VITRINE_HOME_MAX = 5;
+
+export function elegivelVitrineHome(l: {
+  categoria?: string | null;
+  foto_capa_url?: string | null;
+  galeria_fotos?: string[] | null;
+}): boolean {
+  return !!l.categoria && CATEGORIAS_VITRINE_HOME.has(l.categoria) && !!(l.foto_capa_url || l.galeria_fotos?.[0]);
+}

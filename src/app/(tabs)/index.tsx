@@ -20,7 +20,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FundoDegrade from '../../components/FundoDegrade';
 import { useCidadeAtual } from '../../hooks/useCidadeAtual';
 import { useSlotHora } from '../../hooks/useSlotHora';
-import { blocoFixoDiario, deveMostrarRodizio } from '../../lib/rodizio';
+import { VITRINE_HOME_MAX, blocoFixoDiario, deveMostrarRodizio, elegivelVitrineHome } from '../../lib/rodizio';
+import { formatarNome } from '../../lib/texto';
 import { textoLocalizacao } from '../../lib/localizacao';
 import { CONFIG_RODIZIO_PADRAO, ConfigRodizio, lerConfigRodizio } from '../../lib/rodizioConfig';
 import { abertoAgora } from '../../lib/horario';
@@ -253,12 +254,15 @@ export default function HomeScreen() {
   }, [topoPrioritarios, cfgRodizio.fundadoresMax, slotRodizio]);
   const poolRodizioHome = useMemo(() => {
     const fixos = new Set(topoPrioritarios.map((d) => d.id));
-    return emAltaPool.filter((p) => !fixos.has(p.id));
+    return emAltaPool.filter((p) => !fixos.has(p.id) && elegivelVitrineHome(p));
   }, [emAltaPool, topoPrioritarios]);
   const emAltaAgora = useMemo(
-    () => (deveMostrarRodizio(poolRodizioHome.length, cfgRodizio.tamanho)
-      ? rodizioHorario(poolRodizioHome, 'em_alta', slotRodizio, cfgRodizio.tamanho)
-      : []),
+    () => {
+      const qtd = Math.min(cfgRodizio.tamanho, VITRINE_HOME_MAX);
+      return deveMostrarRodizio(poolRodizioHome.length, qtd)
+        ? rodizioHorario(poolRodizioHome, 'em_alta', slotRodizio, qtd)
+        : [];
+    },
     [poolRodizioHome, slotRodizio, cfgRodizio.tamanho]
   );
   const emAlta = useMemo(
@@ -452,12 +456,12 @@ export default function HomeScreen() {
       for (const f of listaFundadorLogos as any[]) {
         if (vistosTopo.has(f.id)) continue;
         vistosTopo.add(f.id);
-        topo.push({ id: f.id, nome: f.nome, foto: f.foto_capa_url || f.galeria_fotos?.[0] || f.logo_url || null, bairro: textoLocalizacao(f), tipo: 'fundador' });
+        topo.push({ id: f.id, nome: formatarNome(f.nome), foto: f.foto_capa_url || f.galeria_fotos?.[0] || f.logo_url || null, bairro: textoLocalizacao(f), tipo: 'fundador' });
       }
       for (const p of ((emAltaRes.data as any) || []) as LocalCard[]) {
         if (vistosTopo.has(p.id) || !estaFixadoEm(p, 'patrocinado')) continue;
         vistosTopo.add(p.id);
-        topo.push({ id: p.id, nome: p.nome, foto: fotoDestaqueUrl(p), bairro: textoLocalizacao(p), tipo: 'patrocinado' });
+        topo.push({ id: p.id, nome: formatarNome(p.nome), foto: fotoDestaqueUrl(p), bairro: textoLocalizacao(p), tipo: 'patrocinado' });
       }
       setTopoPrioritarios(topo);
       setBannerFundadorArteUrl(((appConfigRes.data as any)?.valor as string | undefined) || null);
@@ -613,6 +617,22 @@ export default function HomeScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* BUSCA — pílula única, tipo o "Para onde?" do Uber */}
+        {/* Rodada 69 — abre a tela de busca (recentes, sugestões, populares e
+            resultados por tipo: lugares, eventos, roteiros). */}
+        <TouchableOpacity
+          style={styles.buscaContainer}
+          activeOpacity={0.85}
+          onPress={() => router.push({ pathname: '/busca' as any, params: local.cidade ? { cidade: local.cidade } : {} })}
+          accessibilityRole="search"
+          accessibilityLabel={t('home.busca')}
+        >
+          <Feather name="search" size={20} color={COLORS.textPrimary} />
+          <Text style={[styles.buscaInput, { color: COLORS.textSecondary }]}>{t('home.busca')}</Text>
+        </TouchableOpacity>
+
+        <View style={{ height: 14 }} />
+
         {/* DESTAQUES DOS FUNDADORES E PATROCINADOS — passa sozinho a cada 4s.
             Cumpre a promessa do plano Fundador (presença fixa no topo da Home). */}
         {destaquesTopo.length > 0 && (
@@ -693,7 +713,7 @@ export default function HomeScreen() {
                         </View>
                       )}
                     </View>
-                    <Text style={styles.altaNome} numberOfLines={1}>{l.nome}</Text>
+                    <Text style={styles.altaNome} numberOfLines={1}>{formatarNome(l.nome)}</Text>
                     <Text style={styles.altaMeta} numberOfLines={1}>{textoLocalizacao(l)}</Text>
                   </TouchableOpacity>
                 );
@@ -701,22 +721,6 @@ export default function HomeScreen() {
             </ScrollView>
           </View>
         )}
-
-        {/* BUSCA — pílula única, tipo o "Para onde?" do Uber */}
-        {/* Rodada 69 — abre a tela de busca (recentes, sugestões, populares e
-            resultados por tipo: lugares, eventos, roteiros). */}
-        <TouchableOpacity
-          style={styles.buscaContainer}
-          activeOpacity={0.85}
-          onPress={() => router.push({ pathname: '/busca' as any, params: local.cidade ? { cidade: local.cidade } : {} })}
-          accessibilityRole="search"
-          accessibilityLabel={t('home.busca')}
-        >
-          <Feather name="search" size={20} color={COLORS.textPrimary} />
-          <Text style={[styles.buscaInput, { color: COLORS.textSecondary }]}>{t('home.busca')}</Text>
-        </TouchableOpacity>
-
-        <View style={{ height: 14 }} />
 
         {/* CATEGORIAS — ícones redondos de sempre (cor própria por categoria,
             vinda de lib/categorias.ts), numa linha com rolagem lateral. Dicas
@@ -752,17 +756,6 @@ export default function HomeScreen() {
             })}
           </ScrollView>
         </View>
-        {/* ATALHO ÚNICO — "Locais perto de você" abre o Mapa com todas as
-            categorias (antes eram 2 atalhos, "Bares perto" + "Planejar
-            viagem", que repetiam o que já tem nas categorias e na aba Trip). */}
-        <TouchableOpacity style={styles.atalhoItem} activeOpacity={0.8} onPress={() => router.push('/(tabs)/explore')}>
-          <View style={styles.atalhoIcone}><Feather name="map-pin" size={17} color={COLORS.pink} /></View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.atalhoTitulo}>{t('home.encontreLugares')}</Text>
-            <Text style={styles.atalhoSub}>{t('home.atalhoLocaisSub')}</Text>
-          </View>
-          <Feather name="chevron-right" size={18} color={COLORS.textSecondary} />
-        </TouchableOpacity>
         {/* NEWS — notícia do momento (sem a marca "Copa do Mundo", FIFA/App Store 5.2) */}
         <View style={styles.brasilCard}>
           <View style={{ flex: 1, padding: 14, gap: 4 }}>
@@ -903,12 +896,12 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
   localChipTexto: { fontSize: 12, fontWeight: '700', color: COLORS.textPrimary, flexShrink: 1 },
-  slide: { height: 130, borderRadius: 16, padding: 14, justifyContent: 'space-between', backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border, overflow: 'hidden' },
+  slide: { height: 92, borderRadius: 16, padding: 12, justifyContent: 'space-between', backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border, overflow: 'hidden' },
   slideTag: { alignSelf: 'flex-start', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   slideTagTexto: { fontSize: 10, fontWeight: '800', color: '#000', letterSpacing: 0.4 },
-  slideNome: { fontSize: 15, fontWeight: '800', color: '#FFFFFF' },
+  slideNome: { fontSize: 14, fontWeight: '800', color: '#FFFFFF' },
   slideBairro: { fontSize: 12, color: '#E0E0EA', marginTop: 2 },
-  pontos: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 10 },
+  pontos: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 8 },
   ponto: { width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.border },
   pontoAtivo: { width: 18, backgroundColor: COLORS.pink },
   altaBox: { width: 112 },

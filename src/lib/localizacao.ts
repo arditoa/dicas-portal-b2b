@@ -7,6 +7,8 @@
 //
 // A coluna `categoria` do banco usa: lugares (bares), gastronomia, cultura,
 // eventos, turismo e servicos.
+import { formatarCidade } from './texto';
+
 const CATEGORIAS_COM_ENDERECO = new Set(['lugares', 'gastronomia', 'cultura', 'eventos']);
 
 type ComLocal = {
@@ -21,8 +23,8 @@ export function categoriaMostraEndereco(categoria?: string | null): boolean {
 }
 
 export function textoLocalizacao(l: ComLocal): string {
-  const bairro = (l.bairro_exibicao || l.bairro || '').trim();
-  const cidade = (l.cidade || '').trim();
+  const bairro = formatarCidade(l.bairro_exibicao || l.bairro);
+  const cidade = formatarCidade(l.cidade);
   if (categoriaMostraEndereco(l.categoria)) {
     if (bairro && cidade && bairro.toLowerCase() !== cidade.toLowerCase()) return `${bairro}, ${cidade}`;
     return bairro || cidade;
