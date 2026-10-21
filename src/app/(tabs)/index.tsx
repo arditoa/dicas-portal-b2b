@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -19,12 +19,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import CarrosselAnuncios from '../../components/CarrosselAnuncios';
 import FundoDegrade from '../../components/FundoDegrade';
 import FundoFaixaPremium from '../../components/FundoFaixaPremium';
-import FaixaFundadores from '../../components/FaixaFundadores';
 import { useCidadeAtual } from '../../hooks/useCidadeAtual';
 import { useSlotHora } from '../../hooks/useSlotHora';
-import { useReduzirMovimento } from '../../hooks/useReduzirMovimento';
 import { blocoFixoDiario, chaveSemana, grupoFaixaPremium, temImagemParaFaixa } from '../../lib/rodizio';
 import { formatarNome } from '../../lib/texto';
 import { categoriaMostraEndereco, textoLocalizacao } from '../../lib/localizacao';
@@ -32,13 +31,12 @@ import { CONFIG_RODIZIO_PADRAO, ConfigRodizio, lerConfigRodizio } from '../../li
 import { abertoAgora } from '../../lib/horario';
 import { useAuth } from '../../lib/authContext';
 import { registrarAviso } from '../../lib/avisos';
-import { lerPreferencias } from '../../lib/push';
 import { IDIOMAS, useI18n } from '../../lib/i18n';
 import { CATEGORIA_ORDER, CATEGORIA_REAL_LABEL, CATEGORIAS, CategoriaConfig } from '../../lib/categorias';
 import {
   compararDestaque,
   ehPremiumAtivo,
-  emAltaDaHora,
+  rodizioHorario,
   deveExibirGlow,
   deveIncluirEm,
   estaFixadoEm,
@@ -84,20 +82,6 @@ const LARGURA_TILE = 84;
 // final com uma chamada que é pra empresa.
 // Experiências mostradas na Home, nesta ordem (pedido da Andrea, out/2026).
 const EXPERIENCIAS_HOME = ['aniversario', 'dates', 'dancar', 'musica_ao_vivo', 'drag_show', 'karaoke'];
-
-// Tags de experiência na Home (uma linha que se desliza). As 6 primeiras seguem
-// a ordem pedida pela Andrea; as demais vêm depois.
-const EXPERIENCIAS_TAGS: { slug: string; label: string }[] = [
-  ...EXPERIENCIAS_HOME,
-  ...EXPERIENCIAS_REAIS.map((e) => e.slug).filter((sl) => !EXPERIENCIAS_HOME.includes(sl)),
-]
-  .map((sl) => EXPERIENCIAS_REAIS.find((e) => e.slug === sl))
-  .filter(Boolean) as { slug: string; label: string }[];
-
-const semAcento = (v?: string | null) =>
-  (v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
-
-const CARTAO_ALTA_W = 84;
 
 const BANNERS_PRINCIPAIS = [
   {
@@ -149,7 +133,6 @@ function FaixaPremium({
   onAbrir: (id: string) => void;
 }) {
   const { width } = useWindowDimensions();
-  const reduzir = useReduzirMovimento();
   const passo = AVATAR_ANEL + AVATAR_GAP;
   const larguraLista = itens.length * passo;
   // A faixa vai de borda a borda da tela; os avatares começam 16 px da borda esquerda.
@@ -159,8 +142,6 @@ function FaixaPremium({
 
   useEffect(() => {
     x.setValue(16);
-    // "Reduzir movimento" ligado no aparelho: a faixa fica parada e se desliza com o dedo.
-    if (reduzir) return;
     const anim = Animated.loop(
       Animated.timing(x, {
         toValue: 16 - larguraLista,
@@ -171,39 +152,32 @@ function FaixaPremium({
     );
     anim.start();
     return () => anim.stop();
-  }, [larguraLista, x, reduzir]);
+  }, [larguraLista, x]);
 
-  const lista = reduzir ? itens : Array.from({ length: copias }, () => itens).flat();
-  const avatares = lista.map((l, i) => (
-    <TouchableOpacity
-      key={`${l.id}-${i}`}
-      activeOpacity={0.85}
-      onPress={() => onAbrir(l.id)}
-      accessibilityRole="button"
-      accessibilityLabel={l.nome}
-      style={styles.avatarAnel}
-    >
-      <View style={[styles.avatarMiolo, l.ehLogo && { backgroundColor: '#FFFFFF' }]}>
-        <Image
-          source={{ uri: l.imagem }}
-          style={l.ehLogo ? { width: '78%', height: '78%' } : { width: '100%', height: '100%' }}
-          resizeMode={l.ehLogo ? 'contain' : 'cover'}
-        />
-      </View>
-    </TouchableOpacity>
-  ));
+  const lista = Array.from({ length: copias }, () => itens).flat();
   return (
     <View style={styles.faixaPremiumFundo}>
       <FundoFaixaPremium />
-      {reduzir ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16 }}>
-          {avatares}
-        </ScrollView>
-      ) : (
-        <Animated.View style={{ flexDirection: 'row', width: lista.length * passo, transform: [{ translateX: x }] }}>
-          {avatares}
-        </Animated.View>
-      )}
+      <Animated.View style={{ flexDirection: 'row', width: lista.length * passo, transform: [{ translateX: x }] }}>
+        {lista.map((l, i) => (
+          <TouchableOpacity
+            key={`${l.id}-${i}`}
+            activeOpacity={0.85}
+            onPress={() => onAbrir(l.id)}
+            accessibilityRole="button"
+            accessibilityLabel={l.nome}
+            style={styles.avatarAnel}
+          >
+            <View style={[styles.avatarMiolo, l.ehLogo && { backgroundColor: '#FFFFFF' }]}>
+              <Image
+                source={{ uri: l.imagem }}
+                style={l.ehLogo ? { width: '78%', height: '78%' } : { width: '100%', height: '100%' }}
+                resizeMode={l.ehLogo ? 'contain' : 'cover'}
+              />
+            </View>
+          </TouchableOpacity>
+        ))}
+      </Animated.View>
     </View>
   );
 }
@@ -219,10 +193,9 @@ function FaixaHoje({
 }) {
   const [i, setI] = useState(0);
   const opac = useRef(new Animated.Value(1)).current;
-  const reduzir = useReduzirMovimento();
   useEffect(() => {
     setI(0);
-    if (itens.length < 2 || reduzir) return;
+    if (itens.length < 2) return;
     const timer = setInterval(() => {
       Animated.timing(opac, { toValue: 0, duration: 220, useNativeDriver: true }).start(() => {
         setI((a) => (a + 1) % itens.length);
@@ -230,7 +203,7 @@ function FaixaHoje({
       });
     }, 4000);
     return () => clearInterval(timer);
-  }, [itens, opac, reduzir]);
+  }, [itens, opac]);
   const atual = itens[i % itens.length];
   if (!atual) return null;
   return (
@@ -333,35 +306,12 @@ export default function HomeScreen() {
   const { t, idioma, proximoIdioma } = useI18n();
   const idiomaAtual = IDIOMAS.find((i) => i.code === idioma) || IDIOMAS[0];
   const local = useCidadeAtual();
-  const reduzirMovimento = useReduzirMovimento();
-  // Sininho ao lado da busca: pontinho rosa enquanto nenhum aviso estiver ligado.
-  // Nada é ligado sozinho (Apple 4.5.4 / LGPD): o toque só abre a tela de Notificações.
-  const [avisosAtivos, setAvisosAtivos] = useState<boolean | null>(null);
-  useFocusEffect(
-    useCallback(() => {
-      let ativo = true;
-      if (!user?.id) {
-        setAvisosAtivos(false);
-        return;
-      }
-      lerPreferencias(user.id)
-        .then((p) => {
-          if (ativo) setAvisosAtivos(Object.values(p).some(Boolean));
-        })
-        .catch(() => {});
-      return () => {
-        ativo = false;
-      };
-    }, [user?.id])
-  );
 
   const [busca, setBusca] = useState('');
   const [favoritos, setFavoritos] = useState<string[]>([]);
 
   const [emAltaPool, setEmAltaPool] = useState<LocalCard[]>([]);
   const [aprovadosHome, setAprovadosHome] = useState<LocalCard[]>([]);
-  // Experiências que já têm ao menos um local aprovado (a Home só mostra tags que levam a algum lugar).
-  const [expExistentes, setExpExistentes] = useState<Set<string> | null>(null);
   const [cfgRodizio, setCfgRodizio] = useState<ConfigRodizio>(CONFIG_RODIZIO_PADRAO);
   // Rodada 47 — criado como "Selo Dicas LGBT+", seção própria com
   // curadoria editorial da Andrea. Rodada 56 (3ª rodada de ajuste) —
@@ -398,7 +348,7 @@ export default function HomeScreen() {
   const [bannerFundadorArteUrl, setBannerFundadorArteUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [abertosAgora, setAbertosAgora] = useState<LocalCard[]>([]);
-  type DestaqueTopo = { id: string; nome: string; foto: string | null; bairro: string; tipo: 'fundador' | 'patrocinado' | 'outro'; cidade?: string | null; instagram?: string | null };
+  type DestaqueTopo = { id: string; nome: string; foto: string | null; bairro: string; tipo: 'fundador' | 'patrocinado' | 'outro' };
   // Fixos do topo: Membros Fundadores + patrocinados (destaque_secoes 'patrocinado').
   const [topoPrioritarios, setTopoPrioritarios] = useState<DestaqueTopo[]>([]);
   // Rodízio por horário: a cada intervalo (padrão 1 h) aparece um novo grupo de 6.
@@ -410,21 +360,10 @@ export default function HomeScreen() {
   const destaquesTopo = useMemo(() => {
     const fundadores = topoPrioritarios.filter((d) => d.tipo === 'fundador');
     const patrocinados = topoPrioritarios.filter((d) => d.tipo !== 'fundador');
-    // Fundadores da cidade escolhida vêm primeiro; os de outras cidades completam as vagas.
-    const cidadeAtual = semAcento(local.cidade);
-    const daCidade = cidadeAtual ? fundadores.filter((d) => semAcento(d.cidade) === cidadeAtual) : [];
-    const deFora = cidadeAtual ? fundadores.filter((d) => semAcento(d.cidade) !== cidadeAtual) : fundadores;
-    const max = cfgRodizio.fundadoresMax;
-    const bloco = blocoFixoDiario(daCidade, max);
-    const sobra = max - bloco.length;
-    if (sobra > 0) bloco.push(...blocoFixoDiario(deFora, sobra));
-    return [...bloco, ...patrocinados];
+    return [...blocoFixoDiario(fundadores, cfgRodizio.fundadoresMax), ...patrocinados];
     // slotRodizio entra na lista só para recalcular quando o dia virar com o app aberto
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [topoPrioritarios, cfgRodizio.fundadoresMax, slotRodizio, local.cidade]);
-  // Fundadores viram a faixa fina com nomes e Instagram; o carrossel de fotos fica só para patrocinados.
-  const tickerFundadores = useMemo(() => destaquesTopo.filter((d) => d.tipo === 'fundador'), [destaquesTopo]);
-  const carrosselTopo = useMemo(() => destaquesTopo.filter((d) => d.tipo !== 'fundador'), [destaquesTopo]);
+  }, [topoPrioritarios, cfgRodizio.fundadoresMax, slotRodizio]);
   // Faixa premium (abaixo dos ícones): plano pago ativo ou fixado em Em Alta, com
   // logo/foto, fora do topo fixo. Grupo de até 6 por hora; some com menos de 3.
   const grupoPremium = useMemo(() => {
@@ -450,30 +389,9 @@ export default function HomeScreen() {
     const vistos = new Set<string>();
     return lista.filter((i) => (vistos.has(i.chave) ? false : (vistos.add(i.chave), true))).slice(0, 6);
   }, [agendaHoje, locaisHoje, abertosAgora, t]);
-  // Regra única de Em Alta (lib/destaque.ts): pagantes e fixados primeiro; as vagas que sobram só
-  // são completadas com locais com foto e nome válido, e só se o /admin deixar (Rodízio).
   const emAlta = useMemo(
-    () => emAltaDaHora(emAltaPool, slotRodizio, cfgRodizio.tamanho, cfgRodizio.completarEmAlta),
-    [emAltaPool, slotRodizio, cfgRodizio.tamanho, cfgRodizio.completarEmAlta]
-  );
-  // Fileira "Em Alta" (cartões com foto): destaques primeiro, depois a rotação da hora.
-  // Quem já está no topo fixo não se repete; quem tem foto vem antes de quem não tem.
-  const cartoesEmAlta = useMemo(() => {
-    const fixos = new Set(topoPrioritarios.map((d) => d.id));
-    const vistos = new Set<string>();
-    const ordem = [...destaqueSemana, ...emAlta].filter((i) => {
-      if (fixos.has(i.id) || vistos.has(i.id)) return false;
-      vistos.add(i.id);
-      return true;
-    });
-    const comFoto = ordem.filter((i) => !!fotoDestaqueUrl(i));
-    const semFoto = ordem.filter((i) => !fotoDestaqueUrl(i));
-    return [...comFoto, ...semFoto].slice(0, 8);
-  }, [destaqueSemana, emAlta, topoPrioritarios]);
-  const hojeTotal = agendaHoje.length + locaisHoje.length + abertosAgora.length;
-  const tagsVisiveis = useMemo(
-    () => (expExistentes ? EXPERIENCIAS_TAGS.filter((e) => expExistentes.has(e.slug)) : []),
-    [expExistentes]
+    () => rodizioHorario(emAltaPool, 'em_alta', slotRodizio, cfgRodizio.tamanho),
+    [emAltaPool, slotRodizio, cfgRodizio.tamanho]
   );
   const [slide, setSlide] = useState(0);
   const carrosselRef = useRef<ScrollView>(null);
@@ -482,16 +400,16 @@ export default function HomeScreen() {
 
   // Carrossel do topo passa sozinho a cada 4 segundos.
   useEffect(() => {
-    if (carrosselTopo.length < 2 || reduzirMovimento) return;
+    if (destaquesTopo.length < 2) return;
     const timer = setInterval(() => {
       setSlide((atual) => {
-        const proximo = (atual + 1) % carrosselTopo.length;
+        const proximo = (atual + 1) % destaquesTopo.length;
         carrosselRef.current?.scrollTo({ x: proximo * (larguraSlide + 12), animated: true });
         return proximo;
       });
     }, 4000);
     return () => clearInterval(timer);
-  }, [carrosselTopo.length, larguraSlide, reduzirMovimento]);
+  }, [destaquesTopo.length, larguraSlide]);
 
   const isUserLogged = !!session;
 
@@ -517,7 +435,7 @@ export default function HomeScreen() {
             'id, nome, categoria, bairro, bairro_exibicao, cidade, instagram, foto_capa_url, logo_url, galeria_fotos, rating_media, rating_total, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status, horario_funcionamento'
           )
           .eq('status', 'aprovado')
-          .limit(200),
+          .limit(60),
         supabase
           .from('eventos')
           .select('id, titulo, data_inicio, locais(nome, bairro, bairro_exibicao)')
@@ -563,7 +481,7 @@ export default function HomeScreen() {
         // comercial — por isso não dá pra reaproveitar o lote de emAltaRes.
         supabase
           .from('local_badges')
-          .select('locais!inner(id, nome, categoria, foto_capa_url, logo_url, galeria_fotos, bairro, bairro_exibicao, cidade, instagram, status)')
+          .select('locais!inner(id, nome, categoria, foto_capa_url, logo_url, galeria_fotos, bairro, bairro_exibicao, cidade, status)')
           .ilike('rotulo', '%fundador%')
           .eq('ativo', true)
           .eq('locais.status', 'aprovado')
@@ -639,16 +557,6 @@ export default function HomeScreen() {
       setEmAltaPool(poolSemDestaque.length > 0 ? poolSemDestaque : todosAprovados);
       setAprovadosHome(todosAprovados);
       lerConfigRodizio().then(setCfgRodizio);
-      supabase
-        .from('locais')
-        .select('experiencias')
-        .eq('status', 'aprovado')
-        .limit(1000)
-        .then(({ data }) => {
-          const achadas = new Set<string>();
-          ((data as { experiencias: string[] | null }[] | null) ?? []).forEach((r) => (r.experiencias ?? []).forEach((x) => achadas.add(x)));
-          setExpExistentes(achadas);
-        });
       setDestaqueSemana(listaDestaqueSemana.slice(0, 8));
 
       // Abertos agora (O que fazer hoje), sem repetir quem já foi fixado.
@@ -673,7 +581,7 @@ export default function HomeScreen() {
       for (const f of listaFundadorLogos as any[]) {
         if (vistosTopo.has(f.id)) continue;
         vistosTopo.add(f.id);
-        topo.push({ id: f.id, nome: formatarNome(f.nome), foto: f.foto_capa_url || f.galeria_fotos?.[0] || f.logo_url || null, bairro: textoLocalizacao(f), tipo: 'fundador', cidade: f.cidade ?? null, instagram: f.instagram ?? null });
+        topo.push({ id: f.id, nome: formatarNome(f.nome), foto: f.foto_capa_url || f.galeria_fotos?.[0] || f.logo_url || null, bairro: textoLocalizacao(f), tipo: 'fundador' });
       }
       for (const p of ((emAltaRes.data as any) || []) as LocalCard[]) {
         if (vistosTopo.has(p.id) || !estaFixadoEm(p, 'patrocinado')) continue;
@@ -837,46 +745,23 @@ export default function HomeScreen() {
         {/* BUSCA — pílula única, tipo o "Para onde?" do Uber */}
         {/* Rodada 69 — abre a tela de busca (recentes, sugestões, populares e
             resultados por tipo: lugares, eventos, roteiros). */}
-        <View style={styles.buscaLinha}>
-          <TouchableOpacity
-            style={[styles.buscaContainer, { flex: 1, marginHorizontal: 0, marginBottom: 0 }]}
-            activeOpacity={0.85}
-            onPress={() => router.push({ pathname: '/busca' as any, params: local.cidade ? { cidade: local.cidade } : {} })}
-            accessibilityRole="search"
-            accessibilityLabel={t('home.busca')}
-          >
-            <Feather name="search" size={20} color={COLORS.textPrimary} />
-            <Text style={[styles.buscaInput, { color: COLORS.textSecondary }]} numberOfLines={1}>{t('home.busca')}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.sinoBtn}
-            activeOpacity={0.85}
-            onPress={() => router.push('/notificacoes' as any)}
-            accessibilityRole="button"
-            accessibilityLabel={avisosAtivos === false ? t('home.avisosAtivar') : t('home.avisos')}
-          >
-            <Feather name="bell" size={20} color={COLORS.textPrimary} />
-            {avisosAtivos === false && <View style={styles.sinoPonto} />}
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={styles.buscaContainer}
+          activeOpacity={0.85}
+          onPress={() => router.push({ pathname: '/busca' as any, params: local.cidade ? { cidade: local.cidade } : {} })}
+          accessibilityRole="search"
+          accessibilityLabel={t('home.busca')}
+        >
+          <Feather name="search" size={20} color={COLORS.textPrimary} />
+          <Text style={[styles.buscaInput, { color: COLORS.textSecondary }]}>{t('home.busca')}</Text>
+        </TouchableOpacity>
 
         <View style={{ height: 14 }} />
 
-        {/* MEMBROS FUNDADORES — faixa fina com nomes e Instagram passando devagar.
+        {/* DESTAQUES DOS FUNDADORES E PATROCINADOS — passa sozinho a cada 4s.
             Cumpre a promessa do plano Fundador (presença fixa no topo da Home). */}
-        {tickerFundadores.length > 0 && (
-          <FaixaFundadores
-            itens={tickerFundadores.map((d) => ({ id: d.id, nome: d.nome, instagram: d.instagram ?? null }))}
-            rotulo={t('home.fundadoresLabel')}
-            onAbrir={(id) => router.push(`/business/${id}` as any)}
-            onVerTodos={() => router.push('/experience/Membro%20Fundador' as any)}
-          />
-        )}
-
-        {/* PATROCINADOS — carrossel de fotos, passa sozinho a cada 4s (só aparece se houver patrocinados).
-            Cumpre a promessa do plano Fundador (presença fixa no topo da Home). */}
-        {carrosselTopo.length > 0 && (
-          <View style={{ marginBottom: 20 }}>
+        {destaquesTopo.length > 0 && (
+          <View style={{ marginBottom: 16 }}>
             <ScrollView
               ref={carrosselRef}
               horizontal
@@ -887,7 +772,7 @@ export default function HomeScreen() {
               contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
               onMomentumScrollEnd={(e) => setSlide(Math.round(e.nativeEvent.contentOffset.x / (larguraSlide + 12)))}
             >
-              {carrosselTopo.map((d) => {
+              {destaquesTopo.map((d) => {
                 const Container: any = d.foto ? ImageBackground : View;
                 const props = d.foto ? { source: { uri: d.foto }, imageStyle: { borderRadius: 18 }, resizeMode: 'cover' as const } : {};
                 return (
@@ -915,9 +800,9 @@ export default function HomeScreen() {
                 );
               })}
             </ScrollView>
-            {carrosselTopo.length > 1 && (
+            {destaquesTopo.length > 1 && (
               <View style={styles.pontos}>
-                {carrosselTopo.map((d, i) => (
+                {destaquesTopo.map((d, i) => (
                   <View key={`p-${d.tipo}-${d.id}`} style={[styles.ponto, i === slide && styles.pontoAtivo]} />
                 ))}
               </View>
@@ -973,164 +858,101 @@ export default function HomeScreen() {
             onAbrir={(id) => router.push(`/business/${id}` as any)}
           />
         ) : itensHoje.length > 0 ? (
-          <FaixaHoje itens={itensHoje} onAbrir={() => router.push('/secao/hoje' as any)} />
+          <FaixaHoje itens={itensHoje} onAbrir={(rota) => router.push(rota as any)} />
         ) : null}
 
-        {/* EM ALTA — cartões com foto, que se deslizam com o dedo (sem rodar sozinhos).
-            Inclui os destaques da semana, marcados com o selo DESTAQUE. */}
-        {cartoesEmAlta.length > 0 && (
-          <View style={{ marginBottom: 20 }}>
-            <View style={styles.emAltaCabecalho}>
-              <Text style={styles.emAltaTituloBloco}>{t('home.emAlta')}</Text>
-              <TouchableOpacity
-                onPress={() => router.push('/secao/em-alta' as any)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                accessibilityRole="button"
-                accessibilityLabel={`${t('home.emAlta')}: ${t('home.verTodos')}`}
-              >
-                <Text style={styles.emAltaVerTodos}>{t('home.verTodos')}</Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              decelerationRate="fast"
-              snapToInterval={CARTAO_ALTA_W + 10}
-              contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}
-            >
-              {cartoesEmAlta.map((l) => {
-                const foto = fotoDestaqueUrl(l);
-                // Sem foto, mas com logo: mostra o logo inteiro (sem cortar) sobre fundo claro.
-                const soLogo = !foto && !!l.logo_url;
-                const destaque = deveExibirGlow(l);
-                return (
-                  <TouchableOpacity
-                    key={l.id}
-                    style={styles.altaItem}
-                    activeOpacity={0.85}
-                    onPress={() => router.push(`/business/${l.id}` as any)}
-                    accessibilityRole="button"
-                    accessibilityLabel={formatarNome(l.nome)}
-                  >
-                    <View style={[styles.altaRedondo, destaque && styles.altaRedondoDestaque]}>
-                      {foto ? (
-                        <Image source={{ uri: foto }} style={styles.altaRedondoImg} resizeMode="cover" />
-                      ) : soLogo ? (
-                        <View style={styles.altaRedondoLogo}>
-                          <Image source={{ uri: l.logo_url as string }} style={{ width: '70%', height: '70%' }} resizeMode="contain" />
-                        </View>
-                      ) : (
-                        <Feather name="image" size={24} color={COLORS.textMuted} />
-                      )}
-                      {destaque && (
-                        <View style={styles.altaEstrela}>
-                          <Feather name="star" size={9} color="#000" />
-                        </View>
-                      )}
-                    </View>
-                    <Text style={styles.altaRedondoNome} numberOfLines={2}>{formatarNome(l.nome)}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-        )}
+        {/* ANÚNCIOS — carrossel que passa sozinho (Copa 2027, Embratur, Câmara LGBT).
+            Para trocar os anúncios (ex.: durante a Copa), mude só esta lista. */}
+        <CarrosselAnuncios
+          anuncios={[
+            {
+              id: 'brasil2027',
+              tag: t('home.brasil2027Tag'),
+              titulo: t('home.brasil2027Titulo'),
+              cta: t('home.brasil2027Cta'),
+              icone: 'globe',
+              cor: COLORS.pink,
+              onPress: () =>
+                registrarAviso({
+                  userId: user?.id,
+                  alvo: 'brasil2027',
+                  alvoLabel: 'Brasil 2027',
+                  t,
+                  irParaLogin: () => router.push('/(tabs)/profile'),
+                }),
+            },
+            {
+              id: 'embratur',
+              tag: t('home.anuncioEmbraturTag'),
+              titulo: t('home.anuncioEmbraturTitulo'),
+              cta: t('home.anuncioConhecer'),
+              icone: 'map',
+              cor: '#1E8A3F',
+              onPress: () => Linking.openURL('https://embratur.com.br/').catch(() => {}),
+            },
+            {
+              id: 'camaralgbt',
+              tag: t('home.anuncioCamaraTag'),
+              titulo: t('home.anuncioCamaraTitulo'),
+              cta: t('home.anuncioConhecer'),
+              icone: 'briefcase',
+              cor: COLORS.purple,
+              onPress: () => Linking.openURL('https://camaralgbt.com.br/').catch(() => {}),
+            },
+          ]}
+        />
 
-        {/* ATALHOS — três caixas pequenas: O que fazer hoje, Destaques da semana e
-            Recomendados pela equipe. Sem contador (com pouco conteúdo ele só expõe
-            que a lista é curta); "hoje" e "destaques" somem se não há nada. */}
-        <View style={styles.atalhosLinha}>
+
+        {/* 4 CAIXAS LADO A LADO — cada uma abre uma página com os slots
+            relacionados (src/app/secao/[tipo].tsx). Na Home fica só o atalho
+            com a contagem; as listas completas ficam nas páginas. */}
+        <View style={styles.gradeSecoes}>
           {[
-            { id: 'alta', mostrar: cartoesEmAlta.length > 0, titulo: t('home.emAlta'), icone: 'trending-up', cor: COLORS.gold, rota: '/secao/em-alta' },
-            { id: 'hoje', mostrar: hojeTotal > 0 && !(grupoPremium.length === 0 && itensHoje.length > 0), titulo: t('home.hojeTitulo'), icone: 'zap', cor: COLORS.pink, rota: '/secao/hoje' },
-            { id: 'semana', mostrar: destaqueSemana.length > 0, titulo: t('home.destaqueSemana'), icone: 'star', cor: COLORS.amber, rota: '/secao/semana' },
-            { id: 'equipe', mostrar: true, titulo: t('home.atalhoEquipe'), icone: 'check-circle', cor: COLORS.pink, rota: '/experience/Selo%20Dicas%20LGBT%2B' },
-          ]
-            .filter((a) => a.mostrar)
-            .map((a) => (
-              <TouchableOpacity
-                key={a.id}
-                style={styles.atalhoCaixa}
-                activeOpacity={0.85}
-                onPress={() => router.push(a.rota as any)}
-                accessibilityRole="button"
-                accessibilityLabel={a.titulo}
-              >
-                <View style={[styles.atalhoCaixaIcone, { borderColor: a.cor }]}>
-                  <Feather name={a.icone as any} size={13} color={a.cor} />
-                </View>
-                <Text style={styles.atalhoCaixaTitulo} numberOfLines={2}>{a.titulo}</Text>
-              </TouchableOpacity>
-            ))}
-        </View>
-
-        {/* TAGS DE EXPERIÊNCIA — uma linha que se desliza, no final da página.
-            Tocar numa tag abre a lista filtrada; "Ver" abre a página com todas. */}
-        {tagsVisiveis.length > 0 && (
-        <>
-        <Text style={styles.tagsTitulo}>{t('home.experiencia').toUpperCase()}</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.tagsLinha}
-          style={{ marginBottom: 20 }}
-          accessibilityLabel={t('home.experiencia')}
-        >
-          {tagsVisiveis.map((exp) => (
+            { tipo: 'em-alta', titulo: t('home.emAlta'), icone: 'trending-up', cor: COLORS.gold, qtd: emAlta.length },
+            { tipo: 'hoje', titulo: t('home.hojeTitulo'), icone: 'zap', cor: COLORS.pink, qtd: agendaHoje.length + locaisHoje.length + abertosAgora.length },
+            { tipo: 'semana', titulo: t('home.destaqueSemana'), icone: 'star', cor: COLORS.amber, qtd: destaqueSemana.length },
+            { tipo: 'experiencia', titulo: t('home.experiencia'), icone: 'heart', cor: COLORS.purple, qtd: EXPERIENCIAS_HOME.length },
+          ].map((b) => (
             <TouchableOpacity
-              key={exp.slug}
-              style={styles.tagExp}
-              activeOpacity={0.8}
-              onPress={() => openExperienceScreen(exp)}
+              key={b.tipo}
+              style={styles.secaoBox}
+              activeOpacity={0.85}
+              onPress={() => router.push(`/secao/${b.tipo}` as any)}
               accessibilityRole="button"
-              accessibilityLabel={exp.label}
+              accessibilityLabel={b.titulo}
             >
-              <Text style={styles.tagExpTexto}>{exp.label}</Text>
+              <View style={[styles.secaoBoxIcone, { borderColor: b.cor }]}>
+                <Feather name={b.icone as any} size={18} color={b.cor} />
+              </View>
+              <Text style={styles.secaoBoxTitulo} numberOfLines={2}>{b.titulo}</Text>
+              <View style={styles.secaoBoxRodape}>
+                <Text style={styles.secaoBoxQtd}>
+                  {loading ? '…' : b.qtd === 1 ? t('home.boxQtd1') : b.qtd > 1 ? t('home.boxQtd', { n: String(b.qtd) }) : t('home.boxVer')}
+                </Text>
+                <Feather name="chevron-right" size={14} color={COLORS.textSecondary} />
+              </View>
             </TouchableOpacity>
           ))}
-          <TouchableOpacity
-            style={styles.tagExp}
-            activeOpacity={0.8}
-            onPress={() => router.push('/secao/experiencia' as any)}
-            accessibilityRole="button"
-            accessibilityLabel={t('home.experiencia')}
-          >
-            <Text style={[styles.tagExpTexto, { color: COLORS.pink }]}>{t('home.boxVer')}</Text>
-            <Feather name="chevron-right" size={14} color={COLORS.pink} />
-          </TouchableOpacity>
-        </ScrollView>
-        </>
-        )}
-        {/* NEWS — notícia do momento (sem a marca "Copa do Mundo", FIFA/App Store 5.2) */}
-        <View style={styles.brasilCard}>
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text style={styles.brasilTag} numberOfLines={1}>{t('home.brasil2027Tag')}</Text>
-            <Text style={styles.brasilTitulo} numberOfLines={2}>{t('home.brasil2027Titulo')}</Text>
-          </View>
-          <TouchableOpacity
-            style={styles.brasilBtn}
-            activeOpacity={0.85}
-            accessibilityRole="button"
-            accessibilityLabel={t('home.brasil2027CtaCurto')}
-            onPress={() =>
-              registrarAviso({
-                userId: user?.id,
-                alvo: 'brasil2027',
-                alvoLabel: 'Brasil 2027',
-                t,
-                irParaLogin: () => router.push('/(tabs)/profile'),
-              })
-            }
-          >
-            <Text style={styles.brasilBtnTexto}>{t('home.brasil2027CtaCurto')}</Text>
-          </TouchableOpacity>
         </View>
 
+        {/* CONHEÇA NOSSOS SELOS — dois cartões iguais, lado a lado */}
+        <View style={styles.secaoBloco}>
+          <View style={styles.selosRow}>
+            {BANNERS_PRINCIPAIS.filter((b) => b.id !== 'b3').map((b) => (
+              <TouchableOpacity key={b.id} style={styles.seloCard} activeOpacity={0.85} onPress={() => router.push(b.route as any)}>
+                <Feather name={b.icone as any} size={22} color={b.cor} />
+                <Text style={styles.seloTitulo} numberOfLines={2}>{t(b.titulo)}</Text>
+                <Text style={styles.seloSub} numberOfLines={3}>{t(b.sub)}</Text>
+                <Text style={[styles.seloCta, { color: b.cor }]}>{t(b.cta)} →</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
         {/* RODAPÉ — canais oficiais */}
         <View style={styles.rodape}>
           {[
             { label: t('rodape.site'), icone: 'globe', onPress: () => Linking.openURL('https://www.dicaslgbt.com.br') },
-            { label: t('rodape.produtos'), icone: 'shopping-bag', onPress: () => Linking.openURL('https://www.dicaslgbt.com.br/dicas-lab') },
+            { label: t('rodape.produtos'), icone: 'shopping-bag', onPress: () => router.push({ pathname: '/category/produtos' as any, params: { title: encodeURIComponent(t('rodape.produtos')) } }) },
             { label: 'Instagram', icone: 'instagram', onPress: () => Linking.openURL('https://www.instagram.com/dicaslgbt/') },
             { label: t('rodape.parceiro'), icone: 'briefcase', onPress: () => Linking.openURL('https://www.dicaslgbt.com.br/parceiro-fundador') },
           ].map((l) => (
@@ -1140,7 +962,7 @@ export default function HomeScreen() {
               <Feather name="external-link" size={13} color={COLORS.textMuted} />
             </TouchableOpacity>
           ))}
-          <Text style={styles.rodapeAssinatura}>Dicas LGBT+</Text>
+          <Text style={styles.rodapeAssinatura}>Dicas LGBT+ · Vezpa Bar</Text>
         </View>
       </ScrollView>
     </View>
@@ -1204,10 +1026,10 @@ const styles = StyleSheet.create({
   pontoAtivo: { width: 18, backgroundColor: COLORS.pink },
   altaBox: { width: 112 },
   emAltaCabecalho: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, marginBottom: 8 },
-  faixaPremiumFundo: { marginBottom: 20, paddingVertical: 14, overflow: 'hidden' },
+  faixaPremiumFundo: { marginBottom: 16, paddingVertical: 14, overflow: 'hidden' },
   avatarAnel: { width: AVATAR_ANEL, height: AVATAR_ANEL, borderRadius: AVATAR_ANEL / 2, borderWidth: 2, borderColor: COLORS.gold, alignItems: 'center', justifyContent: 'center', marginRight: AVATAR_GAP },
   avatarMiolo: { width: AVATAR, height: AVATAR, borderRadius: AVATAR / 2, backgroundColor: COLORS.card, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  faixaHoje: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 16, marginBottom: 20, paddingHorizontal: 14, height: 44, borderRadius: 22, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
+  faixaHoje: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 16, marginBottom: 16, paddingHorizontal: 14, height: 44, borderRadius: 22, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
   faixaHojeTexto: { flex: 1, fontSize: 13, fontWeight: '600', color: COLORS.textPrimary },
   emAltaTituloBloco: { fontSize: 14, fontWeight: '800', color: COLORS.textPrimary },
   emAltaVerTodos: { fontSize: 12, fontWeight: '700', color: COLORS.pink },
@@ -1230,33 +1052,6 @@ const styles = StyleSheet.create({
   semanaCard: { width: 210, height: 92, borderRadius: 14, padding: 12, justifyContent: 'space-between', backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.amber, overflow: 'hidden' },
   semanaBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: COLORS.amber, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2 },
   selosRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 16 },
-  atalhosLinha: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, marginBottom: 20 },
-  atalhoCaixa: { flexGrow: 1, flexBasis: '47%', flexDirection: 'row', alignItems: 'center', minHeight: 44, borderRadius: 22, paddingHorizontal: 10, paddingVertical: 6, gap: 8, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
-  atalhoCaixaIcone: { width: 24, height: 24, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  atalhoCaixaTitulo: { flex: 1, fontSize: 11.5, fontWeight: '800', color: COLORS.textPrimary },
-  tagsTitulo: { fontSize: 11, fontWeight: '800', letterSpacing: 0.8, color: COLORS.textMuted, paddingHorizontal: 16, marginBottom: 8 },
-  tagsLinha: { paddingHorizontal: 16, gap: 8 },
-  tagExp: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 32, paddingHorizontal: 13, borderRadius: 16, backgroundColor: COLORS.card, borderWidth: 1, borderColor: '#3A2D5A' },
-  tagExpTexto: { fontSize: 12, fontWeight: '700', color: COLORS.textPrimary },
-  altaItem: { width: CARTAO_ALTA_W, alignItems: 'center', gap: 6 },
-  altaRedondo: { width: 76, height: 76, borderRadius: 38, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.card, borderWidth: 2, borderColor: COLORS.border },
-  altaRedondoDestaque: { borderColor: COLORS.pink },
-  altaRedondoImg: { width: '100%', height: '100%' },
-  altaRedondoLogo: { width: '100%', height: '100%', backgroundColor: '#F4F1FA', alignItems: 'center', justifyContent: 'center' },
-  altaEstrela: { position: 'absolute', top: 2, right: 4, width: 16, height: 16, borderRadius: 8, backgroundColor: COLORS.gold, alignItems: 'center', justifyContent: 'center' },
-  altaRedondoNome: { fontSize: 11, lineHeight: 13, fontWeight: '700', color: COLORS.textPrimary, textAlign: 'center' },
-  cartaoAlta: { width: CARTAO_ALTA_W, height: 116, borderRadius: 16, overflow: 'hidden', backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
-  cartaoAltaFundadores: { alignItems: 'center', justifyContent: 'center', gap: 6, padding: 8, borderColor: COLORS.gold },
-  cartaoAltaFundadoresTexto: { fontSize: 11, fontWeight: '800', color: COLORS.textPrimary, textAlign: 'center' },
-  cartaoAltaFundadoresCta: { fontSize: 14, fontWeight: '800', color: COLORS.gold },
-  cartaoAltaSelo: { position: 'absolute', top: 5, left: 5, flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: COLORS.gold, borderRadius: 5, paddingHorizontal: 4, paddingVertical: 2 },
-  cartaoAltaSeloTexto: { fontSize: 8, fontWeight: '800', color: '#000', letterSpacing: 0.4 },
-  cartaoAltaRodape: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 7, paddingBottom: 7, paddingTop: 4 },
-  cartaoAltaNome: { fontSize: 11, lineHeight: 13, fontWeight: '800', color: '#FFFFFF' },
-  cartaoAltaLogoFundo: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#F4F1FA', alignItems: 'center', paddingTop: 10 },
-  cartaoAltaLogoImg: { width: '62%', height: 52 },
-  cartaoAltaMeta: { fontSize: 10, color: '#D0D0DC', marginTop: 1 },
-  hojeLinhaQtd: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary },
   rodape: { marginTop: 8, marginHorizontal: 16, paddingTop: 8 },
   rodapeLink: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11 },
   rodapeTexto: { flex: 1, fontSize: 13, fontWeight: '600', color: COLORS.textPrimary },
@@ -1277,8 +1072,8 @@ const styles = StyleSheet.create({
   secaoBoxTitulo: { fontSize: 13, fontWeight: '800', color: COLORS.textPrimary },
   secaoBoxRodape: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   secaoBoxQtd: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary },
-  seloCard: { flex: 1, flexDirection: 'row', alignItems: 'center', borderRadius: 14, paddingVertical: 12, paddingHorizontal: 14, gap: 10, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
-  seloTitulo: { flex: 1, fontSize: 13, fontWeight: '800', color: COLORS.textPrimary },
+  seloCard: { flex: 1, minHeight: 140, borderRadius: 14, padding: 12, gap: 6, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
+  seloTitulo: { fontSize: 12, fontWeight: '800', color: COLORS.textPrimary },
   seloSub: { fontSize: 12, color: COLORS.textSecondary, lineHeight: 16, flexGrow: 1 },
   seloCta: { fontSize: 12, fontWeight: '800' },
   localLabel: { fontSize: 12, fontWeight: '500', color: COLORS.textSecondary },
@@ -1321,9 +1116,6 @@ const styles = StyleSheet.create({
     borderRadius: 23,
     backgroundColor: COLORS.border,
   },
-  buscaLinha: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 16 },
-  sinoBtn: { width: 46, height: 46, borderRadius: 23, backgroundColor: COLORS.border, alignItems: 'center', justifyContent: 'center' },
-  sinoPonto: { position: 'absolute', top: 11, right: 12, width: 9, height: 9, borderRadius: 5, backgroundColor: COLORS.pink, borderWidth: 1.5, borderColor: COLORS.border },
   buscaInput: { flex: 1, color: COLORS.textPrimary, fontSize: 14, fontWeight: '700' },
 
   atalhoItem: {
@@ -1383,29 +1175,25 @@ const styles = StyleSheet.create({
 
   brasilCard: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    minHeight: 70,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
     marginHorizontal: 16,
-    marginBottom: 20,
+    marginBottom: 18,
     borderRadius: 14,
     overflow: 'hidden',
-    backgroundColor: '#1B1430',
-    borderWidth: 1,
-    borderColor: '#3A2D5A',
+    backgroundColor: COR_TILE,
   },
-  brasilTag: { fontSize: 10, fontWeight: '800', color: '#B39DDB', letterSpacing: 0.6 },
-  brasilTitulo: { fontSize: 13, fontWeight: '800', color: '#FFFFFF', lineHeight: 17 },
+  brasilTag: { fontSize: 11, fontWeight: '800', color: COLORS.purple, letterSpacing: 0.6 },
+  brasilTitulo: { fontSize: 14, fontWeight: '800', color: COR_TILE_TEXTO, lineHeight: 18 },
   brasilBtn: {
-    backgroundColor: COLORS.pink,
+    alignSelf: 'flex-start',
+    marginTop: 6,
+    backgroundColor: COR_TILE_TEXTO,
     borderRadius: 18,
     paddingHorizontal: 14,
-    minHeight: 36,
+    minHeight: 32,
     justifyContent: 'center',
   },
   brasilBtnTexto: { fontSize: 12, fontWeight: '800', color: '#FFFFFF' },
+  brasilFaixa: { width: 72, backgroundColor: COLORS.pink, alignItems: 'center', justifyContent: 'center' },
 
   bannerScrollView: { marginBottom: 24 },
   bannerScrollContent: { paddingLeft: 16, paddingRight: 4 },
@@ -1464,7 +1252,7 @@ const styles = StyleSheet.create({
   bannerLogoMaisTexto: { fontSize: 10, fontWeight: '800', color: COLORS.textSecondary },
 
   // Out/2026 — Home mais compacta (cabe mais coisa na primeira tela).
-  secaoBloco: { marginBottom: 20 },
+  secaoBloco: { marginBottom: 18 },
   // Mesmo padrão de título de seção em todas as telas (igual Eventos): 17/800.
   sectionTituloPadrao: { fontSize: 15, fontWeight: '800', color: COLORS.textPrimary, paddingHorizontal: 16, marginBottom: 10 },
   sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 12 },
