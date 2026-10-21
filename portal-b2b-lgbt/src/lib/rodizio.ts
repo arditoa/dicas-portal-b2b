@@ -115,9 +115,12 @@ export const CATEGORIAS_VITRINE_HOME = new Set(['lugares', 'eventos', 'gastronom
 export const VITRINE_HOME_MAX = 5;
 
 export function elegivelVitrineHome(l: {
+  nome?: string | null;
   categoria?: string | null;
   foto_capa_url?: string | null;
   galeria_fotos?: string[] | null;
 }): boolean {
+  // Cadastro com razão social no lugar do nome (ex.: "31.635.075 Paulo ...") não vai para a vitrine.
+  if (l.nome && /^\s*\d{2}\.?\d{3}\.?\d{3}/.test(l.nome)) return false;
   return !!l.categoria && CATEGORIAS_VITRINE_HOME.has(l.categoria) && !!(l.foto_capa_url || l.galeria_fotos?.[0]);
 }
