@@ -20,6 +20,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import FundoDegrade from '../../components/FundoDegrade';
+import FundoFaixaPremium from '../../components/FundoFaixaPremium';
 import { useCidadeAtual } from '../../hooks/useCidadeAtual';
 import { useSlotHora } from '../../hooks/useSlotHora';
 import { blocoFixoDiario, chaveSemana, grupoFaixaPremium, temImagemParaFaixa } from '../../lib/rodizio';
@@ -133,15 +134,16 @@ function FaixaPremium({
   const { width } = useWindowDimensions();
   const passo = AVATAR_ANEL + AVATAR_GAP;
   const larguraLista = itens.length * passo;
-  const disponivel = Math.min(width, 600) - 32;
-  const copias = Math.max(2, Math.ceil((disponivel + larguraLista) / larguraLista));
-  const x = useRef(new Animated.Value(0)).current;
+  // A faixa vai de borda a borda da tela; os avatares começam 16 px da borda esquerda.
+  const disponivel = Math.min(width, 600);
+  const copias = Math.max(2, Math.ceil((disponivel + larguraLista + 16) / larguraLista));
+  const x = useRef(new Animated.Value(16)).current;
 
   useEffect(() => {
-    x.setValue(0);
+    x.setValue(16);
     const anim = Animated.loop(
       Animated.timing(x, {
-        toValue: -larguraLista,
+        toValue: 16 - larguraLista,
         duration: Math.round((larguraLista / VELOCIDADE_PX_S) * 1000),
         easing: Easing.linear,
         useNativeDriver: true,
@@ -153,7 +155,8 @@ function FaixaPremium({
 
   const lista = Array.from({ length: copias }, () => itens).flat();
   return (
-    <View style={{ marginHorizontal: 16, marginBottom: 16, overflow: 'hidden' }}>
+    <View style={styles.faixaPremiumFundo}>
+      <FundoFaixaPremium />
       <Animated.View style={{ flexDirection: 'row', width: lista.length * passo, transform: [{ translateX: x }] }}>
         {lista.map((l, i) => (
           <TouchableOpacity
@@ -1007,6 +1010,7 @@ const styles = StyleSheet.create({
   pontoAtivo: { width: 18, backgroundColor: COLORS.pink },
   altaBox: { width: 112 },
   emAltaCabecalho: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, marginBottom: 8 },
+  faixaPremiumFundo: { marginBottom: 16, paddingVertical: 14, overflow: 'hidden' },
   avatarAnel: { width: AVATAR_ANEL, height: AVATAR_ANEL, borderRadius: AVATAR_ANEL / 2, borderWidth: 2, borderColor: COLORS.gold, alignItems: 'center', justifyContent: 'center', marginRight: AVATAR_GAP },
   avatarMiolo: { width: AVATAR, height: AVATAR, borderRadius: AVATAR / 2, backgroundColor: COLORS.card, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   faixaHoje: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 16, marginBottom: 16, paddingHorizontal: 14, height: 44, borderRadius: 22, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
