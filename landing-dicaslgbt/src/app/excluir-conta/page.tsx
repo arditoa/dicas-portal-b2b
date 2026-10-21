@@ -36,7 +36,7 @@ export default function ExcluirContaPage() {
         <div className="bg-[#161520] border border-[#232230] rounded-2xl p-6 mb-6">
           <h2 className="font-bold mb-3">Opção 1 — direto pelo app</h2>
           <p className="text-[#A0A0B2] text-sm leading-relaxed">
-            Abra o app, vá em <strong className="text-white">Perfil → Configurações → Excluir conta</strong>{' '}
+            Abra o app, vá na aba <strong className="text-white">Conta → Preferências e privacidade → Excluir minha conta</strong>{' '}
             e confirme. A exclusão é processada imediatamente pelo próprio app.
           </p>
         </div>
