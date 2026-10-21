@@ -50,6 +50,7 @@ export default function PrivacidadePage() {
               <li>CPF ou CNPJ, nome do negócio, categoria, cidade, bairro e Instagram (cadastro de empresa).</li>
               <li>Fotos enviadas por você para o perfil do seu negócio.</li>
               <li>Dados de navegação usados para entender a origem do cadastro (de qual página ou campanha você veio).</li>
+              <li>No aplicativo, se você ativar os avisos: o identificador do seu aparelho para notificações e as suas escolhas de quais avisos receber.</li>
             </ul>
           </div>
 
@@ -59,7 +60,7 @@ export default function PrivacidadePage() {
               Para analisar e aprovar cadastros de empresas e eventos, avisar sobre o lançamento do
               aplicativo, manter contato sobre o seu cadastro, e exibir o perfil do seu negócio dentro
               do app depois de aprovado. Comunicações promocionais só são enviadas se você marcar essa
-              opção — é sempre opcional, separada do restante do cadastro.
+              opção — é sempre opcional, separada do restante do cadastro. Notificações push do aplicativo só são enviadas se você ativá-las em Conta &gt; Notificações, tipo por tipo, e podem ser desligadas a qualquer momento.
             </p>
           </div>
 
