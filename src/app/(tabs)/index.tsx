@@ -22,9 +22,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FundoDegrade from '../../components/FundoDegrade';
 import { useCidadeAtual } from '../../hooks/useCidadeAtual';
 import { useSlotHora } from '../../hooks/useSlotHora';
-import { VITRINE_HOME_MAX, blocoFixoDiario, deveMostrarRodizio, elegivelVitrineHome } from '../../lib/rodizio';
+import { blocoFixoDiario, chaveSemana, grupoFaixaPremium, temImagemParaFaixa } from '../../lib/rodizio';
 import { formatarNome } from '../../lib/texto';
-import { textoLocalizacao } from '../../lib/localizacao';
+import { categoriaMostraEndereco, textoLocalizacao } from '../../lib/localizacao';
 import { CONFIG_RODIZIO_PADRAO, ConfigRodizio, lerConfigRodizio } from '../../lib/rodizioConfig';
 import { abertoAgora } from '../../lib/horario';
 import { useAuth } from '../../lib/authContext';
@@ -33,6 +33,7 @@ import { IDIOMAS, useI18n } from '../../lib/i18n';
 import { CATEGORIA_ORDER, CATEGORIA_REAL_LABEL, CATEGORIAS, CategoriaConfig } from '../../lib/categorias';
 import {
   compararDestaque,
+  ehPremiumAtivo,
   rodizioHorario,
   deveExibirGlow,
   deveIncluirEm,
@@ -113,40 +114,47 @@ const BANNERS_PRINCIPAIS = [
   },
 ];
 
-const TILE = 60;
-const TILE_GAP = 10;
+const AVATAR = 54;
+const AVATAR_ANEL = 62;
+const AVATAR_GAP = 12;
+const VELOCIDADE_PX_S = 28;
 
-// Rodada 79 — faixa de locais premium passando sozinhos, sem texto: só as
-// fotos/logos, deslizando devagar e em círculo. Toque abre o local. Se couberem
-// todos na largura da tela, ficam parados.
+// Rodada 79 — faixa de locais premium: avatares redondos com anel dourado
+// passando devagar, em círculo contínuo (a lista se repete até preencher a
+// largura, então nunca sobra espaço vazio). Sem texto. Toque abre o local; o
+// nome fica só como rótulo de acessibilidade.
 function FaixaPremium({
   itens,
   onAbrir,
 }: {
-  itens: { id: string; nome: string; foto: string | null; destaque: boolean }[];
+  itens: { id: string; nome: string; imagem: string; ehLogo: boolean }[];
   onAbrir: (id: string) => void;
 }) {
   const { width } = useWindowDimensions();
-  const passo = TILE + TILE_GAP;
+  const passo = AVATAR_ANEL + AVATAR_GAP;
   const larguraLista = itens.length * passo;
   const disponivel = Math.min(width, 600) - 32;
-  const rola = larguraLista - TILE_GAP > disponivel;
+  const copias = Math.max(2, Math.ceil((disponivel + larguraLista) / larguraLista));
   const x = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     x.setValue(0);
-    if (!rola) return;
     const anim = Animated.loop(
-      Animated.timing(x, { toValue: -larguraLista, duration: itens.length * 3500, easing: Easing.linear, useNativeDriver: true })
+      Animated.timing(x, {
+        toValue: -larguraLista,
+        duration: Math.round((larguraLista / VELOCIDADE_PX_S) * 1000),
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
     );
     anim.start();
     return () => anim.stop();
-  }, [rola, larguraLista, itens.length, x]);
+  }, [larguraLista, x]);
 
-  const lista = rola ? [...itens, ...itens] : itens;
+  const lista = Array.from({ length: copias }, () => itens).flat();
   return (
     <View style={{ marginHorizontal: 16, marginBottom: 16, overflow: 'hidden' }}>
-      <Animated.View style={{ flexDirection: 'row', gap: TILE_GAP, width: lista.length * passo, transform: [{ translateX: x }] }}>
+      <Animated.View style={{ flexDirection: 'row', width: lista.length * passo, transform: [{ translateX: x }] }}>
         {lista.map((l, i) => (
           <TouchableOpacity
             key={`${l.id}-${i}`}
@@ -154,17 +162,58 @@ function FaixaPremium({
             onPress={() => onAbrir(l.id)}
             accessibilityRole="button"
             accessibilityLabel={l.nome}
-            style={[styles.tilePremium, l.destaque && { borderColor: COLORS.amber }]}
+            style={styles.avatarAnel}
           >
-            {l.foto ? (
-              <Image source={{ uri: l.foto }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-            ) : (
-              <Feather name="map-pin" size={18} color={COLORS.textMuted} />
-            )}
+            <View style={[styles.avatarMiolo, l.ehLogo && { backgroundColor: '#FFFFFF' }]}>
+              <Image
+                source={{ uri: l.imagem }}
+                style={l.ehLogo ? { width: '78%', height: '78%' } : { width: '100%', height: '100%' }}
+                resizeMode={l.ehLogo ? 'contain' : 'cover'}
+              />
+            </View>
           </TouchableOpacity>
         ))}
       </Animated.View>
     </View>
+  );
+}
+
+// Enquanto não há premium suficiente: faixa fina com o que acontece hoje,
+// trocando sozinha a cada 4 s (esmaece de um item para o outro).
+function FaixaHoje({
+  itens,
+  onAbrir,
+}: {
+  itens: { chave: string; rota: string; texto: string }[];
+  onAbrir: (rota: string) => void;
+}) {
+  const [i, setI] = useState(0);
+  const opac = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    setI(0);
+    if (itens.length < 2) return;
+    const timer = setInterval(() => {
+      Animated.timing(opac, { toValue: 0, duration: 220, useNativeDriver: true }).start(() => {
+        setI((a) => (a + 1) % itens.length);
+        Animated.timing(opac, { toValue: 1, duration: 220, useNativeDriver: true }).start();
+      });
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [itens, opac]);
+  const atual = itens[i % itens.length];
+  if (!atual) return null;
+  return (
+    <TouchableOpacity
+      style={styles.faixaHoje}
+      activeOpacity={0.85}
+      onPress={() => onAbrir(atual.rota)}
+      accessibilityRole="button"
+      accessibilityLabel={atual.texto}
+    >
+      <Feather name="zap" size={15} color={COLORS.pink} />
+      <Animated.Text style={[styles.faixaHojeTexto, { opacity: opac }]} numberOfLines={1}>{atual.texto}</Animated.Text>
+      <Feather name="chevron-right" size={16} color={COLORS.textSecondary} />
+    </TouchableOpacity>
   );
 }
 
@@ -182,6 +231,7 @@ interface LocalCard {
   cidade: string;
   instagram: string | null;
   foto_capa_url: string | null;
+  logo_url?: string | null;
   // Rodada 56 — bug reportado pela Andrea: cards de destaque (Selo Dicas,
   // Em Alta) ficavam sem foto nenhuma quando o parceiro só tinha subido
   // fotos na galeria (recurso premium, dashboard/perfil) mas nunca
@@ -257,6 +307,7 @@ export default function HomeScreen() {
   const [favoritos, setFavoritos] = useState<string[]>([]);
 
   const [emAltaPool, setEmAltaPool] = useState<LocalCard[]>([]);
+  const [aprovadosHome, setAprovadosHome] = useState<LocalCard[]>([]);
   const [cfgRodizio, setCfgRodizio] = useState<ConfigRodizio>(CONFIG_RODIZIO_PADRAO);
   // Rodada 47 — criado como "Selo Dicas LGBT+", seção própria com
   // curadoria editorial da Andrea. Rodada 56 (3ª rodada de ajuste) —
@@ -309,19 +360,31 @@ export default function HomeScreen() {
     // slotRodizio entra na lista só para recalcular quando o dia virar com o app aberto
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topoPrioritarios, cfgRodizio.fundadoresMax, slotRodizio]);
-  const poolRodizioHome = useMemo(() => {
+  // Faixa premium (abaixo dos ícones): plano pago ativo ou fixado em Em Alta, com
+  // logo/foto, fora do topo fixo. Grupo de até 6 por hora; some com menos de 3.
+  const grupoPremium = useMemo(() => {
     const fixos = new Set(topoPrioritarios.map((d) => d.id));
-    return emAltaPool.filter((p) => !fixos.has(p.id) && elegivelVitrineHome(p));
-  }, [emAltaPool, topoPrioritarios]);
-  const emAltaAgora = useMemo(
-    () => {
-      const qtd = Math.min(cfgRodizio.tamanho, VITRINE_HOME_MAX);
-      return deveMostrarRodizio(poolRodizioHome.length, 2)
-        ? rodizioHorario(poolRodizioHome, 'em_alta', slotRodizio, qtd)
-        : [];
-    },
-    [poolRodizioHome, slotRodizio, cfgRodizio.tamanho]
-  );
+    const premium = aprovadosHome.filter((p) => !fixos.has(p.id) && ehPremiumAtivo(p) && temImagemParaFaixa(p));
+    return grupoFaixaPremium(premium, slotRodizio, chaveSemana());
+  }, [aprovadosHome, topoPrioritarios, slotRodizio]);
+  // Sem premium suficiente: "o que acontece hoje" (eventos de hoje, locais fixados
+  // para hoje e lugares abertos agora), numa faixa fina.
+  const itensHoje = useMemo(() => {
+    const hora = (iso: string) => {
+      const d = new Date(iso);
+      const m = d.getMinutes();
+      return `${d.getHours()}h${m ? String(m).padStart(2, '0') : ''}`;
+    };
+    const lista = [
+      ...agendaHoje.map((e) => ({ chave: `e-${e.id}`, rota: `/evento/${e.id}`, texto: `${t('home.hojeLabel')} · ${hora(e.data_inicio)} · ${e.titulo}` })),
+      ...locaisHoje.map((l) => ({ chave: `l-${l.id}`, rota: `/business/${l.id}`, texto: `${t('home.hojeLabel')} · ${formatarNome(l.nome)}` })),
+      ...abertosAgora
+        .filter((l) => categoriaMostraEndereco(l.categoria))
+        .map((l) => ({ chave: `a-${l.id}`, rota: `/business/${l.id}`, texto: `${t('home.abertoAgora')} · ${formatarNome(l.nome)}` })),
+    ];
+    const vistos = new Set<string>();
+    return lista.filter((i) => (vistos.has(i.chave) ? false : (vistos.add(i.chave), true))).slice(0, 6);
+  }, [agendaHoje, locaisHoje, abertosAgora, t]);
   const emAlta = useMemo(
     () => rodizioHorario(emAltaPool, 'em_alta', slotRodizio, cfgRodizio.tamanho),
     [emAltaPool, slotRodizio, cfgRodizio.tamanho]
@@ -365,7 +428,7 @@ export default function HomeScreen() {
         supabase
           .from('locais')
           .select(
-            'id, nome, categoria, bairro, bairro_exibicao, cidade, instagram, foto_capa_url, galeria_fotos, rating_media, rating_total, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status, horario_funcionamento'
+            'id, nome, categoria, bairro, bairro_exibicao, cidade, instagram, foto_capa_url, logo_url, galeria_fotos, rating_media, rating_total, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status, horario_funcionamento'
           )
           .eq('status', 'aprovado')
           .limit(60),
@@ -488,6 +551,7 @@ export default function HomeScreen() {
       const todosAprovados = ((emAltaRes.data as any) || []) as LocalCard[];
       const poolSemDestaque = todosAprovados.filter((i) => !idsDestaque.has(i.id));
       setEmAltaPool(poolSemDestaque.length > 0 ? poolSemDestaque : todosAprovados);
+      setAprovadosHome(todosAprovados);
       lerConfigRodizio().then(setCfgRodizio);
       setDestaqueSemana(listaDestaqueSemana.slice(0, 8));
 
@@ -776,15 +840,22 @@ export default function HomeScreen() {
             })}
           </ScrollView>
         </View>
-        {/* PREMIUM EM ROTAÇÃO — locais passando sozinhos, sem texto. Grupo de
-            até 6 que troca por hora; planos pagos e fixados primeiro, o resto
-            completa. Só aparece com ao menos 2 locais elegíveis. */}
-        {emAltaAgora.length > 1 && (
+        {/* LOCAIS PREMIUM — avatares passando sozinhos, sem texto (grupo de até 6
+            por hora). Só aparece com 3 ou mais premium; antes disso, no lugar,
+            uma faixa fina com o que acontece hoje. */}
+        {grupoPremium.length > 0 ? (
           <FaixaPremium
-            itens={emAltaAgora.map((l) => ({ id: l.id, nome: formatarNome(l.nome), foto: fotoDestaqueUrl(l), destaque: deveExibirGlow(l) }))}
+            itens={grupoPremium.map((l) => ({
+              id: l.id,
+              nome: formatarNome(l.nome),
+              imagem: (l.logo_url || fotoDestaqueUrl(l)) as string,
+              ehLogo: !!l.logo_url,
+            }))}
             onAbrir={(id) => router.push(`/business/${id}` as any)}
           />
-        )}
+        ) : itensHoje.length > 0 ? (
+          <FaixaHoje itens={itensHoje} onAbrir={(rota) => router.push(rota as any)} />
+        ) : null}
 
         {/* NEWS — notícia do momento (sem a marca "Copa do Mundo", FIFA/App Store 5.2) */}
         <View style={styles.brasilCard}>
@@ -936,7 +1007,10 @@ const styles = StyleSheet.create({
   pontoAtivo: { width: 18, backgroundColor: COLORS.pink },
   altaBox: { width: 112 },
   emAltaCabecalho: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, marginBottom: 8 },
-  tilePremium: { width: TILE, height: TILE, borderRadius: 14, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  avatarAnel: { width: AVATAR_ANEL, height: AVATAR_ANEL, borderRadius: AVATAR_ANEL / 2, borderWidth: 2, borderColor: COLORS.gold, alignItems: 'center', justifyContent: 'center', marginRight: AVATAR_GAP },
+  avatarMiolo: { width: AVATAR, height: AVATAR, borderRadius: AVATAR / 2, backgroundColor: COLORS.card, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  faixaHoje: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 16, marginBottom: 16, paddingHorizontal: 14, height: 44, borderRadius: 22, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
+  faixaHojeTexto: { flex: 1, fontSize: 13, fontWeight: '600', color: COLORS.textPrimary },
   emAltaTituloBloco: { fontSize: 14, fontWeight: '800', color: COLORS.textPrimary },
   emAltaVerTodos: { fontSize: 12, fontWeight: '700', color: COLORS.pink },
   altaFoto: {

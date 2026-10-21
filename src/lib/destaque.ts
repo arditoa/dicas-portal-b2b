@@ -96,6 +96,11 @@ export function pagaPlanoComDireitoADestaque(item: ItemComDestaque): boolean {
   );
 }
 
+// Rodada 79 — "premium" para a faixa da Home: plano pago ativo OU fixado em Em Alta no /admin.
+export function ehPremiumAtivo(item: ItemComDestaque): boolean {
+  return pagaPlanoComDireitoADestaque(item) || estaFixadoEm(item, 'em_alta');
+}
+
 function secoesDoItem(item: ItemComDestaque): string[] {
   if (item.destaque_secoes && item.destaque_secoes.length > 0) return item.destaque_secoes;
   // Compat: item ainda não passou pela migration/backfill ou foi lido

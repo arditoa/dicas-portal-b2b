@@ -106,21 +106,29 @@ export function deveMostrarRodizio(qtdNoPool: number, tamanho: number): boolean 
 }
 
 // ---------------------------------------------------------------------------
-// Rodada 78 — quem pode aparecer no bloco "Em alta agora" da Home.
-// Só lugares de experiência (bares/vida noturna, festas e eventos, gastronomia,
-// cultura e turismo) e só com foto: serviços e lojas continuam nas suas próprias
-// categorias, e card sem foto parece incompleto.
+// Rodada 79 — faixa de locais PREMIUM da Home (avatares passando, sem texto).
+// Só entra quem tem plano pago ativo (ou foi fixado em Em Alta no /admin) e
+// tem logo ou foto. Abaixo do mínimo a faixa some: antes de existirem
+// pagantes ela não mostra locais gratuitos como se fossem premium.
+// Grupo de até 6 por hora; com mais de 6 premium o grupo gira (ordem estável
+// durante a semana, igual ao rodízio).
 // ---------------------------------------------------------------------------
-export const CATEGORIAS_VITRINE_HOME = new Set(['lugares', 'eventos', 'gastronomia', 'cultura', 'turismo']);
-export const VITRINE_HOME_MAX = 6;
+export const FAIXA_PREMIUM_MIN = 3;
+export const FAIXA_PREMIUM_MAX = 6;
 
-export function elegivelVitrineHome(l: {
+export function temImagemParaFaixa(l: {
   nome?: string | null;
-  categoria?: string | null;
+  logo_url?: string | null;
   foto_capa_url?: string | null;
   galeria_fotos?: string[] | null;
 }): boolean {
   // Cadastro com razão social no lugar do nome (ex.: "31.635.075 Paulo ...") não vai para a vitrine.
   if (l.nome && /^\s*\d{2}\.?\d{3}\.?\d{3}/.test(l.nome)) return false;
-  return !!l.categoria && CATEGORIAS_VITRINE_HOME.has(l.categoria) && !!(l.foto_capa_url || l.galeria_fotos?.[0]);
+  return !!(l.logo_url || l.foto_capa_url || l.galeria_fotos?.[0]);
+}
+
+/** Grupo da hora para a faixa premium; vazio se houver menos que o mínimo. */
+export function grupoFaixaPremium<T extends { id: string }>(premium: T[], slot: number, semana: string): T[] {
+  if (premium.length < FAIXA_PREMIUM_MIN) return [];
+  return janelaRodizio(premium, slot, FAIXA_PREMIUM_MAX, semana);
 }

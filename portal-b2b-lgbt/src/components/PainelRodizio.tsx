@@ -9,24 +9,24 @@ import { Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import {
+  FAIXA_PREMIUM_MAX,
+  FAIXA_PREMIUM_MIN,
   FUNDADORES_MAX_PADRAO,
   RODIZIO_INTERVALO_PADRAO_MIN,
   RODIZIO_TAMANHO_PADRAO,
-  aparicoesPorDia,
   blocoFixoDiario,
   chaveSemana,
-  VITRINE_HOME_MAX,
-  deveMostrarRodizio,
-  elegivelVitrineHome,
+  grupoFaixaPremium,
   inicioDoSlot,
-  rodizioComPrioridade,
   slotAtual,
+  temImagemParaFaixa,
 } from '../lib/rodizio';
 
 type L = {
   id: string;
   nome: string;
   categoria: string | null;
+  logo_url: string | null;
   foto_capa_url: string | null;
   galeria_fotos: string[] | null;
   plano_comercial: string | null;
@@ -59,7 +59,7 @@ export default function PainelRodizio() {
     const [l, c, fb] = await Promise.all([
       supabase
         .from('locais')
-        .select('id, nome, categoria, foto_capa_url, galeria_fotos, plano_comercial, plano_comercial_status, destaque_secoes, destaque_ate')
+        .select('id, nome, categoria, logo_url, foto_capa_url, galeria_fotos, plano_comercial, plano_comercial_status, destaque_secoes, destaque_ate')
         .eq('status', 'aprovado')
         .limit(500),
       supabase.from('app_config').select('chave, valor').in('chave', ['rodizio_tamanho', 'rodizio_intervalo_min', 'fundadores_max_topo']),
@@ -89,35 +89,28 @@ export default function PainelRodizio() {
   }, []);
   useEffect(() => { carregar(); }, [carregar]);
 
-  // Bloco fixo do topo (igual ao app): fundadores com selo + patrocinados fixados.
-  const { fixos, prioritarios, demais } = useMemo(() => {
+  // Topo fixo (igual ao app): fundadores com selo + patrocinados fixados.
+  // Faixa premium (abaixo dos ícones): plano pago ativo ou fixado em Em Alta, com logo/foto, fora do topo.
+  const { fixos, premium } = useMemo(() => {
     const idsF = new Set(idsFundadores);
     const noPrazo = (l: L) => !l.destaque_ate || new Date(l.destaque_ate).getTime() >= Date.now();
     const fixosL = locais.filter((l) => idsF.has(l.id) || (!!l.destaque_secoes?.includes('patrocinado') && noPrazo(l)));
     const idsFix = new Set(fixosL.map((l) => l.id));
-    // Mesma regra do app: só lugares de experiência e com foto entram em "Em alta agora".
-    const pool = locais.filter((l) => !idsFix.has(l.id) && elegivelVitrineHome(l));
-    const p = pool.filter(prioritario);
-    const ids = new Set(p.map((x) => x.id));
-    return { fixos: fixosL, prioritarios: p, demais: pool.filter((x) => !ids.has(x.id)) };
+    return { fixos: fixosL, premium: locais.filter((l) => !idsFix.has(l.id) && prioritario(l) && temImagemParaFaixa(l)) };
   }, [locais, idsFundadores]);
 
   const fundadoresL = useMemo(() => fixos.filter((l) => idsFundadores.includes(l.id)), [fixos, idsFundadores]);
   const topoHoje = useMemo(() => blocoFixoDiario(fundadoresL, fundMax), [fundadoresL, fundMax]);
-  const poolTam = prioritarios.length + demais.length;
-  const qtdHome = Math.min(tamanho, VITRINE_HOME_MAX);
-  const mostraBloco = deveMostrarRodizio(poolTam, 2);
+  const mostraFaixa = premium.length >= FAIXA_PREMIUM_MIN;
 
   const agora = slotAtual(Date.now(), intervalo);
   const semana = chaveSemana();
   const linhas = useMemo(() => {
     return Array.from({ length: 12 }, (_, k) => {
       const slot = agora + k;
-      return { slot, inicio: inicioDoSlot(slot, intervalo), itens: rodizioComPrioridade(prioritarios, demais, slot, qtdHome, semana) };
+      return { slot, inicio: inicioDoSlot(slot, intervalo), itens: grupoFaixaPremium(premium, slot, semana) };
     });
-  }, [agora, intervalo, qtdHome, prioritarios, demais, semana]);
-
-  const porDia = aparicoesPorDia(Math.max(demais.length, 0), Math.max(qtdHome - prioritarios.length, 0), intervalo);
+  }, [agora, intervalo, premium, semana]);
 
   async function salvar() {
     setSalvando(true);
@@ -148,7 +141,7 @@ export default function PainelRodizio() {
           <input type="number" min={1} max={20} className={campo} value={fundMax} onChange={(e) => setFundMax(Math.min(20, Math.max(1, Number(e.target.value) || 1)))} />
         </label>
         <label className="text-xs text-[#A0A0B2] flex flex-col gap-1.5">
-          Locais por vez (1 a 12)
+          Locais por vez na página Em Alta (1 a 12)
           <input type="number" min={1} max={12} className={campo} value={tamanho} onChange={(e) => setTamanho(Math.min(12, Math.max(1, Number(e.target.value) || 1)))} />
         </label>
         <label className="text-xs text-[#A0A0B2] flex flex-col gap-1.5">
@@ -162,12 +155,9 @@ export default function PainelRodizio() {
         </button>
         {msg && <p role="alert" className={`text-xs ${msg.ok ? 'text-[#4CAF7D]' : 'text-red-400'}`}>{msg.texto}</p>}
         <div className="text-[11px] text-[#A0A0B2] leading-relaxed border-t border-[#232230] pt-3">
-          <p><b className="text-white">{prioritarios.length}</b> local(is) com prioridade (plano Premium/Fundador ativo ou fixado em Em Alta) e <b className="text-white">{demais.length}</b> para completar as vagas.</p>
-          {prioritarios.length >= tamanho
-            ? <p className="mt-1">Há prioritários suficientes: só eles rodam.</p>
-            : <p className="mt-1">Os prioritários aparecem sempre; as outras {tamanho - prioritarios.length} vaga(s) rodam entre os demais (cada um aparece cerca de {porDia.toFixed(1)}x por dia).</p>}
-          <p className="mt-1">Para cada local aparecer 2x por dia seriam necessários {Math.round((24 * 60 / intervalo) * tamanho / 2)} locais no rodízio.</p>
-          <p className="mt-1">A faixa de locais premium da Home (só fotos, passando sozinha, abaixo dos ícones) mostra até {VITRINE_HOME_MAX} locais por hora, só bares, festas/eventos, gastronomia, cultura e turismo, e só com foto. Serviços e lojas ficam nas suas categorias. A página Em Alta usa todos os locais. A ordem do ciclo muda uma vez por semana. {mostraBloco ? 'A faixa aparece na Home.' : `A faixa fica escondida enquanto houver menos de 2 locais elegíveis (hoje: ${poolTam}).`}</p>
+          <p><b className="text-white">{premium.length}</b> local(is) premium elegível(is) para a faixa da Home (plano Premium/Fundador ativo ou fixado em Em Alta, com logo ou foto, fora do topo fixo).</p>
+          <p className="mt-1">A faixa (avatares passando sozinhos, sem texto, abaixo dos ícones) mostra até {FAIXA_PREMIUM_MAX} locais por vez e só aparece com {FAIXA_PREMIUM_MIN} ou mais. {mostraFaixa ? 'Hoje ela aparece na Home.' : 'Hoje ela está escondida: no lugar aparece uma faixa fina com o que acontece hoje.'}</p>
+          <p className="mt-1">Com mais de {FAIXA_PREMIUM_MAX} premium o grupo gira no intervalo escolhido acima; a ordem do ciclo muda uma vez por semana. "Locais por vez" vale para a página Em Alta.</p>
         </div>
       </div>
 
@@ -185,8 +175,8 @@ export default function PainelRodizio() {
       </div>
 
       <div className="bg-[#161520] border border-[#232230] rounded-2xl p-6">
-        <h3 className="font-bold text-sm mb-1">Faixa premium da Home: grupo que gira por horário</h3>
-        <p className="text-[11px] text-[#626274] mb-4">Prévia pela regra acima, no horário de Brasília. Negrito = prioridade.</p>
+        <h3 className="font-bold text-sm mb-1">Faixa premium da Home: quem aparece agora e nas próximas horas</h3>
+        <p className="text-[11px] text-[#626274] mb-4">Prévia pela regra, no horário de Brasília.</p>
         <ul className="flex flex-col gap-3">
           {linhas.map((ln, k) => (
             <li key={ln.slot} className={`text-xs rounded-xl p-3 border ${k === 0 ? 'border-[#E1306C] bg-[#E1306C]/10' : 'border-[#232230]'}`}>
@@ -195,11 +185,11 @@ export default function PainelRodizio() {
                 {ln.inicio.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })}
               </p>
               <p className="text-[#A0A0B2]">
-                {ln.itens.length === 0 && 'Nenhum local aprovado.'}
+                {ln.itens.length === 0 && `Faixa escondida (menos de ${FAIXA_PREMIUM_MIN} premium).`}
                 {ln.itens.map((x, i) => (
                   <span key={x.id}>
                     {i > 0 ? ' · ' : ''}
-                    {prioritario(x) ? <b className="text-white">{x.nome}</b> : x.nome}
+                    <b className="text-white">{x.nome}</b>
                   </span>
                 ))}
               </p>
