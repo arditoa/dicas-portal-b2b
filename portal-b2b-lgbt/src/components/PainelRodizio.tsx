@@ -1,6 +1,6 @@
 'use client';
 // Rodada 77: o topo da Home agora é um bloco FIXO (fundadores + patrocinados) e o rodízio
-// fica no bloco "Em alta agora", logo abaixo.
+// fica na faixa de locais premium (só fotos), abaixo dos ícones de categoria.
 // Rodada 75 — aba "Rodízio" do /admin: mostra e ajusta o rodízio por horário
 // da Home (carrossel do topo e "Em Alta"). A conta é a mesma do app
 // (src/lib/rodizio.ts); aqui você vê quem aparece agora e nas próximas horas
@@ -106,7 +106,7 @@ export default function PainelRodizio() {
   const topoHoje = useMemo(() => blocoFixoDiario(fundadoresL, fundMax), [fundadoresL, fundMax]);
   const poolTam = prioritarios.length + demais.length;
   const qtdHome = Math.min(tamanho, VITRINE_HOME_MAX);
-  const mostraBloco = deveMostrarRodizio(poolTam, qtdHome);
+  const mostraBloco = deveMostrarRodizio(poolTam, 2);
 
   const agora = slotAtual(Date.now(), intervalo);
   const semana = chaveSemana();
@@ -167,7 +167,7 @@ export default function PainelRodizio() {
             ? <p className="mt-1">Há prioritários suficientes: só eles rodam.</p>
             : <p className="mt-1">Os prioritários aparecem sempre; as outras {tamanho - prioritarios.length} vaga(s) rodam entre os demais (cada um aparece cerca de {porDia.toFixed(1)}x por dia).</p>}
           <p className="mt-1">Para cada local aparecer 2x por dia seriam necessários {Math.round((24 * 60 / intervalo) * tamanho / 2)} locais no rodízio.</p>
-          <p className="mt-1">O bloco "Em alta agora" da Home mostra até {VITRINE_HOME_MAX} locais, só bares, festas/eventos, gastronomia, cultura e turismo, e só com foto. Serviços e lojas ficam nas suas categorias. A página Em Alta usa todos os locais. A ordem do ciclo muda uma vez por semana. {mostraBloco ? 'O bloco aparece na Home.' : `O bloco fica escondido enquanto houver menos de ${Math.max(2, qtdHome)} locais elegíveis (hoje: ${poolTam}).`}</p>
+          <p className="mt-1">A faixa de locais premium da Home (só fotos, passando sozinha, abaixo dos ícones) mostra até {VITRINE_HOME_MAX} locais por hora, só bares, festas/eventos, gastronomia, cultura e turismo, e só com foto. Serviços e lojas ficam nas suas categorias. A página Em Alta usa todos os locais. A ordem do ciclo muda uma vez por semana. {mostraBloco ? 'A faixa aparece na Home.' : `A faixa fica escondida enquanto houver menos de 2 locais elegíveis (hoje: ${poolTam}).`}</p>
         </div>
       </div>
 
@@ -178,14 +178,14 @@ export default function PainelRodizio() {
           Fundadores sempre aparecem; a ordem muda uma vez por dia. {fundadoresL.length > fundMax ? `Há ${fundadoresL.length} fundadores e só ${fundMax} vagas: o grupo avança a cada dia.` : `${fundadoresL.length} fundador(es) de ${fundMax} vaga(s).`}
         </p>
         <p className="text-xs text-[#A0A0B2]">
-          {topoHoje.length === 0 && 'Nenhum fundador com selo ativo. O topo some e o bloco "Em alta agora" aparece primeiro.'}
+          {topoHoje.length === 0 && 'Nenhum fundador com selo ativo. O topo some e a faixa de locais premium aparece primeiro.'}
           {topoHoje.map((x, i) => <span key={x.id}>{i > 0 ? ' · ' : ''}<b className="text-white">{x.nome}</b></span>)}
           {fixos.filter((l) => !idsFundadores.includes(l.id)).map((x) => <span key={x.id}> · {x.nome} (patrocinado)</span>)}
         </p>
       </div>
 
       <div className="bg-[#161520] border border-[#232230] rounded-2xl p-6">
-        <h3 className="font-bold text-sm mb-1">Em alta agora: bloco que gira por horário</h3>
+        <h3 className="font-bold text-sm mb-1">Faixa premium da Home: grupo que gira por horário</h3>
         <p className="text-[11px] text-[#626274] mb-4">Prévia pela regra acima, no horário de Brasília. Negrito = prioridade.</p>
         <ul className="flex flex-col gap-3">
           {linhas.map((ln, k) => (

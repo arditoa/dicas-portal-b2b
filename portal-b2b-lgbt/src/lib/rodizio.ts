@@ -112,7 +112,7 @@ export function deveMostrarRodizio(qtdNoPool: number, tamanho: number): boolean 
 // categorias, e card sem foto parece incompleto.
 // ---------------------------------------------------------------------------
 export const CATEGORIAS_VITRINE_HOME = new Set(['lugares', 'eventos', 'gastronomia', 'cultura', 'turismo']);
-export const VITRINE_HOME_MAX = 5;
+export const VITRINE_HOME_MAX = 6;
 
 export function elegivelVitrineHome(l: {
   nome?: string | null;

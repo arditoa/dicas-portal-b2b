@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
+  Easing,
   Image,
   ImageBackground,
   Linking,
@@ -111,8 +113,60 @@ const BANNERS_PRINCIPAIS = [
   },
 ];
 
-const ALTA_CARD_W = 216;
-const ALTA_GAP = 10;
+const TILE = 60;
+const TILE_GAP = 10;
+
+// Rodada 79 — faixa de locais premium passando sozinhos, sem texto: só as
+// fotos/logos, deslizando devagar e em círculo. Toque abre o local. Se couberem
+// todos na largura da tela, ficam parados.
+function FaixaPremium({
+  itens,
+  onAbrir,
+}: {
+  itens: { id: string; nome: string; foto: string | null; destaque: boolean }[];
+  onAbrir: (id: string) => void;
+}) {
+  const { width } = useWindowDimensions();
+  const passo = TILE + TILE_GAP;
+  const larguraLista = itens.length * passo;
+  const disponivel = Math.min(width, 600) - 32;
+  const rola = larguraLista - TILE_GAP > disponivel;
+  const x = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    x.setValue(0);
+    if (!rola) return;
+    const anim = Animated.loop(
+      Animated.timing(x, { toValue: -larguraLista, duration: itens.length * 3500, easing: Easing.linear, useNativeDriver: true })
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [rola, larguraLista, itens.length, x]);
+
+  const lista = rola ? [...itens, ...itens] : itens;
+  return (
+    <View style={{ marginHorizontal: 16, marginBottom: 16, overflow: 'hidden' }}>
+      <Animated.View style={{ flexDirection: 'row', gap: TILE_GAP, width: lista.length * passo, transform: [{ translateX: x }] }}>
+        {lista.map((l, i) => (
+          <TouchableOpacity
+            key={`${l.id}-${i}`}
+            activeOpacity={0.85}
+            onPress={() => onAbrir(l.id)}
+            accessibilityRole="button"
+            accessibilityLabel={l.nome}
+            style={[styles.tilePremium, l.destaque && { borderColor: COLORS.amber }]}
+          >
+            {l.foto ? (
+              <Image source={{ uri: l.foto }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+            ) : (
+              <Feather name="map-pin" size={18} color={COLORS.textMuted} />
+            )}
+          </TouchableOpacity>
+        ))}
+      </Animated.View>
+    </View>
+  );
+}
 
 interface LocalCard {
   id: string;
@@ -262,7 +316,7 @@ export default function HomeScreen() {
   const emAltaAgora = useMemo(
     () => {
       const qtd = Math.min(cfgRodizio.tamanho, VITRINE_HOME_MAX);
-      return deveMostrarRodizio(poolRodizioHome.length, qtd)
+      return deveMostrarRodizio(poolRodizioHome.length, 2)
         ? rodizioHorario(poolRodizioHome, 'em_alta', slotRodizio, qtd)
         : [];
     },
@@ -289,26 +343,6 @@ export default function HomeScreen() {
     }, 4000);
     return () => clearInterval(timer);
   }, [destaquesTopo.length, larguraSlide]);
-
-  // "Em alta agora": anda sozinho, um card por vez; pausa 8 s se a pessoa mexer.
-  const altaRef = useRef<ScrollView>(null);
-  const altaX = useRef(0);
-  const altaPausaAte = useRef(0);
-  useEffect(() => {
-    altaX.current = 0;
-    altaRef.current?.scrollTo({ x: 0, animated: false });
-    if (emAltaAgora.length < 2) return;
-    const passo = ALTA_CARD_W + ALTA_GAP;
-    const maxX = Math.max(0, emAltaAgora.length * passo - ALTA_GAP + 32 - larguraTela);
-    if (maxX <= 0) return;
-    const timer = setInterval(() => {
-      if (Date.now() < altaPausaAte.current) return;
-      const atual = altaX.current;
-      const proximo = atual >= maxX - 2 ? 0 : Math.min(maxX, (Math.round(atual / passo) + 1) * passo);
-      altaRef.current?.scrollTo({ x: proximo, animated: true });
-    }, 3500);
-    return () => clearInterval(timer);
-  }, [emAltaAgora, larguraTela]);
 
   const isUserLogged = !!session;
 
@@ -742,49 +776,14 @@ export default function HomeScreen() {
             })}
           </ScrollView>
         </View>
-        {/* EM ALTA AGORA — faixa pequena que anda sozinha (a cada 3,5 s).
-            O grupo (até 5 locais) troca por hora. Só aparece com locais
-            suficientes; planos pagos e fixados entram primeiro. */}
-        {emAltaAgora.length > 0 && (
-          <View style={{ marginBottom: 16 }}>
-            <View style={styles.emAltaCabecalho}>
-              <Text style={styles.emAltaTituloBloco}>{t('home.emAltaAgora')}</Text>
-              <TouchableOpacity onPress={() => router.push('/secao/em-alta' as any)} accessibilityRole="link">
-                <Text style={styles.emAltaVerTodos}>{t('home.verMais')}</Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView
-              ref={altaRef}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: 16, gap: ALTA_GAP }}
-              scrollEventThrottle={32}
-              onScroll={(e) => { altaX.current = e.nativeEvent.contentOffset.x; }}
-              onScrollBeginDrag={() => { altaPausaAte.current = Date.now() + 8000; }}
-            >
-              {emAltaAgora.map((l) => {
-                const foto = fotoDestaqueUrl(l);
-                return (
-                  <TouchableOpacity key={l.id} style={styles.altaMini} activeOpacity={0.85} onPress={() => router.push(`/business/${l.id}` as any)}>
-                    <View style={styles.altaMiniFoto}>
-                      {foto ? (
-                        <Image source={{ uri: foto }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-                      ) : (
-                        <Feather name="map-pin" size={18} color={COLORS.textMuted} />
-                      )}
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        {deveExibirGlow(l) && <Feather name="star" size={11} color={COLORS.amber} />}
-                        <Text style={styles.altaMiniNome} numberOfLines={1}>{formatarNome(l.nome)}</Text>
-                      </View>
-                      <Text style={styles.altaMiniMeta} numberOfLines={1}>{textoLocalizacao(l)}</Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
+        {/* PREMIUM EM ROTAÇÃO — locais passando sozinhos, sem texto. Grupo de
+            até 6 que troca por hora; planos pagos e fixados primeiro, o resto
+            completa. Só aparece com ao menos 2 locais elegíveis. */}
+        {emAltaAgora.length > 1 && (
+          <FaixaPremium
+            itens={emAltaAgora.map((l) => ({ id: l.id, nome: formatarNome(l.nome), foto: fotoDestaqueUrl(l), destaque: deveExibirGlow(l) }))}
+            onAbrir={(id) => router.push(`/business/${id}` as any)}
+          />
         )}
 
         {/* NEWS — notícia do momento (sem a marca "Copa do Mundo", FIFA/App Store 5.2) */}
@@ -937,10 +936,7 @@ const styles = StyleSheet.create({
   pontoAtivo: { width: 18, backgroundColor: COLORS.pink },
   altaBox: { width: 112 },
   emAltaCabecalho: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, marginBottom: 8 },
-  altaMini: { width: ALTA_CARD_W, height: 58, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 6, borderRadius: 14, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
-  altaMiniFoto: { width: 46, height: 46, borderRadius: 10, backgroundColor: COLORS.background, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  altaMiniNome: { flexShrink: 1, fontSize: 13, fontWeight: '700', color: COLORS.textPrimary },
-  altaMiniMeta: { fontSize: 11, color: COLORS.textSecondary, marginTop: 1 },
+  tilePremium: { width: TILE, height: TILE, borderRadius: 14, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   emAltaTituloBloco: { fontSize: 14, fontWeight: '800', color: COLORS.textPrimary },
   emAltaVerTodos: { fontSize: 12, fontWeight: '700', color: COLORS.pink },
   altaFoto: {
