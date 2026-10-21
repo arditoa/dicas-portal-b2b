@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -17,7 +17,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import FundoDegrade from '../../components/FundoDegrade';
 import { useCidadeAtual } from '../../hooks/useCidadeAtual';
+import { useSlotHora } from '../../hooks/useSlotHora';
+import { chaveSemana, rodizioComPrioridade } from '../../lib/rodizio';
+import { CONFIG_RODIZIO_PADRAO, ConfigRodizio, lerConfigRodizio } from '../../lib/rodizioConfig';
 import { abertoAgora } from '../../lib/horario';
 import { useAuth } from '../../lib/authContext';
 import { registrarAviso } from '../../lib/avisos';
@@ -25,6 +29,7 @@ import { IDIOMAS, useI18n } from '../../lib/i18n';
 import { CATEGORIA_ORDER, CATEGORIA_REAL_LABEL, CATEGORIAS, CategoriaConfig } from '../../lib/categorias';
 import {
   compararDestaque,
+  rodizioHorario,
   deveExibirGlow,
   deveIncluirEm,
   estaFixadoEm,
@@ -192,7 +197,8 @@ export default function HomeScreen() {
   const [busca, setBusca] = useState('');
   const [favoritos, setFavoritos] = useState<string[]>([]);
 
-  const [emAlta, setEmAlta] = useState<LocalCard[]>([]);
+  const [emAltaPool, setEmAltaPool] = useState<LocalCard[]>([]);
+  const [cfgRodizio, setCfgRodizio] = useState<ConfigRodizio>(CONFIG_RODIZIO_PADRAO);
   // Rodada 47 — criado como "Selo Dicas LGBT+", seção própria com
   // curadoria editorial da Andrea. Rodada 56 (3ª rodada de ajuste) —
   // ela pediu pra trocar de lugar com "Destaque da Semana": o Selo
@@ -228,9 +234,20 @@ export default function HomeScreen() {
   const [bannerFundadorArteUrl, setBannerFundadorArteUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [abertosAgora, setAbertosAgora] = useState<LocalCard[]>([]);
-  const [destaquesTopo, setDestaquesTopo] = useState<
-    { id: string; nome: string; foto: string | null; bairro: string; tipo: 'fundador' | 'patrocinado' }[]
-  >([]);
+  type DestaqueTopo = { id: string; nome: string; foto: string | null; bairro: string; tipo: 'fundador' | 'patrocinado' | 'outro' };
+  // Pagantes/fixados (prioridade) e, para completar as vagas, outros locais com foto.
+  const [topoPrioritarios, setTopoPrioritarios] = useState<DestaqueTopo[]>([]);
+  const [topoDemais, setTopoDemais] = useState<DestaqueTopo[]>([]);
+  // Rodízio por horário: a cada intervalo (padrão 1 h) aparece um novo grupo de 6.
+  const slotRodizio = useSlotHora(cfgRodizio.intervaloMin);
+  const destaquesTopo = useMemo(
+    () => rodizioComPrioridade(topoPrioritarios, topoDemais, slotRodizio, cfgRodizio.tamanho, chaveSemana()),
+    [topoPrioritarios, topoDemais, slotRodizio, cfgRodizio.tamanho]
+  );
+  const emAlta = useMemo(
+    () => rodizioHorario(emAltaPool, 'em_alta', slotRodizio, cfgRodizio.tamanho),
+    [emAltaPool, slotRodizio, cfgRodizio.tamanho]
+  );
   const [slide, setSlide] = useState(0);
   const carrosselRef = useRef<ScrollView>(null);
   const { width: larguraTela } = useWindowDimensions();
@@ -387,7 +404,13 @@ export default function HomeScreen() {
       // mostra a lista completa pra seção não sumir.
       const idsDestaque = new Set(listaDestaqueSemana.map((i) => i.id));
       const emAltaSemRepetir = listaEmAlta.filter((i) => !idsDestaque.has(i.id));
-      setEmAlta((emAltaSemRepetir.length > 0 ? emAltaSemRepetir : listaEmAlta).slice(0, 10));
+      // Rodízio por horário: o pool é TODO local aprovado (menos quem já está
+      // em "Destaques da semana"); quem paga/está fixado tem prioridade e as
+      // vagas que sobrarem são completadas com os demais (ver rodizioHorario).
+      const todosAprovados = ((emAltaRes.data as any) || []) as LocalCard[];
+      const poolSemDestaque = todosAprovados.filter((i) => !idsDestaque.has(i.id));
+      setEmAltaPool(poolSemDestaque.length > 0 ? poolSemDestaque : todosAprovados);
+      lerConfigRodizio().then(setCfgRodizio);
       setDestaqueSemana(listaDestaqueSemana.slice(0, 8));
 
       // Abertos agora (O que fazer hoje), sem repetir quem já foi fixado.
@@ -407,7 +430,7 @@ export default function HomeScreen() {
       setFundadorLogos(listaFundadorLogos);
 
       // Carrossel do topo: fundadores + patrocinados (destaque_secoes 'patrocinado').
-      const topo: { id: string; nome: string; foto: string | null; bairro: string; tipo: 'fundador' | 'patrocinado' }[] = [];
+      const topo: DestaqueTopo[] = [];
       const vistosTopo = new Set<string>();
       for (const f of listaFundadorLogos as any[]) {
         if (vistosTopo.has(f.id)) continue;
@@ -419,7 +442,13 @@ export default function HomeScreen() {
         vistosTopo.add(p.id);
         topo.push({ id: p.id, nome: p.nome, foto: fotoDestaqueUrl(p), bairro: bairroExibicao(p), tipo: 'patrocinado' });
       }
-      setDestaquesTopo(topo.slice(0, 12));
+      setTopoPrioritarios(topo);
+      // Para completar as vagas do carrossel: demais locais aprovados que tenham foto.
+      setTopoDemais(
+        (((emAltaRes.data as any) || []) as LocalCard[])
+          .filter((p) => !vistosTopo.has(p.id) && !!fotoDestaqueUrl(p))
+          .map((p) => ({ id: p.id, nome: p.nome, foto: fotoDestaqueUrl(p), bairro: bairroExibicao(p), tipo: 'outro' as const }))
+      );
       setBannerFundadorArteUrl(((appConfigRes.data as any)?.valor as string | undefined) || null);
 
       if (user?.id) {
@@ -534,6 +563,7 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
+      <FundoDegrade />
       {/* HEADER — logo + frase à esquerda; localização | idioma à direita.
           A localização só é lida se já foi autorizada; senão o botão pede a
           permissão no toque (nunca ao abrir o app — App Store 5.1.1). */}
@@ -598,11 +628,13 @@ export default function HomeScreen() {
                           <View style={styles.emAltaOverlayBottom} />
                         </>
                       )}
-                      <View style={[styles.slideTag, { backgroundColor: d.tipo === 'fundador' ? COLORS.gold : COLORS.purple }]}>
-                        <Text style={[styles.slideTagTexto, d.tipo === 'patrocinado' && { color: '#FFFFFF' }]}>
-                          {d.tipo === 'fundador' ? t('banner.fundadorTag') : t('home.patrocinado')}
-                        </Text>
-                      </View>
+                      {d.tipo !== 'outro' && (
+                        <View style={[styles.slideTag, { backgroundColor: d.tipo === 'fundador' ? COLORS.gold : COLORS.purple }]}>
+                          <Text style={[styles.slideTagTexto, d.tipo === 'patrocinado' && { color: '#FFFFFF' }]}>
+                            {d.tipo === 'fundador' ? t('banner.fundadorTag') : t('home.patrocinado')}
+                          </Text>
+                        </View>
+                      )}
                       <View>
                         <Text style={styles.slideNome} numberOfLines={1}>{d.nome}</Text>
                         {!!d.bairro && <Text style={styles.slideBairro} numberOfLines={1}>{d.bairro}</Text>}
@@ -851,7 +883,7 @@ const styles = StyleSheet.create({
   semanaCard: { width: 210, height: 92, borderRadius: 14, padding: 12, justifyContent: 'space-between', backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.amber, overflow: 'hidden' },
   semanaBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: COLORS.amber, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2 },
   selosRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 16 },
-  rodape: { marginTop: 8, marginHorizontal: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: COLORS.border },
+  rodape: { marginTop: 8, marginHorizontal: 16, paddingTop: 8 },
   rodapeLink: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11 },
   rodapeTexto: { flex: 1, fontSize: 13, fontWeight: '600', color: COLORS.textPrimary },
   rodapeAssinatura: { fontSize: 11, color: COLORS.textMuted, textAlign: 'center', marginTop: 12 },

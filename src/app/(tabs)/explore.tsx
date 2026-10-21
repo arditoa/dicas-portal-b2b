@@ -332,7 +332,7 @@ export default function ExploreScreen() {
         )}
       </View>
 
-      {/* 4. LEGENDA + CARROSSEL */}
+      {/* 4. LEGENDA */}
       <View style={styles.bottomSection}>
         <View style={styles.legendaContainer}>
           <Text style={styles.legendaTitulo}>Legenda de cores</Text>
@@ -346,11 +346,9 @@ export default function ExploreScreen() {
           </View>
         </View>
 
-        {loading ? (
-          <View style={styles.emptyCard}>
-            <ActivityIndicator color={COLORS.pink} />
-          </View>
-        ) : locaisFiltrados.length === 0 ? (
+        {/* Os cards com os nomes dos locais saíram daqui (visual poluído);
+            o toque nos pinos do mapa continua abrindo cada local. */}
+        {!loading && locaisFiltrados.length === 0 && (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyText}>
               {locais.length === 0
@@ -358,38 +356,6 @@ export default function ExploreScreen() {
                 : 'Nenhum local encontrado com esses filtros'}
             </Text>
           </View>
-        ) : (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cardsScroll}>
-            {locaisFiltrados.map((item) => {
-              const catColor = CATEGORIA_COR_POR_REAL[item.categoria] || COLORS.pink;
-              const badge = badgeDoLocal(item);
-              return (
-                <TouchableOpacity
-                  key={item.id}
-                  style={styles.card}
-                  activeOpacity={0.9}
-                  onPress={() => router.push(`/business/${item.id}` as any)}
-                >
-                  <View style={styles.cardHeader}>
-                    <Text style={styles.cardTitle} numberOfLines={1}>
-                      {item.nome}
-                    </Text>
-                    {item.rating_total > 0 && <Text style={styles.rating}>★ {item.rating_media.toFixed(1)}</Text>}
-                  </View>
-                  <Text style={styles.cardSub} numberOfLines={1}>
-                    {[item.bairro, item.distanceKm != null ? `${item.distanceKm.toFixed(1)}km` : null]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </Text>
-                  {badge && (
-                    <View style={[styles.badge, { backgroundColor: `${badge.cor}20`, borderColor: badge.cor }]}>
-                      <Text style={[styles.badgeText, { color: badge.cor }]}>{badge.texto}</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
         )}
       </View>
 

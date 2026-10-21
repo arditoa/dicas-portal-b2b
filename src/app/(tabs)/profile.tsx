@@ -25,6 +25,7 @@ import { IDIOMAS, useI18n } from '../../lib/i18n';
 const URL_SITE = 'https://www.dicaslgbt.com.br';
 import { supabase } from '../../lib/supabase';
 import { traduzErroAuth } from '../../lib/erroAuth';
+import { ativarTodosAvisos } from '../../lib/push';
 
 const COLORS = {
   background: '#0B0B0E',
@@ -182,7 +183,15 @@ export default function ProfileScreen() {
       if (error) throw error;
 
       if (data.session) {
-        Alert.alert('Conta criada!', `Seja bem-vinde, ${nomeSocial}!`);
+        const novoId = data.session.user.id;
+        Alert.alert(
+          'Conta criada!',
+          `Seja bem-vinde, ${nomeSocial}! Quer receber avisos de festas, cupons, lembretes e novidades? Você pode mudar isso em Conta > Notificações.`,
+          [
+            { text: 'Agora não', style: 'cancel' },
+            { text: 'Ativar todos', onPress: () => { ativarTodosAvisos(novoId).catch(() => {}); } },
+          ]
+        );
       } else {
         Alert.alert(
           'Quase lá!',

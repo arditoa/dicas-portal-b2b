@@ -47,6 +47,12 @@
         }
       ],
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Usamos suas fotos e vídeos somente quando você escolhe anexar provas a uma ocorrência. Os arquivos ficam em área privada, visíveis só para você e para a equipe responsável."
+        }
+      ],
+      [
         "expo-location",
         {
           "locationWhenInUsePermission": "Usamos sua localização só enquanto você usa o app, para mostrar a cidade onde você está e os locais, eventos e roteiros LGBT+ por perto. Ela não é mostrada para outras pessoas."

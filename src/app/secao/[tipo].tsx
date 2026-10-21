@@ -13,7 +13,9 @@ import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacit
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CATEGORIA_REAL_LABEL, SELO_FESTA, SeloCategoria, seloDaCategoria } from '../../lib/categorias';
-import { compararDestaque, deveExibirGlow, deveIncluirEm, estaFixadoEm, estaFixadoParaHoje, EXPERIENCIAS_REAIS } from '../../lib/destaque';
+import { compararDestaque, deveExibirGlow, deveIncluirEm, estaFixadoEm, estaFixadoParaHoje, EXPERIENCIAS_REAIS, rodizioHorario } from '../../lib/destaque';
+import { useSlotHora } from '../../hooks/useSlotHora';
+import { CONFIG_RODIZIO_PADRAO, lerConfigRodizio } from '../../lib/rodizioConfig';
 import { abertoAgora, fechaAs } from '../../lib/horario';
 import { useI18n } from '../../lib/i18n';
 import { supabase } from '../../lib/supabase';
@@ -84,6 +86,12 @@ export default function SecaoScreen() {
   const cfg = CONFIG[tipo];
   const [itens, setItens] = useState<Item[]>([]);
   const [carregando, setCarregando] = useState(true);
+  // Rodízio por horário (Em Alta): a lista troca a cada intervalo, como na Home.
+  const [cfgRodizio, setCfgRodizio] = useState(CONFIG_RODIZIO_PADRAO);
+  useEffect(() => {
+    lerConfigRodizio().then(setCfgRodizio);
+  }, []);
+  const slotRodizio = useSlotHora(cfgRodizio.intervaloMin);
 
   useEffect(() => {
     let ativo = true;
@@ -128,9 +136,9 @@ export default function SecaoScreen() {
             );
           } else {
             const ids = new Set(destaque.map((i) => i.id));
-            const emAlta = todos.filter((i) => deveIncluirEm(i, 'em_alta')).sort(compararDestaque('em_alta'));
-            const semRepetir = emAlta.filter((i) => !ids.has(i.id));
-            lista = (semRepetir.length > 0 ? semRepetir : emAlta).map((i) =>
+            const poolSemDestaque = todos.filter((i) => !ids.has(i.id));
+            const base = poolSemDestaque.length > 0 ? poolSemDestaque : todos;
+            lista = rodizioHorario(base, 'em_alta', slotRodizio, cfgRodizio.tamanho).map((i) =>
               paraItem(i, {
                 linha2: `★ ${i.rating_total > 0 ? Number(i.rating_media).toFixed(1) : '—'}`,
                 selo: estaFixadoEm(i, 'patrocinado') ? { texto: 'VIP', cor: C.purple, textoCor: '#FFF' } : undefined,
@@ -204,7 +212,7 @@ export default function SecaoScreen() {
     return () => {
       ativo = false;
     };
-  }, [tipo]);
+  }, [tipo, slotRodizio, cfgRodizio.tamanho]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>

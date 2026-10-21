@@ -1,5 +1,5 @@
 #!/bin/bash
-# Rodada 74 — guarda no GitHub o codigo do APP e do PORTAL (inclui o push):
+# Rodada 76 (inclui ocorrencias/denuncias, migration 045) — guarda no GitHub o codigo do APP e do PORTAL (inclui o push):
 #   - app: src/, app.json, app.config.js, package.json e package-lock.json
 #   - portal: portal-b2b-lgbt/src (aba "Avisos", Roteiros etc.)
 #   - supabase-migration/ (migrations 031 a 044 que ainda nao estavam no git)
@@ -49,8 +49,8 @@ if [ "$resp" != "s" ] && [ "$resp" != "S" ]; then
   exit 0
 fi
 
-git commit -m "App e portal: notificacoes push (v1), esqueci minha senha, erros de login em portugues, mapa Android por env; inclui codigo das rodadas 60-74 e migrations 031-044"
+git commit -m "App e portal: registro de ocorrencias (denuncia com protocolo e provas), rodizio da Home, notificacoes push (v1), esqueci minha senha, erros de login em portugues, mapa Android por env; inclui rodadas 60-76 e migrations 031-045"
 git push
 
 echo ""
-echo "Pronto. Confira na Vercel o deploy do portal (deve ficar 'Ready') e abra o /admin: a aba 'Avisos' deve aparecer."
+echo "Pronto. Confira na Vercel o deploy do portal (deve ficar 'Ready') e abra o /admin: as abas 'Avisos', 'Rodizio' e 'Denuncias' devem aparecer."

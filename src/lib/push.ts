@@ -82,6 +82,14 @@ export async function ativarPushNesteAparelho(): Promise<ResultadoAtivar> {
   }
 }
 
+/** Um toque: pede a permissão e liga os 4 tipos (ação explícita da pessoa = consentimento). */
+export async function ativarTodosAvisos(userId: string): Promise<ResultadoAtivar> {
+  const r = await ativarPushNesteAparelho();
+  if (r !== 'ok') return r;
+  const ok = await salvarPreferencias(userId, { festas: true, cupons: true, lembretes: true, novidades: true });
+  return ok ? 'ok' : 'indisponivel';
+}
+
 /** Para de receber neste aparelho (usado quando todos os tipos ficam desligados). */
 export async function desativarPushNesteAparelho(): Promise<void> {
   try {

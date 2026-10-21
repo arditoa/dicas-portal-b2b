@@ -193,3 +193,17 @@ export function compararDestaque<T extends ItemComDestaque>(secao: string) {
     return pesoRotacaoSemanal(a.id) - pesoRotacaoSemanal(b.id);
   };
 }
+
+// Rodízio por horário (ver src/lib/rodizio.ts): prioritários (plano pago ativo
+// ou fixado na seção) primeiro; as vagas que sobrarem são completadas, em
+// rodízio, com os demais itens. `slot` vem de useSlotHora().
+import { chaveSemana, rodizioComPrioridade } from './rodizio';
+
+export function rodizioHorario<T extends ItemComDestaque>(itens: T[], secao: string, slot: number, tamanho: number): T[] {
+  const prioritarios = itens
+    .filter((i) => fixacaoValidaPara(i, secao) || pagaPlanoComDireitoADestaque(i))
+    .sort(compararDestaque<T>(secao));
+  const ids = new Set(prioritarios.map((i) => i.id));
+  const demais = itens.filter((i) => !ids.has(i.id));
+  return rodizioComPrioridade(prioritarios, demais, slot, tamanho, chaveSemana());
+}

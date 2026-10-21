@@ -18,6 +18,7 @@ import {
   PrefsPush,
   TipoPush,
   ativarPushNesteAparelho,
+  ativarTodosAvisos,
   desativarPushNesteAparelho,
   lerPreferencias,
   salvarPreferencias,
@@ -85,6 +86,28 @@ export default function NotificacoesScreen() {
     [prefs, salvando, user?.id]
   );
 
+  const ativarTudo = useCallback(async () => {
+    if (!user?.id || salvando) return;
+    setSalvando(true);
+    try {
+      const r = await ativarTodosAvisos(user.id);
+      if (r === 'ok') {
+        setPrefs({ festas: true, cupons: true, lembretes: true, novidades: true });
+      } else if (r === 'negado') {
+        Alert.alert('Permissão necessária', 'Para receber avisos, permita notificações do Dicas LGBT+ nos Ajustes do seu celular.', [
+          { text: 'Agora não', style: 'cancel' },
+          { text: 'Abrir Ajustes', onPress: () => Linking.openSettings() },
+        ]);
+      } else {
+        Alert.alert('Não foi possível ativar', 'Os avisos não estão disponíveis neste aparelho agora. Tente de novo mais tarde.');
+      }
+    } finally {
+      setSalvando(false);
+    }
+  }, [salvando, user?.id]);
+
+  const todosLigados = Object.values(prefs).every(Boolean);
+
   return (
     <View style={styles.container}>
       <SafeAreaView style={{ flex: 1 }}>
@@ -106,8 +129,14 @@ export default function NotificacoesScreen() {
           ) : (
             <>
               <Text style={styles.intro}>
-                Todos os avisos começam desligados. Escolha só o que quiser; você pode mudar quando quiser.
+                Escolha quais avisos quer receber. Você pode ligar ou desligar cada um quando quiser.
               </Text>
+              {!todosLigados && (
+                <TouchableOpacity style={styles.btnTodos} onPress={ativarTudo} disabled={salvando} activeOpacity={0.85}>
+                  <Feather name="bell" size={16} color="#FFF" />
+                  <Text style={styles.btnTodosTexto}>Ativar todos os avisos</Text>
+                </TouchableOpacity>
+              )}
               {ITENS.map((it) => (
                 <View key={it.tipo} style={styles.linha}>
                   <View style={{ flex: 1 }}>
@@ -137,6 +166,8 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, gap: 16 },
   backBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#1C1B26', justifyContent: 'center', alignItems: 'center' },
   title: { fontSize: 17, fontWeight: '800', color: '#FFF' },
+  btnTodos: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#E1306C', height: 46, borderRadius: 12 },
+  btnTodosTexto: { color: '#FFF', fontSize: 14, fontWeight: '700' },
   intro: { fontSize: 13, color: '#A0A0B2', lineHeight: 19 },
   linha: {
     flexDirection: 'row',

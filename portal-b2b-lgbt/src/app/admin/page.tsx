@@ -10,6 +10,8 @@ import PainelValidacaoHospedagem from '../../components/PainelValidacaoHospedage
 import PainelDestinos from '../../components/PainelDestinos';
 import PainelRoteiros from '../../components/PainelRoteiros';
 import PainelPush from '../../components/PainelPush';
+import PainelRodizio from '../../components/PainelRodizio';
+import PainelOcorrencias from '../../components/PainelOcorrencias';
 
 const URL_PORTAL = 'https://dicas-portal-b2b-dun.vercel.app'; // ajuste aqui quando o domínio definitivo (ex.: portal.vezpabar.com) estiver configurado
 
@@ -479,7 +481,7 @@ export default function AdminPage() {
   // Rodada 46: a Andrea ainda achou confuso — "Eventos" sobe de sub-aba
   // pra aba própria, no mesmo nível de "Locais". `subAbaCategorias` saiu
   // de existir; `aba` agora cobre os três níveis direto.
-  const [aba, setAba] = useState<'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos' | 'roteiros' | 'push'>('aprovacoes');
+  const [aba, setAba] = useState<'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos' | 'roteiros' | 'push' | 'rodizio' | 'denuncias'>('aprovacoes');
   const [filtroPrincipal, setFiltroPrincipal] = useState<string>('todas');
   // Rodada 46 — filtro só da aba Eventos: "O que Fazer Hoje" (destaque_secoes
   // contém 'hoje', mesmo mecanismo que locais já tinham) vs todos.
@@ -1396,6 +1398,10 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
           ? 'Roteiros e experiências do Dicas Trip: foto, tags (até 8 principais), paradas e publicação.'
           : aba === 'push'
           ? 'Notificações push: escreva o aviso, teste no seu celular e envie para quem aceitou.'
+          : aba === 'rodizio'
+          ? 'Rodízio por horário da Home: quantos locais aparecem por vez e de quanto em quanto tempo troca.'
+          : aba === 'denuncias'
+          ? 'Ocorrências registradas no app: relato, provas, histórico e atendimento. Conteúdo sensível — acesso restrito à equipe.'
           : 'Arte do banner e logo de cada local que aparece no selo "Membro Fundador" da Home.'}
       </p>
 
@@ -1469,6 +1475,22 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
           }`}
         >
           Avisos
+        </button>
+        <button
+          onClick={() => setAba('rodizio')}
+          className={`text-sm font-bold px-4 py-2.5 border-b-2 -mb-px transition ${
+            aba === 'rodizio' ? 'border-[#E1306C] text-white' : 'border-transparent text-[#626274] hover:text-[#A0A0B2]'
+          }`}
+        >
+          Rodízio
+        </button>
+        <button
+          onClick={() => setAba('denuncias')}
+          className={`text-sm font-bold px-4 py-2.5 border-b-2 -mb-px transition ${
+            aba === 'denuncias' ? 'border-[#E1306C] text-white' : 'border-transparent text-[#626274] hover:text-[#A0A0B2]'
+          }`}
+        >
+          Denúncias
         </button>
       </div>
 
@@ -2390,6 +2412,8 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
       {aba === 'destinos' && <PainelDestinos />}
       {aba === 'roteiros' && <PainelRoteiros />}
       {aba === 'push' && <PainelPush />}
+      {aba === 'rodizio' && <PainelRodizio />}
+      {aba === 'denuncias' && <PainelOcorrencias />}
 
       {aba === 'fundador' && (
       <>
