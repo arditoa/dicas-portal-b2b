@@ -78,3 +78,29 @@ export function aparicoesPorDia(tamLista: number, tamanho: number, intervaloMin:
   const slotsPorDia = (24 * 60) / Math.max(1, intervaloMin);
   return tamLista <= tamanho ? slotsPorDia : (slotsPorDia * tamanho) / tamLista;
 }
+
+// ---------------------------------------------------------------------------
+// Rodada 77 — bloco FIXO de Membros Fundadores (topo da Home).
+// Fundador paga por posição garantida: aparece sempre, não entra no rodízio.
+// Para ser justo entre fundadores, a ORDEM muda uma vez por dia (hora de
+// Brasília). Se houver mais fundadores que o limite do bloco, o grupo que
+// aparece avança a cada dia, até todos passarem pelo topo.
+// ---------------------------------------------------------------------------
+export const FUNDADORES_MAX_PADRAO = 8;
+
+/** Número do dia (hora de Brasília): muda à meia-noite daqui. */
+export function diaNumero(agora: number = Date.now()): number {
+  return Math.floor((agora - BRASILIA_MS) / 86400000);
+}
+
+export function blocoFixoDiario<T extends { id: string }>(itens: T[], max: number, agora: number = Date.now()): T[] {
+  const dia = diaNumero(agora);
+  const limite = Math.max(1, max);
+  const base = itens.length > limite ? janelaRodizio(itens, dia, limite, chaveSemana(agora)) : itens.slice();
+  return base.sort((a, b) => fnv1a(`${a.id}|d${dia}`) - fnv1a(`${b.id}|d${dia}`) || (a.id < b.id ? -1 : 1));
+}
+
+/** O bloco "Em alta agora" só aparece se houver o que rodar (ao menos `tamanho` locais). */
+export function deveMostrarRodizio(qtdNoPool: number, tamanho: number): boolean {
+  return qtdNoPool >= Math.max(2, tamanho);
+}

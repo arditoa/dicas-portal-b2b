@@ -18,6 +18,7 @@ import { useSlotHora } from '../../hooks/useSlotHora';
 import { CONFIG_RODIZIO_PADRAO, lerConfigRodizio } from '../../lib/rodizioConfig';
 import { abertoAgora, fechaAs } from '../../lib/horario';
 import { useI18n } from '../../lib/i18n';
+import { textoLocalizacao } from '../../lib/localizacao';
 import { supabase } from '../../lib/supabase';
 
 const C = {
@@ -74,7 +75,8 @@ function foto(l: any): string | null {
   return l.foto_capa_url || l.galeria_fotos?.[0] || null;
 }
 function bairro(l: any): string {
-  return l.bairro_exibicao || l.bairro || l.cidade || '';
+  // Rodada 77 — endereço (bairro) só em bares, festas/eventos, gastronomia e cultura; demais mostram a cidade.
+  return textoLocalizacao(l);
 }
 
 export default function SecaoScreen() {

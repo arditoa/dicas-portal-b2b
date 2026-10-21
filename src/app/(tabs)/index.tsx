@@ -20,7 +20,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FundoDegrade from '../../components/FundoDegrade';
 import { useCidadeAtual } from '../../hooks/useCidadeAtual';
 import { useSlotHora } from '../../hooks/useSlotHora';
-import { chaveSemana, rodizioComPrioridade } from '../../lib/rodizio';
+import { blocoFixoDiario, deveMostrarRodizio } from '../../lib/rodizio';
+import { textoLocalizacao } from '../../lib/localizacao';
 import { CONFIG_RODIZIO_PADRAO, ConfigRodizio, lerConfigRodizio } from '../../lib/rodizioConfig';
 import { abertoAgora } from '../../lib/horario';
 import { useAuth } from '../../lib/authContext';
@@ -235,14 +236,30 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [abertosAgora, setAbertosAgora] = useState<LocalCard[]>([]);
   type DestaqueTopo = { id: string; nome: string; foto: string | null; bairro: string; tipo: 'fundador' | 'patrocinado' | 'outro' };
-  // Pagantes/fixados (prioridade) e, para completar as vagas, outros locais com foto.
+  // Fixos do topo: Membros Fundadores + patrocinados (destaque_secoes 'patrocinado').
   const [topoPrioritarios, setTopoPrioritarios] = useState<DestaqueTopo[]>([]);
-  const [topoDemais, setTopoDemais] = useState<DestaqueTopo[]>([]);
   // Rodízio por horário: a cada intervalo (padrão 1 h) aparece um novo grupo de 6.
   const slotRodizio = useSlotHora(cfgRodizio.intervaloMin);
-  const destaquesTopo = useMemo(
-    () => rodizioComPrioridade(topoPrioritarios, topoDemais, slotRodizio, cfgRodizio.tamanho, chaveSemana()),
-    [topoPrioritarios, topoDemais, slotRodizio, cfgRodizio.tamanho]
+  // Rodada 77 — o topo é FIXO: fundadores sempre aparecem (ordem muda uma vez
+  // por dia; se passarem do limite, o grupo avança por dia) e os patrocinados
+  // marcados no /admin ficam depois. Quem não paga não entra aqui: vai para o
+  // bloco "Em alta agora", logo abaixo, que gira por horário.
+  const destaquesTopo = useMemo(() => {
+    const fundadores = topoPrioritarios.filter((d) => d.tipo === 'fundador');
+    const patrocinados = topoPrioritarios.filter((d) => d.tipo !== 'fundador');
+    return [...blocoFixoDiario(fundadores, cfgRodizio.fundadoresMax), ...patrocinados];
+    // slotRodizio entra na lista só para recalcular quando o dia virar com o app aberto
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topoPrioritarios, cfgRodizio.fundadoresMax, slotRodizio]);
+  const poolRodizioHome = useMemo(() => {
+    const fixos = new Set(topoPrioritarios.map((d) => d.id));
+    return emAltaPool.filter((p) => !fixos.has(p.id));
+  }, [emAltaPool, topoPrioritarios]);
+  const emAltaAgora = useMemo(
+    () => (deveMostrarRodizio(poolRodizioHome.length, cfgRodizio.tamanho)
+      ? rodizioHorario(poolRodizioHome, 'em_alta', slotRodizio, cfgRodizio.tamanho)
+      : []),
+    [poolRodizioHome, slotRodizio, cfgRodizio.tamanho]
   );
   const emAlta = useMemo(
     () => rodizioHorario(emAltaPool, 'em_alta', slotRodizio, cfgRodizio.tamanho),
@@ -336,7 +353,7 @@ export default function HomeScreen() {
         // comercial — por isso não dá pra reaproveitar o lote de emAltaRes.
         supabase
           .from('local_badges')
-          .select('locais!inner(id, nome, foto_capa_url, logo_url, galeria_fotos, bairro, bairro_exibicao, cidade, status)')
+          .select('locais!inner(id, nome, categoria, foto_capa_url, logo_url, galeria_fotos, bairro, bairro_exibicao, cidade, status)')
           .ilike('rotulo', '%fundador%')
           .eq('ativo', true)
           .eq('locais.status', 'aprovado')
@@ -429,26 +446,20 @@ export default function HomeScreen() {
         .filter(Boolean) as { id: string; nome: string; foto_capa_url: string | null; logo_url: string | null }[];
       setFundadorLogos(listaFundadorLogos);
 
-      // Carrossel do topo: fundadores + patrocinados (destaque_secoes 'patrocinado').
+      // Topo fixo: fundadores + patrocinados (destaque_secoes 'patrocinado').
       const topo: DestaqueTopo[] = [];
       const vistosTopo = new Set<string>();
       for (const f of listaFundadorLogos as any[]) {
         if (vistosTopo.has(f.id)) continue;
         vistosTopo.add(f.id);
-        topo.push({ id: f.id, nome: f.nome, foto: f.foto_capa_url || f.galeria_fotos?.[0] || f.logo_url || null, bairro: f.bairro_exibicao || f.bairro || f.cidade || '', tipo: 'fundador' });
+        topo.push({ id: f.id, nome: f.nome, foto: f.foto_capa_url || f.galeria_fotos?.[0] || f.logo_url || null, bairro: textoLocalizacao(f), tipo: 'fundador' });
       }
       for (const p of ((emAltaRes.data as any) || []) as LocalCard[]) {
         if (vistosTopo.has(p.id) || !estaFixadoEm(p, 'patrocinado')) continue;
         vistosTopo.add(p.id);
-        topo.push({ id: p.id, nome: p.nome, foto: fotoDestaqueUrl(p), bairro: bairroExibicao(p), tipo: 'patrocinado' });
+        topo.push({ id: p.id, nome: p.nome, foto: fotoDestaqueUrl(p), bairro: textoLocalizacao(p), tipo: 'patrocinado' });
       }
       setTopoPrioritarios(topo);
-      // Para completar as vagas do carrossel: demais locais aprovados que tenham foto.
-      setTopoDemais(
-        (((emAltaRes.data as any) || []) as LocalCard[])
-          .filter((p) => !vistosTopo.has(p.id) && !!fotoDestaqueUrl(p))
-          .map((p) => ({ id: p.id, nome: p.nome, foto: fotoDestaqueUrl(p), bairro: bairroExibicao(p), tipo: 'outro' as const }))
-      );
       setBannerFundadorArteUrl(((appConfigRes.data as any)?.valor as string | undefined) || null);
 
       if (user?.id) {
@@ -651,6 +662,43 @@ export default function HomeScreen() {
                 ))}
               </View>
             )}
+          </View>
+        )}
+
+        {/* EM ALTA AGORA — rodízio por horário (a cada hora, grupo novo).
+            Fica logo abaixo dos fundadores fixos; só aparece quando há locais
+            suficientes para rodar. Planos pagos entram primeiro no grupo. */}
+        {emAltaAgora.length > 0 && (
+          <View style={{ marginBottom: 16 }}>
+            <View style={styles.emAltaCabecalho}>
+              <Text style={styles.emAltaTituloBloco}>{t('home.emAltaAgora')}</Text>
+              <TouchableOpacity onPress={() => router.push('/secao/em-alta' as any)} accessibilityRole="link">
+                <Text style={styles.emAltaVerTodos}>{t('home.verMais')}</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}>
+              {emAltaAgora.map((l) => {
+                const foto = fotoDestaqueUrl(l);
+                return (
+                  <TouchableOpacity key={l.id} style={styles.altaBox} activeOpacity={0.85} onPress={() => router.push(`/business/${l.id}` as any)}>
+                    <View style={styles.altaFoto}>
+                      {foto ? (
+                        <Image source={{ uri: foto }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                      ) : (
+                        <Feather name="map-pin" size={22} color={COLORS.textMuted} />
+                      )}
+                      {deveExibirGlow(l) && (
+                        <View style={[styles.altaPatrocinado, { backgroundColor: COLORS.amber }]}>
+                          <Text style={[styles.altaPatrocinadoTexto, { color: '#000' }]}>DESTAQUE</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={styles.altaNome} numberOfLines={1}>{l.nome}</Text>
+                    <Text style={styles.altaMeta} numberOfLines={1}>{textoLocalizacao(l)}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
           </View>
         )}
 
@@ -863,10 +911,13 @@ const styles = StyleSheet.create({
   pontos: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 10 },
   ponto: { width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.border },
   pontoAtivo: { width: 18, backgroundColor: COLORS.pink },
-  altaBox: { width: 92 },
+  altaBox: { width: 112 },
+  emAltaCabecalho: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, marginBottom: 10 },
+  emAltaTituloBloco: { fontSize: 16, fontWeight: '800', color: COLORS.textPrimary },
+  emAltaVerTodos: { fontSize: 12, fontWeight: '700', color: COLORS.pink },
   altaFoto: {
-    width: 92,
-    height: 92,
+    width: 112,
+    height: 112,
     borderRadius: 14,
     backgroundColor: COLORS.card,
     borderWidth: 1,

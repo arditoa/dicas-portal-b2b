@@ -1,4 +1,6 @@
 'use client';
+// Rodada 77: o topo da Home agora é um bloco FIXO (fundadores + patrocinados) e o rodízio
+// fica no bloco "Em alta agora", logo abaixo.
 // Rodada 75 — aba "Rodízio" do /admin: mostra e ajusta o rodízio por horário
 // da Home (carrossel do topo e "Em Alta"). A conta é a mesma do app
 // (src/lib/rodizio.ts); aqui você vê quem aparece agora e nas próximas horas
@@ -7,10 +9,13 @@ import { Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import {
+  FUNDADORES_MAX_PADRAO,
   RODIZIO_INTERVALO_PADRAO_MIN,
   RODIZIO_TAMANHO_PADRAO,
   aparicoesPorDia,
+  blocoFixoDiario,
   chaveSemana,
+  deveMostrarRodizio,
   inicioDoSlot,
   rodizioComPrioridade,
   slotAtual,
@@ -38,20 +43,34 @@ export default function PainelRodizio() {
   const [locais, setLocais] = useState<L[]>([]);
   const [tamanho, setTamanho] = useState(RODIZIO_TAMANHO_PADRAO);
   const [intervalo, setIntervalo] = useState(RODIZIO_INTERVALO_PADRAO_MIN);
+  const [fundMax, setFundMax] = useState(FUNDADORES_MAX_PADRAO);
+  const [idsFundadores, setIdsFundadores] = useState<string[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; texto: string } | null>(null);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
-    const [l, c] = await Promise.all([
+    const [l, c, fb] = await Promise.all([
       supabase
         .from('locais')
         .select('id, nome, plano_comercial, plano_comercial_status, destaque_secoes, destaque_ate')
         .eq('status', 'aprovado')
         .limit(500),
-      supabase.from('app_config').select('chave, valor').in('chave', ['rodizio_tamanho', 'rodizio_intervalo_min']),
+      supabase.from('app_config').select('chave, valor').in('chave', ['rodizio_tamanho', 'rodizio_intervalo_min', 'fundadores_max_topo']),
+      supabase
+        .from('local_badges')
+        .select('locais!inner(id, status)')
+        .ilike('rotulo', '%fundador%')
+        .eq('ativo', true)
+        .eq('locais.status', 'aprovado')
+        .limit(100),
     ]);
+    setIdsFundadores(
+      (((fb.data as unknown) as { locais: { id: string } | { id: string }[] | null }[]) ?? [])
+        .map((r) => (Array.isArray(r.locais) ? r.locais[0]?.id : r.locais?.id))
+        .filter((x): x is string => !!x)
+    );
     setLocais((l.data as L[]) ?? []);
     const mapa: Record<string, string | null> = {};
     (c.data ?? []).forEach((r: { chave: string; valor: string | null }) => { mapa[r.chave] = r.valor; });
@@ -59,15 +78,28 @@ export default function PainelRodizio() {
     const i = parseInt(mapa['rodizio_intervalo_min'] ?? '', 10);
     if (Number.isFinite(t)) setTamanho(Math.min(12, Math.max(1, t)));
     if (Number.isFinite(i)) setIntervalo(Math.min(240, Math.max(15, i)));
+    const f = parseInt(mapa['fundadores_max_topo'] ?? '', 10);
+    if (Number.isFinite(f)) setFundMax(Math.min(20, Math.max(1, f)));
     setCarregando(false);
   }, []);
   useEffect(() => { carregar(); }, [carregar]);
 
-  const { prioritarios, demais } = useMemo(() => {
-    const p = locais.filter(prioritario);
+  // Bloco fixo do topo (igual ao app): fundadores com selo + patrocinados fixados.
+  const { fixos, prioritarios, demais } = useMemo(() => {
+    const idsF = new Set(idsFundadores);
+    const noPrazo = (l: L) => !l.destaque_ate || new Date(l.destaque_ate).getTime() >= Date.now();
+    const fixosL = locais.filter((l) => idsF.has(l.id) || (!!l.destaque_secoes?.includes('patrocinado') && noPrazo(l)));
+    const idsFix = new Set(fixosL.map((l) => l.id));
+    const pool = locais.filter((l) => !idsFix.has(l.id));
+    const p = pool.filter(prioritario);
     const ids = new Set(p.map((x) => x.id));
-    return { prioritarios: p, demais: locais.filter((x) => !ids.has(x.id)) };
-  }, [locais]);
+    return { fixos: fixosL, prioritarios: p, demais: pool.filter((x) => !ids.has(x.id)) };
+  }, [locais, idsFundadores]);
+
+  const fundadoresL = useMemo(() => fixos.filter((l) => idsFundadores.includes(l.id)), [fixos, idsFundadores]);
+  const topoHoje = useMemo(() => blocoFixoDiario(fundadoresL, fundMax), [fundadoresL, fundMax]);
+  const poolTam = prioritarios.length + demais.length;
+  const mostraBloco = deveMostrarRodizio(poolTam, tamanho);
 
   const agora = slotAtual(Date.now(), intervalo);
   const semana = chaveSemana();
@@ -88,6 +120,7 @@ export default function PainelRodizio() {
       [
         { chave: 'rodizio_tamanho', valor: String(tamanho), atualizado_em: agoraIso },
         { chave: 'rodizio_intervalo_min', valor: String(intervalo), atualizado_em: agoraIso },
+        { chave: 'fundadores_max_topo', valor: String(fundMax), atualizado_em: agoraIso },
       ],
       { onConflict: 'chave' }
     );
@@ -102,7 +135,11 @@ export default function PainelRodizio() {
   return (
     <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
       <div className="bg-[#161520] border border-[#232230] rounded-2xl p-6 flex flex-col gap-4 h-fit">
-        <h3 className="font-bold text-sm">Regras do rodízio</h3>
+        <h3 className="font-bold text-sm">Regras da Home</h3>
+        <label className="text-xs text-[#A0A0B2] flex flex-col gap-1.5">
+          Vagas do bloco fixo de Fundadores (1 a 20)
+          <input type="number" min={1} max={20} className={campo} value={fundMax} onChange={(e) => setFundMax(Math.min(20, Math.max(1, Number(e.target.value) || 1)))} />
+        </label>
         <label className="text-xs text-[#A0A0B2] flex flex-col gap-1.5">
           Locais por vez (1 a 12)
           <input type="number" min={1} max={12} className={campo} value={tamanho} onChange={(e) => setTamanho(Math.min(12, Math.max(1, Number(e.target.value) || 1)))} />
@@ -123,12 +160,25 @@ export default function PainelRodizio() {
             ? <p className="mt-1">Há prioritários suficientes: só eles rodam.</p>
             : <p className="mt-1">Os prioritários aparecem sempre; as outras {tamanho - prioritarios.length} vaga(s) rodam entre os demais (cada um aparece cerca de {porDia.toFixed(1)}x por dia).</p>}
           <p className="mt-1">Para cada local aparecer 2x por dia seriam necessários {Math.round((24 * 60 / intervalo) * tamanho / 2)} locais no rodízio.</p>
-          <p className="mt-1">Vale para o carrossel do topo (fundadores e patrocinados primeiro) e para Em Alta. A ordem do ciclo muda uma vez por semana.</p>
+          <p className="mt-1">O rodízio vale para o bloco "Em alta agora" (abaixo dos fundadores) e para a página Em Alta. A ordem do ciclo muda uma vez por semana. {mostraBloco ? 'O bloco aparece na Home.' : `O bloco fica escondido enquanto houver menos de ${Math.max(2, tamanho)} locais para rodar (hoje: ${poolTam}).`}</p>
         </div>
       </div>
 
+      <div className="flex flex-col gap-6">
       <div className="bg-[#161520] border border-[#232230] rounded-2xl p-6">
-        <h3 className="font-bold text-sm mb-1">Em Alta: agora e nas próximas horas</h3>
+        <h3 className="font-bold text-sm mb-1">Topo fixo da Home (hoje)</h3>
+        <p className="text-[11px] text-[#626274] mb-3">
+          Fundadores sempre aparecem; a ordem muda uma vez por dia. {fundadoresL.length > fundMax ? `Há ${fundadoresL.length} fundadores e só ${fundMax} vagas: o grupo avança a cada dia.` : `${fundadoresL.length} fundador(es) de ${fundMax} vaga(s).`}
+        </p>
+        <p className="text-xs text-[#A0A0B2]">
+          {topoHoje.length === 0 && 'Nenhum fundador com selo ativo. O topo some e o bloco "Em alta agora" aparece primeiro.'}
+          {topoHoje.map((x, i) => <span key={x.id}>{i > 0 ? ' · ' : ''}<b className="text-white">{x.nome}</b></span>)}
+          {fixos.filter((l) => !idsFundadores.includes(l.id)).map((x) => <span key={x.id}> · {x.nome} (patrocinado)</span>)}
+        </p>
+      </div>
+
+      <div className="bg-[#161520] border border-[#232230] rounded-2xl p-6">
+        <h3 className="font-bold text-sm mb-1">Em alta agora: bloco que gira por horário</h3>
         <p className="text-[11px] text-[#626274] mb-4">Prévia pela regra acima, no horário de Brasília. Negrito = prioridade.</p>
         <ul className="flex flex-col gap-3">
           {linhas.map((ln, k) => (
@@ -149,6 +199,7 @@ export default function PainelRodizio() {
             </li>
           ))}
         </ul>
+      </div>
       </div>
     </div>
   );
