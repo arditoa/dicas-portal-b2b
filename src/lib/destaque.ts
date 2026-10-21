@@ -73,7 +73,7 @@ export interface ItemComDestaque {
 export const EXPERIENCIAS_REAIS: { slug: string; label: string }[] = [
   { slug: 'aniversario', label: 'Aniversário' },
   { slug: 'predominancia_lesbica', label: 'Predominância lésbica' },
-  { slug: 'predominancia_gay', label: 'Predominância Gay' },
+  { slug: 'predominancia_gay', label: 'Predominância gay' },
   { slug: 'dates', label: 'Dates' },
   { slug: 'musica_ao_vivo', label: 'Música ao vivo' },
   { slug: 'dancar', label: 'Dançar' },
@@ -202,7 +202,7 @@ export function compararDestaque<T extends ItemComDestaque>(secao: string) {
 // Rodízio por horário (ver src/lib/rodizio.ts): prioritários (plano pago ativo
 // ou fixado na seção) primeiro; as vagas que sobrarem são completadas, em
 // rodízio, com os demais itens. `slot` vem de useSlotHora().
-import { chaveSemana, rodizioComPrioridade } from './rodizio';
+import { chaveSemana, rodizioComPrioridade, temImagemParaFaixa } from './rodizio';
 
 export function rodizioHorario<T extends ItemComDestaque>(itens: T[], secao: string, slot: number, tamanho: number): T[] {
   const prioritarios = itens
@@ -211,4 +211,25 @@ export function rodizioHorario<T extends ItemComDestaque>(itens: T[], secao: str
   const ids = new Set(prioritarios.map((i) => i.id));
   const demais = itens.filter((i) => !ids.has(i.id));
   return rodizioComPrioridade(prioritarios, demais, slot, tamanho, chaveSemana());
+}
+
+// Rodada 81 — quem tem prioridade em Em Alta: plano pago ativo ou fixado no /admin (dentro do prazo).
+export function prioritarioEmAlta(item: ItemComDestaque): boolean {
+  return fixacaoValidaPara(item, 'em_alta') || pagaPlanoComDireitoADestaque(item);
+}
+
+// Rodada 81 — Em Alta da hora, usado pela Home, pela página /secao/em-alta e pela prévia do /admin
+// (a regra é uma só). Prioritários sempre entram. Com `completar` ligado, as vagas que sobram são
+// preenchidas com locais não pagos, mas só os que têm foto e nome de verdade (sem razão social/CNPJ).
+// Com `completar` desligado, Em Alta mostra apenas quem paga ou foi fixado.
+export function emAltaDaHora<
+  T extends ItemComDestaque & {
+    nome?: string | null;
+    logo_url?: string | null;
+    foto_capa_url?: string | null;
+    galeria_fotos?: string[] | null;
+  }
+>(itens: T[], slot: number, tamanho: number, completar: boolean): T[] {
+  const base = completar ? itens.filter((i) => prioritarioEmAlta(i) || temImagemParaFaixa(i)) : itens.filter(prioritarioEmAlta);
+  return rodizioHorario(base, 'em_alta', slot, tamanho);
 }

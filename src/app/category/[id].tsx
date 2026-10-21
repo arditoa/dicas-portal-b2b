@@ -17,7 +17,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CATEGORIAS, CATEGORIA_REAL_LABEL, CategoriaSlugUI } from '../../lib/categorias';
 import { useAuth } from '../../lib/authContext';
-import { compararDestaque } from '../../lib/destaque';
+import { compararDestaque, deveExibirGlow, deveIncluirEm, emAltaDaHora } from '../../lib/destaque';
+import { CONFIG_RODIZIO_PADRAO, ConfigRodizio, lerConfigRodizio } from '../../lib/rodizioConfig';
+import { useSlotHora } from '../../hooks/useSlotHora';
+import { textoLocalizacao } from '../../lib/localizacao';
+import { formatarNome } from '../../lib/texto';
 import { useLocation } from '../../hooks/useLocation';
 import { supabase } from '../../lib/supabase';
 
@@ -68,6 +72,7 @@ interface LocalItem {
   categoria: string;
   subcategoria: string | null;
   bairro: string | null;
+  bairro_exibicao?: string | null;
   cidade: string;
   foto_capa_url: string | null;
   safe_space: boolean;
@@ -75,11 +80,15 @@ interface LocalItem {
   destaque_secao_fixada: string | null;
   destaque_secoes: string[] | null;
   destaque_ate: string | null;
+  plano_comercial?: string | null;
+  plano_comercial_status?: string | null;
   experiencias: string[] | null;
   rating_media: number;
   rating_total: number;
   lat: number | null;
   lng: number | null;
+  logo_url?: string | null;
+  galeria_fotos?: string[] | null;
 }
 
 export default function CategoryListScreen() {
@@ -120,7 +129,8 @@ export default function CategoryListScreen() {
   const [locais, setLocais] = useState<LocalItem[]>([]);
   const [favoritos, setFavoritos] = useState<string[]>([]);
 
-  const [selectedSubcat, setSelectedSubcat] = useState(search || tipo ? 'Todas' : 'Em Alta');
+  // null = ainda não escolheu: abre em "Em Alta" só se houver quem entre ali (e não veio de busca, tag ou atalho).
+  const [selectedSubcat, setSelectedSubcat] = useState<string | null>(null);
   const [maxDistance, setMaxDistance] = useState(999);
   const [searchQuery, setSearchQuery] = useState(search ? decodeURIComponent(search) : '');
 
@@ -132,7 +142,7 @@ export default function CategoryListScreen() {
       let query = supabase
         .from('locais')
         .select(
-          'id, nome, categoria, subcategoria, bairro, cidade, foto_capa_url, safe_space, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, experiencias, rating_media, rating_total, lat, lng'
+          'id, nome, categoria, subcategoria, bairro, bairro_exibicao, cidade, foto_capa_url, safe_space, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status, experiencias, rating_media, rating_total, lat, lng, logo_url, galeria_fotos'
         )
         .eq('status', 'aprovado')
         .limit(100);
@@ -145,7 +155,9 @@ export default function CategoryListScreen() {
 
       const itens = ((data as any) || []) as LocalItem[];
       const secaoDestaque = categoriaReal ? SECAO_POR_CATEGORIA_REAL[categoriaReal] || 'nenhuma' : 'nenhuma';
-      itens.sort(compararDestaque(secaoDestaque));
+      // Quem paga (selo DESTAQUE) ou foi fixado vem primeiro; depois a ordem de sempre.
+      const cmp = compararDestaque<LocalItem>(secaoDestaque);
+      itens.sort((a, b) => Number(deveExibirGlow(b)) - Number(deveExibirGlow(a)) || cmp(a, b));
       setLocais(itens);
 
       if (user?.id && itens.length > 0) {
@@ -177,12 +189,37 @@ export default function CategoryListScreen() {
     }
   }, [locationError]);
 
+  // Páginas de experiência (Dates, Dançar, Drag Show, Karaokê…) usam a MESMA regra de Em Alta
+  // da Home (emAltaDaHora): pagantes/fixados primeiro e, com "completar" ligado no /admin, as
+  // vagas que sobram em rodízio com locais que têm foto. Assim toda experiência tem Em Alta.
+  // Categorias seguem a regra antiga: plano pago ativo ou fixado no /admin.
+  const [cfgRodizio, setCfgRodizio] = useState<ConfigRodizio>(CONFIG_RODIZIO_PADRAO);
+  useEffect(() => {
+    if (!experienciaSlug) return;
+    let vivo = true;
+    lerConfigRodizio().then((c) => { if (vivo) setCfgRodizio(c); }).catch(() => {});
+    return () => { vivo = false; };
+  }, [experienciaSlug]);
+  const slotRodizio = useSlotHora(cfgRodizio.intervaloMin);
+  const idsEmAlta = useMemo(() => {
+    if (experienciaSlug) {
+      return new Set(emAltaDaHora(locais, slotRodizio, cfgRodizio.tamanho, cfgRodizio.completarEmAlta).map((l) => l.id));
+    }
+    return new Set(locais.filter((l) => deveIncluirEm(l, 'em_alta')).map((l) => l.id));
+  }, [locais, experienciaSlug, slotRodizio, cfgRodizio]);
+  const qtdEmAlta = idsEmAlta.size;
+  const temEmAlta = qtdEmAlta > 0;
+  // Páginas de experiência (Dates, Dançar, Drag Show, Música ao vivo, Karaokê) seguem o
+  // modelo de Em Alta: abrem em "Em Alta" quando há ao menos 3; senão, em "Todas".
+  const abrirEmAlta = experienciaSlug ? qtdEmAlta >= 3 : temEmAlta;
+  const subcatAtiva = selectedSubcat ?? (abrirEmAlta && !search && !tipo ? 'Em Alta' : 'Todas');
+
   const subcategoriasList = useMemo(() => {
     const reais = Array.from(
       new Set(locais.map((l) => l.subcategoria).filter((s): s is string => !!s && s.trim().length > 0))
     );
-    return ['Em Alta', 'Todas', ...reais];
-  }, [locais]);
+    return [...(temEmAlta ? ['Em Alta'] : []), 'Todas', ...reais];
+  }, [locais, temEmAlta]);
 
   const handleToggleFavorito = async (localId: string) => {
     if (!session || !user) {
@@ -221,9 +258,9 @@ export default function CategoryListScreen() {
     })
     .filter((item) => {
       const matchesSubcat =
-        selectedSubcat === 'Em Alta'
-          ? item.plano_destaque !== 'basico'
-          : selectedSubcat === 'Todas' || item.subcategoria === selectedSubcat;
+        subcatAtiva === 'Em Alta'
+          ? idsEmAlta.has(item.id)
+          : subcatAtiva === 'Todas' || item.subcategoria === subcatAtiva;
 
       const matchesTipo =
         palavrasTipo.length === 0 ||
@@ -277,7 +314,7 @@ export default function CategoryListScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.chipsContainer}
               renderItem={({ item }) => {
-                const isSelected = selectedSubcat === item;
+                const isSelected = subcatAtiva === item;
                 const isEmAlta = item === 'Em Alta';
                 return (
                   <TouchableOpacity
@@ -298,6 +335,7 @@ export default function CategoryListScreen() {
           </View>
         )}
 
+        {(locais.length >= 6 || maxDistance !== 999) && (
         <View style={styles.distanceSection}>
           <View style={styles.distanceLabelRow}>
             <Feather name="navigation" size={12} color={COLORS.pink} />
@@ -320,6 +358,7 @@ export default function CategoryListScreen() {
             })}
           </View>
         </View>
+        )}
 
         {loading ? (
           <View style={styles.emptyContainer}>
@@ -335,11 +374,17 @@ export default function CategoryListScreen() {
               <View style={styles.emptyContainer}>
                 <Feather name="compass" size={32} color={COLORS.textMuted} />
                 <Text style={styles.emptyTitle}>
-                  {experienciaSlug ? 'Nenhum local com essa experiência ainda' : 'Nenhum local aprovado ainda'}
+                  {locais.length > 0
+                    ? 'Nada encontrado com esses filtros'
+                    : experienciaSlug
+                    ? 'Ainda não temos locais com essa experiência'
+                    : 'Nenhum local por aqui ainda'}
                 </Text>
                 <Text style={styles.emptySub}>
-                  {experienciaSlug
-                    ? 'Assim que a Dicas LGBT+ marcar locais com essa experiência no admin, eles aparecem aqui.'
+                  {locais.length > 0
+                    ? 'Tente outra busca, outra distância ou a opção "Todas".'
+                    : experienciaSlug
+                    ? 'Estamos cadastrando novos lugares. Volte em breve ou explore as outras experiências.'
                     : 'Novos locais aparecem aqui assim que forem aprovados pelo time.'}
                 </Text>
               </View>
@@ -362,9 +407,9 @@ export default function CategoryListScreen() {
 
                   <View style={{ flex: 1 }}>
                     <View style={styles.placeHeaderRow}>
-                      <Text style={styles.placeName} numberOfLines={1}>{item.nome}</Text>
+                      <Text style={styles.placeName} numberOfLines={1}>{formatarNome(item.nome)}</Text>
                       <View style={styles.actionRow}>
-                        {item.plano_destaque !== 'basico' && (
+                        {deveExibirGlow(item) && (
                           <View style={styles.vipBadge}>
                             <Text style={styles.vipBadgeText}>DESTAQUE</Text>
                           </View>
@@ -380,12 +425,14 @@ export default function CategoryListScreen() {
                     </View>
 
                     <Text style={styles.placeSubcat}>{item.subcategoria || CATEGORIA_REAL_LABEL[item.categoria] || item.categoria}</Text>
-                    <Text style={styles.placeAddress}>{item.bairro || item.cidade}</Text>
+                    <Text style={styles.placeAddress}>{textoLocalizacao(item)}</Text>
 
                     <View style={styles.placeFooterRow}>
-                      <Text style={styles.placeDistance}>
-                        {item.distanceKm != null ? `${item.distanceKm.toFixed(1)} km` : item.bairro || item.cidade}
-                      </Text>
+                      {item.distanceKm != null ? (
+                        <Text style={styles.placeDistance}>{`${item.distanceKm.toFixed(1)} km`}</Text>
+                      ) : (
+                        <View />
+                      )}
                       <View style={styles.ratingBadge}>
                         <Feather name="star" size={12} color={COLORS.gold} />
                         <Text style={styles.ratingText}>

@@ -122,8 +122,14 @@ export default function NotificacoesScreen() {
           {!user ? (
             <View style={styles.aviso}>
               <Feather name="lock" size={14} color="#A0A0B2" />
-              <Text style={styles.avisoTexto}>Entre na sua conta (aba Conta) para escolher quais avisos quer receber.</Text>
+              <Text style={styles.avisoTexto}>Entre na sua conta para escolher quais avisos quer receber.</Text>
             </View>
+          ) : null}
+          {!user ? (
+            <TouchableOpacity style={styles.btnTodos} onPress={() => router.push('/(tabs)/profile')} activeOpacity={0.85}>
+              <Feather name="user" size={16} color="#FFF" />
+              <Text style={styles.btnTodosTexto}>Entrar ou criar conta</Text>
+            </TouchableOpacity>
           ) : carregando ? (
             <ActivityIndicator color="#E1306C" />
           ) : (
