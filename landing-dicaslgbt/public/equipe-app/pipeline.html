@@ -186,6 +186,13 @@ body.deslogado .app,body.deslogado #overlay{display:none}
 .login-box form{display:flex;flex-direction:column;gap:12px}
 .login-box p{margin:0}
 .erro-login{color:var(--bad);font-weight:600;font-size:14px}
+.cl-stats{margin-bottom:14px}
+.cl-msg{margin-bottom:14px}
+.cl-filtros{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:14px 0}
+.cl-filtros input[type=search]{flex:1 1 220px;min-width:0;max-width:380px}
+.cl-filtros select,.row select{width:auto;max-width:100%}
+.cl-pag{display:flex;align-items:center;justify-content:center;gap:14px;margin:6px 0 24px}
+.btn:disabled{opacity:.4;cursor:default}
 
 </style>
 </head>
@@ -231,7 +238,7 @@ function tempChip(l){return l.temperatura?'<span class="chip '+tempClasse(l.temp
 var TIPOS={andamento:'Em andamento',ganho:'Ganho',perdido:'Perdido'};
 var CORES=['c1','c2','c3','c4','c5','c6','c7','c8'];
 var COR_NOME={c1:'Magenta',c2:'Violeta',c3:'Azul',c4:'Turquesa',c5:'Verde',c6:'Dourado',c7:'Laranja',c8:'Cinza'};
-var TABS=[['quadro','Quadro'],['hoje','Hoje'],['cadencias','Cadências'],['fases','Fases']];
+var TABS=[['quadro','Quadro'],['hoje','Hoje'],['cadencias','Cadências'],['fases','Fases'],['clientes','Clientes B2C']];
 var BRL=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0});
 
 var S={db:null,user:null,me:{id:'',name:''},fases:[],cadencias:[],leads:[],
@@ -665,22 +672,22 @@ function fechar(){S.open=null;S.modal=null;var ov=$('#overlay');ov.hidden=true;o
 
 /* ---------- render geral ---------- */
 function render(){
-  var y=window.scrollY,n=renderStats();
+  var y=window.scrollY,n=renderStats(),foco=clFoco();
   renderTabs(n);
   $('#toolbar').hidden=!(S.tab==='quadro'||S.tab==='hoje');
   var v=$('#view');
   if(S.erro){v.innerHTML='<div class="empty"><h3>Não foi possível abrir o pipeline</h3><p>'+esc(S.erro)+'</p></div>';return}
   if(!(S.ready.f&&S.ready.c&&S.ready.l)){v.innerHTML='<div class="loading">Carregando o pipeline…</div>';return}
-  v.innerHTML=S.tab==='quadro'?viewQuadro():S.tab==='hoje'?viewHoje():S.tab==='cadencias'?viewCadencias():viewFases();
+  v.innerHTML=S.tab==='quadro'?viewQuadro():S.tab==='hoje'?viewHoje():S.tab==='cadencias'?viewCadencias():S.tab==='clientes'?viewClientes():viewFases();
   window.scrollTo(0,y);
-  resolverPessoas(v);
+  resolverPessoas(v);clFocar(foco);
 }
 function emCampo(){var a=document.activeElement;return !!(a&&$('#view').contains(a)&&/INPUT|TEXTAREA|SELECT/.test(a.tagName))}
 function schedule(){
   if(S.raf)return;
   S.raf=requestAnimationFrame(function(){
     S.raf=0;
-    if((S.tab==='cadencias'||S.tab==='fases')&&emCampo()){S.dirty=true;var n=renderStats();renderTabs(n)}
+    if(((S.tab==='cadencias'||S.tab==='fases')&&emCampo())||(S.tab==='clientes'&&clEditando())){S.dirty=true;var n=renderStats();renderTabs(n)}
     else render();
     refreshFicha();
   });
@@ -834,6 +841,201 @@ function assinar(nome,chave){
     render();
   });
 }
+/* ---------- Clientes B2C (base do bar: avisar sobre o app por WhatsApp) ---------- */
+S.modelos=[];
+S.cl={q:'',status:'novo',aniv:'',sexo:'',pagina:0,tam:50,rows:[],total:0,carregando:false,carregado:false,erro:'',stats:null,modeloId:''};
+try{S.cl.modeloId=localStorage.getItem('pipeline-modelo-b2c')||''}catch(e){}
+var CL_STATUS={novo:'A enviar',enviado:'Enviado',respondeu:'Respondeu',nao_quer:'Não quer'};
+var CL_LIMITE_DIA=40;
+var clTimer=0;
+function clEditando(){var a=document.activeElement;return !!(a&&a.tagName==='TEXTAREA'&&a.dataset&&a.dataset.cl&&$('#view').contains(a))}
+function clFoco(){
+  var a=document.activeElement;
+  if(!a||!a.dataset||!a.dataset.cl||!$('#view').contains(a))return null;
+  var f={k:a.dataset.cl,id:a.dataset.id||''};
+  try{f.ss=a.selectionStart;f.se=a.selectionEnd}catch(e){}
+  return f;
+}
+function clFocar(f){
+  if(!f)return;
+  var els=$$('[data-cl="'+f.k+'"]',$('#view')),el=els.find(function(x){return (x.dataset.id||'')===f.id})||els[0];
+  if(!el)return;
+  el.focus();
+  try{if(f.ss!=null&&typeof el.setSelectionRange==='function')el.setSelectionRange(f.ss,f.se)}catch(e){}
+}
+
+function clPrimeiro(n){return String(n||'').trim().split(/\s+/)[0]||''}
+function clTel(t){
+  var d=String(t||'');
+  if(d.indexOf('55')===0&&d.length>=12)d=d.slice(2);
+  if(d.length===11)return '('+d.slice(0,2)+') '+d.slice(2,7)+'-'+d.slice(7);
+  if(d.length===10)return '('+d.slice(0,2)+') '+d.slice(2,6)+'-'+d.slice(6);
+  return d;
+}
+function clIdade(s){
+  if(!s)return null;
+  var p=s.split('-').map(Number),h=new Date(),i=h.getFullYear()-p[0];
+  if(h.getMonth()+1<p[1]||(h.getMonth()+1===p[1]&&h.getDate()<p[2]))i--;
+  return i;
+}
+function clAnivTxt(s){if(!s)return '';var p=s.split('-');return p[2]+'/'+p[1]}
+function clAnivHoje(s){if(!s)return false;var p=s.split('-'),h=new Date();return +p[1]===h.getMonth()+1&&+p[2]===h.getDate()}
+function clModelos(){return S.modelos.slice().sort(function(a,b){return (a.ordem||0)-(b.ordem||0)})}
+function clModelo(){
+  var ms=clModelos();
+  return ms.find(function(m){return m.id===S.cl.modeloId})||ms[0]||null;
+}
+function clMsg(r){
+  var m=clModelo(),meu=(S.me.name||'').split(' ')[0]||'a equipe';
+  return ((m&&m.texto)||'').replace(/\{(\w+)\}/g,function(x,k){
+    if(k==='nome')return clPrimeiro(r.nome)||'tudo bem';
+    if(k==='meu_nome')return meu;
+    return x;
+  });
+}
+function clWa(r){return 'https://wa.me/'+r.telefone+'?text='+encodeURIComponent(clMsg(r))}
+
+function clPares(dias){
+  var out=[],d=new Date();
+  for(var i=0;i<dias;i++){
+    var x=new Date(d.getFullYear(),d.getMonth(),d.getDate()+i);
+    out.push('and(nasc_mes.eq.'+(x.getMonth()+1)+',nasc_dia.eq.'+x.getDate()+')');
+  }
+  return out.join(',');
+}
+function clFiltros(q){
+  var c=S.cl;
+  if(c.status)q=q.eq('status',c.status);
+  if(c.sexo)q=q.eq('sexo',c.sexo);
+  var t=c.q.trim();
+  if(t){
+    var dg=t.replace(/\D/g,'');
+    if(/[A-Za-zÀ-ÿ]/.test(t)||dg.length<4)q=q.ilike('nome','%'+t.replace(/[%_,()\\]/g,' ').trim()+'%');
+    else q=q.ilike('telefone','%'+dg+'%');
+  }
+  if(c.aniv==='hoje')q=q.or(clPares(1));
+  else if(c.aniv==='semana')q=q.or(clPares(7));
+  else if(c.aniv==='mes')q=q.eq('nasc_mes',new Date().getMonth()+1);
+  return q;
+}
+
+async function clCarregar(){
+  var c=S.cl;
+  if(!sb||c.carregando)return;
+  c.carregando=true;c.erro='';
+  try{
+    var a=c.pagina*c.tam;
+    var q=clFiltros(sb.from('pipeline_clientes').select('id,nome,telefone,nascimento,sexo,status,enviado_em',{count:'exact'}));
+    q=c.aniv?q.order('nasc_mes').order('nasc_dia').order('nome'):q.order('nome');
+    var r=await q.range(a,a+c.tam-1);
+    if(r.error)throw r.error;
+    c.rows=r.data||[];c.total=r.count||0;
+  }catch(e){
+    c.erro=(e&&(e.code==='42P01'||e.code==='PGRST205'))?'A tabela de clientes ainda não existe. Rode a migration 043 no Supabase.':'Não consegui carregar os clientes. Tente de novo.';
+    c.rows=[];c.total=0;
+  }
+  c.carregando=false;c.carregado=true;
+  schedule();
+  clStats();
+}
+async function clStats(){
+  if(!sb)return;
+  var d=new Date(),h0=new Date();h0.setHours(0,0,0,0);
+  function cnt(f){
+    var q=sb.from('pipeline_clientes').select('id',{count:'exact',head:true});
+    return f(q).then(function(r){return r.count||0},function(){return 0});
+  }
+  var r=await Promise.all([
+    cnt(function(q){return q}),
+    cnt(function(q){return q.eq('status','novo')}),
+    cnt(function(q){return q.neq('status','novo')}),
+    cnt(function(q){return q.eq('nasc_mes',d.getMonth()+1).eq('nasc_dia',d.getDate())}),
+    cnt(function(q){return q.gte('enviado_em',h0.toISOString())})
+  ]);
+  S.cl.stats={total:r[0],novo:r[1],contatados:r[2],hoje:r[3],enviadosHoje:r[4]};
+  schedule();
+}
+async function clMarcar(id,status){
+  var c=S.cl,r=c.rows.find(function(x){return String(x.id)===String(id)});
+  if(!r)return;
+  var up={status:status};
+  if(status==='enviado'){up.enviado_em=new Date().toISOString();up.enviado_por=S.me.id}
+  var res=await sb.from('pipeline_clientes').update(up).eq('id',r.id);
+  if(res.error){toast('Não foi possível salvar. Tente de novo.');return}
+  Object.assign(r,up);
+  if(c.status&&c.status!==status){c.rows=c.rows.filter(function(x){return x!==r});c.total=Math.max(0,c.total-1)}
+  schedule();clStats();
+  if(!c.rows.length&&c.total>0)clCarregar();
+}
+
+function viewClientes(){
+  var c=S.cl,st=c.stats,ms=clModelos(),m=clModelo();
+  if(sb&&!c.carregado&&!c.carregando)setTimeout(clCarregar,0);
+  var v=function(n){return st?n.toLocaleString('pt-BR'):'—'};
+  var h='<div class="view-h"><h2>Clientes B2C</h2><p>Base de clientes do bar. Abra o WhatsApp, envie a mensagem e marque “Enviei”.</p></div>';
+  h+='<div class="stats cl-stats">'+
+    '<div class="stat"><b>'+v(st?st.total:0)+'</b><small>Na base</small></div>'+
+    '<div class="stat"><b>'+v(st?st.novo:0)+'</b><small>A enviar</small></div>'+
+    '<div class="stat"><b>'+v(st?st.contatados:0)+'</b><small>Já contatados</small></div>'+
+    '<div class="stat"><b>'+v(st?st.hoje:0)+'</b><small>Aniversariam hoje</small></div>'+
+    '<div class="stat'+(st&&st.enviadosHoje>CL_LIMITE_DIA?' alert':'')+'"><b>'+v(st?st.enviadosHoje:0)+'</b><small>Enviados hoje (sugestão: até '+CL_LIMITE_DIA+')</small></div>'+
+    '</div>';
+  h+='<div class="panel cl-msg"><div class="grid2">'+
+    '<label class="field"><span>Mensagem</span><select data-cl="modelo">'+ms.map(function(x){return '<option value="'+esc(x.id)+'"'+(m&&m.id===x.id?' selected':'')+'>'+esc(x.nome||x.id)+'</option>'}).join('')+'</select></label>'+
+    '<p class="hint">Use {nome} para o primeiro nome do cliente e {meu_nome} para o seu. Mande aos poucos e sempre com a opção de responder SAIR.</p></div>'+
+    (m?'<label class="field"><span>Texto (salva ao sair do campo)</span><textarea data-cl="texto" rows="5">'+esc(m.texto||'')+'</textarea></label>':'<p class="hint">Nenhum modelo de mensagem encontrado. Rode a migration 043 no Supabase.</p>')+
+    '</div>';
+  h+='<div class="cl-filtros">'+
+    '<input type="search" data-cl="q" value="'+esc(c.q)+'" placeholder="Buscar por nome ou telefone…" aria-label="Buscar cliente" autocomplete="off">'+
+    '<select data-cl="status" aria-label="Situação">'+[['novo','A enviar'],['enviado','Enviados'],['respondeu','Responderam'],['nao_quer','Não querem'],['','Todos']].map(function(o){return '<option value="'+o[0]+'"'+(c.status===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select>'+
+    '<select data-cl="sexo" aria-label="Sexo no cadastro">'+[['','Sexo no cadastro: todos'],['F','Cadastro: F'],['M','Cadastro: M']].map(function(o){return '<option value="'+o[0]+'"'+(c.sexo===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select>'+
+    '<select data-cl="aniv" aria-label="Aniversário">'+[['','Qualquer aniversário'],['hoje','Aniversariam hoje'],['semana','Próximos 7 dias'],['mes','Este mês']].map(function(o){return '<option value="'+o[0]+'"'+(c.aniv===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select>'+
+    '</div>';
+  if(c.erro)return h+'<div class="empty"><h3>Não foi possível abrir</h3><p>'+esc(c.erro)+'</p></div>';
+  if(!c.carregado)return h+'<div class="loading">Carregando clientes…</div>';
+  if(!c.rows.length)return h+'<div class="empty"><h3>Nenhum cliente aqui</h3><p>Mude os filtros ou a busca.</p></div>';
+  var a=c.pagina*c.tam,ate=Math.min(a+c.rows.length,c.total);
+  h+='<ul class="list">'+c.rows.map(function(r){
+    var idade=clIdade(r.nascimento),aniv=r.nascimento?'Aniversário '+clAnivTxt(r.nascimento)+(idade!=null?' · '+idade+' anos':''):'Sem data de nascimento';
+    return '<li class="row" style="cursor:default" data-cid="'+r.id+'">'+
+      '<div class="who"><strong>'+esc(r.nome)+'</strong><div class="sub">'+esc(clTel(r.telefone))+' · '+esc(aniv)+(r.sexo?' · cadastro: '+r.sexo:'')+'</div></div>'+
+      (clAnivHoje(r.nascimento)?'<span class="chip hoje">Faz aniversário hoje</span>':'')+
+      '<span class="chip'+(r.status==='enviado'||r.status==='respondeu'?' ok':r.status==='nao_quer'?' atraso':'')+'">'+esc(CL_STATUS[r.status]||r.status)+'</span>'+
+      '<div class="acts">'+
+        '<a class="btn small primary" href="'+esc(clWa(r))+'" target="_blank" rel="noopener">WhatsApp</a>'+
+        (r.status==='novo'?'<button class="btn small" data-cl="enviei" data-id="'+r.id+'">Enviei</button>':'')+
+        '<select data-cl="status-linha" data-id="'+r.id+'" aria-label="Situação de '+esc(r.nome)+'">'+['novo','enviado','respondeu','nao_quer'].map(function(s){return '<option value="'+s+'"'+(r.status===s?' selected':'')+'>'+CL_STATUS[s]+'</option>'}).join('')+'</select>'+
+      '</div></li>';
+  }).join('')+'</ul>';
+  h+='<div class="cl-pag"><button class="btn small" data-cl="ant"'+(c.pagina===0?' disabled':'')+'>Anterior</button>'+
+     '<span class="count">'+(a+1).toLocaleString('pt-BR')+'–'+ate.toLocaleString('pt-BR')+' de '+c.total.toLocaleString('pt-BR')+'</span>'+
+     '<button class="btn small" data-cl="prox"'+(ate>=c.total?' disabled':'')+'>Próxima</button></div>';
+  return h;
+}
+
+document.addEventListener('click',function(e){
+  var b=e.target.closest('button[data-cl]');if(!b)return;
+  var a=b.dataset.cl,c=S.cl;
+  if(a==='enviei'){clMarcar(b.dataset.id,'enviado');return}
+  if(a==='ant'&&c.pagina>0){c.pagina--;c.carregado=false;schedule();clCarregar();window.scrollTo(0,0);return}
+  if(a==='prox'){c.pagina++;c.carregado=false;schedule();clCarregar();window.scrollTo(0,0);return}
+});
+document.addEventListener('change',function(e){
+  var t=e.target,k=t.dataset&&t.dataset.cl;if(!k)return;
+  var c=S.cl;
+  if(k==='status'||k==='aniv'||k==='sexo'){c[k]=t.value;c.pagina=0;c.carregado=false;schedule();clCarregar();return}
+  if(k==='modelo'){c.modeloId=t.value;try{localStorage.setItem('pipeline-modelo-b2c',t.value)}catch(x){}schedule();return}
+  if(k==='texto'){var m=clModelo();if(m)upd('b2c_modelos',m.id,{texto:t.value}).then(function(){toast('Mensagem salva')});return}
+  if(k==='status-linha'){clMarcar(t.dataset.id,t.value);return}
+});
+document.addEventListener('input',function(e){
+  var t=e.target;
+  if(t.dataset&&t.dataset.cl==='q'){
+    S.cl.q=t.value;clearTimeout(clTimer);
+    clTimer=setTimeout(function(){S.cl.pagina=0;S.cl.carregado=false;clCarregar()},400);
+  }
+});
+
 /* ---------- Supabase: acesso, login e camada de dados ---------- */
 var SB_URL='https://fyisfucgzpdwupjterlh.supabase.co';
 var SB_KEY='sb_publishable_qSAiGoo7ZEGZ0IboqClunQ_NyJ8OnbY';
@@ -853,7 +1055,7 @@ function dbErro(e){
 /* Camada de dados com a mesma forma do banco antigo (collection/doc/onSnapshot),
    gravando na tabela public.pipeline_docs. */
 function criarDb(){
-  var ouvintes={fases:[],cadencias:[],leads:[]};
+  var ouvintes={fases:[],cadencias:[],leads:[],b2c_modelos:[]};
   var agendado={};
   async function ler(col){
     var r=await sb.from('pipeline_docs').select('id,data').eq('colecao',col).limit(5000);
@@ -1025,7 +1227,7 @@ async function iniciar(){
   S.me={id:sessao.user.id,name:eu.nome};
   S.db=criarDb();S.user=criarUsuario();
   mostrarApp();
-  assinar('fases','fases');assinar('cadencias','cadencias');assinar('leads','leads');
+  assinar('fases','fases');assinar('cadencias','cadencias');assinar('leads','leads');assinar('b2c_modelos','modelos');
   sb.auth.onAuthStateChange(function(ev){if(ev==='SIGNED_OUT')location.reload()});
 }
 iniciar();
