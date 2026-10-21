@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -12,12 +12,17 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useCidadeAtual } from '../../hooks/useCidadeAtual';
+import { abertoAgora } from '../../lib/horario';
 import { useAuth } from '../../lib/authContext';
-import { CATEGORIA_REAL_LABEL, CATEGORIAS, CATEGORIA_ORDER, CategoriaConfig } from '../../lib/categorias';
+import { registrarAviso } from '../../lib/avisos';
+import { IDIOMAS, useI18n } from '../../lib/i18n';
+import { CATEGORIA_ORDER, CATEGORIA_REAL_LABEL, CATEGORIAS, CategoriaConfig } from '../../lib/categorias';
 import {
   compararDestaque,
   deveExibirGlow,
@@ -45,45 +50,57 @@ const COLORS = {
   amber: '#FF9142',
 };
 
+// Nova versão (Home estilo Uber) — caixas lilás sobre o fundo preto.
+const COR_TILE = '#E8E0F6';
+const COR_TILE_TEXTO = '#0B0B0E';
+const COR_TILE_APAGADO = '#55546A';
+const GAP_GRADE = 8;
+
+// Ordem das categorias na Home: Dicas Trip (tile largo) + as demais.
+// Fonte dos dados continua sendo lib/categorias.ts.
+// Pedido da Andrea (out/2026): uma linha só, com rolagem lateral; Lazer
+// sai da Home; Serviços logo depois de Comer, e Beleza em seguida.
+// Mesma ordem oficial de lib/categorias.ts (12 categorias, out/2026).
+const ORDEM_GRADE = CATEGORIA_ORDER;
+const LARGURA_TILE = 84;
+
+// Seção "Selos e benefícios" (out/2026): 3 cartões do mesmo tamanho, cada
+// um explicando em uma frase o que é. "Cadastre seu estabelecimento" saiu
+// da Home (fica em Conta > Indicar Parceiro / site) — confundia o usuário
+// final com uma chamada que é pra empresa.
+// Experiências mostradas na Home, nesta ordem (pedido da Andrea, out/2026).
+const EXPERIENCIAS_HOME = ['aniversario', 'dates', 'dancar', 'musica_ao_vivo', 'drag_show', 'karaoke'];
+
 const BANNERS_PRINCIPAIS = [
   {
     id: 'b1',
-    tag: 'MEMBRO FUNDADOR',
-    titulo: 'Conheça os selos oficiais',
-    sub: 'Locais que constroem nossa comunidade desde o início',
+    tag: 'banner.fundadorTag',
+    titulo: 'banner.fundadorTitulo',
+    sub: 'banner.fundadorSub',
+    cta: 'banner.fundadorCta',
     cor: '#FFD54F',
+    icone: 'award',
     route: '/experience/Membro%20Fundador',
   },
   {
-    // Rodada 56 (3ª rodada de ajuste) — Andrea pediu pra trocar esse
-    // banner: "Selo Dicas" sobe pro topo, ao lado de "Membro Fundador"
-    // (mesmo padrão dos dois: um selo/conquista, não um plano pago —
-    // abre uma tela dedicada em /experience/[tag].tsx, sem CTA de venda
-    // pro Selo Dicas, ver comentário lá). "Destaque da Semana" desceu
-    // pro lugar que era do carrossel "Selo Dicas LGBT+" (ver seção
-    // abaixo de Categorias).
     id: 'b2',
-    tag: 'SELO DICAS LGBT+',
-    titulo: 'Conheça o Selo Dicas',
-    sub: 'Curadoria editorial nossa — nunca é espaço pago',
+    tag: 'banner.seloTag',
+    titulo: 'banner.seloTitulo',
+    sub: 'banner.seloSub',
+    cta: 'banner.seloCta',
     cor: '#E1306C',
+    icone: 'check-circle',
     route: '/experience/Selo%20Dicas%20LGBT%2B',
   },
   {
     id: 'b3',
-    tag: 'CUPONS EXCLUSIVOS',
-    titulo: 'Economize nos seus Rolês',
-    sub: 'Crie sua conta e garanta seus cupons com os parceiros',
-    cor: '#7E57C2',
-    route: '/(tabs)/profile',
-  },
-  {
-    id: 'b4',
-    tag: 'SEJA UM PARCEIRO',
-    titulo: 'Cadastre seu Estabelecimento',
-    sub: 'Divulgue seu espaço para a nossa comunidade',
-    cor: '#4CAF7D',
-    route: '/(tabs)/profile',
+    tag: 'banner.cupomTag',
+    titulo: 'banner.cupomTitulo',
+    sub: 'banner.cupomSub',
+    cta: 'banner.cupomCta',
+    cor: '#B39DDB',
+    icone: 'percent',
+    route: '/coupons',
   },
 ];
 
@@ -116,6 +133,7 @@ interface LocalCard {
   destaque_ate: string | null;
   plano_comercial: string | null;
   plano_comercial_status: string | null;
+  horario_funcionamento?: Record<string, any> | null;
 }
 
 // Rodada 56 — foto de capa com reserva na galeria: todo plano pode
@@ -167,6 +185,9 @@ export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, session } = useAuth();
+  const { t, idioma, proximoIdioma } = useI18n();
+  const idiomaAtual = IDIOMAS.find((i) => i.code === idioma) || IDIOMAS[0];
+  const local = useCidadeAtual();
 
   const [busca, setBusca] = useState('');
   const [favoritos, setFavoritos] = useState<string[]>([]);
@@ -206,6 +227,27 @@ export default function HomeScreen() {
   // BANNERS_PRINCIPAIS abaixo).
   const [bannerFundadorArteUrl, setBannerFundadorArteUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [abertosAgora, setAbertosAgora] = useState<LocalCard[]>([]);
+  const [destaquesTopo, setDestaquesTopo] = useState<
+    { id: string; nome: string; foto: string | null; bairro: string; tipo: 'fundador' | 'patrocinado' }[]
+  >([]);
+  const [slide, setSlide] = useState(0);
+  const carrosselRef = useRef<ScrollView>(null);
+  const { width: larguraTela } = useWindowDimensions();
+  const larguraSlide = Math.min(larguraTela, 600) - 32;
+
+  // Carrossel do topo passa sozinho a cada 4 segundos.
+  useEffect(() => {
+    if (destaquesTopo.length < 2) return;
+    const timer = setInterval(() => {
+      setSlide((atual) => {
+        const proximo = (atual + 1) % destaquesTopo.length;
+        carrosselRef.current?.scrollTo({ x: proximo * (larguraSlide + 12), animated: true });
+        return proximo;
+      });
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [destaquesTopo.length, larguraSlide]);
 
   const isUserLogged = !!session;
 
@@ -228,7 +270,7 @@ export default function HomeScreen() {
         supabase
           .from('locais')
           .select(
-            'id, nome, categoria, bairro, bairro_exibicao, cidade, instagram, foto_capa_url, galeria_fotos, rating_media, rating_total, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status'
+            'id, nome, categoria, bairro, bairro_exibicao, cidade, instagram, foto_capa_url, galeria_fotos, rating_media, rating_total, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status, horario_funcionamento'
           )
           .eq('status', 'aprovado')
           .limit(60),
@@ -277,7 +319,7 @@ export default function HomeScreen() {
         // comercial — por isso não dá pra reaproveitar o lote de emAltaRes.
         supabase
           .from('local_badges')
-          .select('locais!inner(id, nome, foto_capa_url, logo_url, status)')
+          .select('locais!inner(id, nome, foto_capa_url, logo_url, galeria_fotos, bairro, bairro_exibicao, cidade, status)')
           .ilike('rotulo', '%fundador%')
           .eq('ativo', true)
           .eq('locais.status', 'aprovado')
@@ -297,7 +339,6 @@ export default function HomeScreen() {
         deveIncluirEm(item, 'em_alta')
       );
       listaEmAlta.sort(compararDestaque('em_alta'));
-      setEmAlta(listaEmAlta.slice(0, 8));
 
       // Rodada 46 — junta os eventos automáticos de hoje (data exata) com
       // os fixados manualmente (destaque_secoes 'hoje', qualquer data),
@@ -335,7 +376,27 @@ export default function HomeScreen() {
       const listaDestaqueSemana = (((emAltaRes.data as any) || []) as LocalCard[])
         .filter((item) => deveExibirGlow(item))
         .sort(compararDestaque('destaque'));
+      // Out/2026 — "Destaque da Semana" e "Em Alta" mostravam praticamente os
+      // mesmos locais (quem paga premium/fundador). Agora é UMA seção só,
+      // "Em Alta": primeiro quem tem destaque (com o selo dourado DESTAQUE
+      // no card), depois o restante da rotação. Ninguém que pagava perde
+      // espaço — quem aparecia só no Destaque da Semana entra aqui também.
+      // Nova Home (out/2026): "Em Alta" = rotação dos planos menores
+      // (Intermediário/Premium e manuais), "Destaques da semana" = quem tem o
+      // selo DESTAQUE. Se Em Alta ficar vazia sem quem já está no Destaque,
+      // mostra a lista completa pra seção não sumir.
+      const idsDestaque = new Set(listaDestaqueSemana.map((i) => i.id));
+      const emAltaSemRepetir = listaEmAlta.filter((i) => !idsDestaque.has(i.id));
+      setEmAlta((emAltaSemRepetir.length > 0 ? emAltaSemRepetir : listaEmAlta).slice(0, 10));
       setDestaqueSemana(listaDestaqueSemana.slice(0, 8));
+
+      // Abertos agora (O que fazer hoje), sem repetir quem já foi fixado.
+      const idsHoje = new Set(listaLocaisHoje.map((i) => i.id));
+      setAbertosAgora(
+        (((emAltaRes.data as any) || []) as LocalCard[])
+          .filter((i) => !idsHoje.has(i.id) && abertoAgora(i))
+          .slice(0, 8)
+      );
 
       // Rodada 56 (4ª rodada) — logos pro banner "Membro Fundador" (mesmo
       // formato de linha aninhada de experience/[tag].tsx: local_badges
@@ -344,6 +405,21 @@ export default function HomeScreen() {
         .map((row) => row.locais)
         .filter(Boolean) as { id: string; nome: string; foto_capa_url: string | null; logo_url: string | null }[];
       setFundadorLogos(listaFundadorLogos);
+
+      // Carrossel do topo: fundadores + patrocinados (destaque_secoes 'patrocinado').
+      const topo: { id: string; nome: string; foto: string | null; bairro: string; tipo: 'fundador' | 'patrocinado' }[] = [];
+      const vistosTopo = new Set<string>();
+      for (const f of listaFundadorLogos as any[]) {
+        if (vistosTopo.has(f.id)) continue;
+        vistosTopo.add(f.id);
+        topo.push({ id: f.id, nome: f.nome, foto: f.foto_capa_url || f.galeria_fotos?.[0] || f.logo_url || null, bairro: f.bairro_exibicao || f.bairro || f.cidade || '', tipo: 'fundador' });
+      }
+      for (const p of ((emAltaRes.data as any) || []) as LocalCard[]) {
+        if (vistosTopo.has(p.id) || !estaFixadoEm(p, 'patrocinado')) continue;
+        vistosTopo.add(p.id);
+        topo.push({ id: p.id, nome: p.nome, foto: fotoDestaqueUrl(p), bairro: bairroExibicao(p), tipo: 'patrocinado' });
+      }
+      setDestaquesTopo(topo.slice(0, 12));
       setBannerFundadorArteUrl(((appConfigRes.data as any)?.valor as string | undefined) || null);
 
       if (user?.id) {
@@ -412,7 +488,18 @@ export default function HomeScreen() {
   };
 
   const handleCategoryPress = (cat: CategoriaConfig) => {
-    if (cat.emBreve) return;
+    // Em breve: em vez de um toque que não faz nada (App Store 2.1), registra
+    // o "avise-me" de verdade.
+    if (cat.emBreve) {
+      registrarAviso({
+        userId: user?.id,
+        alvo: cat.slug,
+        alvoLabel: cat.label,
+        t,
+        irParaLogin: () => router.push('/(tabs)/profile'),
+      });
+      return;
+    }
 
     if (cat.slug === 'festas') {
       router.push('/(tabs)/events');
@@ -447,537 +534,242 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      {/* HEADER */}
+      {/* HEADER — logo + frase à esquerda; localização | idioma à direita.
+          A localização só é lida se já foi autorizada; senão o botão pede a
+          permissão no toque (nunca ao abrir o app — App Store 5.1.1). */}
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <View style={styles.headerEsquerda}>
           <Image
             source={require('../../assets/images/logolinear-semfundo.png')}
             style={styles.logoLinear}
             resizeMode="contain"
+            accessibilityLabel="Dicas LGBT+"
           />
-          <Text style={styles.appSubtitulo}>Conexões e Experiências LGBT+</Text>
+          <Text style={styles.appSubtitulo}>{t('app.subtitulo')}</Text>
         </View>
-        <TouchableOpacity
-          style={styles.profileBtn}
-          onPress={() => router.push('/(tabs)/profile')}
-          activeOpacity={0.8}
-        >
-          <Feather name="user" size={18} color="#D0D0E0" />
-        </TouchableOpacity>
+        <View style={styles.headerDireita}>
+          <TouchableOpacity
+            style={styles.localChip}
+            activeOpacity={0.8}
+            onPress={() => (local.autorizado ? router.push('/(tabs)/explore') : local.ativar())}
+            accessibilityRole="button"
+            accessibilityLabel={local.cidade ? `${t('home.voceEstaEm')} ${local.cidade}` : t('home.ativarLocalizacao')}
+          >
+            <Image source={require('../../assets/images/pin-localizacao.png')} style={styles.localPin} resizeMode="contain" />
+            <Text style={styles.localChipTexto} numberOfLines={1}>{local.cidade || t('home.localizacao')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.idiomaBtn}
+            onPress={proximoIdioma}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={`${t('conta.idioma')}: ${idiomaAtual.nome}`}
+          >
+            <Feather name="globe" size={14} color={COLORS.textPrimary} />
+            <Text style={styles.idiomaBtnTexto}>{idiomaAtual.sigla}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* BUSCA */}
-        <View style={styles.buscaContainer}>
-          <Feather name="search" size={18} color={COLORS.textMuted} />
-          <TextInput
-            value={busca}
-            onChangeText={setBusca}
-            onSubmitEditing={handleBuscar}
-            returnKeyType="search"
-            placeholder="Buscar por nome, bairro ou local (ex: São Paulo)..."
-            placeholderTextColor={COLORS.textMuted}
-            style={styles.buscaInput}
-          />
-        </View>
-
-        {/* BANNERS PRINCIPAIS */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.bannerScrollView}
-          contentContainerStyle={styles.bannerScrollContent}
-          decelerationRate="fast"
-          snapToInterval={332}
-          snapToAlignment="start"
-        >
-          {BANNERS_PRINCIPAIS.map((b) => {
-            // Rodada 56 (4ª rodada) — Andrea pediu pra "reduzir as imagens e
-            // deixar talvez o logo dos locais" no banner "Membro Fundador",
-            // clicando num logo abrindo direto as informações do local
-            // ("assim ficam os logos dos locais aparente"). Só o card b1
-            // (Membro Fundador) ganha essa fileira de avatares pequenos —
-            // o b2 (Selo Dicas) continua igual. Se ainda não existe nenhum
-            // local com o selo fundador (fundadorLogos vazio), cai no
-            // banner estático de sempre — fallback pra não mostrar um card
-            // quebrado/vazio antes de existir conteúdo real.
-            const ehBannerFundador = b.id === 'b1';
-            const mostrarLogos = ehBannerFundador && fundadorLogos.length > 0;
-            // Rodada 59 (parte 6) - Andrea pediu pra abrir espaco pros
-            // 10 fundadores (mesmo lote de vagas da pagina do site
-            // /parceiro-fundador), comecando pelo Vezpa Bar. Antes so
-            // mostrava 6 avatares antes do badge "+N".
-            const LOGOS_VISIVEIS = 10;
-            // Rodada 57 — "arte especial" do banner Membro Fundador, que a
-            // própria Andrea vai criar e subir pelo /admin (ver
-            // bannerFundadorArteUrl acima). Só troca o VISUAL de fundo —
-            // tag/título/subtítulo/logos continuam os mesmos por cima,
-            // com um escurecido (mesmo padrão dos cards de foto de Em
-            // Alta/Destaque da Semana) pra manter o texto branco legível
-            // em qualquer arte. Sem arte enviada, cai no card de sempre
-            // (cor sólida, sem imagem) — não é preciso esperar nada.
-            const temArteFundador = ehBannerFundador && !!bannerFundadorArteUrl;
-            const BannerContainer = temArteFundador ? ImageBackground : View;
-            const bannerContainerProps = temArteFundador
-              ? { source: { uri: bannerFundadorArteUrl! }, imageStyle: { borderRadius: 16 }, resizeMode: 'cover' as const }
-              : {};
-            return (
-              <TouchableOpacity
-                key={b.id}
-                activeOpacity={0.85}
-                onPress={() => router.push(b.route as any)}
-              >
-                <BannerContainer style={styles.bannerCard} {...bannerContainerProps}>
-                {temArteFundador && (
-                  <>
-                    <View style={styles.emAltaOverlayTop} />
-                    <View style={styles.emAltaOverlayBottom} />
-                  </>
-                )}
-                <View style={[styles.bannerTag, { backgroundColor: b.cor }]}>
-                  <Text style={styles.bannerTagText}>{b.tag}</Text>
-                </View>
-                <Text style={styles.bannerTitle}>{b.titulo}</Text>
-                <Text style={styles.bannerSub}>{b.sub}</Text>
-
-                {mostrarLogos && (
-                  <View style={styles.bannerLogosRow}>
-                    {fundadorLogos.slice(0, LOGOS_VISIVEIS).map((loc) => {
-                      // Rodada 57 — agora prioriza o logo de verdade
-                      // (logo_url, upload dedicado no portal/admin) e só
-                      // cai pra foto de capa quando o local ainda não subiu
-                      // um logo próprio.
-                      const avatarUrl = loc.logo_url || loc.foto_capa_url;
-                      return (
-                        <TouchableOpacity
-                          key={loc.id}
-                          style={styles.bannerLogoAvatar}
-                          activeOpacity={0.8}
-                          onPress={() => router.push(`/business/${loc.id}` as any)}
-                        >
-                          {avatarUrl ? (
-                            <Image source={{ uri: avatarUrl }} style={styles.bannerLogoImg} />
-                          ) : (
-                            <View style={[styles.bannerLogoImg, styles.bannerLogoImgVazio]}>
-                              <Feather name="award" size={12} color={COLORS.gold} />
-                            </View>
-                          )}
-                        </TouchableOpacity>
-                      );
-                    })}
-                    {fundadorLogos.length > LOGOS_VISIVEIS && (
-                      <View style={styles.bannerLogoMais}>
-                        <Text style={styles.bannerLogoMaisTexto}>+{fundadorLogos.length - LOGOS_VISIVEIS}</Text>
+        {/* DESTAQUES DOS FUNDADORES E PATROCINADOS — passa sozinho a cada 4s.
+            Cumpre a promessa do plano Fundador (presença fixa no topo da Home). */}
+        {destaquesTopo.length > 0 && (
+          <View style={{ marginBottom: 16 }}>
+            <ScrollView
+              ref={carrosselRef}
+              horizontal
+              pagingEnabled={false}
+              snapToInterval={larguraSlide + 12}
+              decelerationRate="fast"
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
+              onMomentumScrollEnd={(e) => setSlide(Math.round(e.nativeEvent.contentOffset.x / (larguraSlide + 12)))}
+            >
+              {destaquesTopo.map((d) => {
+                const Container: any = d.foto ? ImageBackground : View;
+                const props = d.foto ? { source: { uri: d.foto }, imageStyle: { borderRadius: 18 }, resizeMode: 'cover' as const } : {};
+                return (
+                  <TouchableOpacity key={`${d.tipo}-${d.id}`} activeOpacity={0.9} onPress={() => router.push(`/business/${d.id}` as any)}>
+                    <Container style={[styles.slide, { width: larguraSlide }]} {...props}>
+                      {d.foto && (
+                        <>
+                          <View style={styles.emAltaOverlayTop} />
+                          <View style={styles.emAltaOverlayBottom} />
+                        </>
+                      )}
+                      <View style={[styles.slideTag, { backgroundColor: d.tipo === 'fundador' ? COLORS.gold : COLORS.purple }]}>
+                        <Text style={[styles.slideTagTexto, d.tipo === 'patrocinado' && { color: '#FFFFFF' }]}>
+                          {d.tipo === 'fundador' ? t('banner.fundadorTag') : t('home.patrocinado')}
+                        </Text>
                       </View>
-                    )}
-                  </View>
-                )}
-                </BannerContainer>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+                      <View>
+                        <Text style={styles.slideNome} numberOfLines={1}>{d.nome}</Text>
+                        {!!d.bairro && <Text style={styles.slideBairro} numberOfLines={1}>{d.bairro}</Text>}
+                      </View>
+                    </Container>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+            {destaquesTopo.length > 1 && (
+              <View style={styles.pontos}>
+                {destaquesTopo.map((d, i) => (
+                  <View key={`p-${d.tipo}-${d.id}`} style={[styles.ponto, i === slide && styles.pontoAtivo]} />
+                ))}
+              </View>
+            )}
+          </View>
+        )}
 
-        {/* CATEGORIAS */}
+        {/* BUSCA — pílula única, tipo o "Para onde?" do Uber */}
+        {/* Rodada 69 — abre a tela de busca (recentes, sugestões, populares e
+            resultados por tipo: lugares, eventos, roteiros). */}
+        <TouchableOpacity
+          style={styles.buscaContainer}
+          activeOpacity={0.85}
+          onPress={() => router.push({ pathname: '/busca' as any, params: local.cidade ? { cidade: local.cidade } : {} })}
+          accessibilityRole="search"
+          accessibilityLabel={t('home.busca')}
+        >
+          <Feather name="search" size={20} color={COLORS.textPrimary} />
+          <Text style={[styles.buscaInput, { color: COLORS.textSecondary }]}>{t('home.busca')}</Text>
+        </TouchableOpacity>
+
+        <View style={{ height: 14 }} />
+
+        {/* CATEGORIAS — ícones redondos de sempre (cor própria por categoria,
+            vinda de lib/categorias.ts), numa linha com rolagem lateral. Dicas
+            Trip segue o mesmo formato das demais. Em breve = "avise-me" real
+            (avisos_interesse, migration 035). */}
         <View style={styles.secaoBloco}>
-          <Text style={styles.sectionTituloPadrao}>Categorias</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriaScrollContent}>
-            {CATEGORIA_ORDER.map((slug) => {
+            {ORDEM_GRADE.map((slug) => {
               const cat = CATEGORIAS[slug];
+              const label = t(`cat.${slug}`) === `cat.${slug}` ? cat.label : t(`cat.${slug}`);
               return (
                 <TouchableOpacity
                   key={slug}
                   style={styles.categoriaHorizontalItem}
-                  onPress={() => handleCategoryPress(cat)}
-                  activeOpacity={cat.emBreve ? 1 : 0.7}
+                  onPress={() => (slug === 'turismo' ? router.push('/(tabs)/tourism') : handleCategoryPress(cat))}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={cat.emBreve ? `${label}, ${t('home.emBreve')}` : label}
                 >
                   <View style={[styles.categoriaCircle, cat.emBreve && styles.categoriaDisabled]}>
-                    <Feather name={cat.icon as any} size={22} color={cat.emBreve ? COLORS.purple : cat.color} />
+                    <Feather name={cat.icon as any} size={20} color={cat.emBreve ? COLORS.purple : cat.color} />
                     {cat.emBreve && (
                       <View style={styles.emBreveBadge}>
-                        <Text style={styles.emBreveTexto}>Em breve</Text>
+                        <Text style={styles.emBreveTexto}>{t('home.emBreve')}</Text>
                       </View>
                     )}
                   </View>
-                  <Text style={[styles.categoriaLabel, cat.emBreve && { color: COLORS.textMuted }]}>
-                    {cat.label}
+                  <Text style={[styles.categoriaLabel, cat.emBreve && { color: COLORS.textMuted }]} numberOfLines={2}>
+                    {label}
                   </Text>
                 </TouchableOpacity>
               );
             })}
           </ScrollView>
         </View>
+        {/* ATALHO ÚNICO — "Locais perto de você" abre o Mapa com todas as
+            categorias (antes eram 2 atalhos, "Bares perto" + "Planejar
+            viagem", que repetiam o que já tem nas categorias e na aba Trip). */}
+        <TouchableOpacity style={styles.atalhoItem} activeOpacity={0.8} onPress={() => router.push('/(tabs)/explore')}>
+          <View style={styles.atalhoIcone}><Feather name="map-pin" size={17} color={COLORS.pink} /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.atalhoTitulo}>{t('home.encontreLugares')}</Text>
+            <Text style={styles.atalhoSub}>{t('home.atalhoLocaisSub')}</Text>
+          </View>
+          <Feather name="chevron-right" size={18} color={COLORS.textSecondary} />
+        </TouchableOpacity>
+        {/* NEWS — notícia do momento (sem a marca "Copa do Mundo", FIFA/App Store 5.2) */}
+        <View style={styles.brasilCard}>
+          <View style={{ flex: 1, padding: 14, gap: 4 }}>
+            <Text style={styles.brasilTag}>{t('home.brasil2027Tag')}</Text>
+            <Text style={styles.brasilTitulo}>{t('home.brasil2027Titulo')}</Text>
+            <TouchableOpacity
+              style={styles.brasilBtn}
+              activeOpacity={0.85}
+              onPress={() =>
+                registrarAviso({
+                  userId: user?.id,
+                  alvo: 'brasil2027',
+                  alvoLabel: 'Brasil 2027',
+                  t,
+                  irParaLogin: () => router.push('/(tabs)/profile'),
+                })
+              }
+            >
+              <Text style={styles.brasilBtnTexto}>{t('home.brasil2027Cta')}</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.brasilFaixa}>
+            <Feather name="globe" size={34} color="#FFFFFF" />
+          </View>
+        </View>
 
-        {/* DESTAQUE DA SEMANA — Rodada 56 (3ª rodada de ajuste): aqui era o
-            carrossel "Selo Dicas LGBT+" (Rodada 47). Andrea pediu pra
-            trocar os dois de lugar — Selo Dicas virou banner no topo (ao
-            lado de Membro Fundador) e "Destaque da Semana" ocupou este
-            espaço, ANTES de "Em Alta". Usa o dourado (mesma cor do selo
-            "DESTAQUE" que já aparece nos cards de Em Alta — deveExibirGlow,
-            é literalmente o mesmo critério).
-            Rodada 56 (4ª rodada) — cards em pé (retrato), do mesmo tamanho
-            de "Em Alta" logo abaixo, ficavam estranhos um em cima do outro
-            (mesma pessoa/mesmo selo "DESTAQUE" duas vezes, em dois formatos
-            diferentes). Andrea sugeriu deixar "mais retangular e ir
-            passando pro lado" — trocado pra cards DEITADOS (paisagem, tipo
-            fita horizontal), formato bem diferente de Em Alta de propósito,
-            pra não parecer repetição do mesmo carrossel duas vezes. */}
-        {destaqueSemana.length > 0 && (
-          <View style={styles.secaoBloco}>
-            <View style={styles.sectionHeaderRow}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Feather name="star" size={16} color={COLORS.amber} />
-                <Text style={styles.sectionTitulo}>Destaque da Semana</Text>
+
+        {/* 4 CAIXAS LADO A LADO — cada uma abre uma página com os slots
+            relacionados (src/app/secao/[tipo].tsx). Na Home fica só o atalho
+            com a contagem; as listas completas ficam nas páginas. */}
+        <View style={styles.gradeSecoes}>
+          {[
+            { tipo: 'em-alta', titulo: t('home.emAlta'), icone: 'trending-up', cor: COLORS.gold, qtd: emAlta.length },
+            { tipo: 'hoje', titulo: t('home.hojeTitulo'), icone: 'zap', cor: COLORS.pink, qtd: agendaHoje.length + locaisHoje.length + abertosAgora.length },
+            { tipo: 'semana', titulo: t('home.destaqueSemana'), icone: 'star', cor: COLORS.amber, qtd: destaqueSemana.length },
+            { tipo: 'experiencia', titulo: t('home.experiencia'), icone: 'heart', cor: COLORS.purple, qtd: EXPERIENCIAS_HOME.length },
+          ].map((b) => (
+            <TouchableOpacity
+              key={b.tipo}
+              style={styles.secaoBox}
+              activeOpacity={0.85}
+              onPress={() => router.push(`/secao/${b.tipo}` as any)}
+              accessibilityRole="button"
+              accessibilityLabel={b.titulo}
+            >
+              <View style={[styles.secaoBoxIcone, { borderColor: b.cor }]}>
+                <Feather name={b.icone as any} size={18} color={b.cor} />
               </View>
-            </View>
-            <Text style={styles.seloDicasSubtitulo}>Espaços em evidência essa semana.</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carrosselPadding}>
-              {destaqueSemana.map((item) => {
-                const isFavorited = favoritos.includes(item.id);
-                const fotoUrl = fotoDestaqueUrl(item);
-                // Rodada 56c — mesma troca de <Image absoluteFillObject> por
-                // <ImageBackground> do card Em Alta (ver comentário lá).
-                // Aqui a altura já é FIXA (destaqueSemanaCard: height), sem
-                // o risco de dependência circular do Yoga/Flexbox — ainda
-                // assim mantido o mesmo componente por consistência.
-                const CardContainer = fotoUrl ? ImageBackground : View;
-                const cardContainerProps = fotoUrl
-                  ? { source: { uri: fotoUrl }, imageStyle: { borderRadius: 14 }, resizeMode: 'cover' as const }
-                  : {};
-                return (
-                  <TouchableOpacity
-                    key={item.id}
-                    onPress={() => router.push(`/business/${item.id}` as any)}
-                    activeOpacity={0.88}
-                  >
-                    <CardContainer style={[styles.destaqueSemanaCard, styles.destaqueSemanaCardDestacado]} {...cardContainerProps}>
-                      {fotoUrl && (
-                        <>
-                          <View style={styles.emAltaOverlayTop} />
-                          <View style={styles.emAltaOverlayBottom} />
-                        </>
-                      )}
-                      <View style={styles.emAltaHeaderRow}>
-                        <View style={styles.destaqueSemanaBadge}>
-                          <Feather name="star" size={9} color="#000" />
-                          <Text style={styles.emAltaDestaqueBadgeText}>DESTAQUE</Text>
-                        </View>
-                        {/* Rodada 57 (2ª rodada) — Andrea: "colocar fundo no
-                            coração". Diferente do Em Alta (emAltaFavBtn já
-                            tinha fundo circular escuro), este coração aqui
-                            ficava solto, sem nenhum fundo — some em cima de
-                            foto clara. Reaproveita o mesmo estilo do Em
-                            Alta pra ficar consistente. */}
-                        <TouchableOpacity
-                          style={styles.emAltaFavBtn}
-                          onPress={() => handleToggleFavorito(item.id)}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        >
-                          <Feather name="heart" size={14} color={isFavorited ? COLORS.pink : '#FFFFFF'} />
-                        </TouchableOpacity>
-                      </View>
-
-                      <View>
-                        <Text style={styles.emAltaTitle} numberOfLines={1}>{item.nome}</Text>
-                        <Text style={styles.emAltaMeta} numberOfLines={1}>
-                          {bairroExibicao(item)} • ★ {item.rating_total > 0 ? item.rating_media.toFixed(1) : '—'}
-                        </Text>
-                      </View>
-                    </CardContainer>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-        )}
-
-        {/* EM ALTA */}
-        <View style={styles.secaoBloco}>
-          <View style={styles.sectionHeaderRow}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Feather name="trending-up" size={16} color={COLORS.gold} />
-              <Text style={styles.sectionTitulo}>Em Alta</Text>
-            </View>
-            <TouchableOpacity onPress={() => router.push({ pathname: '/category/todos' as any, params: { title: encodeURIComponent('Em Alta') } })}>
-              <Text style={styles.sectionVerTudo}>Ver mais</Text>
+              <Text style={styles.secaoBoxTitulo} numberOfLines={2}>{b.titulo}</Text>
+              <View style={styles.secaoBoxRodape}>
+                <Text style={styles.secaoBoxQtd}>
+                  {loading ? '…' : b.qtd === 1 ? t('home.boxQtd1') : b.qtd > 1 ? t('home.boxQtd', { n: String(b.qtd) }) : t('home.boxVer')}
+                </Text>
+                <Feather name="chevron-right" size={14} color={COLORS.textSecondary} />
+              </View>
             </TouchableOpacity>
-          </View>
-
-          {loading ? (
-            <ActivityIndicator color={COLORS.pink} style={{ marginLeft: 16 }} />
-          ) : emAlta.length === 0 ? (
-            <View style={styles.emptyInlineBox}>
-              <Text style={styles.emptyInlineText}>
-                Ainda não há locais aprovados. Assim que os primeiros cadastros forem aprovados
-                pelo portal, eles aparecem aqui.
-              </Text>
-            </View>
-          ) : (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carrosselPadding}>
-              {emAlta.map((item) => {
-                const isFavorited = favoritos.includes(item.id);
-                // Rodada 43 — pedido da Andrea: locais que não são
-                // freemium (pagam premium/fundador, ou ela marcou
-                // manualmente "destaque" no /admin) ganham uma borda
-                // brilhante + o logo/foto do local em destaque no card.
-                const destacado = deveExibirGlow(item);
-                const fotoUrl = fotoDestaqueUrl(item);
-                // Rodada 56c — mesma troca de <Image absoluteFillObject> por
-                // <ImageBackground> do card Selo Dicas acima (ver comentário lá).
-                const CardContainer = fotoUrl ? ImageBackground : View;
-                // Rodada 56 (4ª rodada) — só arredonda os cantos DE CIMA da
-                // foto (borderTopLeftRadius/borderTopRightRadius) porque
-                // agora ela só ocupa a metade de cima do card (ver
-                // emAltaCardFotoWrap) — cantos de baixo ficam retos, encaixando
-                // com o bloco de conteúdo (fundo sólido) logo abaixo.
-                const cardContainerProps = fotoUrl
-                  ? { source: { uri: fotoUrl }, imageStyle: { borderTopLeftRadius: 16, borderTopRightRadius: 16 }, resizeMode: 'cover' as const }
-                  : {};
-                // Rodada 56 (4ª rodada) — Andrea pediu pra "deixar a foto na
-                // metade, e aonde escrevemos o Instagram e bairro, deixar com
-                // fundo para aparecer melhor": card deixa de ser foto de
-                // fundo full-bleed (com gradiente por cima do texto) e passa
-                // a ter duas metades bem separadas — foto fixa em cima
-                // (emAltaCardFotoWrap) e um bloco com fundo sólido embaixo
-                // (emAltaCardConteudo) pra nome/bairro/Instagram ficarem
-                // sempre legíveis, com qualquer foto. emAltaOverlayTop/Bottom
-                // (gradiente escurecido) não são mais usados aqui — seguem em
-                // uso no card de "Destaque da Semana" acima, que continua
-                // full-bleed.
-                return (
-                  <TouchableOpacity
-                    key={item.id}
-                    onPress={() => router.push(`/business/${item.id}` as any)}
-                    activeOpacity={0.88}
-                  >
-                    <View style={[styles.emAltaCard, destacado && styles.emAltaCardDestacado]}>
-                      <CardContainer style={styles.emAltaCardFotoWrap} {...cardContainerProps}>
-                        <View style={styles.emAltaHeaderRow}>
-                          <View style={styles.emAltaHeaderLeftRow}>
-                            {/* Rodada 56 (2ª rodada de ajuste) — Andrea pediu pra
-                                tirar o avatar/logo circular do card "Em Alta"
-                                ("tirar o logo do em alta né?"). emAltaLogoAvatar
-                                fica sem uso — deixado no styles por segurança,
-                                não removido pra não arriscar quebrar outra
-                                referência não vista. */}
-                            <View style={styles.emAltaCategoryBadge}>
-                              <Text style={styles.emAltaCategoryText}>{CATEGORIA_REAL_LABEL[item.categoria] || item.categoria}</Text>
-                            </View>
-                            {/* Rodada 46 — selo "Patrocinado" (destaque_secoes,
-                                migration 026): monetização avulsa por local,
-                                independente do plano comercial. */}
-                            {estaFixadoEm(item, 'patrocinado') && (
-                              <View style={styles.patrocinadoBadge}>
-                                <Text style={styles.patrocinadoBadgeText}>Patrocinado</Text>
-                              </View>
-                            )}
-                          </View>
-                          <TouchableOpacity
-                            style={styles.emAltaFavBtn}
-                            onPress={() => handleToggleFavorito(item.id)}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                          >
-                            <Feather name="heart" size={14} color={isFavorited ? COLORS.pink : '#FFFFFF'} />
-                          </TouchableOpacity>
-                        </View>
-                      </CardContainer>
-
-                      <View style={styles.emAltaCardConteudo}>
-                        {destacado && (
-                          <View style={styles.emAltaDestaqueBadge}>
-                            <Feather name="star" size={9} color="#000" />
-                            <Text style={styles.emAltaDestaqueBadgeText}>DESTAQUE</Text>
-                          </View>
-                        )}
-
-                        <Text style={styles.emAltaTitle} numberOfLines={1}>{item.nome}</Text>
-                        <Text style={styles.emAltaMeta} numberOfLines={1}>
-                          {bairroExibicao(item)} • ★ {item.rating_total > 0 ? item.rating_media.toFixed(1) : '—'}
-                        </Text>
-
-                        <View style={styles.emAltaFooterRow}>
-                          {item.instagram ? (
-                            <TouchableOpacity
-                              style={styles.instaBtn}
-                              onPress={() => handleOpenInstagram(item.instagram!)}
-                              activeOpacity={0.8}
-                            >
-                              <Feather name="instagram" size={12} color={COLORS.pink} />
-                              <Text style={styles.instaBtnText} numberOfLines={1}>@{item.instagram.replace(/^@/, '')}</Text>
-                            </TouchableOpacity>
-                          ) : (
-                            <View />
-                          )}
-                          <Feather name="chevron-right" size={16} color={COLORS.safeSpace} />
-                        </View>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          )}
+          ))}
         </View>
 
-        {/* O QUE FAZER HOJE */}
+        {/* CONHEÇA NOSSOS SELOS — dois cartões iguais, lado a lado */}
         <View style={styles.secaoBloco}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitulo}>O que fazer hoje</Text>
-            <TouchableOpacity onPress={() => router.push('/(tabs)/events')}>
-              <Text style={styles.sectionVerTudo}>Ver agenda</Text>
-            </TouchableOpacity>
-          </View>
-
-          {loading ? (
-            <ActivityIndicator color={COLORS.pink} style={{ marginLeft: 16 }} />
-          ) : agendaHoje.length === 0 && locaisHoje.length === 0 ? (
-            <View style={styles.emptyInlineBox}>
-              <Text style={styles.emptyInlineText}>Nenhum evento aprovado pra hoje ainda.</Text>
-            </View>
-          ) : (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carrosselPadding}>
-              {agendaHoje.map((item) => (
-                <TouchableOpacity
-                  key={`evento-${item.id}`}
-                  style={styles.agendaCard}
-                  onPress={() => router.push('/(tabs)/events')}
-                  activeOpacity={0.85}
-                >
-                  <View style={styles.agendaImageArea}>
-                    <Feather name="calendar" size={24} color={COLORS.pink} />
-                  </View>
-                  <View style={styles.agendaContent}>
-                    <Text style={styles.agendaHorario}>
-                      {new Date(item.data_inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} •{' '}
-                      {(item.locais && (item.locais.bairro_exibicao || item.locais.bairro)) || 'Local a confirmar'}
-                    </Text>
-                    <Text style={styles.agendaTitulo}>{item.titulo}</Text>
-                    <Text style={styles.agendaDiferencial}>{item.locais?.nome || ''}</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-              {/* Rodada 44 — locais fixados manualmente em "hoje" pelo
-                  /admin, sem precisar de um evento cadastrado. */}
-              {locaisHoje.map((item) => (
-                <TouchableOpacity
-                  key={`local-${item.id}`}
-                  style={styles.agendaCard}
-                  onPress={() => router.push(`/business/${item.id}` as any)}
-                  activeOpacity={0.85}
-                >
-                  <View style={styles.agendaImageArea}>
-                    {fotoDestaqueUrl(item) ? (
-                      <Image source={{ uri: fotoDestaqueUrl(item)! }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
-                    ) : (
-                      <Feather name="map-pin" size={24} color={COLORS.pink} />
-                    )}
-                  </View>
-                  <View style={styles.agendaContent}>
-                    <Text style={styles.agendaHorario}>
-                      {CATEGORIA_REAL_LABEL[item.categoria] || item.categoria} • {bairroExibicao(item)}
-                    </Text>
-                    <Text style={styles.agendaTitulo}>{item.nome}</Text>
-                    <Text style={styles.agendaDiferencial}>Aberto hoje</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          )}
-        </View>
-
-        {/* DICAS TRIP */}
-        <View style={styles.secaoBloco}>
-          <View style={styles.sectionHeaderRow}>
-            <View>
-              <Text style={styles.sectionTitulo}>Dicas Trip</Text>
-              <Text style={styles.sectionSubtitulo}>Destinos, hospedagens e roteiros LGBT+</Text>
-            </View>
-            <TouchableOpacity onPress={() => handleCategoryPress(CATEGORIAS.turismo)}>
-              <Text style={styles.sectionVerTudo}>Ver catálogo</Text>
-            </TouchableOpacity>
-          </View>
-
-          {loading ? (
-            <ActivityIndicator color={COLORS.pink} style={{ marginLeft: 16 }} />
-          ) : dicasTrip.length === 0 ? (
-            <View style={styles.emptyInlineBox}>
-              <Text style={styles.emptyInlineText}>Ainda não há dicas de turismo aprovadas.</Text>
-            </View>
-          ) : (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carrosselPadding}>
-              {dicasTrip.map((item) => {
-                const isFavorited = favoritos.includes(item.id);
-                return (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={styles.turismoPropagandaCard}
-                    onPress={() => router.push(`/business/${item.id}` as any)}
-                    activeOpacity={0.85}
-                  >
-                    <View style={styles.turismoHeaderRow}>
-                      <Text style={styles.turismoCategoryBadge}>{item.subcategoria || 'Turismo'}</Text>
-                      <View style={styles.cardHeaderRightRow}>
-                        {item.plano_destaque !== 'basico' && (
-                          <View style={styles.turismoPromoBadge}>
-                            <Text style={styles.turismoPromoText}>DESTAQUE</Text>
-                          </View>
-                        )}
-                        <TouchableOpacity
-                          style={{ marginLeft: 6 }}
-                          onPress={() => handleToggleFavorito(item.id)}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        >
-                          <Feather name="heart" size={16} color={isFavorited ? COLORS.pink : COLORS.textMuted} />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-
-                    <Text style={styles.turismoTitle}>{item.nome}</Text>
-                    <Text style={styles.turismoDesc} numberOfLines={2}>
-                      {item.descricao || 'Sem descrição cadastrada ainda.'}
-                    </Text>
-
-                    <View style={styles.turismoFooterRow}>
-                      <Text style={styles.turismoBtnText}>Ver detalhes do local</Text>
-                      <Feather name="arrow-right" size={14} color={COLORS.safeSpace} />
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          )}
-        </View>
-
-        {/* ESCOLHA PELA EXPERIÊNCIA */}
-        <View style={styles.secaoBloco}>
-          <Text style={styles.sectionTituloPadrao}>Escolha pela experiência</Text>
-          <View style={styles.experienciasGrid}>
-            {EXPERIENCIAS_REAIS.map((exp) => (
-              <TouchableOpacity
-                key={exp.slug}
-                style={styles.expChip}
-                onPress={() => openExperienceScreen(exp)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.expChipText}>{exp.label}</Text>
+          <View style={styles.selosRow}>
+            {BANNERS_PRINCIPAIS.filter((b) => b.id !== 'b3').map((b) => (
+              <TouchableOpacity key={b.id} style={styles.seloCard} activeOpacity={0.85} onPress={() => router.push(b.route as any)}>
+                <Feather name={b.icone as any} size={22} color={b.cor} />
+                <Text style={styles.seloTitulo} numberOfLines={2}>{t(b.titulo)}</Text>
+                <Text style={styles.seloSub} numberOfLines={3}>{t(b.sub)}</Text>
+                <Text style={[styles.seloCta, { color: b.cor }]}>{t(b.cta)} →</Text>
               </TouchableOpacity>
             ))}
           </View>
         </View>
-
-        {/* CARD CARNAVAL 2027 */}
-        <View style={styles.carnavalCard}>
-          <View style={styles.carnavalBadge}>
-            <Text style={styles.carnavalBadgeText}>EM BREVE</Text>
-          </View>
-          <Text style={styles.carnavalTitle}>Carnaval LGBT+ 2027</Text>
-          <Text style={styles.carnavalSub}>Guias, agenda de blocos e ativação oficial de notificações.</Text>
-          <TouchableOpacity
-            style={styles.carnavalBtn}
-            onPress={() => Alert.alert('Notificações', 'Você receberá as novidades do Carnaval 2027!')}
-          >
-            <Text style={styles.carnavalBtnText}>Quero receber novidades</Text>
-          </TouchableOpacity>
+        {/* RODAPÉ — canais oficiais */}
+        <View style={styles.rodape}>
+          {[
+            { label: t('rodape.site'), icone: 'globe', onPress: () => Linking.openURL('https://www.dicaslgbt.com.br') },
+            { label: t('rodape.produtos'), icone: 'shopping-bag', onPress: () => router.push({ pathname: '/category/produtos' as any, params: { title: encodeURIComponent(t('rodape.produtos')) } }) },
+            { label: 'Instagram', icone: 'instagram', onPress: () => Linking.openURL('https://www.instagram.com/dicaslgbt/') },
+            { label: t('rodape.parceiro'), icone: 'briefcase', onPress: () => Linking.openURL('https://www.dicaslgbt.com.br/parceiro-fundador') },
+          ].map((l) => (
+            <TouchableOpacity key={l.label} style={styles.rodapeLink} onPress={l.onPress} accessibilityRole="link">
+              <Feather name={l.icone as any} size={16} color={COLORS.textSecondary} />
+              <Text style={styles.rodapeTexto}>{l.label}</Text>
+              <Feather name="external-link" size={13} color={COLORS.textMuted} />
+            </TouchableOpacity>
+          ))}
+          <Text style={styles.rodapeAssinatura}>Dicas LGBT+ · Vezpa Bar</Text>
         </View>
       </ScrollView>
     </View>
@@ -993,7 +785,105 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    marginBottom: 16,
+    marginBottom: 14,
+  },
+  idiomaBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 36,
+    paddingHorizontal: 12,
+    borderRadius: 18,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  idiomaBtnTexto: { fontSize: 12, fontWeight: '800', color: COLORS.textPrimary },
+  localRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    marginTop: 4,
+    marginBottom: 20,
+  },
+  localBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44, flexShrink: 1 },
+  localPin: { width: 18, height: 14 },
+  headerDireita: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  localChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 36,
+    maxWidth: 130,
+    paddingHorizontal: 10,
+    borderRadius: 18,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  localChipTexto: { fontSize: 12, fontWeight: '700', color: COLORS.textPrimary, flexShrink: 1 },
+  slide: { height: 130, borderRadius: 16, padding: 14, justifyContent: 'space-between', backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border, overflow: 'hidden' },
+  slideTag: { alignSelf: 'flex-start', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  slideTagTexto: { fontSize: 10, fontWeight: '800', color: '#000', letterSpacing: 0.4 },
+  slideNome: { fontSize: 15, fontWeight: '800', color: '#FFFFFF' },
+  slideBairro: { fontSize: 12, color: '#E0E0EA', marginTop: 2 },
+  pontos: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 10 },
+  ponto: { width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.border },
+  pontoAtivo: { width: 18, backgroundColor: COLORS.pink },
+  altaBox: { width: 92 },
+  altaFoto: {
+    width: 92,
+    height: 92,
+    borderRadius: 14,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  altaPatrocinado: { position: 'absolute', top: 6, left: 6, backgroundColor: COLORS.purple, borderRadius: 5, paddingHorizontal: 5, paddingVertical: 2 },
+  altaPatrocinadoTexto: { fontSize: 9, fontWeight: '800', color: '#FFFFFF' },
+  altaNome: { fontSize: 12, fontWeight: '700', color: COLORS.textPrimary },
+  altaMeta: { fontSize: 11, color: COLORS.textSecondary, marginTop: 1 },
+  semanaCard: { width: 210, height: 92, borderRadius: 14, padding: 12, justifyContent: 'space-between', backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.amber, overflow: 'hidden' },
+  semanaBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: COLORS.amber, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2 },
+  selosRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 16 },
+  rodape: { marginTop: 8, marginHorizontal: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: COLORS.border },
+  rodapeLink: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11 },
+  rodapeTexto: { flex: 1, fontSize: 13, fontWeight: '600', color: COLORS.textPrimary },
+  rodapeAssinatura: { fontSize: 11, color: COLORS.textMuted, textAlign: 'center', marginTop: 12 },
+  gradeSecoes: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: 16, marginBottom: 18 },
+  secaoBox: {
+    width: '48.5%',
+    minHeight: 104,
+    borderRadius: 14,
+    padding: 12,
+    gap: 6,
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  secaoBoxIcone: { width: 32, height: 32, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  secaoBoxTitulo: { fontSize: 13, fontWeight: '800', color: COLORS.textPrimary },
+  secaoBoxRodape: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  secaoBoxQtd: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary },
+  seloCard: { flex: 1, minHeight: 140, borderRadius: 14, padding: 12, gap: 6, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
+  seloTitulo: { fontSize: 12, fontWeight: '800', color: COLORS.textPrimary },
+  seloSub: { fontSize: 12, color: COLORS.textSecondary, lineHeight: 16, flexGrow: 1 },
+  seloCta: { fontSize: 12, fontWeight: '800' },
+  localLabel: { fontSize: 12, fontWeight: '500', color: COLORS.textSecondary },
+  localCidade: { fontSize: 15, fontWeight: '800', color: COLORS.textPrimary },
+  inboxBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerEsquerda: { justifyContent: 'center' },
   // Rodada 40 — logo trocado (novo gradiente no "LGBT+"). Aproveitei
@@ -1017,22 +907,99 @@ const styles = StyleSheet.create({
   buscaContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 12,
     marginHorizontal: 16,
-    marginBottom: 16,
-    paddingHorizontal: 14,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: COLORS.card,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    marginBottom: 4,
+    paddingHorizontal: 18,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: COLORS.border,
   },
-  buscaInput: { flex: 1, color: COLORS.textPrimary, fontSize: 13 },
+  buscaInput: { flex: 1, color: COLORS.textPrimary, fontSize: 14, fontWeight: '700' },
+
+  atalhoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginHorizontal: 16,
+    marginTop: 4,
+    marginBottom: 12,
+    paddingVertical: 8,
+  },
+  hojeLink: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginHorizontal: 20, marginTop: 10, minHeight: 32 },
+  hojeLinkTexto: { fontSize: 13, fontWeight: '700', color: COLORS.pink },
+  atalhoIcone: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  atalhoTitulo: { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary },
+  atalhoSub: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
+
+  catDica: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary },
+  catLinha: { gap: GAP_GRADE, paddingHorizontal: 16 },
+  catTile: {
+    height: 92,
+    borderRadius: 14,
+    backgroundColor: COR_TILE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 4,
+  },
+  catTileLabel: { fontSize: 12, fontWeight: '700', color: COR_TILE_TEXTO },
+  catEmBreve: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    backgroundColor: COLORS.background,
+    borderRadius: 5,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  catEmBreveTexto: { fontSize: 7, fontWeight: '800', color: COR_TILE, letterSpacing: 0.3 },
+  catTileTrip: {
+    backgroundColor: COLORS.pink,
+    alignItems: 'stretch',
+    justifyContent: 'space-between',
+    padding: 12,
+  },
+  catTripTag: { alignSelf: 'flex-start', backgroundColor: '#FFFFFF', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3 },
+  catTripTagTexto: { fontSize: 10, fontWeight: '800', color: '#C2185B', letterSpacing: 0.4 },
+  catTripRodape: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
+  catTripTitulo: { fontSize: 15, fontWeight: '800', color: '#FFFFFF' },
+
+  brasilCard: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    marginBottom: 18,
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: COR_TILE,
+  },
+  brasilTag: { fontSize: 11, fontWeight: '800', color: COLORS.purple, letterSpacing: 0.6 },
+  brasilTitulo: { fontSize: 14, fontWeight: '800', color: COR_TILE_TEXTO, lineHeight: 18 },
+  brasilBtn: {
+    alignSelf: 'flex-start',
+    marginTop: 6,
+    backgroundColor: COR_TILE_TEXTO,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    minHeight: 32,
+    justifyContent: 'center',
+  },
+  brasilBtnTexto: { fontSize: 12, fontWeight: '800', color: '#FFFFFF' },
+  brasilFaixa: { width: 72, backgroundColor: COLORS.pink, alignItems: 'center', justifyContent: 'center' },
 
   bannerScrollView: { marginBottom: 24 },
   bannerScrollContent: { paddingLeft: 16, paddingRight: 4 },
   bannerCard: {
-    width: 320,
+    width: 280,
+    height: 168,
+    justifyContent: 'space-between',
     backgroundColor: COLORS.card,
     borderRadius: 16,
     padding: 16,
@@ -1045,15 +1012,18 @@ const styles = StyleSheet.create({
     // cantos arredondados do card.
     overflow: 'hidden',
   },
-  bannerTag: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginBottom: 8 },
+  bannerTopoRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  bannerTag: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  bannerCtaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  bannerCta: { fontSize: 12, fontWeight: '800' },
   bannerTagText: { fontSize: 10, fontWeight: '800', color: '#000' },
-  bannerTitle: { fontSize: 16, fontWeight: '800', color: COLORS.textPrimary, marginBottom: 4 },
+  bannerTitle: { fontSize: 15, fontWeight: '800', color: COLORS.textPrimary, marginBottom: 4 },
   bannerSub: { fontSize: 12, color: COLORS.textSecondary },
   // Rodada 56 (4ª rodada) — fileira de logos dos locais com selo "Membro
   // Fundador" dentro do banner (ver fundadorLogos/mostrarLogos no JSX).
   // Avatares pequenos de propósito ("reduzir as imagens", pedido da
   // Andrea) — bem diferente dos cards grandes de Em Alta/Destaque.
-  bannerLogosRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
+  bannerLogosRow: { flexDirection: 'row', alignItems: 'center' },
   bannerLogoAvatar: {
     marginRight: -8,
     borderRadius: 16,
@@ -1080,10 +1050,12 @@ const styles = StyleSheet.create({
   },
   bannerLogoMaisTexto: { fontSize: 10, fontWeight: '800', color: COLORS.textSecondary },
 
-  secaoBloco: { marginBottom: 24 },
-  sectionTituloPadrao: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary, paddingHorizontal: 16, marginBottom: 12 },
+  // Out/2026 — Home mais compacta (cabe mais coisa na primeira tela).
+  secaoBloco: { marginBottom: 18 },
+  // Mesmo padrão de título de seção em todas as telas (igual Eventos): 17/800.
+  sectionTituloPadrao: { fontSize: 15, fontWeight: '800', color: COLORS.textPrimary, paddingHorizontal: 16, marginBottom: 10 },
   sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 12 },
-  sectionTitulo: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary },
+  sectionTitulo: { fontSize: 15, fontWeight: '800', color: COLORS.textPrimary },
   sectionSubtitulo: { fontSize: 11, color: COLORS.textSecondary, marginTop: 2 },
   sectionVerTudo: { fontSize: 12, fontWeight: '600', color: COLORS.pink },
 
@@ -1091,11 +1063,11 @@ const styles = StyleSheet.create({
   emptyInlineText: { fontSize: 12, color: COLORS.textSecondary, lineHeight: 17 },
 
   categoriaScrollContent: { paddingHorizontal: 16, gap: 12 },
-  categoriaHorizontalItem: { alignItems: 'center', width: 84 },
+  categoriaHorizontalItem: { alignItems: 'center', width: 80 },
   categoriaCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     backgroundColor: COLORS.card,
     justifyContent: 'center',
     alignItems: 'center',
@@ -1105,8 +1077,9 @@ const styles = StyleSheet.create({
   },
   categoriaDisabled: { opacity: 0.5 },
   emBreveBadge: { position: 'absolute', bottom: -4, backgroundColor: COLORS.purple, paddingHorizontal: 4, paddingVertical: 1, borderRadius: 4 },
-  emBreveTexto: { fontSize: 6, fontWeight: '800', color: '#FFF' },
-  categoriaLabel: { fontSize: 11, fontWeight: '600', color: COLORS.textPrimary, textAlign: 'center' },
+  emBreveTexto: { fontSize: 7, fontWeight: '800', color: '#FFF' },
+  // Nomes de 2 palavras ("Bares & Vida Noturna") quebram em até 2 linhas.
+  categoriaLabel: { fontSize: 11, lineHeight: 13, fontWeight: '600', color: COLORS.textPrimary, textAlign: 'center' },
 
   carrosselPadding: { paddingHorizontal: 16, gap: 12 },
 
@@ -1305,24 +1278,24 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     overflow: 'hidden',
   },
-  emAltaTitle: { fontSize: 14, fontWeight: '800', color: COLORS.textPrimary, marginTop: 4 },
+  emAltaTitle: { fontSize: 13, fontWeight: '800', color: COLORS.textPrimary, marginTop: 4 },
   emAltaMeta: { fontSize: 11, color: COLORS.textSecondary },
   emAltaFooterRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
   instaBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#232230', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
   instaBtnText: { fontSize: 10, color: COLORS.textPrimary, fontWeight: '600' },
 
-  agendaCard: { width: 170, borderRadius: 14, backgroundColor: COLORS.card, overflow: 'hidden', borderWidth: 1, borderColor: COLORS.border },
-  agendaImageArea: { height: 80, backgroundColor: '#1A1926', justifyContent: 'center', alignItems: 'center', position: 'relative' },
-  agendaContent: { padding: 10 },
+  agendaCard: { width: 150, borderRadius: 14, backgroundColor: COLORS.card, overflow: 'hidden', borderWidth: 1, borderColor: COLORS.border },
+  agendaImageArea: { height: 64, backgroundColor: '#1A1926', justifyContent: 'center', alignItems: 'center', position: 'relative' },
+  agendaContent: { padding: 8 },
   agendaHorario: { fontSize: 11, fontWeight: '700', color: COLORS.pink, marginBottom: 2 },
-  agendaTitulo: { fontSize: 13, fontWeight: '700', color: COLORS.textPrimary },
+  agendaTitulo: { fontSize: 12, fontWeight: '700', color: COLORS.textPrimary },
   agendaDiferencial: { fontSize: 11, color: COLORS.textSecondary, marginTop: 2 },
 
   turismoPropagandaCard: {
-    width: 230,
+    width: 200,
     backgroundColor: COLORS.card,
-    borderRadius: 16,
-    padding: 14,
+    borderRadius: 14,
+    padding: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
     justifyContent: 'space-between',
@@ -1333,19 +1306,19 @@ const styles = StyleSheet.create({
   turismoCategoryBadge: { fontSize: 10, fontWeight: '700', color: COLORS.safeSpace },
   turismoPromoBadge: { backgroundColor: 'rgba(76, 175, 125, 0.2)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
   turismoPromoText: { fontSize: 9, fontWeight: '800', color: COLORS.safeSpace },
-  turismoTitle: { fontSize: 14, fontWeight: '800', color: COLORS.textPrimary, marginTop: 4 },
+  turismoTitle: { fontSize: 12, fontWeight: '800', color: COLORS.textPrimary, marginTop: 4 },
   turismoDesc: { fontSize: 11, color: COLORS.textSecondary, lineHeight: 15 },
   turismoFooterRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
   turismoBtnText: { fontSize: 11, fontWeight: '700', color: COLORS.safeSpace },
 
   experienciasGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16 },
-  expChip: { backgroundColor: COLORS.card, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border },
+  expChip: { backgroundColor: COLORS.card, paddingHorizontal: 11, paddingVertical: 7, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border },
   expChipText: { fontSize: 12, fontWeight: '600', color: COLORS.purple },
 
   carnavalCard: { marginHorizontal: 16, padding: 16, borderRadius: 16, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
   carnavalBadge: { alignSelf: 'flex-start', backgroundColor: 'rgba(126, 87, 194, 0.2)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginBottom: 8 },
   carnavalBadgeText: { fontSize: 9, fontWeight: '800', color: COLORS.purple },
-  carnavalTitle: { fontSize: 16, fontWeight: '800', color: COLORS.textPrimary, marginBottom: 4 },
+  carnavalTitle: { fontSize: 15, fontWeight: '800', color: COLORS.textPrimary, marginBottom: 4 },
   carnavalSub: { fontSize: 12, color: COLORS.textSecondary, marginBottom: 12 },
   carnavalBtn: { height: 40, backgroundColor: COLORS.purple, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   carnavalBtnText: { fontSize: 12, fontWeight: '700', color: '#FFF' },

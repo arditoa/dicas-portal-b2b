@@ -24,7 +24,9 @@ export type CategoriaSlugUI =
   | 'lojas'
   | 'servicos'
   | 'produtos'
-  | 'lazer';
+  | 'lazer'
+  | 'saude'
+  | 'comunidade';
 
 export interface CategoriaConfig {
   slug: CategoriaSlugUI;
@@ -40,7 +42,7 @@ export interface CategoriaConfig {
 export const CATEGORIAS: Record<CategoriaSlugUI, CategoriaConfig> = {
   bares: {
     slug: 'bares',
-    label: 'Bares',
+    label: 'Bares & Vida Noturna',
     icon: 'moon',
     color: '#E1306C',
     categoriaReal: 'lugares',
@@ -54,7 +56,7 @@ export const CATEGORIAS: Record<CategoriaSlugUI, CategoriaConfig> = {
   },
   festas: {
     slug: 'festas',
-    label: 'Festas',
+    label: 'Festas & Eventos',
     icon: 'music',
     color: '#FFB74D',
     // "Festas" não lista locais — abre a aba Eventos (agenda de
@@ -70,14 +72,14 @@ export const CATEGORIAS: Record<CategoriaSlugUI, CategoriaConfig> = {
   },
   turismo: {
     slug: 'turismo',
-    label: 'Dicas Trip',
+    label: 'Turismo | Dicas Trip',
     icon: 'compass',
     color: '#81C784',
     categoriaReal: 'turismo',
   },
   beleza: {
     slug: 'beleza',
-    label: 'Beleza',
+    label: 'Beleza & Estética',
     icon: 'scissors',
     color: '#E1306C',
     categoriaReal: null,
@@ -112,7 +114,7 @@ export const CATEGORIAS: Record<CategoriaSlugUI, CategoriaConfig> = {
   },
   produtos: {
     slug: 'produtos',
-    label: 'Produtos',
+    label: 'Compras & Produtos',
     icon: 'package',
     color: '#FFD54F',
     // Categoria nova de verdade (Rodada 61) — 'produtos' não existia no
@@ -121,26 +123,47 @@ export const CATEGORIAS: Record<CategoriaSlugUI, CategoriaConfig> = {
   },
   lazer: {
     slug: 'lazer',
-    label: 'Lazer',
+    label: 'Experiências & Lazer',
     icon: 'smile',
     color: '#4FC3F7',
     categoriaReal: null,
     emBreve: true,
   },
+  // Out/2026 — novas categorias da lista oficial da Andrea (12 itens).
+  // Ainda sem valor equivalente no enum categoria_tipo → "Em breve".
+  saude: {
+    slug: 'saude',
+    label: 'Saúde & Bem-estar',
+    icon: 'activity',
+    color: '#4CAF7D',
+    categoriaReal: null,
+    emBreve: true,
+  },
+  comunidade: {
+    slug: 'comunidade',
+    label: 'Comunidade & Apoio',
+    icon: 'users',
+    color: '#B39DDB',
+    categoriaReal: null,
+    emBreve: true,
+  },
 };
 
+// Ordem oficial (out/2026, lista da Andrea). 'lojas' foi absorvida por
+// "Compras & Produtos" e não aparece mais nas listas.
 export const CATEGORIA_ORDER: CategoriaSlugUI[] = [
-  'bares',
-  'gastronomia',
-  'festas',
-  'cultura',
   'turismo',
+  'bares',
+  'festas',
+  'gastronomia',
+  'lazer',
+  'cultura',
+  'saude',
   'beleza',
-  'mais18',
-  'lojas',
   'servicos',
   'produtos',
-  'lazer',
+  'comunidade',
+  'mais18',
 ];
 
 // Label de exibição por valor REAL do enum categoria_tipo (usado em telas
@@ -154,3 +177,32 @@ export const CATEGORIA_REAL_LABEL: Record<string, string> = {
   servicos: 'Serviços Inclusivos',
   produtos: 'Produtos',
 };
+
+// Rodada 66 — selo colorido de categoria nos cards (pedido da Andrea a
+// partir do selo "FESTA" do "O que fazer hoje"). Uma cor por categoria, bem
+// distintas entre si; FESTA mantém o rosa que ela aprovou.
+export type SeloCategoria = { texto: string; cor: string; textoCor: string };
+
+export const SELO_FESTA: SeloCategoria = { texto: 'FESTA', cor: '#E1306C', textoCor: '#FFF' };
+
+const SELOS_POR_CATEGORIA_REAL: Record<string, SeloCategoria> = {
+  lugares: { texto: 'BAR', cor: '#7E57C2', textoCor: '#FFF' },
+  eventos: SELO_FESTA,
+  gastronomia: { texto: 'GASTRONOMIA', cor: '#FFD54F', textoCor: '#1A1300' },
+  cultura: { texto: 'CULTURA', cor: '#4FC3F7', textoCor: '#06202B' },
+  turismo: { texto: 'TURISMO', cor: '#81C784', textoCor: '#0C2410' },
+  servicos: { texto: 'SERVIÇOS', cor: '#B39DDB', textoCor: '#1B1230' },
+  produtos: { texto: 'COMPRAS', cor: '#FFB74D', textoCor: '#2A1700' },
+  lojas: { texto: 'COMPRAS', cor: '#FFB74D', textoCor: '#2A1700' },
+  beleza: { texto: 'BELEZA', cor: '#F48FB1', textoCor: '#2A0A16' },
+  lazer: { texto: 'LAZER', cor: '#26C6DA', textoCor: '#03252A' },
+};
+
+// Selo de um local já carregado do banco. Hospedagem (tipo_hospedagem,
+// migration 036) vira "HOSPEDAGEM"; subcategoria com 18+/sauna vira "18+".
+export function seloDaCategoria(local: { categoria?: string | null; subcategoria?: string | null; tipo_hospedagem?: string | null }): SeloCategoria | undefined {
+  if (local.tipo_hospedagem) return { texto: 'HOSPEDAGEM', cor: '#4CAF7D', textoCor: '#06200F' };
+  const sub = (local.subcategoria || '').toLowerCase();
+  if (local.categoria === 'lugares' && (sub.includes('18') || sub.includes('sauna'))) return { texto: '18+', cor: '#8E24AA', textoCor: '#FFF' };
+  return local.categoria ? SELOS_POR_CATEGORIA_REAL[local.categoria] : undefined;
+}

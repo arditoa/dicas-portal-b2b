@@ -1,63 +1,63 @@
 import { Feather } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { useI18n } from '../../lib/i18n';
 
+// Nova versão (Home estilo Uber): Início · Mapa · Eventos · Trip · Conta.
+// A caixa de entrada não tem aba própria — fica dentro de Conta (e tem
+// atalho no topo da Home).
 export default function TabLayout() {
+  const { t } = useI18n();
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: '#E1306C',
-        tabBarInactiveTintColor: '#626274',
+        tabBarInactiveTintColor: '#A0A0B2',
         tabBarStyle: {
-          backgroundColor: '#161520',
+          backgroundColor: '#0B0B0E',
           borderTopColor: '#232230',
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 6,
         },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '700' },
       }}
     >
-      {/* 1. Início (Home) */}
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Início',
-          tabBarIcon: ({ color }) => <Feather name="compass" size={20} color={color} />,
+          title: t('tab.inicio'),
+          tabBarIcon: ({ color }) => <Feather name="home" size={21} color={color} />,
         }}
       />
-
-      {/* 2. Mapa (Puxa os dados da tela explore.tsx) */}
       <Tabs.Screen
         name="explore"
         options={{
-          title: 'Mapa',
-          tabBarIcon: ({ color }) => <Feather name="map-pin" size={20} color={color} />,
+          title: t('tab.mapa'),
+          tabBarIcon: ({ color }) => <Feather name="map" size={21} color={color} />,
         }}
       />
-
-      {/* 3. Eventos */}
       <Tabs.Screen
         name="events"
         options={{
-          title: 'Eventos',
-          tabBarIcon: ({ color }) => <Feather name="calendar" size={20} color={color} />,
+          title: t('tab.eventos'),
+          tabBarIcon: ({ color }) => <Feather name="calendar" size={21} color={color} />,
         }}
       />
-
-      {/* 4. Perfil */}
+      <Tabs.Screen
+        name="tourism"
+        options={{
+          title: t('tab.trip'),
+          tabBarIcon: ({ color }) => <Feather name="briefcase" size={21} color={color} />,
+        }}
+      />
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Perfil',
-          tabBarIcon: ({ color }) => <Feather name="user" size={20} color={color} />,
+          title: t('tab.conta'),
+          tabBarIcon: ({ color }) => <Feather name="user" size={21} color={color} />,
         }}
       />
 
-      {/* Ocultar abas secundárias da barra inferior */}
+      {/* Rota auxiliar fora da barra inferior */}
       <Tabs.Screen name="categories" options={{ href: null }} />
-      <Tabs.Screen name="category" options={{ href: null }} />
-      <Tabs.Screen name="rewards" options={{ href: null }} />
-      <Tabs.Screen name="tourism" options={{ href: null }} />
     </Tabs>
   );
 }

@@ -47,7 +47,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  title: { color: '#FFFFFF', fontSize: 18, fontWeight: '700' },
-  seeAll: { color: '#FF2D78', fontSize: 13, fontWeight: '600' },
+  title: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  seeAll: { color: '#FF2D78', fontSize: 12, fontWeight: '600' },
   itemsRow: { flexDirection: 'row', gap: 12 },
 });

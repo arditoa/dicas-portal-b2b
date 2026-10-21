@@ -168,7 +168,7 @@ export default function FeaturedScreen() {
             <Text style={styles.mainTitle}>{pageTitle}</Text>
             <Text style={styles.subTitle}>
               {ehSeloDicas
-                ? 'Escolha editorial nossa — nunca é espaço pago, é conquistado.'
+                ? 'Os lugares que a gente conheceu, amou e indica de coração.'
                 : 'Locais parceiros de excelência que apoiam e constroem nossa comunidade.'}
             </Text>
           </View>
@@ -324,8 +324,8 @@ const styles = StyleSheet.create({
   heroTitleArea: { marginVertical: 14 },
   vipBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255, 213, 79, 0.12)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, alignSelf: 'flex-start', marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255, 213, 79, 0.3)' },
   vipBadgeText: { fontSize: 10, fontWeight: '800', color: COLORS.gold, letterSpacing: 1 },
-  mainTitle: { fontSize: 26, fontWeight: '800', color: COLORS.textPrimary },
-  subTitle: { fontSize: 13, color: COLORS.textSecondary, marginTop: 4, lineHeight: 18 },
+  mainTitle: { fontSize: 22, fontWeight: '800', color: COLORS.textPrimary },
+  subTitle: { fontSize: 12, color: COLORS.textSecondary, marginTop: 4, lineHeight: 17 },
 
   emptyBox: { alignItems: 'center', gap: 10, backgroundColor: COLORS.card, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, padding: 30, marginBottom: 20 },
   emptyText: { fontSize: 12, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 18 },
@@ -350,11 +350,11 @@ const styles = StyleSheet.create({
 
   heroBottomContent: { gap: 4 },
   heroCategory: { fontSize: 11, fontWeight: '700', color: COLORS.pink, textTransform: 'uppercase' },
-  heroTitle: { fontSize: 22, fontWeight: '800', color: '#FFF' },
+  heroTitle: { fontSize: 18, fontWeight: '800', color: '#FFF' },
   heroTagline: { fontSize: 12, color: '#D0D0E0', lineHeight: 17 },
 
   listSection: { gap: 12, marginBottom: 24 },
-  sectionHeaderTitle: { fontSize: 16, fontWeight: '800', color: COLORS.textPrimary, marginBottom: 4 },
+  sectionHeaderTitle: { fontSize: 15, fontWeight: '800', color: COLORS.textPrimary, marginBottom: 4 },
 
   partnerCard: { flexDirection: 'row', backgroundColor: COLORS.card, borderRadius: 16, padding: 12, borderWidth: 1, borderColor: COLORS.border, gap: 12 },
   partnerThumb: { width: 90, height: 90, borderRadius: 12 },
@@ -364,11 +364,11 @@ const styles = StyleSheet.create({
   partnerCategory: { fontSize: 10, fontWeight: '700', color: COLORS.pink },
   smallRating: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   smallRatingText: { fontSize: 11, fontWeight: '700', color: '#FFF' },
-  partnerTitle: { fontSize: 15, fontWeight: '800', color: COLORS.textPrimary },
+  partnerTitle: { fontSize: 14, fontWeight: '800', color: COLORS.textPrimary },
   partnerLocation: { fontSize: 11, color: COLORS.textSecondary },
 
   ctaCard: { backgroundColor: COLORS.card, borderRadius: 16, padding: 20, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border, gap: 8 },
-  ctaTitle: { fontSize: 15, fontWeight: '800', color: COLORS.textPrimary },
+  ctaTitle: { fontSize: 14, fontWeight: '800', color: COLORS.textPrimary },
   ctaSub: { fontSize: 12, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 16 },
   ctaBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: COLORS.purple, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, marginTop: 4 },
   ctaBtnText: { fontSize: 12, fontWeight: '700', color: '#FFF' },

@@ -16,3 +16,7 @@ expo-env.d.ts
 
 # Dados reais de contato do Pipeline (nao subir para o git)
 supabase-migration/042_pipeline_dados_iniciais.sql
+.tmp-claude/
+.tmp-claude-*.tgz
+.backup-*.tgz
+.tsconfig.check.json

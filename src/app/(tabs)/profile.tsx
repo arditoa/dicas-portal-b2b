@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,7 +17,14 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../lib/authContext';
+import ContaAtividade from '../../components/ContaAtividade';
+import { IDIOMAS, useI18n } from '../../lib/i18n';
+
+// Site institucional (landing-dicaslgbt) — política e termos ficam lá e
+// precisam estar acessíveis DENTRO do app (App Store 5.1.1(i)).
+const URL_SITE = 'https://www.dicaslgbt.com.br';
 import { supabase } from '../../lib/supabase';
+import { traduzErroAuth } from '../../lib/erroAuth';
 
 const COLORS = {
   background: '#0B0B0E',
@@ -40,6 +47,9 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
 
   const { user, session, loading: authLoading, signOut } = useAuth();
+  const { t, idioma, proximoIdioma } = useI18n();
+  const idiomaAtual = IDIOMAS.find((i) => i.code === idioma) || IDIOMAS[0];
+  const { aba } = useLocalSearchParams<{ aba?: string }>();
   const isLogado = !!session;
   const [isModoCadastro, setIsModoCadastro] = useState(true);
 
@@ -180,7 +190,7 @@ export default function ProfileScreen() {
         );
       }
     } catch (err: any) {
-      Alert.alert('Não foi possível criar a conta', err?.message || 'Tente novamente.');
+      Alert.alert('Não foi possível criar a conta', traduzErroAuth(err));
     } finally {
       setSubmitting(false);
     }
@@ -197,7 +207,35 @@ export default function ProfileScreen() {
       const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
       if (error) throw error;
     } catch (err: any) {
-      Alert.alert('Não foi possível entrar', err?.message || 'Verifique seu e-mail e senha.');
+      Alert.alert('Não foi possível entrar', traduzErroAuth(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Recuperação de senha: manda o e-mail com o link para a página
+  // dicaslgbt.com.br/redefinir-senha. A resposta é sempre a mesma, exista ou
+  // não conta com esse e-mail, para não revelar quem tem cadastro.
+  const handleEsqueciSenha = async () => {
+    const alvo = email.trim();
+    if (!alvo) {
+      Alert.alert('Esqueci minha senha', 'Digite seu e-mail no campo acima e toque em "Esqueci minha senha" de novo.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(alvo, {
+        redirectTo: `${URL_SITE}/redefinir-senha`,
+      });
+      if (error && (error.status === 429 || /rate limit|security purposes/i.test(error.message || ''))) {
+        throw error;
+      }
+      Alert.alert(
+        'Verifique seu e-mail',
+        'Se existir uma conta com esse e-mail, enviamos um link para criar uma nova senha. Olhe também a caixa de spam.'
+      );
+    } catch (err: any) {
+      Alert.alert('Não foi possível enviar', traduzErroAuth(err));
     } finally {
       setSubmitting(false);
     }
@@ -242,10 +280,14 @@ export default function ProfileScreen() {
     }
   };
 
+  // App Store 5.1.1(v): a exclusão acontece de verdade, aqui dentro do app
+  // (RPC excluir_minha_conta, migration 035 — apaga avaliações, perfil e o
+  // login). Só se a função ainda não existir no banco cai no fluxo antigo
+  // de pedido manual (solicitacoes_exclusao_conta), pra nunca travar a pessoa.
   const handleExcluirConta = () => {
     Alert.alert(
-      'Excluir Conta (LGPD)',
-      'Deseja solicitar a remoção permanente da sua conta e histórico?',
+      'Excluir conta',
+      'Isso apaga sua conta, seus favoritos, cupons, check-ins e avaliações de forma permanente. Não dá pra desfazer.',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -253,23 +295,22 @@ export default function ProfileScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const { error } = await supabase.from('solicitacoes_exclusao_conta').insert({
-                email: user?.email || email,
-                telefone: perfil?.phone || telefone || null,
-                motivo: 'Solicitado pelo app (Meu Perfil > Excluir Conta)',
-              });
-              if (error) throw error;
-
+              const { error: rpcError } = await supabase.rpc('excluir_minha_conta');
+              if (rpcError) {
+                const { error } = await supabase.from('solicitacoes_exclusao_conta').insert({
+                  email: user?.email || email,
+                  telefone: perfil?.phone || telefone || null,
+                  motivo: 'Solicitado pelo app (Conta > Excluir conta) — RPC indisponível: ' + rpcError.message,
+                });
+                if (error) throw error;
+                await handleLogout();
+                Alert.alert('Pedido registrado', 'Recebemos sua solicitação e sua conta será apagada em até 48 horas.');
+                return;
+              }
               await handleLogout();
-              Alert.alert(
-                'Pedido registrado',
-                'Recebemos sua solicitação de exclusão. Seus dados serão removidos em breve.'
-              );
+              Alert.alert('Conta excluída', 'Sua conta e seus dados foram apagados.');
             } catch (err: any) {
-              Alert.alert(
-                'Não foi possível registrar o pedido',
-                err?.message || 'Tente novamente em alguns instantes.'
-              );
+              Alert.alert('Não foi possível excluir agora', err?.message || 'Tente novamente em alguns instantes.');
             }
           },
         },
@@ -292,14 +333,18 @@ export default function ProfileScreen() {
     <View style={styles.container}>
       <SafeAreaView style={[styles.safeArea, { paddingTop: insets.top }]}>
         
+        {/* Cabeçalho no mesmo padrão de Início/Eventos/Trip */}
         <View style={styles.header}>
-          <Image
-            source={require('../../assets/images/logolinear-semfundo.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-          <Text style={styles.headerTitle}>{isLogado ? 'Meu Perfil' : ''}</Text>
+          <View>
+            <Image
+              source={require('../../assets/images/logolinear-semfundo.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+            <Text style={styles.appSub}>{t('app.subtitulo')}</Text>
+          </View>
         </View>
+        <Text style={styles.headerTitle}>{t('conta.titulo')}</Text>
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           
@@ -329,6 +374,11 @@ export default function ProfileScreen() {
               <Text style={styles.statLabel}>Meus Cupons</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Nova versão — a caixa de entrada saiu da barra inferior e mora aqui,
+              junto das últimas ações (check-ins, cupons, listas VIP). Fica no topo pra o
+              atalho da caixa de entrada na Home cair direto nela. */}
+          <ContaAtividade userId={user?.id ?? null} abaInicial={aba === 'inbox' ? 'inbox' : undefined} />
 
           {authLoading ? (
             <View style={styles.authBox}>
@@ -439,7 +489,14 @@ export default function ProfileScreen() {
                   <Text style={styles.lgpdText}>
                     Autorizo a coleta do <Text style={styles.bold}>Telefone</Text> e{' '}
                     <Text style={styles.bold}>Data de Nascimento</Text> conforme a LGPD para
-                    personalização de ofertas e contato da comunidade.
+                    personalização de ofertas e contato da comunidade, e li a{' '}
+                    <Text style={styles.link} onPress={() => Linking.openURL(`${URL_SITE}/privacidade`)}>
+                      Política de Privacidade
+                    </Text>{' '}e os{' '}
+                    <Text style={styles.link} onPress={() => Linking.openURL(`${URL_SITE}/termos`)}>
+                      Termos de Uso
+                    </Text>
+                    .
                   </Text>
                 </TouchableOpacity>
               )}
@@ -458,6 +515,17 @@ export default function ProfileScreen() {
                   </Text>
                 )}
               </TouchableOpacity>
+
+              {!isModoCadastro && (
+                <TouchableOpacity
+                  style={styles.switchAuthBtn}
+                  onPress={handleEsqueciSenha}
+                  disabled={submitting}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.switchAuthText}>Esqueci minha senha</Text>
+                </TouchableOpacity>
+              )}
 
               <TouchableOpacity
                 style={styles.switchAuthBtn}
@@ -549,15 +617,35 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
 
-          {isLogado && (
-            <View style={styles.sectionBlock}>
-              <Text style={styles.sectionTitle}>Privacidade (LGPD)</Text>
+          <View style={styles.sectionBlock}>
+            <Text style={styles.sectionTitle}>Preferências e privacidade (LGPD)</Text>
+            <TouchableOpacity style={styles.menuItem} onPress={proximoIdioma} activeOpacity={0.7} accessibilityRole="button">
+              <Feather name="globe" size={16} color={COLORS.textPrimary} style={{ marginLeft: 6, marginRight: 10 }} />
+              <Text style={[styles.menuItemText, { flex: 1 }]}>{t('conta.idioma')}</Text>
+              <Text style={styles.menuItemSub}>{idiomaAtual.nome}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/notificacoes')} activeOpacity={0.7}>
+              <Feather name="bell" size={16} color={COLORS.textPrimary} style={{ marginLeft: 6, marginRight: 10 }} />
+              <Text style={[styles.menuItemText, { flex: 1 }]}>Notificações</Text>
+              <Feather name="chevron-right" size={16} color={COLORS.textMuted} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem} onPress={() => Linking.openURL(`${URL_SITE}/privacidade`)} activeOpacity={0.7}>
+              <Feather name="lock" size={16} color={COLORS.textPrimary} style={{ marginLeft: 6, marginRight: 10 }} />
+              <Text style={[styles.menuItemText, { flex: 1 }]}>{t('conta.privacidade')}</Text>
+              <Feather name="external-link" size={16} color={COLORS.textMuted} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem} onPress={() => Linking.openURL(`${URL_SITE}/termos`)} activeOpacity={0.7}>
+              <Feather name="file-text" size={16} color={COLORS.textPrimary} style={{ marginLeft: 6, marginRight: 10 }} />
+              <Text style={[styles.menuItemText, { flex: 1 }]}>{t('conta.termos')}</Text>
+              <Feather name="external-link" size={16} color={COLORS.textMuted} />
+            </TouchableOpacity>
+            {isLogado && (
               <TouchableOpacity style={styles.menuItem} onPress={handleExcluirConta} activeOpacity={0.7}>
                 <Feather name="trash-2" size={16} color={COLORS.danger} style={{ marginLeft: 6, marginRight: 10 }} />
-                <Text style={[styles.menuItemText, { color: COLORS.danger }]}>Excluir Minha Conta</Text>
+                <Text style={[styles.menuItemText, { color: COLORS.danger }]}>Excluir minha conta</Text>
               </TouchableOpacity>
-            </View>
-          )}
+            )}
+          </View>
 
           {isLogado && (
             <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
@@ -575,9 +663,10 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   safeArea: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 8, marginBottom: 16 },
   logo: { width: 140, height: 34 },
-  headerTitle: { fontSize: 16, fontWeight: '800', color: COLORS.textPrimary },
+  appSub: { fontSize: 11, fontWeight: '500', color: COLORS.textSecondary, marginTop: 2 },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: COLORS.textPrimary, paddingHorizontal: 16, marginBottom: 12 },
   scrollContent: { paddingHorizontal: 16, paddingBottom: 40 },
 
   statsRow: { flexDirection: 'row', gap: 12, marginTop: 8, marginBottom: 16 },
@@ -590,7 +679,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  statNum: { fontSize: 18, fontWeight: '800', color: COLORS.textPrimary, marginTop: 4 },
+  statNum: { fontSize: 16, fontWeight: '800', color: COLORS.textPrimary, marginTop: 4 },
   statLabel: { fontSize: 11, color: COLORS.textSecondary, marginTop: 2 },
 
   authBox: {
@@ -601,7 +690,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     marginBottom: 20,
   },
-  authTitle: { fontSize: 18, fontWeight: '800', color: COLORS.textPrimary, marginBottom: 4 },
+  authTitle: { fontSize: 16, fontWeight: '800', color: COLORS.textPrimary, marginBottom: 4 },
   authSub: { fontSize: 12, color: COLORS.textSecondary, marginBottom: 16 },
 
   inputGroup: { marginBottom: 12 },
@@ -617,7 +706,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     height: 42,
   },
-  input: { flex: 1, color: COLORS.textPrimary, fontSize: 13 },
+  input: { flex: 1, color: COLORS.textPrimary, fontSize: 12 },
 
   lgpdBox: {
     flexDirection: 'row',
@@ -641,8 +730,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   checkboxActive: { backgroundColor: COLORS.purple },
-  lgpdText: { flex: 1, fontSize: 10, color: COLORS.textSecondary, lineHeight: 14 },
+  lgpdText: { flex: 1, fontSize: 12, color: COLORS.textSecondary, lineHeight: 17 },
   bold: { fontWeight: '700', color: COLORS.textPrimary },
+  link: { fontWeight: '700', color: COLORS.pink, textDecorationLine: 'underline' },
 
   actionBtn: {
     height: 44,
@@ -652,7 +742,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 8,
   },
-  actionBtnText: { color: '#FFF', fontWeight: '700', fontSize: 13 },
+  actionBtnText: { color: '#FFF', fontWeight: '700', fontSize: 12 },
 
   switchAuthBtn: { marginTop: 12, alignItems: 'center' },
   switchAuthText: { fontSize: 12, fontWeight: '700', color: COLORS.purple },
@@ -675,15 +765,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 10,
   },
-  avatarInitials: { fontSize: 20, fontWeight: '800', color: '#FFF' },
-  userName: { fontSize: 18, fontWeight: '800', color: COLORS.textPrimary },
+  avatarInitials: { fontSize: 17, fontWeight: '800', color: '#FFF' },
+  userName: { fontSize: 16, fontWeight: '800', color: COLORS.textPrimary },
   userEmail: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
   infoDivider: { height: 1, backgroundColor: COLORS.border, width: '100%', marginVertical: 12 },
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   infoText: { fontSize: 12, color: COLORS.textSecondary },
 
   sectionBlock: { marginBottom: 20 },
-  sectionTitle: { fontSize: 13, fontWeight: '700', color: COLORS.textMuted, marginBottom: 8, marginLeft: 4 },
+  sectionTitle: { fontSize: 12, fontWeight: '700', color: COLORS.textMuted, marginBottom: 8, marginLeft: 4 },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -696,7 +786,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   menuIconBg: { width: 32, height: 32, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-  menuItemText: { fontSize: 13, fontWeight: '600', color: COLORS.textPrimary },
+  menuItemText: { fontSize: 12, fontWeight: '600', color: COLORS.textPrimary },
   menuItemSub: { fontSize: 10, color: COLORS.textSecondary, marginTop: 1 },
 
   logoutBtn: {
@@ -711,5 +801,5 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     marginTop: 10,
   },
-  logoutBtnText: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary },
+  logoutBtnText: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary },
 });

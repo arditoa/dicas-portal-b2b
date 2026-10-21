@@ -301,3 +301,79 @@ export const CHECKLIST_EQUIPE_HOSPEDAGEM = [
   { id: 'reputacao', label: 'Avaliações públicas sem relatos de LGBTfobia' },
   { id: 'contato', label: 'Conversa ou visita com a gestão realizada' },
 ] as const;
+
+// ─────────────────────── ROTEIROS E EXPERIÊNCIAS (Rodada 69) ───────────────────────
+// Lista enviada pela Andrea em 10/10/2026. Cada roteiro mostra no máximo 8
+// tags principais (ROTEIRO_MAX_TAGS_VISIVEIS); as demais ficam nos filtros e
+// na página detalhada.
+
+export const ROTEIRO_MAX_TAGS_VISIVEIS = 8;
+
+export const GRUPOS_ROTEIRO: GrupoTags[] = [
+  { id: 'formato', titulo: 'Formato', tags: [
+    'Roteiro completo', 'Experiência', 'Passeio', 'City tour', 'Walking tour', 'Tour guiado', 'Autoguiado',
+    'Circuito', 'Bate-volta', 'Imersão', 'Workshop', 'Excursão', 'Cruzeiro', 'Passeio de barco',
+  ] },
+  { id: 'duracao', titulo: 'Duração', tags: [
+    'Até 2 horas', 'Meio período', 'Dia inteiro', '1 dia', 'Fim de semana', '2 dias', '3 dias', '5 dias',
+    '7 dias', 'Longa duração',
+  ] },
+  { id: 'tema', titulo: 'Tema', tags: [
+    'Cultura', 'História', 'Gastronomia', 'Vida noturna', 'Praias', 'Natureza', 'Aventura', 'Arte',
+    'Arquitetura', 'Música', 'Compras', 'Bem-estar', 'Fotografia', 'Esportes', 'Romance', 'Religião',
+    'Ecoturismo', 'Turismo urbano',
+  ] },
+  { id: 'lgbt', titulo: 'Experiências LGBT+', tags: [
+    'História LGBT+', 'Cultura queer', 'Arte queer', 'Vida noturna LGBT+', 'Bares LGBT+', 'Festas LGBT+',
+    'Empreendedorismo LGBT+', 'Negócios LGBT+', 'Drag culture', 'Parada LGBT+', 'Carnaval LGBT+',
+    'Gastronomia LGBT+', 'Locais históricos LGBT+', 'Roteiro de diversidade', 'Acolhimento LGBT+',
+    'Casais LGBT+', 'Viagem solo LGBT+',
+  ] },
+  { id: 'publico', titulo: 'Público', tags: [
+    'Todos os públicos', 'Gays', 'Lésbicas', 'Bissexuais', 'Pessoas trans', 'Pessoas não binárias',
+    'Público queer', 'Ursos', '50+', 'Jovens', 'Casais', 'Solteiros', 'Famílias LGBT+', 'Aliados', 'Turistas',
+  ] },
+  { id: 'perfil', titulo: 'Perfil da viagem', tags: [
+    'Viagem solo', 'Casais', 'Amigos', 'Família diversa', 'Grupos', 'Romântico', 'Econômico', 'Luxo',
+    'Descanso', 'Aventura', 'Para conhecer pessoas', 'Primeira viagem', 'Moradores locais',
+    'Turistas internacionais',
+  ] },
+  { id: 'horario', titulo: 'Horário', tags: ['Manhã', 'Tarde', 'Noite', 'Madrugada', 'Nascer do sol', 'Pôr do sol', 'Diurno', 'Noturno'] },
+  { id: 'deslocamento', titulo: 'Deslocamento', tags: [
+    'A pé', 'Metrô', 'Ônibus', 'Bicicleta', 'Carro', 'Van', 'Barco', 'Transporte incluído',
+    'Transporte público', 'Motorista particular', 'Sem carro',
+  ] },
+  { id: 'entrada', titulo: 'Entrada e reserva', tags: [
+    'Grátis', 'Pago', 'Reserva obrigatória', 'Reserva recomendada', 'Ingresso incluso', 'Ingresso separado',
+    'Desconto no app', 'Cupom disponível', 'Vagas limitadas', 'Lista de espera', 'Cancelamento flexível',
+  ] },
+  { id: 'acessibilidade', titulo: 'Acessibilidade', tags: [
+    'Acessível', 'Rota acessível', 'Cadeirantes', 'Atendimento em Libras', 'Audiodescrição',
+    'Banheiro adaptado', 'Transporte adaptado', 'Mobilidade reduzida',
+  ] },
+  { id: 'caracteristicas', titulo: 'Características', tags: [
+    'Ao ar livre', 'Área coberta', 'Pet friendly', 'Guia turístico', 'Guia LGBT+', 'Atendimento multilíngue',
+    'Experiência privativa', 'Experiência em grupo', 'Com alimentação', 'Com bebidas', 'Com fotos',
+    'Inclui hospedagem', 'Clima favorável', 'Funciona com chuva',
+  ] },
+  { id: 'comercial', titulo: 'Identificações comerciais', tags: [
+    'Destaque', 'Parceiro Fundador', 'Curadoria Dicas', 'Verificado pelo Dicas', 'Mais procurado', 'Novidade',
+  ] },
+];
+
+// Identificações comerciais: só a equipe marca (nunca o parceiro).
+export const TAGS_ROTEIRO_EQUIPE = ['destaque', 'parceiro_fundador', 'curadoria_dicas', 'verificado_pelo_dicas', 'mais_procurado', 'novidade'];
+
+// "Escolha sua experiência" — atalhos de tema com ícone (Feather).
+export const TEMAS_ATALHO = [
+  { slug: 'cultura', label: 'Cultura', icone: 'book-open', cor: '#E1306C' },
+  { slug: 'gastronomia', label: 'Gastronomia', icone: 'coffee', cor: '#FFD54F' },
+  { slug: 'vida_noturna', label: 'Vida noturna', icone: 'moon', cor: '#B39DDB' },
+  { slug: 'natureza', label: 'Natureza', icone: 'feather', cor: '#4CAF7D' },
+  { slug: 'praias', label: 'Praias', icone: 'sun', cor: '#4FC3F7' },
+  { slug: 'compras', label: 'Compras', icone: 'shopping-bag', cor: '#FFB74D' },
+  { slug: 'historia_lgbt', label: 'História LGBT+', icone: 'flag', cor: '#E1306C' },
+  { slug: 'arte', label: 'Arte', icone: 'image', cor: '#F48FB1' },
+];
+
+for (const g of GRUPOS_ROTEIRO) for (const t of g.tags) if (!ROTULOS[slugTag(t)]) ROTULOS[slugTag(t)] = t;

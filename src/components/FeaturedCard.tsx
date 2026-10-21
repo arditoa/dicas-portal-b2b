@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
     borderColor: '#262238',
   },
   badgeText: { color: '#F5C518', fontSize: 9, fontWeight: '800' },
-  name: { color: '#FFFFFF', fontSize: 14, fontWeight: '700', marginTop: 8 },
+  name: { color: '#FFFFFF', fontSize: 13, fontWeight: '700', marginTop: 8 },
   meta: { color: '#8A889D', fontSize: 12, marginTop: 2 },
   ratingRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 4 },
   ratingText: { color: '#F5C518', fontSize: 11, fontWeight: '700' },

@@ -20,6 +20,7 @@ import { useAuth } from '../../lib/authContext';
 import { registrarCliqueInstagram, registrarVisualizacaoPerfil } from '../../lib/analytics';
 import { supabase } from '../../lib/supabase';
 import { CLASSIFICACOES_LGBT } from '../../lib/classificacaoLgbt';
+import HospedagemDetalhes from '../../components/HospedagemDetalhes';
 
 // Precisam bater com o enum public.categoria_tipo real (só 6 valores —
 // a taxonomia de 10 categorias desenhada nas Rodadas 1-8 nunca chegou a
@@ -337,6 +338,52 @@ export default function BusinessDetailScreen() {
     }
   };
 
+  // App Store 1.2 (conteúdo gerado por usuário): toda avaliação de outra
+  // pessoa pode ser denunciada (tabela denuncias, alvo 'avaliacao') e o
+  // autor pode ser bloqueado (tabela bloqueios — a RLS
+  // avaliacoes_select_visiveis já esconde avaliações de quem está bloqueado).
+  const handleOpcoesAvaliacao = (av: Avaliacao) => {
+    if (!session || !user) {
+      Alert.alert('Entre na sua conta', 'Para denunciar ou bloquear, entre ou crie sua conta em Conta.');
+      return;
+    }
+    if (!av.user_id || av.user_id === user.id) return;
+    const nome = av.perfis_publicos?.display_name || 'esta pessoa';
+    Alert.alert('Opções da avaliação', undefined, [
+      {
+        text: 'Denunciar avaliação',
+        onPress: async () => {
+          const { error } = await supabase.from('denuncias').insert({
+            reporter_id: user.id,
+            alvo_tipo: 'avaliacao',
+            alvo_id: av.id,
+            motivo: 'Avaliação imprópria (denunciada no perfil do local)',
+          });
+          Alert.alert(
+            error ? 'Não foi possível enviar' : 'Denúncia enviada',
+            error ? 'Tente novamente em alguns instantes.' : 'Obrigada! Nossa equipe analisa em até 24 horas.'
+          );
+        },
+      },
+      {
+        text: `Bloquear ${nome}`,
+        style: 'destructive',
+        onPress: async () => {
+          const { error } = await supabase
+            .from('bloqueios')
+            .upsert({ bloqueador_id: user.id, bloqueado_id: av.user_id }, { onConflict: 'bloqueador_id,bloqueado_id', ignoreDuplicates: true });
+          if (error) {
+            Alert.alert('Não foi possível bloquear', 'Tente novamente em alguns instantes.');
+            return;
+          }
+          setAvaliacoes((prev) => prev.filter((x) => x.user_id !== av.user_id));
+          Alert.alert('Pessoa bloqueada', 'Você não verá mais o conteúdo dela no app.');
+        },
+      },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
+  };
+
   const handleAbrirReview = () => {
     if (!session || !user) {
       exigirLogin('Crie sua conta ou entre no app para avaliar este local.');
@@ -614,6 +661,15 @@ export default function BusinessDetailScreen() {
               </TouchableOpacity>
             )}
 
+            {/* Rodada 63 — hospedagem: tipo, comodidades, quartos/áreas comuns/lazer e locais próximos */}
+            <HospedagemDetalhes
+              localId={local.id}
+              lat={local.lat}
+              lng={local.lng}
+              cidade={local.cidade}
+              premium={publicaRecursosPremium(local)}
+            />
+
             {publicaRecursosPremium(local) && agendaSemana.length > 0 && (
               <View style={{ marginTop: 16 }}>
                 <Text style={styles.sectionTitle}>Agenda da semana</Text>
@@ -682,7 +738,7 @@ export default function BusinessDetailScreen() {
                     <Text style={styles.reviewAuthor}>
                       {av.perfis_publicos?.display_name || 'Usuário Dicas LGBT+'}
                     </Text>
-                    <View style={{ flexDirection: 'row', gap: 2 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
                       {[1, 2, 3, 4, 5].map((n) => (
                         <Feather
                           key={n}
@@ -691,6 +747,17 @@ export default function BusinessDetailScreen() {
                           color={n <= av.nota ? '#FFD54F' : '#2D2B3D'}
                         />
                       ))}
+                      {av.user_id !== user?.id && (
+                        <TouchableOpacity
+                          onPress={() => handleOpcoesAvaliacao(av)}
+                          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                          style={{ marginLeft: 8 }}
+                          accessibilityRole="button"
+                          accessibilityLabel="Denunciar ou bloquear"
+                        >
+                          <Feather name="more-horizontal" size={16} color="#A0A0B2" />
+                        </TouchableOpacity>
+                      )}
                     </View>
                   </View>
                   {av.comentario && <Text style={styles.reviewComment}>{av.comentario}</Text>}
@@ -765,7 +832,7 @@ const styles = StyleSheet.create({
   center: { justifyContent: 'center', alignItems: 'center' },
   safeArea: { flex: 1 },
 
-  notFoundText: { color: '#A0A0B2', fontSize: 14, textAlign: 'center', marginTop: 12, marginBottom: 20 },
+  notFoundText: { color: '#A0A0B2', fontSize: 13, textAlign: 'center', marginTop: 12, marginBottom: 20 },
   backBtnInline: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12, backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230' },
   backBtnInlineText: { color: '#FFF', fontWeight: '700' },
 
@@ -782,14 +849,14 @@ const styles = StyleSheet.create({
   genericBadgeText: { fontSize: 11, fontWeight: '700' },
 
   detailBody: { padding: 20 },
-  detailTitle: { fontSize: 24, fontWeight: '900', color: '#FFF', marginBottom: 4 },
-  detailSubtext: { fontSize: 13, color: '#A0A0B2', marginBottom: 10 },
+  detailTitle: { fontSize: 20, fontWeight: '900', color: '#FFF', marginBottom: 4 },
+  detailSubtext: { fontSize: 12, color: '#A0A0B2', marginBottom: 10 },
 
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 14 },
-  ratingText: { fontSize: 14, fontWeight: '700', color: '#FFF' },
+  ratingText: { fontSize: 13, fontWeight: '700', color: '#FFF' },
   ratingCount: { fontSize: 12, color: '#A0A0B2' },
 
-  description: { fontSize: 13, color: '#C0C0D0', lineHeight: 20, marginBottom: 18 },
+  description: { fontSize: 12, color: '#C0C0D0', lineHeight: 18, marginBottom: 18 },
 
   actionBtn: { flexDirection: 'row', height: 48, backgroundColor: '#E1306C', borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
   mapBtn: { backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230' },
@@ -798,21 +865,21 @@ const styles = StyleSheet.create({
   // Rodada 60 — selo de classificação da relação com a comunidade LGBT+
   // (Câmara de Comércio LGBT+), pedido pra ficar visível perto do cupom.
   classificacaoCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: '#161520', borderWidth: 1, borderColor: '#7E57C230', borderRadius: 14, padding: 12, marginBottom: 18 },
-  classificacaoEmoji: { fontSize: 20 },
-  classificacaoLabel: { fontSize: 13, fontWeight: '800', color: '#FFF' },
+  classificacaoEmoji: { fontSize: 17 },
+  classificacaoLabel: { fontSize: 12, fontWeight: '800', color: '#FFF' },
   classificacaoDescricao: { fontSize: 11, color: '#A0A0B2', marginTop: 2, lineHeight: 15 },
   cupomHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
   cupomHeaderText: { fontSize: 11, fontWeight: '800', color: '#FFD54F', textTransform: 'uppercase', letterSpacing: 0.5 },
-  cupomTitulo: { fontSize: 15, fontWeight: '800', color: '#FFF', marginBottom: 4 },
+  cupomTitulo: { fontSize: 14, fontWeight: '800', color: '#FFF', marginBottom: 4 },
   cupomDescricao: { fontSize: 12, color: '#A0A0B2', lineHeight: 17, marginBottom: 10 },
   cupomBtn: { backgroundColor: '#7E57C2', marginBottom: 0 },
   codigoBox: { backgroundColor: '#0B0B0E', borderRadius: 12, borderWidth: 1, borderColor: '#232230', padding: 14, alignItems: 'center', marginTop: 4 },
   codigoLabel: { fontSize: 11, color: '#A0A0B2', marginBottom: 6 },
-  codigoTexto: { fontSize: 26, fontWeight: '900', color: '#FFD54F', letterSpacing: 4 },
+  codigoTexto: { fontSize: 22, fontWeight: '900', color: '#FFD54F', letterSpacing: 4 },
   codigoValidade: { fontSize: 11, color: '#A0A0B2', marginTop: 6 },
   cupomExpiradoTexto: { fontSize: 12, color: '#A0A0B2', marginTop: 4 },
   videoBtn: { backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230' },
-  actionBtnText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
+  actionBtnText: { color: '#FFF', fontSize: 13, fontWeight: '700' },
 
   galeriaFoto: { width: 140, height: 100, borderRadius: 12, backgroundColor: '#161520' },
 
@@ -822,17 +889,17 @@ const styles = StyleSheet.create({
   agendaDiaBox: { flexDirection: 'row', gap: 12, backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230', borderRadius: 14, padding: 12, alignItems: 'center' },
   agendaDiaFoto: { width: 64, height: 64, borderRadius: 10, backgroundColor: '#0B0B0E' },
   agendaDiaSemana: { fontSize: 11, fontWeight: '800', color: '#E1306C', textTransform: 'uppercase' },
-  agendaDiaTitulo: { fontSize: 14, fontWeight: '700', color: '#FFF', marginTop: 2 },
+  agendaDiaTitulo: { fontSize: 13, fontWeight: '700', color: '#FFF', marginTop: 2 },
   agendaDiaDescricao: { fontSize: 12, color: '#A0A0B2', marginTop: 2 },
   agendaDiaLink: { fontSize: 12, fontWeight: '700', color: '#E1306C', marginTop: 4, textDecorationLine: 'underline' },
 
   horarioBox: { marginTop: 16, marginBottom: 8, padding: 14, borderRadius: 14, backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230' },
   horarioLinha: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
-  horarioDia: { fontSize: 13, fontWeight: '700', color: '#FFF' },
+  horarioDia: { fontSize: 12, fontWeight: '700', color: '#FFF' },
   horarioValor: { fontSize: 12, color: '#A0A0B2', flexShrink: 1, textAlign: 'right', marginLeft: 8 },
 
   reviewsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, marginBottom: 12 },
-  sectionTitle: { fontSize: 16, fontWeight: '800', color: '#FFF' },
+  sectionTitle: { fontSize: 15, fontWeight: '800', color: '#FFF' },
   reviewCta: { fontSize: 12, fontWeight: '700', color: '#7E57C2' },
 
   emptyReviewsBox: { alignItems: 'center', gap: 8, backgroundColor: '#161520', borderRadius: 16, borderWidth: 1, borderColor: '#232230', padding: 24 },
@@ -840,12 +907,12 @@ const styles = StyleSheet.create({
 
   reviewCard: { backgroundColor: '#161520', borderRadius: 14, borderWidth: 1, borderColor: '#232230', padding: 12, marginBottom: 8 },
   reviewCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  reviewAuthor: { fontSize: 13, fontWeight: '700', color: '#FFF' },
+  reviewAuthor: { fontSize: 12, fontWeight: '700', color: '#FFF' },
   reviewComment: { fontSize: 12, color: '#A0A0B2', lineHeight: 18 },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.75)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 },
   reviewModalContent: { width: '100%', backgroundColor: '#161520', borderRadius: 20, padding: 20, borderWidth: 1, borderColor: '#232230' },
-  modalTitle: { fontSize: 16, fontWeight: '800', color: '#FFF', marginBottom: 16, textAlign: 'center' },
+  modalTitle: { fontSize: 15, fontWeight: '800', color: '#FFF', marginBottom: 16, textAlign: 'center' },
   starsPickerRow: { flexDirection: 'row', justifyContent: 'center', marginBottom: 16 },
-  reviewInput: { minHeight: 90, borderRadius: 12, backgroundColor: '#0B0B0E', borderWidth: 1, borderColor: '#232230', padding: 14, color: '#FFF', fontSize: 13, textAlignVertical: 'top', marginBottom: 16 },
+  reviewInput: { minHeight: 90, borderRadius: 12, backgroundColor: '#0B0B0E', borderWidth: 1, borderColor: '#232230', padding: 14, color: '#FFF', fontSize: 12, textAlignVertical: 'top', marginBottom: 16 },
 });

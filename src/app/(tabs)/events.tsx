@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../lib/authContext';
 import { deveExibirGlow, estaFixadoEm } from '../../lib/destaque';
 import { supabase } from '../../lib/supabase';
+import { GRUPOS_EVENTO, LEGADO_EVENTO, TAGS_EVENTO_AUTOMATICAS, rotuloTag, slugTag } from '../../lib/taxonomia';
 
 const COLORS = {
   background: '#0B0B0E',
@@ -32,27 +33,18 @@ const COLORS = {
   green: '#4CAF7D',
 };
 
-// Precisam bater com o enum public.estilo_musical (001_migrar_para_locais.sql) —
-// os mesmos valores/labels usados no cadastro de evento do portal.
-const MUSIC_FILTERS = [
-  { id: 'todos_estilos', label: 'Todos os Estilos' },
-  { id: 'funk', label: 'Funk' },
-  { id: 'pop_eletronica', label: 'Pop / Eletrônica' },
-  { id: 'sertanejo', label: 'Sertanejo' },
-  { id: 'drag_cabare', label: 'Drag / Cabaré' },
-  { id: 'mpb_samba', label: 'MPB / Samba' },
-  { id: 'techno_house', label: 'Techno / House' },
-];
+// Rodada 63 — filtros com a taxonomia oficial (src/lib/taxonomia.ts).
+// Eventos antigos (só com estilos_musicais/publico_tags do enum antigo)
+// continuam aparecendo pelos equivalentes em LEGADO_EVENTO.
+const GRUPO = (id: string) => GRUPOS_EVENTO.find((g) => g.id === id)!;
+const GRUPOS_EXTRAS = ['ingresso', 'quando', 'estrutura', 'ambiente', 'classificacao'];
 
-// Precisam bater com o enum public.publico_tag
-const PUBLIC_FILTERS = [
-  { id: 'todos_publicos', label: 'Todos os Públicos' },
-  { id: 'gay', label: 'Gays' },
-  { id: 'lesbica', label: 'Lésbicas' },
-  { id: 'trans', label: 'Trans' },
-  { id: 'bi', label: 'Bi' },
-  { id: 'ursos', label: 'Ursos' },
-];
+function eventoTem(ev: { tags?: string[] | null; estilos_musicais?: string[] | null; publico_tags?: string[] | null; listaVipAtiva?: any }, slug: string): boolean {
+  if (ev.tags?.includes(slug)) return true;
+  if (slug === 'lista_vip' && ev.listaVipAtiva) return true;
+  const legado = LEGADO_EVENTO[slug];
+  return !!legado && legado.some((l) => ev.estilos_musicais?.includes(l) || ev.publico_tags?.includes(l));
+}
 
 // Rodada 39 — bug real encontrado: `calcularDateTag` sempre soube gerar a
 // tag 'outro' (qualquer evento além do próximo fim de semana), mas
@@ -106,6 +98,7 @@ interface EventoRow {
   data_fim: string | null;
   estilos_musicais: string[];
   publico_tags: string[];
+  tags?: string[] | null;
   foto_capa_url: string | null;
   plano_destaque: 'basico' | 'destaque' | 'vip';
   destaque_secao_fixada: string | null;
@@ -158,8 +151,11 @@ export default function EventsScreen() {
   const isUserLogged = !!session;
 
   const [dateFilter, setDateFilter] = useState<DateTag>('hoje');
-  const [selectedMusic, setSelectedMusic] = useState('todos_estilos');
-  const [selectedPublic, setSelectedPublic] = useState('todos_publicos');
+  const [selectedTipo, setSelectedTipo] = useState<string | null>(null);
+  const [selectedMusic, setSelectedMusic] = useState<string | null>(null);
+  const [selectedPublic, setSelectedPublic] = useState<string | null>(null);
+  const [filtrosExtras, setFiltrosExtras] = useState<string[]>([]);
+  const [showFiltrosModal, setShowFiltrosModal] = useState(false);
 
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
@@ -177,15 +173,19 @@ export default function EventsScreen() {
       const inicioHoje = new Date();
       inicioHoje.setHours(0, 0, 0, 0);
 
-      const { data, error } = await supabase
-        .from('eventos')
-        .select(
-          'id, titulo, descricao, data_inicio, data_fim, estilos_musicais, publico_tags, foto_capa_url, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, local_id, locais(nome, bairro, cidade), listas_vip(id, titulo, vagas_limite, vagas_ocupadas, ativa)'
-        )
-        .eq('status', 'aprovado')
-        .gte('data_inicio', inicioHoje.toISOString())
-        .order('data_inicio', { ascending: true })
-        .limit(60);
+      const CAMPOS =
+        'id, titulo, descricao, data_inicio, data_fim, estilos_musicais, publico_tags, foto_capa_url, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, local_id, locais(nome, bairro, cidade), listas_vip(id, titulo, vagas_limite, vagas_ocupadas, ativa)';
+      const consultar = (campos: string) =>
+        supabase
+          .from('eventos')
+          .select(campos)
+          .eq('status', 'aprovado')
+          .gte('data_inicio', inicioHoje.toISOString())
+          .order('data_inicio', { ascending: true })
+          .limit(60);
+      // Coluna `tags` vem da migration 036; sem ela, segue com os campos antigos.
+      let { data, error } = await consultar(`${CAMPOS}, tags`);
+      if (error) ({ data, error } = await consultar(CAMPOS));
 
       if (error) throw error;
 
@@ -242,8 +242,10 @@ export default function EventsScreen() {
   const filteredEvents = events
     .filter((ev) => {
       if (ev.dateTag !== dateFilter) return false;
-      if (selectedMusic !== 'todos_estilos' && !ev.estilos_musicais?.includes(selectedMusic)) return false;
-      if (selectedPublic !== 'todos_publicos' && !ev.publico_tags?.includes(selectedPublic)) return false;
+      if (selectedTipo && !eventoTem(ev, selectedTipo)) return false;
+      if (selectedMusic && !eventoTem(ev, selectedMusic)) return false;
+      if (selectedPublic && !eventoTem(ev, selectedPublic)) return false;
+      if (filtrosExtras.some((t) => !eventoTem(ev, t))) return false;
       return true;
     })
     .sort((a, b) => {
@@ -335,6 +337,46 @@ export default function EventsScreen() {
     }
   };
 
+  // Rodada 59 (parte 7) — pedido da Andrea depois de revisar o app final:
+  // faltava o próprio usuário confirmar que chegou (check-in self-service,
+  // sem depender da portaria digitar nada no portal — decisão consciente
+  // dela, diferente do check-in de cupom que continua exigindo o
+  // estabelecimento). Ver migration 031 (protect_status_listas_vip_solicitacoes)
+  // — só esse UM caminho extra de status foi liberado, o resto continua
+  // travado pra usuário comum.
+  const handleCheckIn = async () => {
+    if (!selectedEventForList?.listaVipAtiva || !user) return;
+
+    const listaId = selectedEventForList.listaVipAtiva.id;
+    setSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from('listas_vip_solicitacoes')
+        .update({ status: 'check_in' })
+        .eq('lista_vip_id', listaId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setMinhasSolicitacoes((prev) => ({ ...prev, [listaId]: 'check_in' }));
+    } catch (err: any) {
+      Alert.alert('Erro', err?.message || 'Não foi possível confirmar seu check-in. Tente novamente.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Depois do check-in, o check_in é o próprio gatilho pra liberar a
+  // avaliação do local (Rodada 59/7) — leva direto pra tela do
+  // estabelecimento, que já tem a avaliação corrigida (Rodada 59/6).
+  const handleIrAvaliar = () => {
+    const localId = selectedEventForList?.local_id;
+    setSelectedEventForList(null);
+    if (localId) {
+      router.push(`/business/${localId}` as any);
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* HEADER */}
@@ -393,49 +435,43 @@ export default function EventsScreen() {
           </View>
         </View>
 
-        {/* FILEIRA 1: Estilo Musical */}
-        <View style={styles.filterSection}>
-          <Text style={styles.filterLabel}>Estilo Musical</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-            {MUSIC_FILTERS.map((item) => {
-              const isSelected = selectedMusic === item.id;
-              return (
-                <TouchableOpacity
-                  key={item.id}
-                  style={[styles.musicChip, isSelected && styles.musicChipActive]}
-                  onPress={() => setSelectedMusic(item.id)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
-                    {item.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
+        {/* Rodada 63 — filtros com as tags oficiais. Cada fileira só mostra
+            as tags que têm pelo menos um evento carregado. */}
+        {[
+          { grupo: 'tipo', titulo: 'Tipo de evento', valor: selectedTipo, set: setSelectedTipo, estilo: styles.musicChip, ativo: styles.musicChipActive },
+          { grupo: 'musica', titulo: 'Estilo musical', valor: selectedMusic, set: setSelectedMusic, estilo: styles.musicChip, ativo: styles.musicChipActive },
+          { grupo: 'publico', titulo: 'Público', valor: selectedPublic, set: setSelectedPublic, estilo: styles.publicChip, ativo: styles.publicChipActive },
+        ].map((linha) => {
+          const opcoes = GRUPO(linha.grupo).tags.map(slugTag).filter((t) => t !== 'todos_os_publicos' && events.some((ev) => eventoTem(ev, t)));
+          if (opcoes.length === 0) return null;
+          return (
+            <View key={linha.grupo} style={styles.filterSection}>
+              <Text style={styles.filterLabel}>{linha.titulo}</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
+                {[null, ...opcoes].map((tag) => {
+                  const isSelected = linha.valor === tag;
+                  return (
+                    <TouchableOpacity
+                      key={tag || 'todos'}
+                      style={[linha.estilo, isSelected && linha.ativo]}
+                      onPress={() => linha.set(tag)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>{tag ? rotuloTag(tag) : 'Todos'}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          );
+        })}
 
-        {/* FILEIRA 2: Público / Perfil */}
-        <View style={styles.filterSection}>
-          <Text style={styles.filterLabel}>Público & Perfil</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-            {PUBLIC_FILTERS.map((item) => {
-              const isSelected = selectedPublic === item.id;
-              return (
-                <TouchableOpacity
-                  key={item.id}
-                  style={[styles.publicChip, isSelected && styles.publicChipActive]}
-                  onPress={() => setSelectedPublic(item.id)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
-                    {item.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
+        <TouchableOpacity style={styles.maisFiltrosBtn} onPress={() => setShowFiltrosModal(true)} activeOpacity={0.8}>
+          <Feather name="sliders" size={14} color={COLORS.pink} />
+          <Text style={styles.maisFiltrosTxt}>
+            Mais filtros{filtrosExtras.length > 0 ? ` (${filtrosExtras.length})` : ''}
+          </Text>
+        </TouchableOpacity>
 
         {/* LISTA DE EVENTOS */}
         <View style={styles.listArea}>
@@ -462,9 +498,11 @@ export default function EventsScreen() {
             filteredEvents.map((item) => (
               <TouchableOpacity
                 key={item.id}
-                style={[styles.eventCard, !item.listaVipAtiva && styles.eventCardDisabled]}
-                onPress={() => handleEventClick(item)}
-                activeOpacity={item.listaVipAtiva ? 0.85 : 1}
+                style={styles.eventCard}
+                // Rodada 66 — o card abre a página da festa (flier, horário,
+                // local, descrição, tags e a Lista VIP lá dentro).
+                onPress={() => router.push(`/evento/${item.id}` as any)}
+                activeOpacity={0.85}
               >
                 <View style={styles.eventThumb}>
                   {item.foto_capa_url ? (
@@ -531,6 +569,68 @@ export default function EventsScreen() {
       </ScrollView>
 
       {/* MODAL 1: CALENDÁRIO */}
+      <Modal visible={showFiltrosModal} transparent animationType="fade" onRequestClose={() => setShowFiltrosModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: '80%' }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <Text style={styles.modalTitle}>Mais filtros</Text>
+              <TouchableOpacity onPress={() => setShowFiltrosModal(false)} accessibilityLabel="Fechar">
+                <Feather name="x" size={20} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView>
+              {(() => {
+                const grupos = GRUPOS_EXTRAS.map((id) => {
+                  const g = GRUPO(id);
+                  const opcoes = g.tags
+                    .map(slugTag)
+                    .filter((t) => !TAGS_EVENTO_AUTOMATICAS.includes(t))
+                    .filter((t) => filtrosExtras.includes(t) || events.some((ev) => eventoTem(ev, t)));
+                  return { ...g, opcoes };
+                }).filter((g) => g.opcoes.length > 0);
+                if (grupos.length === 0) {
+                  return (
+                    <Text style={styles.maisFiltrosSub}>
+                      Os organizadores passam a marcar essas informações no cadastro do evento. Assim que houver eventos com elas, os filtros aparecem aqui.
+                    </Text>
+                  );
+                }
+                return grupos.map((g) => (
+                  <View key={g.id} style={{ marginBottom: 14 }}>
+                    <Text style={[styles.filterLabel, { paddingHorizontal: 0 }]}>{g.titulo}</Text>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                      {g.opcoes.map((t) => {
+                        const on = filtrosExtras.includes(t);
+                        return (
+                          <TouchableOpacity
+                            key={t}
+                            style={[styles.publicChip, on && styles.publicChipActive]}
+                            onPress={() => setFiltrosExtras((prev) => (on ? prev.filter((x) => x !== t) : [...prev, t]))}
+                          >
+                            <Text style={[styles.chipText, on && styles.chipTextActive]}>{rotuloTag(t)}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+                ));
+              })()}
+            </ScrollView>
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
+              <TouchableOpacity style={[styles.maisFiltrosBtn, { flex: 1, marginHorizontal: 0, justifyContent: 'center' }]} onPress={() => setFiltrosExtras([])}>
+                <Text style={styles.maisFiltrosTxt}>Limpar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.maisFiltrosBtn, { flex: 1, marginHorizontal: 0, justifyContent: 'center', backgroundColor: COLORS.pink, borderColor: COLORS.pink }]}
+                onPress={() => setShowFiltrosModal(false)}
+              >
+                <Text style={[styles.maisFiltrosTxt, { color: '#FFF' }]}>Ver eventos</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <Modal
         visible={showCalendarModal}
         transparent
@@ -624,6 +724,30 @@ export default function EventsScreen() {
                 <Text style={styles.statusText}>
                   {STATUS_SOLICITACAO_LABEL[statusAtual] || statusAtual}
                 </Text>
+                {statusAtual === 'aprovada' && (
+                  <TouchableOpacity
+                    style={[styles.submitListBtn, submitting && { opacity: 0.6 }]}
+                    onPress={handleCheckIn}
+                    activeOpacity={0.88}
+                    disabled={submitting}
+                  >
+                    <Text style={styles.submitListBtnText}>
+                      {submitting ? 'Confirmando...' : 'Cheguei — Confirmar Check-in'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                {statusAtual === 'check_in' && (
+                  <TouchableOpacity
+                    style={[styles.submitListBtn, submitting && { opacity: 0.6 }]}
+                    onPress={handleIrAvaliar}
+                    activeOpacity={0.88}
+                    disabled={submitting}
+                  >
+                    <Text style={styles.submitListBtnText}>
+                      Avaliar {selectedEventForList?.locais?.nome || 'o local'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
                 {(statusAtual === 'solicitada' || statusAtual === 'aprovada') && (
                   <TouchableOpacity
                     style={[styles.submitListBtn, { backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border }, submitting && { opacity: 0.6 }]}
@@ -700,7 +824,7 @@ const styles = StyleSheet.create({
   },
 
   titleArea: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 12 },
-  mainTitle: { fontSize: 24, fontWeight: '800', color: COLORS.textPrimary },
+  mainTitle: { fontSize: 20, fontWeight: '800', color: COLORS.textPrimary },
 
   dateSelectorRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   dateBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
@@ -712,6 +836,9 @@ const styles = StyleSheet.create({
   filterSection: { marginBottom: 12 },
   filterLabel: { fontSize: 12, fontWeight: '700', color: COLORS.textSecondary, paddingHorizontal: 16, marginBottom: 6 },
   chipsRow: { paddingHorizontal: 16, gap: 8 },
+  maisFiltrosBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginBottom: 12, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.card },
+  maisFiltrosTxt: { fontSize: 12, fontWeight: '800', color: COLORS.textPrimary },
+  maisFiltrosSub: { fontSize: 11, color: COLORS.textSecondary, flexShrink: 1 },
 
   musicChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 18, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
   musicChipActive: { backgroundColor: COLORS.pink, borderColor: COLORS.pink },
@@ -719,12 +846,12 @@ const styles = StyleSheet.create({
   publicChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 18, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
   publicChipActive: { backgroundColor: COLORS.purple, borderColor: COLORS.purple },
 
-  chipText: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary },
+  chipText: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary },
   chipTextActive: { color: '#FFF', fontWeight: '700' },
 
   listArea: { paddingHorizontal: 16, marginTop: 8 },
   listHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  sectionTitle: { fontSize: 17, fontWeight: '800', color: COLORS.textPrimary },
+  sectionTitle: { fontSize: 15, fontWeight: '800', color: COLORS.textPrimary },
   eventCount: { fontSize: 12, color: COLORS.textSecondary, fontWeight: '600' },
 
   eventCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.card, padding: 14, borderRadius: 18, borderWidth: 1, borderColor: COLORS.border, gap: 12, marginBottom: 10 },
@@ -735,34 +862,34 @@ const styles = StyleSheet.create({
   eventDate: { fontSize: 11, fontWeight: '700', color: COLORS.pink },
   guestListBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(76, 175, 125, 0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
   guestListBadgeText: { fontSize: 8, fontWeight: '800', color: COLORS.green },
-  eventTitle: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary },
+  eventTitle: { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary },
   eventLocation: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
   eventLocationLink: { textDecorationLine: 'underline', color: COLORS.pink },
   eventPrice: { fontSize: 11, fontWeight: '700', color: COLORS.gold, marginTop: 4 },
   patrocinadoBadge: { fontSize: 10, fontWeight: '700', color: COLORS.purple, marginTop: 2 },
 
   emptyBox: { padding: 30, alignItems: 'center', gap: 10, backgroundColor: COLORS.card, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, marginTop: 10 },
-  emptyText: { fontSize: 13, color: COLORS.textSecondary, textAlign: 'center' },
+  emptyText: { fontSize: 12, color: COLORS.textSecondary, textAlign: 'center' },
 
   // Modais
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.75)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 },
   modalContent: { width: '100%', backgroundColor: COLORS.card, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: COLORS.border },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  modalTitle: { fontSize: 16, fontWeight: '800', color: COLORS.textPrimary },
+  modalTitle: { fontSize: 15, fontWeight: '800', color: COLORS.textPrimary },
   modalOptionsList: { gap: 10 },
   modalOptionCard: { padding: 14, borderRadius: 14, backgroundColor: '#0B0B0E', borderWidth: 1, borderColor: COLORS.border },
   modalOptionActive: { borderColor: COLORS.pink, backgroundColor: 'rgba(225, 48, 108, 0.12)' },
-  modalOptionTitle: { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary },
+  modalOptionTitle: { fontSize: 13, fontWeight: '700', color: COLORS.textPrimary },
   modalOptionSub: { fontSize: 11, color: COLORS.textSecondary, marginTop: 2 },
 
   // Modal Nome na Lista VIP
   listModalContent: { width: '100%', backgroundColor: COLORS.card, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: COLORS.border },
-  listEventName: { fontSize: 16, fontWeight: '800', color: COLORS.pink },
+  listEventName: { fontSize: 15, fontWeight: '800', color: COLORS.pink },
   listEventSub: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
-  statusText: { fontSize: 13, fontWeight: '600', color: COLORS.textPrimary, lineHeight: 20 },
+  statusText: { fontSize: 12, fontWeight: '600', color: COLORS.textPrimary, lineHeight: 18 },
   formGroup: { marginBottom: 12 },
   inputLabel: { fontSize: 12, fontWeight: '700', color: COLORS.textSecondary, marginBottom: 6 },
-  textInput: { height: 44, borderRadius: 12, backgroundColor: '#0B0B0E', borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 14, color: COLORS.textPrimary, fontSize: 13 },
+  textInput: { height: 44, borderRadius: 12, backgroundColor: '#0B0B0E', borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 14, color: COLORS.textPrimary, fontSize: 12 },
   submitListBtn: { height: 46, backgroundColor: COLORS.pink, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginTop: 8 },
-  submitListBtnText: { fontSize: 13, fontWeight: '800', color: '#FFF' },
+  submitListBtnText: { fontSize: 12, fontWeight: '800', color: '#FFF' },
 });

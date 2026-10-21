@@ -8,6 +8,8 @@ import { erroFotoNaoSuportada } from '../../lib/validarFoto';
 import PainelPontosProximos from '../../components/PainelPontosProximos';
 import PainelValidacaoHospedagem from '../../components/PainelValidacaoHospedagem';
 import PainelDestinos from '../../components/PainelDestinos';
+import PainelRoteiros from '../../components/PainelRoteiros';
+import PainelPush from '../../components/PainelPush';
 
 const URL_PORTAL = 'https://dicas-portal-b2b-dun.vercel.app'; // ajuste aqui quando o domínio definitivo (ex.: portal.vezpabar.com) estiver configurado
 
@@ -477,7 +479,7 @@ export default function AdminPage() {
   // Rodada 46: a Andrea ainda achou confuso — "Eventos" sobe de sub-aba
   // pra aba própria, no mesmo nível de "Locais". `subAbaCategorias` saiu
   // de existir; `aba` agora cobre os três níveis direto.
-  const [aba, setAba] = useState<'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos'>('aprovacoes');
+  const [aba, setAba] = useState<'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos' | 'roteiros' | 'push'>('aprovacoes');
   const [filtroPrincipal, setFiltroPrincipal] = useState<string>('todas');
   // Rodada 46 — filtro só da aba Eventos: "O que Fazer Hoje" (destaque_secoes
   // contém 'hoje', mesmo mecanismo que locais já tinham) vs todos.
@@ -1390,6 +1392,10 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
           ? 'Busque e filtre eventos/festas, e marque em quais seções do app cada um aparece.'
           : aba === 'destinos'
           ? 'Cidades do Dicas Trip: foto de capa, frase, tags, melhor época e roteiro em destaque.'
+          : aba === 'roteiros'
+          ? 'Roteiros e experiências do Dicas Trip: foto, tags (até 8 principais), paradas e publicação.'
+          : aba === 'push'
+          ? 'Notificações push: escreva o aviso, teste no seu celular e envie para quem aceitou.'
           : 'Arte do banner e logo de cada local que aparece no selo "Membro Fundador" da Home.'}
       </p>
 
@@ -1447,6 +1453,22 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
           }`}
         >
           Destinos
+        </button>
+        <button
+          onClick={() => setAba('roteiros')}
+          className={`text-sm font-bold px-4 py-2.5 border-b-2 -mb-px transition ${
+            aba === 'roteiros' ? 'border-[#E1306C] text-white' : 'border-transparent text-[#626274] hover:text-[#A0A0B2]'
+          }`}
+        >
+          Roteiros
+        </button>
+        <button
+          onClick={() => setAba('push')}
+          className={`text-sm font-bold px-4 py-2.5 border-b-2 -mb-px transition ${
+            aba === 'push' ? 'border-[#E1306C] text-white' : 'border-transparent text-[#626274] hover:text-[#A0A0B2]'
+          }`}
+        >
+          Avisos
         </button>
       </div>
 
@@ -2366,6 +2388,8 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
           novo — alternarFundador/enviarFotoLocal/enviarArteMarketing já
           existiam, só ganharam um lugar mais fácil de achar. */}
       {aba === 'destinos' && <PainelDestinos />}
+      {aba === 'roteiros' && <PainelRoteiros />}
+      {aba === 'push' && <PainelPush />}
 
       {aba === 'fundador' && (
       <>

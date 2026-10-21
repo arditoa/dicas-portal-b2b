@@ -4,15 +4,16 @@
     "slug": "dicas-lgbt",
     "version": "1.0.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "icon": "./assets/images/icon.png",
     "scheme": "dicaslgbt",
     "ios": {
       "bundleIdentifier": "com.dicaslgbt.app",
       "buildNumber": "1",
-      "supportsTablet": true,
+      "supportsTablet": false,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Usamos sua localização para mostrar locais, eventos e roteiros LGBT+ perto de você no mapa."
+        "NSLocationWhenInUseUsageDescription": "Usamos sua localização só enquanto você usa o app, para mostrar a cidade onde você está e os locais, eventos e roteiros LGBT+ por perto. Ela não é mostrada para outras pessoas.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -20,11 +21,13 @@
       "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#FFFFFF"
+        "backgroundColor": "#0B0B0E"
       },
       "permissions": [
         "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
+        "ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ]
     },
     "web": {
@@ -38,9 +41,15 @@
       "expo-status-bar",
       "expo-asset",
       [
+        "expo-notifications",
+        {
+          "color": "#E1306C"
+        }
+      ],
+      [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Usamos sua localização para mostrar locais, eventos e roteiros LGBT+ perto de você no mapa."
+          "locationWhenInUsePermission": "Usamos sua localização só enquanto você usa o app, para mostrar a cidade onde você está e os locais, eventos e roteiros LGBT+ por perto. Ela não é mostrada para outras pessoas."
         }
       ],
       [
@@ -56,6 +65,12 @@
     "experiments": {
       "typedRoutes": true,
       "tsconfigPaths": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "c72d7cda-e9b2-4390-bd03-43d1befcbaec"
+      }
     }
   }
 }

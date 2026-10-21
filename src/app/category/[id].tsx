@@ -87,12 +87,21 @@ export default function CategoryListScreen() {
   const insets = useSafeAreaInsets();
   const { user, session } = useAuth();
 
-  const { id, title, search, experiencia } = useLocalSearchParams<{
+  const { id, title, search, experiencia, tipo } = useLocalSearchParams<{
     id: string;
     title?: string;
     search?: string;
     experiencia?: string;
+    // Nova versão (Dicas Trip): atalhos "Hospedagem", "Agências" etc.
+    // mandam palavras-chave separadas por "|" pra filtrar pela
+    // subcategoria (texto livre) — ex.: "hotel|pousada|hostel".
+    tipo?: string;
   }>();
+  const palavrasTipo = (tipo ? decodeURIComponent(tipo.toString()) : '')
+    .toLowerCase()
+    .split('|')
+    .map((x) => x.trim())
+    .filter(Boolean);
   const slug = (id || '').toString().toLowerCase();
   const isTodos = slug === 'todos';
   // Rodada 44 — chips "Escolha pela experiência" da Home agora mandam o
@@ -111,7 +120,7 @@ export default function CategoryListScreen() {
   const [locais, setLocais] = useState<LocalItem[]>([]);
   const [favoritos, setFavoritos] = useState<string[]>([]);
 
-  const [selectedSubcat, setSelectedSubcat] = useState(search ? 'Todas' : 'Em Alta');
+  const [selectedSubcat, setSelectedSubcat] = useState(search || tipo ? 'Todas' : 'Em Alta');
   const [maxDistance, setMaxDistance] = useState(999);
   const [searchQuery, setSearchQuery] = useState(search ? decodeURIComponent(search) : '');
 
@@ -216,6 +225,10 @@ export default function CategoryListScreen() {
           ? item.plano_destaque !== 'basico'
           : selectedSubcat === 'Todas' || item.subcategoria === selectedSubcat;
 
+      const matchesTipo =
+        palavrasTipo.length === 0 ||
+        palavrasTipo.some((p) => (item.subcategoria || '').toLowerCase().includes(p));
+
       const matchesDistance = maxDistance === 999 || item.distanceKm == null || item.distanceKm <= maxDistance;
 
       const matchesSearch =
@@ -224,7 +237,7 @@ export default function CategoryListScreen() {
         (item.bairro || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.cidade.toLowerCase().includes(searchQuery.toLowerCase());
 
-      return matchesSubcat && matchesDistance && matchesSearch;
+      return matchesSubcat && matchesTipo && matchesDistance && matchesSearch;
     });
 
   return (
@@ -401,10 +414,10 @@ const styles = StyleSheet.create({
   topRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
   backBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: COLORS.card, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
   headerLogo: { width: 140, height: 34 },
-  categoryTitleText: { fontSize: 22, fontWeight: '800', color: COLORS.textPrimary },
+  categoryTitleText: { fontSize: 18, fontWeight: '800', color: COLORS.textPrimary },
 
   searchContainer: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginBottom: 10, paddingHorizontal: 14, height: 42, borderRadius: 12, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
-  searchInput: { flex: 1, color: COLORS.textPrimary, fontSize: 13 },
+  searchInput: { flex: 1, color: COLORS.textPrimary, fontSize: 12 },
 
   filterSection: { marginBottom: 10 },
   chipsContainer: { paddingHorizontal: 16, gap: 8 },
@@ -425,14 +438,14 @@ const styles = StyleSheet.create({
 
   listContent: { paddingHorizontal: 16, paddingBottom: 30, gap: 12 },
   emptyContainer: { alignItems: 'center', gap: 8, paddingTop: 60, paddingHorizontal: 30 },
-  emptyTitle: { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary, marginTop: 6 },
+  emptyTitle: { fontSize: 13, fontWeight: '700', color: COLORS.textPrimary, marginTop: 6 },
   emptySub: { fontSize: 12, color: COLORS.textSecondary, textAlign: 'center' },
 
   placeCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.card, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, gap: 12, marginBottom: 12 },
   placeThumb: { width: 48, height: 48, borderRadius: 12, backgroundColor: '#1A1926', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
   placeThumbImg: { width: 48, height: 48 },
   placeHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
-  placeName: { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary, flex: 1 },
+  placeName: { fontSize: 13, fontWeight: '700', color: COLORS.textPrimary, flex: 1 },
   actionRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   vipBadge: { backgroundColor: 'rgba(225, 48, 108, 0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
   vipBadgeText: { fontSize: 8, fontWeight: '800', color: COLORS.pink },

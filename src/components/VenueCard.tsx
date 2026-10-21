@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
   placeholderText: {
     color: '#FFFFFF',
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: 15,
   },
   content: {
     padding: 16,
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   title: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#0F172A',
     flex: 1,
@@ -148,9 +148,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   bio: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#64748B',
-    lineHeight: 20,
+    lineHeight: 19,
     marginBottom: 8,
   },
   tagContainer: {

@@ -513,15 +513,15 @@ const styles = StyleSheet.create({
 
   controlsContainer: { gap: 12, marginBottom: 12 },
   searchBar: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, paddingHorizontal: 14, height: 42, borderRadius: 12, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
-  searchInput: { flex: 1, color: COLORS.textPrimary, fontSize: 13 },
+  searchInput: { flex: 1, color: COLORS.textPrimary, fontSize: 12 },
 
   filtrosRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, gap: 12 },
   btnFiltroPrincipal: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: COLORS.card, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: COLORS.border },
-  btnFiltroText: { color: COLORS.textPrimary, fontSize: 13, fontWeight: '700' },
+  btnFiltroText: { color: COLORS.textPrimary, fontSize: 12, fontWeight: '700' },
   badgeFiltro: { backgroundColor: COLORS.pink, borderRadius: 10, width: 20, height: 20, justifyContent: 'center', alignItems: 'center', marginLeft: 4 },
   badgeFiltroText: { color: '#FFF', fontSize: 10, fontWeight: '800' },
   chipFiltroAtivo: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: COLORS.pink, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20 },
-  chipFiltroAtivoText: { color: '#FFF', fontSize: 13, fontWeight: '700' },
+  chipFiltroAtivoText: { color: '#FFF', fontSize: 12, fontWeight: '700' },
   chipPertoDeMim: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20 },
   chipPertoDeMimAtivo: { backgroundColor: COLORS.purple, borderColor: COLORS.purple },
 
@@ -544,7 +544,7 @@ const styles = StyleSheet.create({
   cardsScroll: { paddingHorizontal: 16, gap: 12 },
   card: { width: 240, backgroundColor: COLORS.card, borderRadius: 14, borderWidth: 1, borderColor: COLORS.border, padding: 12, gap: 4 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cardTitle: { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary, flex: 1 },
+  cardTitle: { fontSize: 13, fontWeight: '700', color: COLORS.textPrimary, flex: 1 },
   rating: { fontSize: 12, fontWeight: '700', color: '#FFD54F', marginLeft: 4 },
   cardSub: { fontSize: 11, color: COLORS.textSecondary },
   badge: { alignSelf: 'flex-start', borderWidth: 1, borderRadius: 12, paddingHorizontal: 8, paddingVertical: 2, marginTop: 4 },
@@ -556,8 +556,8 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: COLORS.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '85%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  modalTitle: { fontSize: 18, fontWeight: '800', color: COLORS.textPrimary },
-  modalSectionTitle: { fontSize: 13, fontWeight: '800', color: COLORS.textSecondary, marginBottom: 12 },
+  modalTitle: { fontSize: 16, fontWeight: '800', color: COLORS.textPrimary },
+  modalSectionTitle: { fontSize: 12, fontWeight: '800', color: COLORS.textSecondary, marginBottom: 12 },
 
   modalGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   modalChip: {
@@ -567,14 +567,14 @@ const styles = StyleSheet.create({
     width: '48%', position: 'relative',
   },
   modalBolinha: { width: 10, height: 10, borderRadius: 5 },
-  modalChipText: { fontSize: 13, color: COLORS.textSecondary, fontWeight: '600' },
+  modalChipText: { fontSize: 12, color: COLORS.textSecondary, fontWeight: '600' },
 
   badgeEmBreve: { position: 'absolute', top: -6, right: -6, backgroundColor: COLORS.purple, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 },
   badgeEmBreveText: { fontSize: 8, fontWeight: '800', color: '#FFF' },
 
   modalFooterActions: { flexDirection: 'row', gap: 12, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: COLORS.border },
   btnLimpar: { flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: '#0B0B0E', borderWidth: 1, borderColor: COLORS.border, alignItems: 'center' },
-  btnLimparText: { color: COLORS.textSecondary, fontWeight: '700', fontSize: 14 },
+  btnLimparText: { color: COLORS.textSecondary, fontWeight: '700', fontSize: 13 },
   btnAplicar: { flex: 2, paddingVertical: 14, borderRadius: 12, backgroundColor: COLORS.pink, alignItems: 'center' },
-  btnAplicarText: { color: '#FFF', fontWeight: '800', fontSize: 14 },
+  btnAplicarText: { color: '#FFF', fontWeight: '800', fontSize: 13 },
 });

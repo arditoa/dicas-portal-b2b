@@ -65,9 +65,9 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 4,
   },
-  markerEmoji: { fontSize: 18 },
+  markerEmoji: { fontSize: 16 },
   callout: { padding: 8, minWidth: 140 },
-  calloutTitle: { fontWeight: "bold", fontSize: 14, color: "#111827" },
+  calloutTitle: { fontWeight: "bold", fontSize: 13, color: "#111827" },
   calloutSub: { fontSize: 12, color: "#6B7280", marginVertical: 2 },
   calloutAction: { fontSize: 12, color: "#007AFF", fontWeight: "600", marginTop: 4 },
 });

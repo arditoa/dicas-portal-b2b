@@ -42,8 +42,8 @@ export default function VenueMapView({ venues }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 14, backgroundColor: "#EFF6FF", borderRadius: 16, marginBottom: 12 },
   webHeader: { marginBottom: 12 },
-  webHeaderTitle: { fontSize: 16, fontWeight: "bold", color: "#1E40AF" },
-  webHeaderSub: { fontSize: 13, color: "#1E3A8A", marginTop: 2 },
+  webHeaderTitle: { fontSize: 15, fontWeight: "bold", color: "#1E40AF" },
+  webHeaderSub: { fontSize: 12, color: "#1E3A8A", marginTop: 2 },
   pinGrid: { gap: 8 },
   venueCard: {
     flexDirection: "row",
@@ -55,8 +55,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#DBEAFE",
   },
-  emoji: { fontSize: 22 },
-  name: { fontWeight: "bold", fontSize: 15, color: "#1E293B" },
+  emoji: { fontSize: 18 },
+  name: { fontWeight: "bold", fontSize: 14, color: "#1E293B" },
   sub: { fontSize: 12, color: "#64748B", marginTop: 2 },
-  link: { fontSize: 13, color: "#2563EB", fontWeight: "600" },
+  link: { fontSize: 12, color: "#2563EB", fontWeight: "600" },
 });
