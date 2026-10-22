@@ -17,6 +17,7 @@ export default function FotoTile({
   icone: Icone,
   tom = 'pink',
   className = '',
+  posicao = 'center',
 }: {
   src?: string;
   alt: string;
@@ -24,11 +25,13 @@ export default function FotoTile({
   icone: LucideIcon;
   tom?: keyof typeof TONS;
   className?: string;
+  // object-position da foto (ex.: '50% 30%' para não cortar rostos)
+  posicao?: string;
 }) {
   return (
     <div className={`relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br ${TONS[tom]} ${className}`}>
       {src ? (
-        <Image src={src} alt={alt} fill sizes="(min-width: 1024px) 40vw, 90vw" className="object-cover" />
+        <Image src={src} alt={alt} fill sizes="(min-width: 1024px) 40vw, 90vw" className="object-cover" style={{ objectPosition: posicao }} />
       ) : (
         <Icone className="absolute left-1/2 top-[42%] h-14 w-14 -translate-x-1/2 -translate-y-1/2 text-white/25" aria-hidden />
       )}

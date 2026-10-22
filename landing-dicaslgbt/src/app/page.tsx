@@ -82,10 +82,10 @@ const PASSOS = [
 ];
 
 const GALERIA = [
-  { legenda: 'Registros da Parada', chave: 'parada', icone: Heart, tom: 'pink' },
-  { legenda: 'Bastidores de gravação', chave: 'bastidores', icone: Video, tom: 'purple' },
-  { legenda: 'Festas e eventos', chave: 'festas', icone: Music, tom: 'pink' },
-  { legenda: 'Lugares que já mostramos', chave: 'lugares', icone: MapPin, tom: 'blue' },
+  { legenda: 'Na rua, descobrindo lugares', chave: 'rua', icone: MapPin, tom: 'blue', pos: '50% 35%' },
+  { legenda: 'Bastidores de gravação', chave: 'bastidores', icone: Video, tom: 'purple', pos: '50% 32%' },
+  { legenda: 'O app na palma da mão', chave: 'soloApp', icone: Heart, tom: 'pink', pos: '50% 30%' },
+  { legenda: 'Explorando a cidade', chave: 'cidade', icone: Music, tom: 'pink', pos: '50% 45%' },
 ] as const;
 
 const DUVIDAS = [
@@ -178,7 +178,7 @@ export default function Home() {
         {/* 2.1 — Perguntas para quem empreende */}
         <div className="relative w-full overflow-hidden bg-gradient-to-br from-[#2A0F3A] via-[#1B0F2E] to-[#0B0B0E]">
           {FOTOS.renanEmerson && (
-            <Image src={FOTOS.renanEmerson} alt="Renan e Emerson do Dicas LGBT+ em gravação" fill sizes="100vw" className="object-cover opacity-50" />
+            <Image src={FOTOS.renanEmerson} alt="Renan e Emerson do Dicas LGBT+ em gravação" fill sizes="100vw" className="object-cover object-[50%_28%] opacity-50" />
           )}
           <div
             className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#2A0F3A]/95 via-[#3A1470]/80 to-[#2A0F3A]/60"
@@ -354,6 +354,7 @@ export default function Home() {
                 legenda={g.legenda}
                 icone={g.icone}
                 tom={g.tom}
+                posicao={g.pos}
                 className="min-h-[200px] lg:min-h-[260px]"
               />
             ))}
@@ -406,9 +407,9 @@ export default function Home() {
               </Link>
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <FotoTile src={FOTOS.lab1} alt="Consultoria e planejamento para o seu negócio" legenda="Consultoria e planejamento para o seu negócio" icone={Lightbulb} tom="purple" className="min-h-[200px]" />
-              <FotoTile src={FOTOS.lab2} alt="Treinamentos e conteúdos práticos" legenda="Treinamentos e conteúdos práticos" icone={Presentation} tom="pink" className="min-h-[200px]" />
-              <FotoTile src={FOTOS.lab3} alt="Estratégia, inovação e crescimento" legenda="Estratégia, inovação e crescimento" icone={Rocket} tom="blue" className="min-h-[200px]" />
+              <FotoTile posicao="50% 30%" src={FOTOS.lab1} alt="Consultoria e planejamento para o seu negócio" legenda="Consultoria e planejamento para o seu negócio" icone={Lightbulb} tom="purple" className="min-h-[200px]" />
+              <FotoTile posicao="50% 30%" src={FOTOS.lab2} alt="Treinamentos e conteúdos práticos" legenda="Treinamentos e conteúdos práticos" icone={Presentation} tom="pink" className="min-h-[200px]" />
+              <FotoTile posicao="50% 30%" src={FOTOS.lab3} alt="Estratégia, inovação e crescimento" legenda="Estratégia, inovação e crescimento" icone={Rocket} tom="blue" className="min-h-[200px]" />
             </div>
           </div>
         </div>

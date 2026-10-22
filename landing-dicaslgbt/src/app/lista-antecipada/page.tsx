@@ -1,5 +1,6 @@
 import { ArrowRight, Gift, Heart, MapPin, Music, Share2, ShoppingBag, Sparkles, Ticket, Wine, Zap } from 'lucide-react';
 import type { Metadata } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
 import FotoTile from '../../components/FotoTile';
 import Footer from '../../components/Footer';
@@ -40,10 +41,10 @@ const VANTAGENS = [
 ];
 
 const GALERIA = [
-  { legenda: 'Renan e Emerson', chave: 'renanEmerson', icone: Heart, tom: 'pink' },
-  { legenda: 'Parada LGBT+', chave: 'parada', icone: Heart, tom: 'purple' },
-  { legenda: 'Gravações e eventos', chave: 'bastidores', icone: Music, tom: 'pink' },
-  { legenda: 'Rolês do Dicas', chave: 'festas', icone: MapPin, tom: 'blue' },
+  { legenda: 'Planejando os próximos rolês', chave: 'cafe', icone: Heart, tom: 'pink', pos: '50% 30%' },
+  { legenda: 'Bastidores de gravação', chave: 'bastidores', icone: Music, tom: 'purple', pos: '50% 32%' },
+  { legenda: 'Na rua, descobrindo lugares', chave: 'rua', icone: MapPin, tom: 'blue', pos: '50% 35%' },
+  { legenda: 'O app na palma da mão', chave: 'soloApp', icone: Heart, tom: 'pink', pos: '50% 30%' },
 ] as const;
 
 const PERGUNTAS = [
@@ -124,7 +125,21 @@ export default function ListaAntecipadaPage() {
               <p className="text-xs font-semibold text-[#FFD1EA]">Lançamento previsto: 3 de dezembro de 2026</p>
             </div>
           </div>
-          <PhoneMock src="/screenshots/app-inicio.jpg" alt="Tela inicial do Dicas LGBT+ App" />
+          {FOTOS.renanEmerson ? (
+            <div className="relative mx-auto aspect-[3/4] w-full max-w-[340px] overflow-hidden rounded-3xl border border-white/10 shadow-[0_30px_80px_-20px_rgba(240,37,140,0.55)] lg:max-w-[380px]">
+              <Image
+                src={FOTOS.renanEmerson}
+                alt="Renan e Emerson mostrando o Dicas LGBT+ App no celular"
+                fill
+                sizes="(min-width: 1024px) 380px, 90vw"
+                className="object-cover"
+                style={{ objectPosition: '50% 30%' }}
+                priority
+              />
+            </div>
+          ) : (
+            <PhoneMock src="/screenshots/app-inicio.jpg" alt="Tela inicial do Dicas LGBT+ App" />
+          )}
         </div>
       </section>
 
@@ -207,6 +222,7 @@ export default function ListaAntecipadaPage() {
                 legenda={g.legenda}
                 icone={g.icone}
                 tom={g.tom}
+                posicao={g.pos}
                 className="min-h-[200px] lg:min-h-[260px]"
               />
             ))}

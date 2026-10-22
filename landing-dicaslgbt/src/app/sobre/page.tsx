@@ -1,8 +1,10 @@
 import { ArrowRight } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import Footer from '../../components/Footer';
 import Header from '../../components/Header';
 import MobileFixedCta from '../../components/MobileFixedCta';
+import { FOTOS } from '../../lib/fotos';
 
 import type { Metadata } from 'next';
 
@@ -69,6 +71,24 @@ export default function SobrePage() {
           Quase 5 anos de atuação e a retomada do perfil em 2026 como sinal de força e reconstrução.
         </p>
       </section>
+
+      {/* Fotos da dupla (Rodada 85) */}
+      {(FOTOS.mesa || FOTOS.cafe) && (
+        <section className="w-full max-w-4xl mx-auto px-6 pb-14">
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { src: FOTOS.mesa, alt: 'Renan e Emerson, do Dicas LGBT+, planejando conteúdos em frente ao notebook', pos: '50% 30%' },
+              { src: FOTOS.cafe, alt: 'Renan e Emerson, do Dicas LGBT+, conversando em um café', pos: '50% 30%' },
+            ]
+              .filter((f) => f.src)
+              .map((f) => (
+                <div key={f.src} className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-white/10">
+                  <Image src={f.src} alt={f.alt} fill sizes="(min-width: 896px) 440px, 45vw" className="object-cover" style={{ objectPosition: f.pos }} />
+                </div>
+              ))}
+          </div>
+        </section>
+      )}
 
       {/* 3. Números — Andrea confirmou que gostou do efeito gradiente
           rosa→roxo (voltou atrás de um ajuste anterior que tinha trocado
