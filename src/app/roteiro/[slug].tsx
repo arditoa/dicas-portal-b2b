@@ -14,6 +14,7 @@ import { distanciaMetros, formatarDistancia } from '../../lib/distancia';
 import { buscarRoteiro, linkMapaRoteiro, Roteiro, tagsVisiveis } from '../../lib/roteiros';
 import { supabase } from '../../lib/supabase';
 import { GRUPOS_ROTEIRO, rotuloTag } from '../../lib/taxonomia';
+import { useRastrearTela } from '../../lib/usoTelas';
 
 const C = {
   bg: '#0B0B0E',
@@ -33,6 +34,7 @@ const ehUuid = (s: string) => /^[0-9a-f-]{36}$/i.test(s);
 type Hospedagem = { id: string; nome: string; bairro: string | null; foto: string | null; rating: number; dist: number | null };
 
 export default function RoteiroScreen() {
+  useRastrearTela('roteiro', { detalheParam: 'slug' });
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { slug } = useLocalSearchParams<{ slug: string }>();

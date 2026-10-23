@@ -26,6 +26,7 @@ const URL_SITE = 'https://www.dicaslgbt.com.br';
 import { supabase } from '../../lib/supabase';
 import { traduzErroAuth } from '../../lib/erroAuth';
 import { ativarTodosAvisos } from '../../lib/push';
+import { useRastrearTela } from '../../lib/usoTelas';
 
 const COLORS = {
   background: '#0B0B0E',
@@ -44,6 +45,7 @@ const COLORS = {
 const WHATSAPP_PARCEIROS = '5511942942028';
 
 export default function ProfileScreen() {
+  useRastrearTela('conta');
   const router = useRouter();
   const insets = useSafeAreaInsets();
 

@@ -24,6 +24,7 @@ import { textoLocalizacao } from '../../lib/localizacao';
 import { formatarNome } from '../../lib/texto';
 import { useLocation } from '../../hooks/useLocation';
 import { supabase } from '../../lib/supabase';
+import { useRastrearTela } from '../../lib/usoTelas';
 
 // Rodada 41 — mapeia o categoria_tipo real (enum do banco) pra o mesmo
 // slug de seção usado em destaque_secao_fixada (ver /admin), pra fixação
@@ -92,6 +93,7 @@ interface LocalItem {
 }
 
 export default function CategoryListScreen() {
+  useRastrearTela('categoria', { detalheParam: 'id' });
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, session } = useAuth();

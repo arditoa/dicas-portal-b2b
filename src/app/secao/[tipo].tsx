@@ -21,6 +21,7 @@ import { CONFIG_RODIZIO_PADRAO, lerConfigRodizio } from '../../lib/rodizioConfig
 import { abertoAgora, fechaAs } from '../../lib/horario';
 import { useI18n } from '../../lib/i18n';
 import { supabase } from '../../lib/supabase';
+import { useRastrearTela } from '../../lib/usoTelas';
 
 const C = {
   bg: '#0B0B0E',
@@ -55,6 +56,7 @@ const CONFIG: Record<Tipo, { titulo: string; sub: string; icone: string }> = {
 };
 
 export default function SecaoScreen() {
+  useRastrearTela('secao', { detalheParam: 'tipo' });
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useI18n();

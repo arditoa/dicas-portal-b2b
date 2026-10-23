@@ -20,6 +20,7 @@ import { useI18n } from '../../lib/i18n';
 import { supabase } from '../../lib/supabase';
 import { GRUPOS_DESTINO, rotuloTag, slugTag } from '../../lib/taxonomia';
 import { listarRoteiros, Roteiro } from '../../lib/roteiros';
+import { useRastrearTela } from '../../lib/usoTelas';
 
 const C = {
   bg: '#0B0B0E',
@@ -98,6 +99,7 @@ function completudeDe(l: any): number {
 }
 
 export default function DestinoScreen() {
+  useRastrearTela('destino', { detalheParam: 'slug' });
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { idioma } = useI18n();

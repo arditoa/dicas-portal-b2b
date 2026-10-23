@@ -19,6 +19,7 @@ import { abertoAgora, fechaAs } from '../lib/horario';
 import { listarRoteiros, Roteiro, todasTags } from '../lib/roteiros';
 import { supabase } from '../lib/supabase';
 import { rotuloTag } from '../lib/taxonomia';
+import { useRastrearTela } from '../lib/usoTelas';
 
 const C = {
   bg: '#0B0B0E',
@@ -53,6 +54,7 @@ function combina(q: string, ...campos: (string | null | undefined)[]) {
 }
 
 export default function BuscaScreen() {
+  useRastrearTela('busca');
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ cidade?: string; q?: string }>();

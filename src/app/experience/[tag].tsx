@@ -9,6 +9,7 @@ import { Alert, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-
 
 import ListaPadrao, { CAMPOS_LOCAL, ItemLista, localParaItem } from '../../components/ListaPadrao';
 import { supabase } from '../../lib/supabase';
+import { useRastrearTela } from '../../lib/usoTelas';
 
 // Mesmo número/padrão já usado em profile.tsx (handleIndicarParceiroWhatsApp)
 // pra qualquer contato comercial dentro do app.
@@ -26,6 +27,7 @@ const COLORS = {
 const PLANO_PRIORIDADE: Record<string, number> = { vip: 0, destaque: 1, basico: 2 };
 
 export default function FeaturedScreen() {
+  useRastrearTela('experiencia', { detalheParam: 'tag' });
   const { tag } = useLocalSearchParams<{ tag?: string }>();
   const pageTitle = tag ? decodeURIComponent(tag) : 'Membro Fundador';
   const ehFundador = pageTitle.toLowerCase().includes('fundador');

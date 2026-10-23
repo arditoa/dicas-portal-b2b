@@ -50,7 +50,9 @@ export default function PrivacidadePage() {
               <li>CPF ou CNPJ, nome do negócio, categoria, cidade, bairro e Instagram (cadastro de empresa).</li>
               <li>Fotos enviadas por você para o perfil do seu negócio.</li>
               <li>Dados de navegação usados para entender a origem do cadastro (de qual página ou campanha você veio).</li>
+              <li>No aplicativo, se você registrar uma ocorrência: o relato (data, local, descrição, pessoas envolvidas), fotos e vídeos que você anexar e os dados de contato que você informar. Veja a seção 5.</li>
               <li>No aplicativo, se você ativar os avisos: o identificador do seu aparelho para notificações e as suas escolhas de quais avisos receber.</li>
+              <li>No aplicativo, de forma anônima: quais telas foram abertas e por quanto tempo, para entendermos o que funciona e melhorarmos o app. Usamos um código aleatório criado no aparelho, que não identifica você: não registramos nome, e-mail, telefone nem a sua localização nessa medição.</li>
             </ul>
           </div>
 
@@ -74,7 +76,25 @@ export default function PrivacidadePage() {
           </div>
 
           <div>
-            <h2 className="font-bold text-white mb-2">5. Seus direitos</h2>
+            <h2 className="font-bold text-white mb-2">5. Registro de ocorrências (denúncias)</h2>
+            <p>
+              O aplicativo permite registrar ocorrências de LGBTfobia, discriminação, ameaça, assédio
+              ou golpe. Esse relato pode conter dados pessoais sensíveis, como orientação sexual,
+              identidade de gênero e situações de violência. Por isso, o registro só é feito com login
+              e depois de você confirmar o seu consentimento, e é tratado apenas para analisar o caso,
+              responder a você, orientar sobre o Boletim de Ocorrência e apoiar encaminhamentos.
+            </p>
+            <ul className="list-disc list-inside mt-2 space-y-1 text-[#A0A0B2]">
+              <li>Só você e a equipe responsável do Dicas LGBT+ têm acesso ao relato e aos arquivos, guardados em área privada. Nada é publicado.</li>
+              <li>Cada registro recebe um protocolo e um histórico de atendimento que não pode ser alterado, para garantir rastreabilidade.</li>
+              <li>Não somos órgão policial. O registro no app não substitui o Boletim de Ocorrência feito na Polícia Civil.</li>
+              <li>Não compartilhamos o relato com terceiros, exceto quando você pedir ou quando houver obrigação legal ou ordem de autoridade competente.</li>
+              <li>Se você excluir a sua conta, as ocorrências já registradas podem ser mantidas, desvinculadas da conta, pelo tempo necessário ao atendimento e ao cumprimento de obrigações legais, e depois são excluídas ou anonimizadas. Você pode pedir a exclusão pelo e-mail de contato.</li>
+            </ul>
+          </div>
+
+          <div>
+            <h2 className="font-bold text-white mb-2">6. Seus direitos</h2>
             <p>
               Você pode pedir acesso, correção ou exclusão dos seus dados a qualquer momento. Usuários
               do aplicativo também podem excluir a própria conta diretamente pelo app ou pela nossa{' '}
@@ -86,7 +106,7 @@ export default function PrivacidadePage() {
           </div>
 
           <div>
-            <h2 className="font-bold text-white mb-2">6. Contato</h2>
+            <h2 className="font-bold text-white mb-2">7. Contato</h2>
             <p>
               Dúvidas sobre seus dados ou esta política:{' '}
               {SUPORTE_EMAIL ? (

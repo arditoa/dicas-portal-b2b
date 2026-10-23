@@ -21,6 +21,7 @@ import { registrarAviso } from '../../lib/avisos';
 import { IDIOMAS, useI18n } from '../../lib/i18n';
 import { supabase } from '../../lib/supabase';
 import { carregarDestinos, Destino, DESTINOS_PADRAO } from '../../lib/destinos';
+import { useRastrearTela } from '../../lib/usoTelas';
 
 const C = {
   bg: '#0B0B0E',
@@ -77,6 +78,7 @@ interface Pacote {
 }
 
 export default function TripScreen() {
+  useRastrearTela('trip');
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();

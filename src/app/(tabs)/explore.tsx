@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CATEGORIAS, CATEGORIA_ORDER, CategoriaSlugUI } from '../../lib/categorias';
 import { useLocation } from '../../hooks/useLocation';
 import { supabase } from '../../lib/supabase';
+import { useRastrearTela } from '../../lib/usoTelas';
 
 const COLORS = {
   background: '#0B0B0E',
@@ -100,6 +101,7 @@ function badgeDoLocal(local: LocalMapa): { texto: string; cor: string } | null {
 }
 
 export default function ExploreScreen() {
+  useRastrearTela('mapa');
   const router = useRouter();
   const insets = useSafeAreaInsets();
 

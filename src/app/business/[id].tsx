@@ -21,6 +21,7 @@ import { registrarCliqueInstagram, registrarVisualizacaoPerfil } from '../../lib
 import { supabase } from '../../lib/supabase';
 import { CLASSIFICACOES_LGBT } from '../../lib/classificacaoLgbt';
 import HospedagemDetalhes from '../../components/HospedagemDetalhes';
+import { useRastrearTela } from '../../lib/usoTelas';
 
 // Precisam bater com o enum public.categoria_tipo real (só 6 valores —
 // a taxonomia de 10 categorias desenhada nas Rodadas 1-8 nunca chegou a
@@ -149,6 +150,7 @@ interface CheckinAtivo {
 }
 
 export default function BusinessDetailScreen() {
+  useRastrearTela('perfil_local', { localParam: 'id' });
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user, session } = useAuth();

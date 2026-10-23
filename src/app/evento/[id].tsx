@@ -21,6 +21,7 @@ import { SELO_FESTA } from '../../lib/categorias';
 import { estaFixadoEm, deveExibirGlow } from '../../lib/destaque';
 import { supabase } from '../../lib/supabase';
 import { GRUPOS_EVENTO, LEGADO_EVENTO, rotuloTag, slugTag } from '../../lib/taxonomia';
+import { useRastrearTela } from '../../lib/usoTelas';
 
 const C = {
   bg: '#0B0B0E',
@@ -102,6 +103,7 @@ function tagsAgrupadas(ev: Evento) {
 }
 
 export default function EventoScreen() {
+  useRastrearTela('evento');
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();

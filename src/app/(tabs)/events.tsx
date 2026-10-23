@@ -19,6 +19,7 @@ import { useAuth } from '../../lib/authContext';
 import { deveExibirGlow, estaFixadoEm } from '../../lib/destaque';
 import { supabase } from '../../lib/supabase';
 import { GRUPOS_EVENTO, LEGADO_EVENTO, TAGS_EVENTO_AUTOMATICAS, rotuloTag, slugTag } from '../../lib/taxonomia';
+import { useRastrearTela } from '../../lib/usoTelas';
 
 const COLORS = {
   background: '#0B0B0E',
@@ -145,6 +146,7 @@ function formatarDataEvento(dataInicioISO: string, tag: DateTag): string {
 }
 
 export default function EventsScreen() {
+  useRastrearTela('eventos');
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, session } = useAuth();
