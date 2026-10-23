@@ -463,11 +463,24 @@ type LeadInstitucional = {
 };
 
 // Rodada 89 — menu lateral do /admin, agrupado por tarefa do dia.
-type ItemMenu = { id: 'visao' | 'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos' | 'roteiros' | 'push' | 'rodizio' | 'denuncias'; rotulo: string; icone: typeof Store; badge?: number; alerta?: boolean };
-function MENU_ADMIN(pendentes: number, locais: number, eventos: number, fundadores: number): { grupo: string; itens: ItemMenu[] }[] {
+type SubAprov = 'todas' | 'interesse' | 'locais' | 'eventos' | 'vinculos' | 'leads' | 'hospedagem' | 'acesso';
+type ItemSub = { id: SubAprov; rotulo: string; badge?: number };
+type ItemMenu = { subs?: ItemSub[]; id: 'visao' | 'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos' | 'roteiros' | 'push' | 'rodizio' | 'denuncias'; rotulo: string; icone: typeof Store; badge?: number; alerta?: boolean };
+function MENU_ADMIN(pendentes: number, locais: number, eventos: number, fundadores: number, filas: { interesse: number; locais: number; eventos: number; vinculos: number; leads: number; acesso: number }): { grupo: string; itens: ItemMenu[] }[] {
   return [
     { grupo: 'Início', itens: [{ id: 'visao', rotulo: 'Visão geral', icone: LayoutDashboard }] },
-    { grupo: 'Operação', itens: [{ id: 'aprovacoes', rotulo: 'Aprovações', icone: ClipboardCheck, badge: pendentes, alerta: true }] },
+    { grupo: 'Operação', itens: [{
+      id: 'aprovacoes', rotulo: 'Aprovações', icone: ClipboardCheck, badge: pendentes, alerta: true,
+      subs: [
+        { id: 'interesse', rotulo: 'Quer assinar plano', badge: filas.interesse },
+        { id: 'locais', rotulo: 'Locais novos', badge: filas.locais },
+        { id: 'eventos', rotulo: 'Festas e eventos novos', badge: filas.eventos },
+        { id: 'vinculos', rotulo: 'Pedidos de vínculo', badge: filas.vinculos },
+        { id: 'leads', rotulo: 'Contatos institucionais', badge: filas.leads },
+        { id: 'hospedagem', rotulo: 'Hospedagens e pontos' },
+        { id: 'acesso', rotulo: 'Enviar acesso ao portal', badge: filas.acesso },
+      ],
+    }] },
     {
       grupo: 'Catálogo',
       itens: [
@@ -488,6 +501,16 @@ function MENU_ADMIN(pendentes: number, locais: number, eventos: number, fundador
     { grupo: 'Segurança', itens: [{ id: 'denuncias', rotulo: 'Denúncias', icone: ShieldAlert }] },
   ];
 }
+const TITULO_SUB: Record<SubAprov, string> = {
+  todas: 'Tudo',
+  interesse: 'Quer assinar plano',
+  locais: 'Locais novos',
+  eventos: 'Festas e eventos novos',
+  vinculos: 'Pedidos de vínculo',
+  leads: 'Contatos institucionais',
+  hospedagem: 'Hospedagens e pontos',
+  acesso: 'Enviar acesso ao portal',
+};
 const TITULO_ABA: Record<ItemMenu['id'], string> = {
   visao: 'Visão geral',
   aprovacoes: 'Aprovações',
@@ -529,6 +552,8 @@ export default function AdminPage() {
   // Rodada 46: a Andrea ainda achou confuso — "Eventos" sobe de sub-aba
   // pra aba própria, no mesmo nível de "Locais". `subAbaCategorias` saiu
   // de existir; `aba` agora cobre os três níveis direto.
+  const [subAprov, setSubAprov] = useState<SubAprov>('todas');
+  const ver = (k: SubAprov) => subAprov === 'todas' || subAprov === k;
   const [aba, setAba] = useState<'visao' | 'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos' | 'roteiros' | 'push' | 'rodizio' | 'denuncias'>('visao');
   const [filtroPrincipal, setFiltroPrincipal] = useState<string>('todas');
   // Rodada 46 — filtro só da aba Eventos: "O que Fazer Hoje" (destaque_secoes
@@ -1503,16 +1528,16 @@ Dicas LGBT+`;
           </button>
         </div>
         <nav className={`${menuAberto ? 'block' : 'hidden'} md:block px-3 pb-4`}>
-          {MENU_ADMIN(totalPendente, locaisDestaque.length, eventosDestaque.length, locaisDestaque.filter((l) => l.fundador).length).map((g) => (
+          {MENU_ADMIN(totalPendente, locaisDestaque.length, eventosDestaque.length, locaisDestaque.filter((l) => l.fundador).length, { interesse: interessesPlano.length, locais: locaisPendentes.length, eventos: eventosPendentes.length, vinculos: vinculosPendentes.length, leads: leads.length, acesso: aprovadosSemConta.length }).map((g) => (
             <div key={g.grupo} className="mb-4">
               <p className="px-2 mb-1 text-[10px] font-bold uppercase tracking-wider text-[#626274]">{g.grupo}</p>
               {g.itens.map((it) => {
                 const Icone = it.icone;
-                const ativo = aba === it.id;
+                const ativo = aba === it.id && (it.id !== 'aprovacoes' || subAprov === 'todas');
                 return (
+                  <div key={it.id}>
                   <button
-                    key={it.id}
-                    onClick={() => { setAba(it.id); setMenuAberto(false); }}
+                    onClick={() => { setAba(it.id); if (it.id === 'aprovacoes') setSubAprov('todas'); setMenuAberto(false); }}
                     aria-current={ativo ? 'page' : undefined}
                     className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-semibold transition ${ativo ? 'bg-[#E1306C]/15 text-white' : 'text-[#A0A0B2] hover:bg-[#1D1C29] hover:text-white'}`}
                   >
@@ -1522,6 +1547,27 @@ Dicas LGBT+`;
                       <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${it.alerta ? 'bg-[#E1306C] text-white' : 'bg-[#232230] text-[#A0A0B2]'}`}>{it.badge}</span>
                     )}
                   </button>
+                  {it.subs && (
+                    <div className="ml-4 mt-1 mb-1 pl-2 border-l border-[#232230] space-y-0.5">
+                      {it.subs.map((sub) => {
+                        const subAtivo = aba === it.id && subAprov === sub.id;
+                        return (
+                          <button
+                            key={sub.id}
+                            onClick={() => { setAba('aprovacoes'); setSubAprov(sub.id); setMenuAberto(false); }}
+                            aria-current={subAtivo ? 'page' : undefined}
+                            className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] font-medium transition ${subAtivo ? 'bg-[#E1306C]/15 text-white' : 'text-[#8888A0] hover:bg-[#1D1C29] hover:text-white'}`}
+                          >
+                            <span className="flex-1 text-left truncate">{sub.rotulo}</span>
+                            {sub.badge != null && (
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${sub.badge > 0 ? 'bg-[#E1306C]/20 text-[#FF7AA8]' : 'text-[#626274]'}`}>{sub.badge}</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  </div>
                 );
               })}
             </div>
@@ -1533,8 +1579,8 @@ Dicas LGBT+`;
       </aside>
 
       <main className="flex-1 min-w-0 p-5 md:p-8 max-w-6xl">
-      <h1 className="text-2xl font-black mb-1">{TITULO_ABA[aba]}</h1>
-      <p className="text-[#A0A0B2] text-xs mb-6">{SUBTITULO_ABA[aba]}</p>
+      <h1 className="text-2xl font-black mb-1">{aba === 'aprovacoes' && subAprov !== 'todas' ? `Aprovações · ${TITULO_SUB[subAprov]}` : TITULO_ABA[aba]}</h1>
+      <p className="text-[#A0A0B2] text-xs mb-6">{aba === 'aprovacoes' && subAprov !== 'todas' ? 'Use o menu à esquerda, embaixo de Aprovações, para trocar de fila. Clique em "Aprovações" para ver tudo junto.' : SUBTITULO_ABA[aba]}</p>
 
       {aba === 'visao' && <PainelVisaoGeral pendencias={totalPendente} onIrPara={(a) => setAba(a as typeof aba)} />}
 
@@ -1616,29 +1662,21 @@ Dicas LGBT+`;
 
       {aba === 'aprovacoes' && (
       <>
-      <PainelValidacaoHospedagem />
-      <PainelPontosProximos />
-      <div className="flex flex-wrap gap-2 mb-8">
-        {totalPendente === 0 && (
+      {ver('hospedagem') && (
+        <>
+          <PainelValidacaoHospedagem />
+          <PainelPontosProximos />
+        </>
+      )}
+      {subAprov === 'todas' && totalPendente === 0 && (
+        <div className="flex flex-wrap gap-2 mb-8">
           <span className="text-xs bg-[#4CAF7D]/10 text-[#4CAF7D] border border-[#4CAF7D]/30 px-3 py-1.5 rounded-full font-bold">
             Tudo em dia — nada pendente agora
           </span>
-        )}
-        {resumoFilas.map((f) => (
-          <a
-            key={f.id}
-            href={`#${f.id}`}
-            className={`text-xs px-3 py-1.5 rounded-full font-bold border ${
-              f.total > 0
-                ? 'bg-[#161520] border-[#232230] hover:bg-[#1D1C29] ' + f.cor
-                : 'bg-transparent border-[#232230]/50 text-[#626274]'
-            }`}
-          >
-            {f.total} {f.label}
-          </a>
-        ))}
-      </div>
+        </div>
+      )}
 
+      {ver('interesse') && (
       <section className="mb-10" id="fila-interesse">
         <h2 className="text-base font-bold mb-3 text-[#E1306C]">
           💰 Parceiros interessados em plano pago ({interessesPlano.length})
@@ -1687,7 +1725,9 @@ Dicas LGBT+`;
           ))}
         </div>
       </section>
+      )}
 
+      {ver('locais') && (
       <section className="mb-10" id="fila-locais">
         <h2 className="text-base font-bold mb-3">Locais pendentes de aprovação ({locaisPendentes.length})</h2>
         <div className="space-y-3">
@@ -1728,7 +1768,9 @@ Dicas LGBT+`;
           ))}
         </div>
       </section>
+      )}
 
+      {ver('eventos') && (
       <section className="mb-10" id="fila-eventos">
         <h2 className="text-base font-bold mb-3">Eventos/festas pendentes de aprovação ({eventosPendentes.length})</h2>
         <div className="space-y-3">
@@ -1772,7 +1814,9 @@ Dicas LGBT+`;
           ))}
         </div>
       </section>
+      )}
 
+      {ver('acesso') && (
       <section className="mb-10">
         <h2 className="text-base font-bold mb-3">
           Locais aprovados — enviar/reenviar acesso ao portal ({aprovadosSemConta.length})
@@ -1805,6 +1849,7 @@ Dicas LGBT+`;
           ))}
         </div>
       </section>
+      )}
 
       <section className="mb-10">
         <h2 className="text-base font-bold mb-3">
@@ -1840,6 +1885,7 @@ Dicas LGBT+`;
         </div>
       </section>
 
+      {ver('vinculos') && (
       <section className="mb-10" id="fila-vinculos">
         <h2 className="text-base font-bold mb-3">Pedidos de vínculo de conta ({vinculosPendentes.length})</h2>
         <div className="space-y-3">
@@ -1876,7 +1922,9 @@ Dicas LGBT+`;
           ))}
         </div>
       </section>
+      )}
 
+      {ver('leads') && (
       <section id="fila-leads">
         <h2 className="text-base font-bold mb-3">Leads institucionais novos ({leads.length})</h2>
         <div className="space-y-3">
@@ -1902,6 +1950,7 @@ Dicas LGBT+`;
           ))}
         </div>
       </section>
+      )}
       </>
       )}
 
