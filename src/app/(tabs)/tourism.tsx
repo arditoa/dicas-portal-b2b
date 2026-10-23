@@ -229,6 +229,8 @@ export default function TripScreen() {
                   ? router.push('/(tabs)/events')
                   : s.chave === 'trip.roteiros'
                   ? router.push('/roteiros' as any)
+                  : s.chave === 'trip.pacotes'
+                  ? router.push('/pacotes' as any)
                   : abrirTurismo({ title: t(s.chave), tipo: s.tipo })
               }
               accessibilityRole="button"

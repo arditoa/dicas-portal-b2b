@@ -595,6 +595,9 @@ export default function AdminPage() {
   const [eventosPendentes, setEventosPendentes] = useState<EventoPendente[]>([]);
   const [aprovadosSemConta, setAprovadosSemConta] = useState<AprovadoSemConta[]>([]);
   const [locaisDestaque, setLocaisDestaque] = useState<LocalDestaque[]>([]);
+  // Locais liberados para subir pacotes (locais.pode_subir_pacotes, migration 052).
+  // Consulta separada e tolerante: se a migration ainda não rodou, o catálogo continua funcionando.
+  const [idsPodemPacotes, setIdsPodemPacotes] = useState<Set<string>>(new Set());
   const [eventosDestaque, setEventosDestaque] = useState<EventoDestaque[]>([]);
   const [eventosComOrganizador, setEventosComOrganizador] = useState<EventoComOrganizador[]>([]);
   const [vinculosPendentes, setVinculosPendentes] = useState<VinculoPendente[]>([]);
@@ -787,6 +790,10 @@ export default function AdminPage() {
         }))
       )
     );
+    {
+      const { data: pp, error: ePP } = await supabase.from('locais').select('id').eq('pode_subir_pacotes', true);
+      if (!ePP) setIdsPodemPacotes(new Set(((pp as { id: string }[]) || []).map((x) => x.id)));
+    }
     setEventosDestaque((eventosDestaqueData as EventoDestaque[]) || []);
     setEventosComOrganizador(ordenarPorTitulo((eventosComOrganizadorData as EventoComOrganizador[]) || []));
     const configMap: Record<string, string | null> = {};
@@ -1304,6 +1311,23 @@ Dicas LGBT+`;
     const { error } = await supabase.from('locais').update({ categoria: nova }).eq('id', id);
     if (error) {
       setErro(error.message);
+      await carregarFilas();
+    }
+    setProcessando(null);
+  };
+
+  // Libera/bloqueia o local para cadastrar pacotes de viagem pelo portal dele.
+  const alternarPodePacotes = async (id: string, liberar: boolean) => {
+    setProcessando(id);
+    setErro('');
+    setIdsPodemPacotes((atual) => {
+      const novo = new Set(atual);
+      if (liberar) novo.add(id); else novo.delete(id);
+      return novo;
+    });
+    const { error } = await supabase.from('locais').update({ pode_subir_pacotes: liberar }).eq('id', id);
+    if (error) {
+      setErro(`${error.message} (rode a migration 052 no Supabase, se ainda não rodou)`);
       await carregarFilas();
     }
     setProcessando(null);
@@ -2124,6 +2148,20 @@ Dicas LGBT+`;
                 </select>
                 <span className="text-[11px] text-[#626274]">Se foi cadastrado errado, corrija aqui: muda onde aparece no app.</span>
               </div>
+              {l.categoria === 'turismo' && (
+                <div className="flex items-center gap-3 flex-wrap border-t border-[#232230] pt-3">
+                  <label className="flex items-center gap-1.5 text-xs font-bold text-[#D0D0E0] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={idsPodemPacotes.has(l.id)}
+                      disabled={processando === l.id}
+                      onChange={(e) => alternarPodePacotes(l.id, e.target.checked)}
+                    />
+                    Pode subir pacotes
+                  </label>
+                  <span className="text-[11px] text-[#626274]">Agências e operadoras liberadas veem “Pacotes e roteiros” no portal e aparecem na tela Pacotes do app.</span>
+                </div>
+              )}
               <div className="flex items-center gap-3 flex-wrap border-t border-[#232230] pt-3">
                 {OPCOES_SECAO_LOCAL_RAPIDA.map((o) => (
                   <label key={o.value} className="flex items-center gap-1.5 text-xs text-[#D0D0E0] cursor-pointer">

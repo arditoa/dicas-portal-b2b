@@ -141,6 +141,10 @@ const pt: Dic = {
   'trip.pacotesDestaque': 'Pacotes e roteiros dos parceiros',
   'trip.semPacotes': 'Os primeiros pacotes de parceiros aparecem aqui assim que forem aprovados.',
   'trip.aPartirDe': 'a partir de',
+  'pacotes.sub': 'Pacotes de agências e operadoras parceiras. A reserva é feita direto com a agência.',
+  'pacotes.buscar': 'Buscar pacote, destino ou agência…',
+  'pacotes.todos': 'Todos',
+  'pacotes.por': 'por',
   'trip.dicasBrasil': 'Dicas úteis sobre o Brasil',
 
   'conta.titulo': 'Conta',
@@ -294,6 +298,10 @@ const en: Dic = {
   'trip.pacotesDestaque': 'Partner packages and itineraries',
   'trip.semPacotes': 'The first partner packages will show up here once approved.',
   'trip.aPartirDe': 'from',
+  'pacotes.sub': 'Packages from partner agencies and operators. Booking is made directly with the agency.',
+  'pacotes.buscar': 'Search package, destination or agency…',
+  'pacotes.todos': 'All',
+  'pacotes.por': 'by',
   'trip.dicasBrasil': 'Useful tips about Brazil',
 
   'conta.titulo': 'Account',
@@ -447,6 +455,10 @@ const es: Dic = {
   'trip.pacotesDestaque': 'Paquetes y rutas de socios',
   'trip.semPacotes': 'Los primeros paquetes de socios aparecerán aquí cuando sean aprobados.',
   'trip.aPartirDe': 'desde',
+  'pacotes.sub': 'Paquetes de agencias y operadores socios. La reserva se hace directamente con la agencia.',
+  'pacotes.buscar': 'Buscar paquete, destino o agencia…',
+  'pacotes.todos': 'Todos',
+  'pacotes.por': 'por',
   'trip.dicasBrasil': 'Consejos útiles sobre Brasil',
 
   'conta.titulo': 'Cuenta',
