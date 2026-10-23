@@ -63,7 +63,7 @@ export default function FeaturedScreen() {
             .select(CAMPOS_LOCAL)
             .eq('status', 'aprovado')
             .contains('destaque_secoes', ['selo_dicas'])
-            .limit(100);
+            .limit(500);
           if (error) throw error;
           locais = (data as any[]) || [];
         } else {
@@ -72,7 +72,7 @@ export default function FeaturedScreen() {
             .select(CAMPOS_LOCAL)
             .eq('status', 'aprovado')
             .in('plano_destaque', ['destaque', 'vip'])
-            .limit(100);
+            .limit(500);
           if (error) throw error;
           locais = ((data as any[]) || []).sort(
             (a, b) => (PLANO_PRIORIDADE[a.plano_destaque] ?? 2) - (PLANO_PRIORIDADE[b.plano_destaque] ?? 2)

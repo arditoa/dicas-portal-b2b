@@ -147,7 +147,7 @@ export default function CategoryListScreen() {
           'id, nome, categoria, subcategoria, bairro, bairro_exibicao, cidade, foto_capa_url, safe_space, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status, experiencias, rating_media, rating_total, lat, lng, logo_url, galeria_fotos'
         )
         .eq('status', 'aprovado')
-        .limit(100);
+        .limit(1000);
 
       if (categoriaReal) query = query.eq('categoria', categoriaReal);
       if (experienciaSlug) query = query.contains('experiencias', [experienciaSlug]);

@@ -29,8 +29,8 @@ type RankLocal = {
 };
 
 const CATEGORIA: Record<string, string> = {
-  lugares: 'Bares e noite', gastronomia: 'Gastronomia', cultura: 'Cultura',
-  eventos: 'Eventos', turismo: 'Turismo', servicos: 'Serviços',
+  lugares: 'Bares', gastronomia: 'Gastronomia', cultura: 'Cultura', turismo: 'Dicas Trip',
+  beleza: 'Beleza', lojas: 'Lojas', servicos: 'Serviços', produtos: 'Produtos', lazer: 'Lazer', eventos: 'Eventos',
 };
 const TELA: Record<string, string> = {
   home: 'Início (Home)', mapa: 'Mapa', eventos: 'Eventos (aba)', trip: 'Dicas Trip', conta: 'Conta',

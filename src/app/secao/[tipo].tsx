@@ -83,7 +83,7 @@ export default function SecaoScreen() {
       let lista: ItemLista[] = [];
       try {
         if (tipo === 'trip') {
-          const { data } = await supabase.from('locais').select(CAMPOS_LOCAL).eq('status', 'aprovado').eq('categoria', 'turismo').limit(80);
+          const { data } = await supabase.from('locais').select(CAMPOS_LOCAL).eq('status', 'aprovado').eq('categoria', 'turismo').limit(500);
           const l = ((data as any[]) || []).filter((i) => deveIncluirEm(i, 'dicas_trip')).sort(compararDestaque('dicas_trip'));
           lista = l.map((i) =>
             localParaItem(i, {
@@ -93,7 +93,7 @@ export default function SecaoScreen() {
             })
           );
         } else if (tipo === 'em-alta' || tipo === 'semana') {
-          const { data } = await supabase.from('locais').select(CAMPOS_LOCAL).eq('status', 'aprovado').limit(200);
+          const { data } = await supabase.from('locais').select(CAMPOS_LOCAL).eq('status', 'aprovado').limit(1000);
           const todos = (data as any[]) || [];
           const destaque = todos.filter((i) => deveExibirGlow(i)).sort(compararDestaque('destaque'));
           if (tipo === 'semana') {
@@ -128,7 +128,7 @@ export default function SecaoScreen() {
               .eq('status', 'aprovado')
               .contains('destaque_secoes', ['hoje']),
             supabase.from('locais').select(CAMPOS_LOCAL).eq('status', 'aprovado').contains('destaque_secoes', ['hoje']),
-            supabase.from('locais').select(CAMPOS_LOCAL).eq('status', 'aprovado').limit(200),
+            supabase.from('locais').select(CAMPOS_LOCAL).eq('status', 'aprovado').limit(1000),
           ]);
           const auto = (evHoje.data as any[]) || [];
           const idsEv = new Set(auto.map((e) => e.id));

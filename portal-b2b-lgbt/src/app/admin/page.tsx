@@ -13,6 +13,7 @@ import PainelPush from '../../components/PainelPush';
 import PainelRodizio from '../../components/PainelRodizio';
 import PainelDestaqueHora from '../../components/PainelDestaqueHora';
 import PainelVisaoGeral from '../../components/PainelVisaoGeral';
+import { deveIncluirEm, estaFixadoEm, estaFixadoParaHoje, pagaPlanoComDireitoADestaque } from '../../lib/destaque';
 import PainelOcorrencias from '../../components/PainelOcorrencias';
 
 const URL_PORTAL = 'https://dicas-portal-b2b-dun.vercel.app'; // ajuste aqui quando o domínio definitivo (ex.: portal.vezpabar.com) estiver configurado
@@ -243,20 +244,14 @@ const CATEGORIA_REAL_LABEL_ADMIN: Record<string, string> = {
   lazer: 'Lazer',
 };
 
-// Mesma regra de "quem paga de verdade" que já existe em
-// src/lib/destaque.ts do app (Rodada 43) — duplicada aqui só pro filtro
-// "Em Alta" deste painel achar quem entra automático, já que o portal é
-// um projeto separado do app e não compartilha módulos. Se essa regra
-// mudar no app, replicar aqui também.
-const PLANOS_QUE_PAGAM = new Set(['premium', 'fundador']);
-function pagaPlanoComDireitoADestaque(l: LocalDestaque): boolean {
-  return PLANOS_QUE_PAGAM.has(l.plano_comercial) && l.plano_comercial_status === 'ativo';
-}
-
 function localCombinaComFiltroPrincipal(l: LocalDestaque, filtro: string): boolean {
   if (filtro === 'todas') return true;
-  if (filtro === 'em_alta') return l.destaque_secoes.includes('em_alta') || pagaPlanoComDireitoADestaque(l);
-  if (filtro === 'hoje') return l.destaque_secoes.includes('hoje');
+  // Mesmas regras do app (src/lib/destaque.ts): respeitam o prazo (destaque_ate) e o plano pago ativo.
+  if (filtro === 'em_alta') return deveIncluirEm(l, 'em_alta');
+  if (filtro === 'hoje') return estaFixadoParaHoje(l);
+  if (filtro === 'selo_dicas') return l.destaque_secoes.includes('selo_dicas');
+  if (filtro === 'patrocinado') return estaFixadoEm(l, 'patrocinado');
+  if (filtro === 'fundador') return l.fundador;
   const chip = CATEGORIA_CHIPS.find((c) => c.slug === filtro);
   if (!chip || !chip.categoriaReal) return false;
   return l.categoria === chip.categoriaReal;
@@ -317,13 +312,13 @@ function selecaoAtualExperiencia(l: LocalDestaque): string[] {
 // só ajuda a confirmar de longe, sem precisar ler cada checkbox.
 function resumoSecoesLocal(l: LocalDestaque): string {
   const partes: string[] = [];
-  const manualEmAlta = l.destaque_secoes.includes('em_alta');
+  const manualEmAlta = estaFixadoEm(l, 'em_alta');
   const automatico = pagaPlanoComDireitoADestaque(l);
   if (automatico && !manualEmAlta) partes.push('Em Alta (automático — plano pago)');
   else if (manualEmAlta) partes.push('Em Alta');
-  if (l.destaque_secoes.includes('hoje')) partes.push('O que Fazer Hoje');
-  if (l.destaque_secoes.includes('turismo')) partes.push('Dicas Trip');
-  if (l.destaque_secoes.includes('patrocinado')) partes.push('Patrocinado');
+  if (estaFixadoParaHoje(l)) partes.push('O que Fazer Hoje');
+  if (estaFixadoEm(l, 'turismo')) partes.push('Dicas Trip');
+  if (estaFixadoEm(l, 'patrocinado')) partes.push('Patrocinado');
   if (l.destaque_secoes.includes('selo_dicas')) partes.push('Selo Dicas LGBT+');
   if (l.destaque_secoes.includes('destaque')) partes.push('Destaque da Semana');
   return partes.length > 0 ? partes.join(', ') : 'nenhuma seção marcada';
@@ -510,7 +505,7 @@ const SUBTITULO_ABA: Record<ItemMenu['id'], string> = {
   aprovacoes: 'Aprovações manuais — cadastros, vínculos de conta e leads institucionais.',
   locais: 'Busque e filtre locais por categoria, e marque selos/destaques de cada estabelecimento.',
   eventos: 'Busque e filtre eventos/festas, e marque em quais seções do app cada um aparece.',
-  fundador: 'Arte do banner e logo de cada local que aparece no selo "Membro Fundador" da Home.',
+  fundador: 'Quem aparece no topo e no pé da Home como Membro Fundador. O plano Fundador ativo liga o selo sozinho; aqui você também pode conceder de cortesia. Logo e arte do banner ficam abaixo.',
   destinos: 'Cidades do Dicas Trip: foto de capa, frase, tags, melhor época e roteiro em destaque.',
   roteiros: 'Roteiros e experiências do Dicas Trip: foto, tags (até 8 principais), paradas e publicação.',
   push: 'Notificações push: escreva o aviso, teste no seu celular e envie para quem aceitou.',
@@ -543,9 +538,10 @@ export default function AdminPage() {
   const [buscaEvento, setBuscaEvento] = useState('');
   // Rodada 89 — listas grandes: mostra 25 por vez ("Mostrar mais") para continuar rápido com 100+ locais.
   const [limiteLocais, setLimiteLocais] = useState(25);
+  const [filtroPlano, setFiltroPlano] = useState<'todos' | 'pagos' | 'sem_plano'>('todos');
   const [limiteEventos, setLimiteEventos] = useState(25);
   const [menuAberto, setMenuAberto] = useState(false);
-  useEffect(() => { setLimiteLocais(25); }, [buscaLocal, filtroPrincipal]);
+  useEffect(() => { setLimiteLocais(25); }, [buscaLocal, filtroPrincipal, filtroPlano]);
   useEffect(() => { setLimiteEventos(25); }, [buscaEvento, filtroEventos]);
   const [experienciaAberta, setExperienciaAberta] = useState<Record<string, boolean>>({});
   // Rodada 48 — pedido direto da Andrea: "poder expandir os bares pros
@@ -1413,6 +1409,8 @@ Dicas LGBT+`;
   // Fazer Hoje) + busca por nome/bairro/cidade, combinados.
   const locaisFiltrados = locaisDestaque.filter((l) => {
     if (!localCombinaComFiltroPrincipal(l, filtroPrincipal)) return false;
+    if (filtroPlano === 'pagos' && !pagaPlanoComDireitoADestaque(l)) return false;
+    if (filtroPlano === 'sem_plano' && pagaPlanoComDireitoADestaque(l)) return false;
     const termo = buscaLocal.trim().toLowerCase();
     if (!termo) return true;
     return (
@@ -1450,6 +1448,46 @@ Dicas LGBT+`;
     if (!termo) return true;
     return ev.titulo.toLowerCase().includes(termo);
   });
+
+  const filtroItem = (slug: string, label: string, qtd: number, vitrine = false) => (
+    <button
+      onClick={() => setFiltroPrincipal(slug)}
+      className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition ${
+        filtroPrincipal === slug
+          ? vitrine ? 'bg-[#FFD54F]/15 text-[#FFD54F]' : 'bg-[#E1306C]/15 text-white'
+          : qtd === 0 ? 'text-[#626274] hover:bg-[#1D1C29]' : 'text-[#A0A0B2] hover:bg-[#1D1C29] hover:text-white'
+      }`}
+    >
+      <span className="flex-1 text-left truncate">{label}</span>
+      <span className="text-[10px] font-bold text-[#8888A0]">{qtd}</span>
+    </button>
+  );
+
+  // Etiquetas curtas de cada local (substituem a frase longa "Aparece em: ...").
+  const etiquetasLocal = (l: LocalDestaque): { texto: string; cls: string }[] => {
+    const e: { texto: string; cls: string }[] = [];
+    const VERDE = 'bg-[#4CAF7D]/15 text-[#4CAF7D]';
+    const OURO = 'bg-[#FFD54F]/15 text-[#FFD54F]';
+    const ROSA = 'bg-[#E1306C]/15 text-[#FF9DB8]';
+    const ROXO = 'bg-[#7E57C2]/20 text-[#B39DDB]';
+    const ALERTA = 'bg-amber-500/15 text-amber-400';
+    if (l.fundador) e.push({ texto: 'Membro Fundador', cls: OURO });
+    if (pagaPlanoComDireitoADestaque(l)) e.push({ texto: `Plano ${l.plano_comercial} ativo`, cls: VERDE });
+    else if (l.plano_comercial_status === 'interesse' || l.plano_comercial_status === 'aguardando_pagamento') e.push({ texto: 'Plano aguardando pagamento', cls: ALERTA });
+    if (l.fundador && l.plano_comercial === 'fundador' && l.plano_comercial_status !== 'ativo') e.push({ texto: 'Selo sem plano ativo', cls: ALERTA });
+    if (deveIncluirEm(l, 'em_alta')) e.push({ texto: 'Em Alta', cls: ROSA });
+    if (estaFixadoParaHoje(l)) e.push({ texto: 'Hoje', cls: ROSA });
+    if (deveIncluirEm(l, 'turismo')) e.push({ texto: 'Dicas Trip', cls: ROSA });
+    if (estaFixadoEm(l, 'patrocinado')) e.push({ texto: 'Patrocinado', cls: ROXO });
+    if (l.destaque_secoes.includes('selo_dicas')) e.push({ texto: 'Selo Dicas', cls: ROXO });
+    if (l.destaque_secoes.includes('destaque')) e.push({ texto: 'Destaque da semana', cls: ROXO });
+    const exp = (l.experiencias || []).length;
+    if (exp > 0) e.push({ texto: `${exp} experiência${exp > 1 ? 's' : ''}`, cls: 'bg-[#232230] text-[#A0A0B2]' });
+    if (!l.foto_capa_url && !l.logo_url && !(l.galeria_fotos && l.galeria_fotos.length)) e.push({ texto: 'Sem foto', cls: ALERTA });
+    if (/^\d{2}\.\d{3}\.\d{3}/.test(l.nome.trim())) e.push({ texto: 'Nome é razão social (ajustar)', cls: ALERTA });
+    if (e.length === 0) e.push({ texto: 'Sem vitrine marcada', cls: 'bg-[#232230] text-[#626274]' });
+    return e;
+  };
 
   return (
     <div className="min-h-screen md:flex text-white">
@@ -1877,78 +1915,57 @@ Dicas LGBT+`;
       {/* Rodada 44 — filtro principal (categorias + Em Alta + O que Fazer
           Hoje) e busca por nome/bairro/cidade, tudo combinado numa lista
           só de estabelecimentos abaixo. */}
-      <section className="mb-6">
-        <div className="flex items-center gap-2 mb-3">
-          <Search size={14} className="text-[#626274]" />
-          <input
-            type="text"
-            value={buscaLocal}
-            onChange={(e) => setBuscaLocal(e.target.value)}
-            placeholder="Buscar por nome, bairro ou cidade..."
-            className="flex-1 bg-[#161520] border border-[#232230] rounded-lg text-xs px-3 py-2"
-          />
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          <button
-            onClick={() => setFiltroPrincipal('todas')}
-            className={`text-xs font-bold px-3 py-1.5 rounded-full border transition ${
-              filtroPrincipal === 'todas'
-                ? 'bg-[#E1306C] border-[#E1306C] text-white'
-                : 'bg-[#161520] border-[#232230] text-[#A0A0B2] hover:bg-[#1D1C29]'
-            }`}
-          >
-            Todas ({locaisDestaque.length})
-          </button>
-          {CATEGORIA_CHIPS.map((c) => (
-            <button
-              key={c.slug}
-              onClick={() => setFiltroPrincipal(c.slug)}
-              title={!c.categoriaReal ? 'Categoria ainda "Em breve" pro usuário final — filtro aqui é só organizacional' : undefined}
-              className={`text-xs font-bold px-3 py-1.5 rounded-full border transition ${
-                filtroPrincipal === c.slug
-                  ? 'bg-[#E1306C] border-[#E1306C] text-white'
-                  : c.categoriaReal
-                  ? 'bg-[#161520] border-[#232230] text-[#A0A0B2] hover:bg-[#1D1C29]'
-                  : 'bg-transparent border-[#232230]/50 text-[#626274]'
-              }`}
-            >
-              {c.label} ({locaisDestaque.filter((l) => localCombinaComFiltroPrincipal(l, c.slug)).length})
-            </button>
+      <div className="lg:flex lg:gap-6 items-start">
+      {/* FILTROS — coluna à esquerda: categorias, vitrines e plano */}
+      <aside className="lg:w-56 lg:shrink-0 mb-6 lg:mb-0 lg:sticky lg:top-6 space-y-5">
+        <div>
+          <p className="px-1 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-[#626274]">Categorias</p>
+          {filtroItem('todas', 'Todas', locaisDestaque.length)}
+          {CATEGORIA_CHIPS.filter((c) => c.categoriaReal).map((c) => (
+            <div key={c.slug}>{filtroItem(c.slug, c.label, locaisDestaque.filter((l) => localCombinaComFiltroPrincipal(l, c.slug)).length)}</div>
           ))}
-          <button
-            onClick={() => setFiltroPrincipal('em_alta')}
-            className={`text-xs font-bold px-3 py-1.5 rounded-full border transition ${
-              filtroPrincipal === 'em_alta'
-                ? 'bg-[#FFD54F] border-[#FFD54F] text-black'
-                : 'bg-[#161520] border-[#232230] text-[#FFD54F] hover:bg-[#1D1C29]'
-            }`}
-          >
-            Em Alta
-          </button>
-          <button
-            onClick={() => setFiltroPrincipal('hoje')}
-            className={`text-xs font-bold px-3 py-1.5 rounded-full border transition ${
-              filtroPrincipal === 'hoje'
-                ? 'bg-[#FFD54F] border-[#FFD54F] text-black'
-                : 'bg-[#161520] border-[#232230] text-[#FFD54F] hover:bg-[#1D1C29]'
-            }`}
-          >
-            O que Fazer Hoje
-          </button>
         </div>
-      </section>
+        <div>
+          <p className="px-1 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-[#626274]">Vitrines do app</p>
+          {filtroItem('em_alta', 'Em Alta', locaisDestaque.filter((l) => localCombinaComFiltroPrincipal(l, 'em_alta')).length, true)}
+          {filtroItem('hoje', 'O que Fazer Hoje', locaisDestaque.filter((l) => localCombinaComFiltroPrincipal(l, 'hoje')).length, true)}
+          {filtroItem('patrocinado', 'Patrocinados', locaisDestaque.filter((l) => localCombinaComFiltroPrincipal(l, 'patrocinado')).length, true)}
+          {filtroItem('selo_dicas', 'Selo Dicas LGBT+', locaisDestaque.filter((l) => l.destaque_secoes.includes('selo_dicas')).length, true)}
+          {filtroItem('fundador', 'Membros Fundadores', locaisDestaque.filter((l) => l.fundador).length, true)}
+        </div>
+        <div>
+          <p className="px-1 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-[#626274]">Plano</p>
+          {([['todos', 'Todos'], ['pagos', 'Plano pago ativo'], ['sem_plano', 'Sem plano pago']] as const).map(([v, r]) => (
+            <button key={v} onClick={() => setFiltroPlano(v)} className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold transition ${filtroPlano === v ? 'bg-[#E1306C]/15 text-white' : 'text-[#A0A0B2] hover:bg-[#1D1C29] hover:text-white'}`}>{r}</button>
+          ))}
+        </div>
+      </aside>
+
+      <div className="flex-1 min-w-0">
+      <div className="flex items-center gap-2 mb-5">
+        <Search size={14} className="text-[#626274]" />
+        <input
+          type="text"
+          value={buscaLocal}
+          onChange={(e) => setBuscaLocal(e.target.value)}
+          placeholder="Buscar por nome, bairro ou cidade..."
+          className="flex-1 bg-[#161520] border border-[#232230] rounded-lg text-xs px-3 py-2"
+        />
+      </div>
 
       <section className="mb-10">
         <h2 className="text-base font-bold mb-3">
           Estabelecimentos ({locaisFiltrados.length}{locaisFiltrados.length !== locaisDestaque.length ? ` de ${locaisDestaque.length}` : ''})
         </h2>
-        <p className="text-xs text-[#626274] mb-3">
-          Quem paga plano <b className="text-[#D0D0E0]">Premium</b> ou <b className="text-[#D0D0E0]">Fundador</b> (ativo)
-          já entra sozinho em Em Alta/Dicas Trip, sem precisar marcar nada — os checkboxes abaixo são
-          pra você direcionar manualmente qualquer outro local, inclusive quem não paga, se o app
-          estiver vazio numa seção. O select &quot;Básico/Destaque/VIP&quot; só afeta a ordem de
-          desempate dentro da mesma seção (rotaciona sozinho a cada semana) — não decide quem entra.
-        </p>
+        <details className="mb-4 text-xs text-[#8888A0] bg-[#161520] border border-[#232230] rounded-lg px-3 py-2">
+          <summary className="cursor-pointer font-bold text-[#A0A0B2]">Como as vitrines funcionam</summary>
+          <ul className="mt-2 space-y-1.5 list-disc list-inside">
+            <li><b className="text-[#D0D0E0]">Plano Premium ou Fundador ativo</b> entra sozinho em Em Alta e Dicas Trip; o plano Fundador também liga o selo Membro Fundador.</li>
+            <li>As caixas marcadas à mão servem para direcionar qualquer outro local (inclusive quem não paga) quando uma seção estiver vazia. Marcações com prazo vencido deixam de valer no app.</li>
+            <li>A prioridade (Básica/Destaque/VIP) só desempata dentro da mesma seção; não decide quem entra.</li>
+            <li>Selo Dicas LGBT+ é curadoria sua, nunca venda.</li>
+          </ul>
+        </details>
         {totalSeloDicas > 0 && (
           <p className={`text-xs mb-3 ${totalSeloDicas > 8 ? 'text-amber-400' : 'text-[#A0A0B2]'}`}>
             <b className={totalSeloDicas > 8 ? 'text-amber-300' : 'text-[#D0D0E0]'}>Selo Dicas LGBT+</b>:{' '}
@@ -1966,52 +1983,42 @@ Dicas LGBT+`;
             const aberto = experienciaAberta[l.id] ?? selecaoExperiencia.length > 0;
             const expandido = localExpandido[l.id] ?? false;
             return (
-            <div key={l.id} className="bg-[#161520] border border-[#232230] rounded-xl p-4 space-y-4">
-              <div className="flex justify-between items-start gap-4 flex-wrap">
-                <div>
-                  <h3 className="font-bold text-sm flex items-center gap-1.5">
-                    {l.nome}
-                    {l.fundador && (
-                      <span title="Membro Fundador" className="inline-flex items-center gap-0.5 text-[10px] font-bold text-[#FFD54F]">
-                        <Star size={11} fill="currentColor" /> Fundador
-                      </span>
-                    )}
-                  </h3>
-                  <p className="text-xs text-[#626274] mt-1">
+            <div key={l.id} className="bg-[#161520] border border-[#232230] rounded-xl p-4 space-y-4 hover:border-[#33324A] transition">
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-bold text-sm truncate">{l.nome}</h3>
+                  <p className="text-xs text-[#8888A0] mt-0.5 truncate">
                     {CATEGORIA_REAL_LABEL_ADMIN[l.categoria] || l.categoria} · {[l.bairro, l.cidade].filter(Boolean).join(', ') || '—'}
-                    {l.plano_comercial_status === 'ativo'
-                      ? ` · Plano atual: ${l.plano_comercial}${pagaPlanoComDireitoADestaque(l) ? ' (entra automático em Em Alta/Dicas Trip)' : ''}`
-                      : ' · sem plano pago ainda'}
                   </p>
-                  <p className="text-xs text-[#4CAF7D] mt-1 font-bold">
-                    Aparece em: {resumoSecoesLocal(l)} · Experiências: {resumoExperienciasLocal(l)}
-                  </p>
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {etiquetasLocal(l).map((et) => (
+                      <span key={et.texto} className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${et.cls}`}>{et.texto}</span>
+                    ))}
+                  </div>
                 </div>
-                <select
-                  value={l.plano_destaque}
-                  onChange={(e) => atualizarDestaque(l.id, e.target.value as 'basico' | 'destaque' | 'vip')}
-                  disabled={processando === l.id}
-                  className="bg-[#0B0B0E] border border-[#232230] rounded-lg text-xs font-bold px-3 py-2 disabled:opacity-40 shrink-0"
-                  title="Prioridade de ordenação (desempate)"
-                >
-                  <option value="basico">Básico</option>
-                  <option value="destaque">Destaque</option>
-                  <option value="vip">VIP</option>
-                </select>
+                <div className="flex items-center gap-2 shrink-0">
+                  <select
+                    value={l.plano_destaque}
+                    onChange={(e) => atualizarDestaque(l.id, e.target.value as 'basico' | 'destaque' | 'vip')}
+                    disabled={processando === l.id}
+                    className="bg-[#0B0B0E] border border-[#232230] rounded-lg text-xs font-bold px-2.5 py-2 disabled:opacity-40"
+                    title="Prioridade de ordenação (desempate dentro da mesma seção)"
+                    aria-label="Prioridade"
+                  >
+                    <option value="basico">Prioridade: Básica</option>
+                    <option value="destaque">Prioridade: Destaque</option>
+                    <option value="vip">Prioridade: VIP</option>
+                  </select>
+                  <button
+                    onClick={() => setLocalExpandido((atual) => ({ ...atual, [l.id]: !expandido }))}
+                    className="flex items-center gap-1 text-xs font-bold px-3 py-2 rounded-lg border border-[#232230] text-[#D0D0E0] hover:bg-[#1D1C29]"
+                    aria-expanded={expandido}
+                  >
+                    {expandido ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                    {expandido ? 'Fechar' : 'Editar'}
+                  </button>
+                </div>
               </div>
-
-              {/* Rodada 48 — pedido direto da Andrea: expandir/recolher os
-                  dados de cada local, pra não virar uma parede de
-                  formulário quando tiver muitos estabelecimentos na
-                  lista. A linha "Aparece em: ..." acima já dá o essencial
-                  sem precisar abrir nada. */}
-              <button
-                onClick={() => setLocalExpandido((atual) => ({ ...atual, [l.id]: !expandido }))}
-                className="flex items-center gap-1.5 text-xs font-bold text-[#A0A0B2] hover:text-white border-t border-[#232230] pt-3 w-full"
-              >
-                {expandido ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                {expandido ? 'Ocultar detalhes e edição' : 'Ver detalhes e editar (selos, fotos, descrição...)'}
-              </button>
 
               {expandido && (
               <>
@@ -2211,6 +2218,8 @@ Dicas LGBT+`;
           </button>
         )}
       </section>
+      </div>
+      </div>
       </>
       )}
 
@@ -2550,13 +2559,27 @@ Dicas LGBT+`;
               </label>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold text-white truncate">{l.nome}</p>
-                <p className="text-[11px] text-[#626274] truncate">{l.bairro || l.cidade}</p>
+                <p className="text-[11px] text-[#626274] truncate">
+                  {l.bairro || l.cidade}
+                  {l.fundador && (
+                    <span className={`ml-2 font-bold ${l.plano_comercial === 'fundador' && l.plano_comercial_status === 'ativo' ? 'text-[#4CAF7D]' : l.plano_comercial === 'fundador' ? 'text-amber-400' : 'text-[#FFD54F]'}`}>
+                      {l.plano_comercial === 'fundador' && l.plano_comercial_status === 'ativo'
+                        ? '· Plano Fundador ativo (selo automático)'
+                        : l.plano_comercial === 'fundador'
+                        ? '· Plano Fundador não está ativo — revise o selo'
+                        : '· Concedido por você (cortesia)'}
+                    </span>
+                  )}
+                </p>
               </div>
-              <label className="flex items-center gap-1.5 text-xs font-bold text-[#D0D0E0] cursor-pointer shrink-0">
+              <label
+                className="flex items-center gap-1.5 text-xs font-bold text-[#D0D0E0] cursor-pointer shrink-0"
+                title={l.plano_comercial === 'fundador' && l.plano_comercial_status === 'ativo' ? 'Plano Fundador ativo: o selo é automático. Para tirar, encerre o plano antes.' : undefined}
+              >
                 <input
                   type="checkbox"
                   checked={l.fundador}
-                  disabled={processando === l.id}
+                  disabled={processando === l.id || (l.plano_comercial === 'fundador' && l.plano_comercial_status === 'ativo')}
                   onChange={(e) => alternarFundador(l.id, e.target.checked)}
                   className="accent-[#FFD54F]"
                 />

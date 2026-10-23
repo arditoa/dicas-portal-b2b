@@ -489,7 +489,7 @@ export default function HomeScreen() {
             'id, nome, categoria, bairro, bairro_exibicao, cidade, instagram, foto_capa_url, logo_url, galeria_fotos, rating_media, rating_total, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status, horario_funcionamento'
           )
           .eq('status', 'aprovado')
-          .limit(60),
+          .limit(1000),
         supabase
           .from('eventos')
           .select('id, titulo, data_inicio, locais(nome, bairro, bairro_exibicao)')
@@ -516,7 +516,7 @@ export default function HomeScreen() {
           )
           .eq('status', 'aprovado')
           .eq('categoria', 'turismo')
-          .limit(40),
+          .limit(300),
         // Rodada 46 — a Andrea reportou "eventos não sobem": a Home só
         // trazia evento pra "O que fazer hoje" quando data_inicio caía
         // EXATAMENTE hoje, sem jeito de fixar manualmente uma festa
@@ -539,7 +539,7 @@ export default function HomeScreen() {
           .ilike('rotulo', '%fundador%')
           .eq('ativo', true)
           .eq('locais.status', 'aprovado')
-          .limit(20),
+          .limit(100),
         // Rodada 57 — arte de marketing global do banner "Membro Fundador"
         // (ver bannerFundadorArteUrl acima).
         supabase.from('app_config').select('valor').eq('chave', 'membro_fundador_banner_url').maybeSingle(),
