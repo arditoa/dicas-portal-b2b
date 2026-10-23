@@ -1,5 +1,5 @@
 'use client';
-import { Bell, CalendarDays, Check, ChevronDown, ChevronUp, ClipboardCheck, Compass, LayoutDashboard, Loader2, LogOut, Menu, MessageCircle, Route as RouteIcon, Search, ShieldAlert, Sparkles, Star, Store, X } from 'lucide-react';
+import { Bell, CalendarDays, Check, ChevronDown, ChevronUp, ClipboardCheck, Compass, LayoutDashboard, Loader2, LogOut, Megaphone, Menu, MessageCircle, Route as RouteIcon, Search, ShieldAlert, Sparkles, Star, Store, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
@@ -9,6 +9,7 @@ import PainelPontosProximos from '../../components/PainelPontosProximos';
 import PainelValidacaoHospedagem from '../../components/PainelValidacaoHospedagem';
 import PainelDestinos from '../../components/PainelDestinos';
 import PainelRoteiros from '../../components/PainelRoteiros';
+import PainelBanners from '../../components/PainelBanners';
 import PainelPush from '../../components/PainelPush';
 import PainelRodizio from '../../components/PainelRodizio';
 import PainelDestaqueHora from '../../components/PainelDestaqueHora';
@@ -244,6 +245,10 @@ const CATEGORIA_REAL_LABEL_ADMIN: Record<string, string> = {
   lazer: 'Lazer',
 };
 
+// Categorias que o admin pode escolher ao corrigir um cadastro errado.
+// Mudar a categoria muda onde o local aparece no app (Bares, Gastronomia, Dicas Trip…).
+const CATEGORIAS_EDITAVEIS = Object.entries(CATEGORIA_REAL_LABEL_ADMIN);
+
 function localCombinaComFiltroPrincipal(l: LocalDestaque, filtro: string): boolean {
   if (filtro === 'todas') return true;
   // Mesmas regras do app (src/lib/destaque.ts): respeitam o prazo (destaque_ate) e o plano pago ativo.
@@ -465,7 +470,7 @@ type LeadInstitucional = {
 // Rodada 89 — menu lateral do /admin, agrupado por tarefa do dia.
 type SubAprov = 'todas' | 'interesse' | 'locais' | 'eventos' | 'vinculos' | 'leads' | 'hospedagem' | 'acesso';
 type ItemSub = { id: SubAprov; rotulo: string; badge?: number };
-type ItemMenu = { subs?: ItemSub[]; id: 'visao' | 'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos' | 'roteiros' | 'push' | 'rodizio' | 'denuncias'; rotulo: string; icone: typeof Store; badge?: number; alerta?: boolean };
+type ItemMenu = { subs?: ItemSub[]; id: 'visao' | 'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos' | 'roteiros' | 'push' | 'rodizio' | 'banners' | 'denuncias'; rotulo: string; icone: typeof Store; badge?: number; alerta?: boolean };
 function MENU_ADMIN(pendentes: number, locais: number, eventos: number, fundadores: number, filas: { interesse: number; locais: number; eventos: number; vinculos: number; leads: number; acesso: number }): { grupo: string; itens: ItemMenu[] }[] {
   return [
     { grupo: 'Início', itens: [{ id: 'visao', rotulo: 'Visão geral', icone: LayoutDashboard }] },
@@ -494,6 +499,7 @@ function MENU_ADMIN(pendentes: number, locais: number, eventos: number, fundador
       grupo: 'Vitrine da Home',
       itens: [
         { id: 'rodizio', rotulo: 'Rodízio e Destaques', icone: Sparkles },
+        { id: 'banners', rotulo: 'Banners e parceiros', icone: Megaphone },
         { id: 'fundador', rotulo: 'Membros Fundadores', icone: Star, badge: fundadores },
       ],
     },
@@ -521,6 +527,7 @@ const TITULO_ABA: Record<ItemMenu['id'], string> = {
   roteiros: 'Roteiros',
   push: 'Avisos (push)',
   rodizio: 'Rodízio e Destaques',
+  banners: 'Banners e parceiros',
   denuncias: 'Denúncias',
 };
 const SUBTITULO_ABA: Record<ItemMenu['id'], string> = {
@@ -533,6 +540,7 @@ const SUBTITULO_ABA: Record<ItemMenu['id'], string> = {
   roteiros: 'Roteiros e experiências do Dicas Trip: foto, tags (até 8 principais), paradas e publicação.',
   push: 'Notificações push: escreva o aviso, teste no seu celular e envie para quem aceitou.',
   rodizio: 'Rodízio por horário da Home: quantos locais aparecem por vez, de quanto em quanto tempo troca, e a oferta do bloco Destaques.',
+  banners: 'Cartões que giram na tela inicial e na aba Trip (Copa, Embratur, Câmara LGBT, patrocinadores): textos, onde aparecem, peso, período e relatório de exibições e cliques.',
   denuncias: 'Ocorrências registradas no app: relato, provas, histórico e atendimento. Conteúdo sensível — acesso restrito à equipe.',
 };
 
@@ -554,7 +562,7 @@ export default function AdminPage() {
   // de existir; `aba` agora cobre os três níveis direto.
   const [subAprov, setSubAprov] = useState<SubAprov>('todas');
   const ver = (k: SubAprov) => subAprov === 'todas' || subAprov === k;
-  const [aba, setAba] = useState<'visao' | 'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos' | 'roteiros' | 'push' | 'rodizio' | 'denuncias'>('visao');
+  const [aba, setAba] = useState<'visao' | 'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos' | 'roteiros' | 'push' | 'rodizio' | 'banners' | 'denuncias'>('visao');
   const [filtroPrincipal, setFiltroPrincipal] = useState<string>('todas');
   // Rodada 46 — filtro só da aba Eventos: "O que Fazer Hoje" (destaque_secoes
   // contém 'hoje', mesmo mecanismo que locais já tinham) vs todos.
@@ -1286,6 +1294,21 @@ Dicas LGBT+`;
   // esses aplicam na hora, mesmo espírito do toggle "Membro Fundador"
   // que já existia (alternarFundador acima) — ela pediu "checkboxes de
   // seleção rápida", não um formulário com botão de salvar.
+  // Corrige a categoria de um local (cadastro errado). Vale para locais já no catálogo e
+  // para os que ainda estão aguardando aprovação.
+  const trocarCategoria = async (id: string, nova: string) => {
+    setProcessando(id);
+    setErro('');
+    setLocaisDestaque((atual) => atual.map((item) => (item.id === id ? { ...item, categoria: nova } : item)));
+    setLocaisPendentes((atual) => atual.map((item) => (item.id === id ? { ...item, categoria: nova } : item)));
+    const { error } = await supabase.from('locais').update({ categoria: nova }).eq('id', id);
+    if (error) {
+      setErro(error.message);
+      await carregarFilas();
+    }
+    setProcessando(null);
+  };
+
   const alternarSecaoInstantanea = async (l: LocalDestaque, secao: string, marcar: boolean) => {
     setProcessando(l.id);
     setErro('');
@@ -1733,36 +1756,52 @@ Dicas LGBT+`;
         <div className="space-y-3">
           {locaisPendentes.length === 0 && <p className="text-xs text-[#626274]">Nenhum pendente.</p>}
           {locaisPendentes.map((l) => (
-            <div key={l.id} className="bg-[#161520] border border-[#232230] rounded-xl p-4 flex justify-between items-start gap-4">
-              <div>
-                <h3 className="font-bold text-sm">{l.nome}</h3>
-                <p className="text-xs text-[#A0A0B2] capitalize">
-                  {l.categoria} · {l.bairro ? `${l.bairro}, ` : ''}{l.cidade} · CNPJ/CPF {l.cnpj || '—'}
-                </p>
-                <p className="text-xs text-[#626274] mt-1">
-                  Contato: {l.contato_nome || '—'} · {l.contato_telefone || '—'} · {l.contato_email || '—'}
-                </p>
-                <p className={`text-xs mt-1 ${corDias(diasDesde(l.created_at))}`}>
-                  Esperando {textoDias(diasDesde(l.created_at))}
-                </p>
-              </div>
-              <div className="flex gap-2 shrink-0">
-                <button
-                  onClick={() => aprovarLocal(l.id)}
-                  disabled={processando === l.id}
-                  className="bg-[#4CAF7D]/10 text-[#4CAF7D] border border-[#4CAF7D]/30 p-2 rounded-lg hover:bg-[#4CAF7D]/20"
-                  title="Aprovar (já cria o login do parceiro e manda por WhatsApp)"
-                >
-                  <Check size={16} />
-                </button>
-                <button
-                  onClick={() => rejeitarLocal(l)}
-                  disabled={processando === l.id}
-                  className="bg-red-500/10 text-red-400 border border-red-500/30 p-2 rounded-lg hover:bg-red-500/20"
-                  title="Rejeitar"
-                >
-                  <X size={16} />
-                </button>
+            <div key={l.id} className="bg-[#161520] border border-[#232230] rounded-xl p-4 hover:border-[#33324A] transition">
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-bold text-sm truncate">{l.nome}</h3>
+                  <p className="text-xs text-[#8888A0] mt-0.5 truncate">
+                    {CATEGORIA_REAL_LABEL_ADMIN[l.categoria] || l.categoria} · {[l.bairro, l.cidade].filter(Boolean).join(', ') || '—'}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${diasDesde(l.created_at) >= 3 ? 'bg-[#FFB74D]/15 text-[#FFB74D]' : 'bg-[#232230] text-[#A0A0B2]'}`}>
+                      Esperando {textoDias(diasDesde(l.created_at))}
+                    </span>
+                    {!l.cnpj && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#FFB74D]/15 text-[#FFB74D]">Sem CNPJ/CPF</span>}
+                  </div>
+                  <p className="text-[11px] text-[#626274] mt-2">
+                    CNPJ/CPF {l.cnpj || '—'} · Contato: {l.contato_nome || '—'} · {l.contato_telefone || '—'} · {l.contato_email || '—'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                  <select
+                    value={l.categoria}
+                    onChange={(e) => trocarCategoria(l.id, e.target.value)}
+                    disabled={processando === l.id}
+                    className="bg-[#0B0B0E] border border-[#232230] rounded-lg text-xs font-bold px-2.5 py-2 disabled:opacity-40"
+                    title="Corrija a categoria antes de aprovar, se o cadastro veio errado"
+                    aria-label="Categoria"
+                  >
+                    {!CATEGORIA_REAL_LABEL_ADMIN[l.categoria] && <option value={l.categoria}>{l.categoria}</option>}
+                    {CATEGORIAS_EDITAVEIS.map(([v, rotulo]) => <option key={v} value={v}>Categoria: {rotulo}</option>)}
+                  </select>
+                  <button
+                    onClick={() => aprovarLocal(l.id)}
+                    disabled={processando === l.id}
+                    className="bg-[#4CAF7D]/10 text-[#4CAF7D] border border-[#4CAF7D]/30 px-3 py-2 rounded-lg hover:bg-[#4CAF7D]/20 text-xs font-bold flex items-center gap-1.5"
+                    title="Aprovar (já cria o login do parceiro e manda por WhatsApp)"
+                  >
+                    <Check size={14} /> Aprovar
+                  </button>
+                  <button
+                    onClick={() => rejeitarLocal(l)}
+                    disabled={processando === l.id}
+                    className="bg-red-500/10 text-red-400 border border-red-500/30 px-3 py-2 rounded-lg hover:bg-red-500/20 text-xs font-bold flex items-center gap-1.5"
+                    title="Rejeitar"
+                  >
+                    <X size={14} /> Rejeitar
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -2071,6 +2110,20 @@ Dicas LGBT+`;
 
               {expandido && (
               <>
+              <div className="flex items-center gap-3 flex-wrap border-t border-[#232230] pt-3">
+                <label className="text-xs font-bold text-[#D0D0E0]" htmlFor={`cat-${l.id}`}>Categoria</label>
+                <select
+                  id={`cat-${l.id}`}
+                  value={l.categoria}
+                  onChange={(e) => trocarCategoria(l.id, e.target.value)}
+                  disabled={processando === l.id}
+                  className="bg-[#0B0B0E] border border-[#232230] rounded-lg text-xs font-bold px-2.5 py-2 disabled:opacity-40"
+                >
+                  {!CATEGORIA_REAL_LABEL_ADMIN[l.categoria] && <option value={l.categoria}>{l.categoria}</option>}
+                  {CATEGORIAS_EDITAVEIS.map(([v, rotulo]) => <option key={v} value={v}>{rotulo}</option>)}
+                </select>
+                <span className="text-[11px] text-[#626274]">Se foi cadastrado errado, corrija aqui: muda onde aparece no app.</span>
+              </div>
               <div className="flex items-center gap-3 flex-wrap border-t border-[#232230] pt-3">
                 {OPCOES_SECAO_LOCAL_RAPIDA.map((o) => (
                   <label key={o.value} className="flex items-center gap-1.5 text-xs text-[#D0D0E0] cursor-pointer">
@@ -2486,6 +2539,7 @@ Dicas LGBT+`;
       {aba === 'destinos' && <PainelDestinos />}
       {aba === 'roteiros' && <PainelRoteiros />}
       {aba === 'push' && <PainelPush />}
+      {aba === 'banners' && <PainelBanners />}
       {aba === 'rodizio' && (
         <>
           <PainelRodizio />

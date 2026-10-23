@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
-import { useEffect, useRef, useState } from 'react';
-import { NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ReactNode, useEffect, useRef, useState } from 'react';
+import { Image, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useReduzirMovimento } from '../hooks/useReduzirMovimento';
 
 // Carrossel de anúncios da Home (no lugar do antigo cartão único da Copa):
@@ -16,6 +16,9 @@ export type Anuncio = {
   icone: keyof typeof Feather.glyphMap;
   cor: string;
   onPress: () => void;
+  logoUrl?: string; // logo do parceiro (substitui o ícone na faixa)
+  rotulo?: string; // ex.: PARCEIRO INSTITUCIONAL / APOIO — deixa claro quem é quem
+  custom?: ReactNode; // cartão próprio (ex.: o cartão da Copa na Trip, com as cidades-sede)
 };
 
 const INTERVALO_MS = 5000;
@@ -23,7 +26,7 @@ const COR_TILE = '#E8E0F6';
 const COR_TEXTO = '#0B0B0E';
 const FAIXA = 72;
 
-export default function CarrosselAnuncios({ anuncios }: { anuncios: Anuncio[] }) {
+export default function CarrosselAnuncios({ anuncios, onExibir }: { anuncios: Anuncio[]; onExibir?: (id: string) => void }) {
   const reduzir = useReduzirMovimento();
   const ref = useRef<ScrollView>(null);
   const [largura, setLargura] = useState(0);
@@ -42,6 +45,12 @@ export default function CarrosselAnuncios({ anuncios }: { anuncios: Anuncio[] })
     }, INTERVALO_MS);
     return () => clearInterval(id);
   }, [reduzir, largura, anuncios.length]);
+
+  // Avisa quando um cartão aparece (medição de exibições; a tela decide se registra).
+  useEffect(() => {
+    const a = anuncios[atual];
+    if (a && onExibir) onExibir(a.id);
+  }, [atual, anuncios, onExibir]);
 
   if (anuncios.length === 0) return null;
 
@@ -62,17 +71,26 @@ export default function CarrosselAnuncios({ anuncios }: { anuncios: Anuncio[] })
         onMomentumScrollEnd={aoParar}
         scrollEventThrottle={16}
       >
-        {anuncios.map((a) => (
+        {anuncios.map((a) => a.custom ? (
+          <View key={a.id} style={{ width: largura }}>{a.custom}</View>
+        ) : (
           <View key={a.id} style={[styles.card, { width: largura }]}>
             <View style={[styles.corpo, { width: largura - FAIXA }]}>
               <Text style={styles.tag} numberOfLines={1}>{a.tag}</Text>
+              {!!a.rotulo && <Text style={styles.rotulo} numberOfLines={1}>{a.rotulo}</Text>}
               <Text style={styles.titulo} numberOfLines={2}>{a.titulo}</Text>
               <TouchableOpacity style={styles.btn} activeOpacity={0.85} onPress={a.onPress} accessibilityRole="button" accessibilityLabel={`${a.cta}: ${a.titulo}`}>
                 <Text style={styles.btnTexto}>{a.cta}</Text>
               </TouchableOpacity>
             </View>
             <TouchableOpacity style={[styles.faixa, { backgroundColor: a.cor }]} activeOpacity={0.85} onPress={a.onPress} accessibilityElementsHidden importantForAccessibility="no">
-              <Feather name={a.icone} size={34} color="#FFFFFF" />
+              {a.logoUrl ? (
+                <View style={styles.logoBox}>
+                  <Image source={{ uri: a.logoUrl }} style={styles.logoImg} resizeMode="contain" />
+                </View>
+              ) : (
+                <Feather name={a.icone} size={34} color="#FFFFFF" />
+              )}
             </TouchableOpacity>
           </View>
         ))}
@@ -95,6 +113,9 @@ const styles = StyleSheet.create({
   corpo: { padding: 14, gap: 4, justifyContent: 'center' },
   tag: { fontSize: 11, fontWeight: '800', color: '#7E57C2', letterSpacing: 0.6 },
   titulo: { fontSize: 14, fontWeight: '800', color: COR_TEXTO, lineHeight: 18, flexShrink: 1 },
+  rotulo: { fontSize: 9, fontWeight: '800', color: '#6B6A80', letterSpacing: 0.5 },
+  logoBox: { width: 56, height: 56, borderRadius: 14, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', padding: 4 },
+  logoImg: { width: '100%', height: '100%' },
   btn: { alignSelf: 'flex-start', marginTop: 6, backgroundColor: COR_TEXTO, borderRadius: 18, paddingHorizontal: 14, minHeight: 32, justifyContent: 'center' },
   btnTexto: { fontSize: 12, fontWeight: '800', color: '#FFFFFF' },
   faixa: { width: FAIXA, alignItems: 'center', justifyContent: 'center' },

@@ -11,6 +11,8 @@
 // o parceiro (serviço consumido fora do app — 3.1.3(e)), por isso não há
 // checkout nem compra in-app. E nada de marca "Copa do Mundo" (FIFA, 5.2).
 import { Feather } from '@expo/vector-icons';
+import CarrosselAnuncios from '../../components/CarrosselAnuncios';
+import FundoCaixaDegrade from '../../components/FundoCaixaDegrade';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -18,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '../../lib/authContext';
 import { registrarAviso } from '../../lib/avisos';
+import { useAnunciosApp } from '../../lib/banners';
 import { IDIOMAS, useI18n } from '../../lib/i18n';
 import { supabase } from '../../lib/supabase';
 import { carregarDestinos, Destino, DESTINOS_PADRAO } from '../../lib/destinos';
@@ -44,21 +47,22 @@ const CIDADES_SEDE = ['Rio de Janeiro', 'São Paulo', 'Belo Horizonte', 'Brasíl
 
 // Atalhos → listagem real de turismo filtrada pela subcategoria (texto livre
 // cadastrado pelo parceiro), via parâmetro `tipo` de /category/[id].
-const SERVICOS = [
-  { chave: 'trip.roteiros', icone: 'map', tipo: 'roteiro|tour|guia' },
-  { chave: 'trip.hospedagem', icone: 'home', tipo: 'hotel|pousada|hostel|hosped' },
-  { chave: 'trip.pacotes', icone: 'package', tipo: 'pacote|agência|agencia' },
-  { chave: 'trip.passeios', icone: 'compass', tipo: 'passeio|ponto|atração|atracao|museu' },
-  { chave: 'trip.agencias', icone: 'briefcase', tipo: 'agência|agencia|operadora' },
-  { chave: 'trip.eventos', icone: 'calendar', tipo: '' },
-] as const;
+const SERVICOS: readonly { chave: string; icone: string; tipo: string; degrade: [string, string] }[] = [
+  { chave: 'trip.roteiros', icone: 'map', tipo: 'roteiro|tour|guia', degrade: ['#E1306C', '#9B3CFF'] },
+  { chave: 'trip.hospedagem', icone: 'home', tipo: 'hotel|pousada|hostel|hosped', degrade: ['#7E57C2', '#3B82F6'] },
+  { chave: 'trip.pacotes', icone: 'package', tipo: 'pacote|agência|agencia', degrade: ['#FF8A3D', '#E1306C'] },
+  { chave: 'trip.passeios', icone: 'compass', tipo: 'passeio|ponto|atração|atracao|museu', degrade: ['#10B981', '#0E7490'] },
+  { chave: 'trip.agencias', icone: 'briefcase', tipo: 'agência|agencia|operadora', degrade: ['#E8A317', '#B45309'] },
+  { chave: 'trip.eventos', icone: 'calendar', tipo: '', degrade: ['#C026A3', '#6D3FD1'] },
+];
 
-const DICAS = [
-  { secao: 'seguranca', icone: 'shield' },
-  { secao: 'direitos', icone: 'heart' },
-  { secao: 'transporte', icone: 'navigation' },
-  { secao: 'pagamentos', icone: 'credit-card' },
-] as const;
+// Cores da bandeira do Brasil: verde, amarelo e azul. No amarelo o texto é escuro (leitura).
+const DICAS: readonly { secao: string; icone: string; degrade: [string, string]; texto: string }[] = [
+  { secao: 'seguranca', icone: 'shield', degrade: ['#00A63F', '#007A33'], texto: '#FFFFFF' },
+  { secao: 'direitos', icone: 'heart', degrade: ['#FFE23A', '#F5B800'], texto: '#1A1405' },
+  { secao: 'transporte', icone: 'navigation', degrade: ['#1D4FBF', '#002776'], texto: '#FFFFFF' },
+  { secao: 'pagamentos', icone: 'credit-card', degrade: ['#009C3B', '#12337F'], texto: '#FFFFFF' },
+];
 
 const TITULO_DICA: Record<string, Record<string, string>> = {
   seguranca: { pt: 'Segurança e ajuda', en: 'Safety & help', es: 'Seguridad y ayuda' },
@@ -124,6 +128,38 @@ export default function TripScreen() {
     });
   };
 
+  // Cartão da Copa (com as cidades-sede) usado dentro do carrossel de banners.
+  const heroCopa = (
+    <View style={[styles.hero, { marginHorizontal: 0 }]}>
+          <Text style={styles.heroTag}>JUN–JUL 2027</Text>
+          <Text style={styles.heroTitulo}>{t('trip.brasilTitulo')}</Text>
+          <Text style={styles.heroSub}>{t('trip.brasilSub')}</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingTop: 8 }}>
+            {CIDADES_SEDE.map((cidade) => (
+              <TouchableOpacity key={cidade} style={styles.cidadeChip} onPress={() => abrirTurismo({ title: cidade, search: cidade })}>
+                <Text style={styles.cidadeChipTxt}>{cidade}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          <TouchableOpacity
+            style={styles.heroBtn}
+            activeOpacity={0.85}
+            onPress={() =>
+              registrarAviso({
+                userId: user?.id,
+                alvo: 'brasil2027',
+                alvoLabel: 'Brasil 2027',
+                t,
+                irParaLogin: () => router.push('/(tabs)/profile'),
+              })
+            }
+          >
+            <Text style={styles.heroBtnTxt}>{t('home.brasil2027Cta')}</Text>
+          </TouchableOpacity>
+        </View>
+  );
+  const { anuncios: anunciosApp, aoExibir: aoExibirBanner } = useAnunciosApp('trip', { custom: { brasil2027: heroCopa } });
+
   const buscar = () => {
     if (!busca.trim()) return;
     abrirTurismo({ title: busca.trim(), search: busca.trim() });
@@ -174,35 +210,12 @@ export default function TripScreen() {
           />
         </View>
 
-        {/* Brasil 2027 */}
-        <View style={styles.hero}>
-          <Text style={styles.heroTag}>JUN–JUL 2027</Text>
-          <Text style={styles.heroTitulo}>{t('trip.brasilTitulo')}</Text>
-          <Text style={styles.heroSub}>{t('trip.brasilSub')}</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingTop: 8 }}>
-            {CIDADES_SEDE.map((cidade) => (
-              <TouchableOpacity key={cidade} style={styles.cidadeChip} onPress={() => abrirTurismo({ title: cidade, search: cidade })}>
-                <Text style={styles.cidadeChipTxt}>{cidade}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-          <TouchableOpacity
-            style={styles.heroBtn}
-            activeOpacity={0.85}
-            onPress={() =>
-              registrarAviso({
-                userId: user?.id,
-                alvo: 'brasil2027',
-                alvoLabel: 'Brasil 2027',
-                t,
-                irParaLogin: () => router.push('/(tabs)/profile'),
-              })
-            }
-          >
-            <Text style={styles.heroBtnTxt}>{t('home.brasil2027Cta')}</Text>
-          </TouchableOpacity>
-        </View>
-
+        {/* Brasil 2027 + banners (museu, Embratur, Câmara…) em carrossel. O cartão da Copa
+            mantém as cidades-sede; os outros vêm da tabela banners_app (painel /admin). */}
+        <CarrosselAnuncios
+          onExibir={aoExibirBanner}
+          anuncios={anunciosApp ? anunciosApp : [{ id: 'brasil2027', tag: '', titulo: '', cta: '', icone: 'globe', cor: '#E1306C', onPress: () => {}, custom: heroCopa }]}
+        />
         {/* Planeje sua viagem */}
         <Text style={styles.secao}>{t('trip.planeje')}</Text>
         <View style={styles.grade}>
@@ -221,7 +234,8 @@ export default function TripScreen() {
               accessibilityRole="button"
               accessibilityLabel={t(s.chave)}
             >
-              <Feather name={s.icone as any} size={22} color={C.pink} />
+              <FundoCaixaDegrade id={`trip-${s.chave}`} cores={s.degrade} />
+              <Feather name={s.icone as any} size={22} color="#FFFFFF" />
               <Text style={styles.tileTxt}>{t(s.chave)}</Text>
             </TouchableOpacity>
           ))}
@@ -311,8 +325,9 @@ export default function TripScreen() {
               onPress={() => router.push({ pathname: '/dicas-brasil' as any, params: { secao: d.secao } })}
               accessibilityRole="button"
             >
-              <Feather name={d.icone as any} size={20} color={C.pink} />
-              <Text style={styles.dicaTxt}>{TITULO_DICA[d.secao][idioma]}</Text>
+              <FundoCaixaDegrade id={`dica-${d.secao}`} cores={d.degrade} />
+              <Feather name={d.icone as any} size={20} color={d.texto} />
+              <Text style={[styles.dicaTxt, { color: d.texto }]}>{TITULO_DICA[d.secao][idioma]}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -355,8 +370,8 @@ const styles = StyleSheet.create({
   // Título de seção no mesmo padrão de todas as telas (17/800).
   secao: { fontSize: 15, fontWeight: '800', color: C.text, marginTop: 28, marginBottom: 12, paddingHorizontal: 16 },
   grade: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16 },
-  tile: { width: '31.5%', height: 92, borderRadius: 14, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, alignItems: 'center', justifyContent: 'center', gap: 8 },
-  tileTxt: { fontSize: 12, fontWeight: '600', color: C.text },
+  tile: { width: '31.5%', height: 92, borderRadius: 14, backgroundColor: C.card, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  tileTxt: { fontSize: 12, fontWeight: '700', color: '#FFFFFF' },
   aviso: { fontSize: 12, color: C.dim, paddingHorizontal: 16, marginTop: 10 },
   ufChip: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: C.border, backgroundColor: C.card },
   ufChipAtivo: { backgroundColor: C.purple, borderColor: C.purple },
@@ -376,6 +391,6 @@ const styles = StyleSheet.create({
   pacoteMeta: { fontSize: 12, color: C.dim, marginTop: 2 },
   pacotePreco: { fontSize: 12, fontWeight: '700', color: C.pink, marginTop: 2 },
   gradeDicas: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16 },
-  dica: { width: '48.5%', minHeight: 84, borderRadius: 14, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, padding: 14, gap: 8 },
-  dicaTxt: { fontSize: 12, fontWeight: '700', color: C.text },
+  dica: { width: '48.5%', minHeight: 84, borderRadius: 14, backgroundColor: C.card, overflow: 'hidden', padding: 14, gap: 8 },
+  dicaTxt: { fontSize: 13, fontWeight: '800', color: C.text },
 });

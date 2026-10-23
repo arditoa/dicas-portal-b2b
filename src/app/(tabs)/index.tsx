@@ -1,4 +1,4 @@
-import { Feather } from '@expo/vector-icons';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -33,6 +33,7 @@ import { CONFIG_RODIZIO_PADRAO, ConfigRodizio, lerConfigRodizio } from '../../li
 import { abertoAgora } from '../../lib/horario';
 import { useAuth } from '../../lib/authContext';
 import { registrarAviso } from '../../lib/avisos';
+import { useAnunciosApp } from '../../lib/banners';
 import { IDIOMAS, useI18n } from '../../lib/i18n';
 import { CATEGORIA_ORDER, CATEGORIA_REAL_LABEL, CATEGORIAS, CategoriaConfig } from '../../lib/categorias';
 import {
@@ -44,6 +45,7 @@ import {
   estaFixadoEm,
   estaFixadoParaHoje,
   EXPERIENCIAS_REAIS,
+  ehServico,
 } from '../../lib/destaque';
 import { supabase } from '../../lib/supabase';
 import { useRastrearTela } from '../../lib/usoTelas';
@@ -120,7 +122,7 @@ const BANNERS_PRINCIPAIS = [
 ];
 
 // Quadrados do topo (Membros Fundadores e patrocinados).
-const TOPO_TILE = 108;
+const TOPO_TILE = 84;
 const TOPO_GAP = 10;
 
 const AVATAR = 54;
@@ -312,6 +314,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { user, session } = useAuth();
   const { t, idioma, proximoIdioma } = useI18n();
+  const { anuncios: anunciosApp, aoExibir: aoExibirBanner } = useAnunciosApp('home');
   const idiomaAtual = IDIOMAS.find((i) => i.code === idioma) || IDIOMAS[0];
   const local = useCidadeAtual();
 
@@ -320,6 +323,7 @@ export default function HomeScreen() {
 
   const [emAltaPool, setEmAltaPool] = useState<LocalCard[]>([]);
   const [aprovadosHome, setAprovadosHome] = useState<LocalCard[]>([]);
+  const [servicosPool, setServicosPool] = useState<LocalCard[]>([]);
   const [cfgRodizio, setCfgRodizio] = useState<ConfigRodizio>(CONFIG_RODIZIO_PADRAO);
   // Rodada 47 — criado como "Selo Dicas LGBT+", seção própria com
   // curadoria editorial da Andrea. Rodada 56 (3ª rodada de ajuste) —
@@ -444,6 +448,11 @@ export default function HomeScreen() {
   const emAlta = useMemo(
     () => rodizioHorario(emAltaPool, 'em_alta', slotRodizio, cfgRodizio.tamanho),
     [emAltaPool, slotRodizio, cfgRodizio.tamanho]
+  );
+  // Serviços em destaque: mesmo rodízio por horário, só entre serviços/beleza/lojas.
+  const servicosHora = useMemo(
+    () => rodizioHorario(servicosPool, 'em_alta', slotRodizio, 6),
+    [servicosPool, slotRodizio]
   );
   const [slide, setSlide] = useState(0);
   const carrosselRef = useRef<ScrollView>(null);
@@ -607,8 +616,11 @@ export default function HomeScreen() {
       // em "Destaques da semana"); quem paga/está fixado tem prioridade e as
       // vagas que sobrarem são completadas com os demais (ver rodizioHorario).
       const todosAprovados = ((emAltaRes.data as any) || []) as LocalCard[];
-      const poolSemDestaque = todosAprovados.filter((i) => !idsDestaque.has(i.id));
-      setEmAltaPool(poolSemDestaque.length > 0 ? poolSemDestaque : todosAprovados);
+      // Serviços (fotógrafo, beleza, lojas) ficam fora do Em Alta: têm bloco próprio.
+      const soLugares = todosAprovados.filter((i) => !ehServico(i));
+      const poolSemDestaque = soLugares.filter((i) => !idsDestaque.has(i.id));
+      setEmAltaPool(poolSemDestaque.length > 0 ? poolSemDestaque : soLugares);
+      setServicosPool(todosAprovados.filter((i) => ehServico(i)));
       setAprovadosHome(todosAprovados);
       lerConfigRodizio().then(setCfgRodizio);
       setDestaqueSemana(listaDestaqueSemana.slice(0, 8));
@@ -617,7 +629,7 @@ export default function HomeScreen() {
       const idsHoje = new Set(listaLocaisHoje.map((i) => i.id));
       setAbertosAgora(
         (((emAltaRes.data as any) || []) as LocalCard[])
-          .filter((i) => !idsHoje.has(i.id) && abertoAgora(i))
+          .filter((i) => !idsHoje.has(i.id) && !ehServico(i) && abertoAgora(i))
           .slice(0, 8)
       );
 
@@ -851,6 +863,9 @@ export default function HomeScreen() {
             plano Fundador (presença fixa na Home). */}
         {destaquesTopo.length > 0 && (
           <View style={{ marginBottom: 16 }}>
+            <Text style={styles.topoTitulo}>
+              {destaquesTopo.every((d) => d.tipo === 'fundador') ? t('banner.fundadorTitulo') : t('home.topoParceiros')}
+            </Text>
             <ScrollView
               ref={carrosselRef}
               horizontal
@@ -860,7 +875,7 @@ export default function HomeScreen() {
             >
               {destaquesTopo.map((d) => {
                 const Container: any = d.foto ? ImageBackground : View;
-                const props = d.foto ? { source: { uri: d.foto }, imageStyle: { borderRadius: 16 }, resizeMode: 'cover' as const } : {};
+                const props = d.foto ? { source: { uri: d.foto }, imageStyle: { borderRadius: 14 }, resizeMode: 'cover' as const } : {};
                 return (
                   <TouchableOpacity
                     key={`${d.tipo}-${d.id}`}
@@ -869,17 +884,25 @@ export default function HomeScreen() {
                     accessibilityRole="button"
                     accessibilityLabel={d.nome}
                   >
-                    <Container style={styles.topoTile} {...props}>
-                      {d.foto && <View style={styles.topoTileVeu} />}
-                      {d.tipo !== 'outro' ? (
-                        <View style={[styles.slideTag, styles.topoTag, { backgroundColor: d.tipo === 'fundador' ? COLORS.gold : COLORS.purple }]}>
-                          <Text style={[styles.topoTagTexto, d.tipo === 'patrocinado' && { color: '#FFFFFF' }]} numberOfLines={1}>
-                            {d.tipo === 'fundador' ? t('banner.fundadorTag') : t('home.patrocinado')}
-                          </Text>
-                        </View>
-                      ) : <View />}
-                      <Text style={styles.topoNome} numberOfLines={2}>{d.nome}</Text>
-                    </Container>
+                    <View style={{ width: TOPO_TILE }}>
+                      <View style={styles.topoAnel}>
+                        <FundoCaixaDegrade
+                          id={`anel-${d.tipo}-${d.id}`}
+                          cores={d.tipo === 'patrocinado' ? ['#9B6BFF', '#3B82F6'] : ['#F2A900', '#E1306C']}
+                        />
+                        <Container style={styles.topoTile} {...props}>
+                          {d.tipo !== 'outro' && (
+                            <View
+                              style={[styles.topoSelo, { backgroundColor: d.tipo === 'fundador' ? '#F2A900' : '#7E57C2' }]}
+                              accessibilityLabel={d.tipo === 'fundador' ? t('banner.fundadorTag') : t('home.patrocinado')}
+                            >
+                              <Ionicons name={d.tipo === 'fundador' ? 'star' : 'flash'} size={11} color={d.tipo === 'fundador' ? '#1A1020' : '#FFF'} />
+                            </View>
+                          )}
+                        </Container>
+                      </View>
+                      <Text style={[styles.topoNome, d.tipo === 'fundador' && { color: '#FFC98B' }, d.tipo === 'patrocinado' && { color: '#C4B5FD' }]} numberOfLines={2}>{d.nome}</Text>
+                    </View>
                   </TouchableOpacity>
                 );
               })}
@@ -919,7 +942,8 @@ export default function HomeScreen() {
         {/* ANÚNCIOS — carrossel que passa sozinho (Copa 2027, Embratur, Câmara LGBT).
             Para trocar os anúncios (ex.: durante a Copa), mude só esta lista. */}
         <CarrosselAnuncios
-          anuncios={[
+          onExibir={aoExibirBanner}
+          anuncios={anunciosApp ?? [
             {
               id: 'brasil2027',
               tag: t('home.brasil2027Tag'),
@@ -963,56 +987,32 @@ export default function HomeScreen() {
             com a contagem; as listas completas ficam nas páginas. */}
         <View style={styles.gradeSecoes}>
           {[
-            { tipo: 'em-alta', titulo: t('home.emAlta'), icone: 'trending-up', cor: COLORS.gold, degrade: ['#E8A317', '#B45309'] as [string, string], qtd: emAlta.length },
-            { tipo: 'hoje', titulo: t('home.hojeTitulo'), icone: 'zap', cor: COLORS.pink, degrade: ['#C026A3', '#6D3FD1'] as [string, string], qtd: agendaHoje.length + locaisHoje.length + abertosAgora.length },
-            { tipo: 'semana', titulo: t('home.destaqueSemana'), icone: 'star', cor: COLORS.amber, degrade: ['#FF8A3D', '#E1306C'] as [string, string], qtd: destaqueSemana.length },
-            { tipo: 'experiencia', titulo: t('home.experiencia'), icone: 'heart', cor: COLORS.purple, degrade: ['#0EA5E9', '#7E57C2'] as [string, string], qtd: EXPERIENCIAS_HOME.length },
-          ].map((b) => {
-            const grad = b.degrade;
-            return (
-              <TouchableOpacity
-                key={b.tipo}
-                style={styles.secaoBoxTouch}
-                activeOpacity={0.85}
-                onPress={() => router.push(`/secao/${b.tipo}` as any)}
-                accessibilityRole="button"
-                accessibilityLabel={b.titulo}
-              >
-                <View style={[styles.secaoBox, styles.secaoBoxFill, !!grad && { borderColor: 'transparent' }]}>
-                  {!!grad && <FundoCaixaDegrade id={`cx-${b.tipo}`} cores={grad} />}
-                  <View style={[styles.secaoBoxIcone, grad ? { borderColor: 'rgba(255,255,255,0.85)', backgroundColor: 'rgba(255,255,255,0.18)' } : { borderColor: b.cor }]}>
-                    <Feather name={b.icone as any} size={18} color={grad ? '#FFFFFF' : b.cor} />
-                  </View>
-                  <Text style={styles.secaoBoxTitulo} numberOfLines={2}>{b.titulo}</Text>
-                  <View style={styles.secaoBoxRodape}>
-                    <Text style={[styles.secaoBoxQtd, !!grad && { color: 'rgba(255,255,255,0.92)' }]}>
-                      {loading ? '…' : b.qtd === 1 ? t('home.boxQtd1') : b.qtd > 1 ? t('home.boxQtd', { n: String(b.qtd) }) : t('home.boxVer')}
-                    </Text>
-                    <Feather name="chevron-right" size={14} color={grad ? '#FFFFFF' : COLORS.textSecondary} />
-                  </View>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* RECOMENDADOS PELA EQUIPE — cartão único, largura total, com degradê. */}
-        <View style={styles.secaoBloco}>
-          <View style={styles.selosRow}>
-            {BANNERS_PRINCIPAIS.filter((b) => b.id === 'b2').map((b) => (
-              <TouchableOpacity key={b.id} style={styles.recomendadosCard} activeOpacity={0.85} onPress={() => router.push(b.route as any)} accessibilityRole="button" accessibilityLabel={t(b.titulo)}>
-                <FundoCaixaDegrade id="cx-recomendados" cores={['#10B981', '#0E7490']} />
-                <View style={styles.recomendadosIcone}>
-                  <Feather name={b.icone as any} size={22} color="#FFFFFF" />
-                </View>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={styles.recomendadosTitulo} numberOfLines={1}>{t(b.titulo)}</Text>
-                  <Text style={styles.recomendadosSub} numberOfLines={2}>{t(b.sub)}</Text>
-                  <Text style={styles.recomendadosCta}>{t(b.cta)} →</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
+            { tipo: 'em-alta', titulo: t('home.tile.emAlta'), icone: 'trending-up', degrade: ['#CC7A0A', '#9A4A0A'] as [string, string], qtd: emAlta.length, rota: '/secao/em-alta' },
+            { tipo: 'hoje', titulo: t('home.tile.hoje'), icone: 'zap', degrade: ['#C026A3', '#6D3FD1'] as [string, string], qtd: agendaHoje.length + locaisHoje.length + abertosAgora.length, rota: '/secao/hoje' },
+            { tipo: 'semana', titulo: t('home.tile.semana'), icone: 'star', degrade: ['#F2692A', '#C42660'] as [string, string], qtd: destaqueSemana.length, rota: '/secao/semana' },
+            { tipo: 'experiencia', titulo: t('home.tile.experiencia'), icone: 'heart', degrade: ['#0A8FD0', '#7048B8'] as [string, string], qtd: EXPERIENCIAS_HOME.length, rota: '/secao/experiencia' },
+            ...(servicosPool.length > 0
+              ? [{ tipo: 'servicos', titulo: t('home.tile.servicos'), icone: 'briefcase', degrade: ['#0F9F90', '#5558E3'] as [string, string], qtd: servicosPool.length, rota: '/secao/servicos' }]
+              : []),
+            ...BANNERS_PRINCIPAIS.filter((bn) => bn.id === 'b2').map((bn) => ({
+              tipo: 'recomendados', titulo: t('home.tile.recomendados'), icone: bn.icone, degrade: ['#0DA372', '#0E7490'] as [string, string], qtd: 0, rota: bn.route as string,
+            })),
+          ].map((b) => (
+            <TouchableOpacity
+              key={b.tipo}
+              style={styles.secaoBoxTouch}
+              activeOpacity={0.85}
+              onPress={() => router.push(b.rota as any)}
+              accessibilityRole="button"
+              accessibilityLabel={b.titulo}
+            >
+              <View style={styles.secaoBox}>
+                <FundoCaixaDegrade id={`cx-${b.tipo}`} cores={b.degrade} />
+                <Feather name={b.icone as any} size={22} color="#FFFFFF" />
+                <Text style={styles.secaoBoxTitulo} numberOfLines={2}>{b.titulo}</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
         </View>
 
         {/* MEMBROS FUNDADORES — logos passando devagar, no pé da Home (reforço do topo).
@@ -1100,11 +1100,11 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
   localChipTexto: { fontSize: 12, fontWeight: '700', color: COLORS.textPrimary, flexShrink: 1 },
-  topoTile: { width: TOPO_TILE, height: TOPO_TILE, borderRadius: 16, padding: 8, justifyContent: 'space-between', backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border, overflow: 'hidden' },
-  topoTileVeu: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(11,11,14,0.38)' },
-  topoTag: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5 },
-  topoTagTexto: { fontSize: 8, fontWeight: '800', color: '#000', letterSpacing: 0.3 },
-  topoNome: { fontSize: 12, fontWeight: '800', color: '#FFFFFF' },
+  topoTitulo: { fontSize: 15, fontWeight: '800', color: COLORS.textPrimary, marginHorizontal: 16, marginBottom: 8 },
+  topoAnel: { width: TOPO_TILE, height: TOPO_TILE, borderRadius: 16, padding: 2, overflow: 'hidden', backgroundColor: COLORS.card },
+  topoTile: { flex: 1, borderRadius: 14, padding: 5, backgroundColor: COLORS.card, overflow: 'hidden' },
+  topoSelo: { width: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  topoNome: { fontSize: 11, fontWeight: '800', color: '#FFFFFF', marginTop: 5, minHeight: 28, textAlign: 'center' },
   slide: { height: 92, borderRadius: 16, padding: 12, justifyContent: 'space-between', backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border, overflow: 'hidden' },
   slideTag: { alignSelf: 'flex-start', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   slideTagTexto: { fontSize: 10, fontWeight: '800', color: '#000', letterSpacing: 0.4 },
@@ -1149,23 +1149,10 @@ const styles = StyleSheet.create({
   rodapeLink: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11 },
   rodapeTexto: { flex: 1, fontSize: 13, fontWeight: '600', color: COLORS.textPrimary },
   rodapeAssinatura: { fontSize: 11, color: COLORS.textMuted, textAlign: 'center', marginTop: 12 },
-  gradeSecoes: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: 16, marginBottom: 18 },
-  secaoBoxTouch: { width: '48.5%' },
-  secaoBoxFill: { width: '100%', overflow: 'hidden' },
-  secaoBox: {
-    height: 122,
-    borderRadius: 14,
-    padding: 12,
-    gap: 6,
-    justifyContent: 'space-between',
-    backgroundColor: COLORS.card,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  secaoBoxIcone: { width: 32, height: 32, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  secaoBoxTitulo: { fontSize: 13, fontWeight: '800', color: COLORS.textPrimary },
-  secaoBoxRodape: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  secaoBoxQtd: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary },
+  gradeSecoes: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, marginBottom: 18 },
+  secaoBoxTouch: { width: '31.5%' },
+  secaoBox: { height: 92, borderRadius: 14, overflow: 'hidden', backgroundColor: COLORS.card, alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 6 },
+  secaoBoxTitulo: { fontSize: 12, fontWeight: '700', color: '#FFFFFF', textAlign: 'center', textShadowColor: 'rgba(0,0,0,0.28)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 },
   recomendadosCard: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 16, overflow: 'hidden', backgroundColor: COLORS.card },
   recomendadosIcone: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.85)', backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
   recomendadosTitulo: { fontSize: 14, fontWeight: '800', color: '#FFFFFF' },

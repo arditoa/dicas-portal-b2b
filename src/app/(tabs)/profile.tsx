@@ -18,6 +18,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../lib/authContext';
 import ContaAtividade from '../../components/ContaAtividade';
+import FundoCaixaDegrade from '../../components/FundoCaixaDegrade';
 import { IDIOMAS, useI18n } from '../../lib/i18n';
 
 // Site institucional (landing-dicaslgbt) — política e termos ficam lá e
@@ -370,9 +371,12 @@ export default function ProfileScreen() {
                   qualquer card da Home usa o coração (handleToggleFavorito),
                   então o stat de "Locais Salvos" aqui devia usar o MESMO
                   ícone do resto do app — um só símbolo pro mesmo conceito. */}
-              <Feather name="heart" size={20} color={COLORS.pink} />
-              <Text style={styles.statNum}>{isLogado ? totalSalvos : 0}</Text>
-              <Text style={styles.statLabel}>Locais Salvos</Text>
+              <FundoCaixaDegrade id="stat-salvos" cores={['#E1306C', '#9B3CFF']} />
+              <Feather name="heart" size={20} color="#FFFFFF" />
+              <View>
+                <Text style={styles.statNum}>{isLogado ? totalSalvos : 0}</Text>
+                <Text style={styles.statLabel}>Locais salvos</Text>
+              </View>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -380,9 +384,12 @@ export default function ProfileScreen() {
               onPress={() => handleCliqueExigente('/coupons')}
               activeOpacity={0.8}
             >
-              <Feather name="tag" size={20} color={COLORS.gold} />
-              <Text style={styles.statNum}>{isLogado ? totalCupons : 0}</Text>
-              <Text style={styles.statLabel}>Meus Cupons</Text>
+              <FundoCaixaDegrade id="stat-cupons" cores={['#F2A900', '#C2410C']} />
+              <Feather name="tag" size={20} color="#FFFFFF" />
+              <View>
+                <Text style={styles.statNum}>{isLogado ? totalCupons : 0}</Text>
+                <Text style={styles.statLabel}>Meus cupons</Text>
+              </View>
             </TouchableOpacity>
           </View>
 
@@ -680,18 +687,20 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 20, fontWeight: '800', color: COLORS.textPrimary, paddingHorizontal: 16, marginBottom: 12 },
   scrollContent: { paddingHorizontal: 16, paddingBottom: 40 },
 
-  statsRow: { flexDirection: 'row', gap: 12, marginTop: 8, marginBottom: 16 },
+  statsRow: { flexDirection: 'row', gap: 8, marginTop: 8, marginBottom: 14 },
   statBox: {
     flex: 1,
-    backgroundColor: COLORS.card,
-    borderRadius: 16,
-    padding: 14,
+    flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    justifyContent: 'center',
+    gap: 12,
+    height: 64,
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: COLORS.card,
   },
-  statNum: { fontSize: 16, fontWeight: '800', color: COLORS.textPrimary, marginTop: 4 },
-  statLabel: { fontSize: 11, color: COLORS.textSecondary, marginTop: 2 },
+  statNum: { fontSize: 18, fontWeight: '800', color: '#FFFFFF' },
+  statLabel: { fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.92)' },
 
   authBox: {
     backgroundColor: COLORS.card,

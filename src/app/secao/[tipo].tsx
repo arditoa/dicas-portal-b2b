@@ -8,6 +8,7 @@
 // voltar + logo, título, busca, chips Em Alta / Todas e cartões iguais.
 // Mesmas regras de seleção/ordem da Home (lib/destaque.ts).
 import { Feather } from '@expo/vector-icons';
+import FundoCaixaDegrade from '../../components/FundoCaixaDegrade';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -15,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import ListaPadrao, { CabecalhoPadrao, CAMPOS_LOCAL, ItemLista, localParaItem } from '../../components/ListaPadrao';
 import { SELO_FESTA } from '../../lib/categorias';
-import { compararDestaque, deveExibirGlow, deveIncluirEm, emAltaDaHora, estaFixadoEm, estaFixadoParaHoje, EXPERIENCIAS_REAIS } from '../../lib/destaque';
+import { compararDestaque, CATEGORIAS_SERVICO, ehServico, deveExibirGlow, deveIncluirEm, emAltaDaHora, estaFixadoEm, estaFixadoParaHoje, EXPERIENCIAS_REAIS } from '../../lib/destaque';
 import { useSlotHora } from '../../hooks/useSlotHora';
 import { CONFIG_RODIZIO_PADRAO, lerConfigRodizio } from '../../lib/rodizioConfig';
 import { abertoAgora, fechaAs } from '../../lib/horario';
@@ -35,19 +36,20 @@ const C = {
   green: '#4CAF7D',
 };
 
-type Tipo = 'trip' | 'em-alta' | 'hoje' | 'semana' | 'experiencia';
+type Tipo = 'servicos' | 'trip' | 'em-alta' | 'hoje' | 'semana' | 'experiencia';
 
 // Experiências mostradas, nesta ordem (pedido da Andrea, out/2026).
-const EXPERIENCIAS: { slug: string; icone: string; cor: string }[] = [
-  { slug: 'aniversario', icone: 'gift', cor: '#FFD54F' },
-  { slug: 'dates', icone: 'heart', cor: '#E1306C' },
-  { slug: 'dancar', icone: 'music', cor: '#FFB74D' },
-  { slug: 'musica_ao_vivo', icone: 'mic', cor: '#4FC3F7' },
-  { slug: 'drag_show', icone: 'star', cor: '#B39DDB' },
-  { slug: 'karaoke', icone: 'radio', cor: '#4CAF7D' },
+const EXPERIENCIAS: { slug: string; icone: string; cor: string; degrade: [string, string] }[] = [
+  { slug: 'aniversario', icone: 'gift', cor: '#FFD54F', degrade: ['#F2A900', '#C2410C'] },
+  { slug: 'dates', icone: 'heart', cor: '#E1306C', degrade: ['#F0436F', '#8E24AA'] },
+  { slug: 'dancar', icone: 'music', cor: '#FFB74D', degrade: ['#FF8A3D', '#E1306C'] },
+  { slug: 'musica_ao_vivo', icone: 'mic', cor: '#4FC3F7', degrade: ['#0EA5E9', '#4338CA'] },
+  { slug: 'drag_show', icone: 'star', cor: '#B39DDB', degrade: ['#9B6BFF', '#C026A3'] },
+  { slug: 'karaoke', icone: 'radio', cor: '#4CAF7D', degrade: ['#10B981', '#0E7490'] },
 ];
 
 const CONFIG: Record<Tipo, { titulo: string; sub: string; icone: string }> = {
+  servicos: { titulo: 'home.servicosDestaque', sub: 'secao.subServicos', icone: 'briefcase' },
   trip: { titulo: 'home.boxTrip', sub: 'secao.subTrip', icone: 'compass' },
   'em-alta': { titulo: 'home.emAlta', sub: 'secao.subEmAlta', icone: 'trending-up' },
   hoje: { titulo: 'home.hojeTitulo', sub: 'secao.subHoje', icone: 'zap' },
@@ -61,7 +63,7 @@ export default function SecaoScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useI18n();
   const { tipo: tipoParam } = useLocalSearchParams<{ tipo: string }>();
-  const tipo: Tipo = (['trip', 'em-alta', 'hoje', 'semana', 'experiencia'] as Tipo[]).includes(tipoParam as Tipo) ? (tipoParam as Tipo) : 'em-alta';
+  const tipo: Tipo = (['servicos', 'trip', 'em-alta', 'hoje', 'semana', 'experiencia'] as Tipo[]).includes(tipoParam as Tipo) ? (tipoParam as Tipo) : 'em-alta';
   const cfg = CONFIG[tipo];
   const [itens, setItens] = useState<ItemLista[]>([]);
   const [carregando, setCarregando] = useState(true);
@@ -92,9 +94,14 @@ export default function SecaoScreen() {
               iconeVazio: 'compass',
             })
           );
+        } else if (tipo === 'servicos') {
+          const { data } = await supabase.from('locais').select(CAMPOS_LOCAL).eq('status', 'aprovado').in('categoria', CATEGORIAS_SERVICO).limit(1000);
+          const l = ((data as any[]) || []).slice().sort(compararDestaque('em_alta'));
+          lista = l.map((i) => localParaItem(i, { destaque: deveExibirGlow(i) }));
         } else if (tipo === 'em-alta' || tipo === 'semana') {
           const { data } = await supabase.from('locais').select(CAMPOS_LOCAL).eq('status', 'aprovado').limit(1000);
-          const todos = (data as any[]) || [];
+          // Serviços (fotógrafo, beleza, lojas) têm página própria; o Em Alta fica só com lugares.
+          const todos = ((data as any[]) || []).filter((i) => tipo === 'semana' || !ehServico(i));
           const destaque = todos.filter((i) => deveExibirGlow(i)).sort(compararDestaque('destaque'));
           if (tipo === 'semana') {
             lista = destaque.map((i) => localParaItem(i, { destaque: true }));
@@ -190,9 +197,8 @@ export default function SecaoScreen() {
                 }
                 accessibilityRole="button"
               >
-                <View style={[styles.expIcone, { borderColor: e.cor }]}>
-                  <Feather name={e.icone as any} size={22} color={e.cor} />
-                </View>
+                <FundoCaixaDegrade id={`exp-${e.slug}`} cores={e.degrade} />
+                <Feather name={e.icone as any} size={22} color="#FFFFFF" />
                 <Text style={styles.expTxt}>{label}</Text>
               </TouchableOpacity>
             );
@@ -231,8 +237,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
   maisBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 14 },
   maisTxt: { fontSize: 13, fontWeight: '800', color: C.pink },
-  expGrade: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, padding: 16 },
-  expTile: { width: '48.5%', minHeight: 110, borderRadius: 14, padding: 14, gap: 10, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, justifyContent: 'space-between' },
-  expIcone: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  expTxt: { fontSize: 14, fontWeight: '800', color: C.text },
+  expGrade: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, padding: 16 },
+  expTile: { width: '31.5%', height: 92, borderRadius: 14, backgroundColor: C.card, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 6 },
+  expTxt: { fontSize: 12, fontWeight: '700', color: '#FFFFFF', textAlign: 'center' },
 });

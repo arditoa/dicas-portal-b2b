@@ -45,6 +45,7 @@ export interface ItemLista {
   nota?: number | null; // undefined = não mostra rating (eventos)
   destaque?: boolean; // selo DESTAQUE
   emAlta?: boolean; // entra no chip "Em Alta"
+  grupo?: string; // categoria (chip de filtro): Bares, Gastronomia, Serviços…
   selo?: { texto: string; cor: string; textoCor: string };
   seloCategoria?: SeloCategoria;
   iconeVazio?: string;
@@ -53,6 +54,20 @@ export interface ItemLista {
 export function fotoDoLocal(l: any): string | null {
   return l.foto_capa_url || l.galeria_fotos?.[0] || null;
 }
+
+// Nome do grupo (chip) de cada categoria real do banco.
+export const GRUPO_CATEGORIA: Record<string, string> = {
+  lugares: 'Bares & Noite',
+  gastronomia: 'Gastronomia',
+  cultura: 'Cultura',
+  eventos: 'Festas',
+  turismo: 'Turismo',
+  servicos: 'Serviços',
+  beleza: 'Beleza',
+  lojas: 'Lojas',
+  produtos: 'Produtos',
+  lazer: 'Lazer',
+};
 
 // Converte uma linha de `locais` no item da lista padrão.
 export function localParaItem(l: any, extra: Partial<ItemLista> = {}): ItemLista {
@@ -66,6 +81,7 @@ export function localParaItem(l: any, extra: Partial<ItemLista> = {}): ItemLista
     logo: l.logo_url || null,
     nota: l.rating_total > 0 ? Number(l.rating_media) : null,
     emAlta: deveIncluirEm(l, 'em_alta'),
+    grupo: GRUPO_CATEGORIA[l.categoria] || undefined,
     seloCategoria: seloDaCategoria(l),
     iconeVazio: 'map-pin',
     ...extra,
@@ -118,12 +134,23 @@ export default function ListaPadrao({ titulo, subtitulo, itens, carregando, vazi
   // O chip só aparece quando a lista mistura os dois grupos; se tudo é Em Alta
   // (ou nada é), o filtro não serve pra nada.
   const temChips = qtdEmAlta > 0 && qtdEmAlta < itens.length;
-  const ativo = !temChips ? 'Todas' : chip ?? chipInicial;
+  // Chips por categoria: aparecem quando a lista mistura 2+ categorias, pra
+  // ninguém confundir um fotógrafo com um bar.
+  const grupos = useMemo(() => {
+    const cont = new Map<string, number>();
+    for (const i of itens) if (i.grupo) cont.set(i.grupo, (cont.get(i.grupo) || 0) + 1);
+    return Array.from(cont.entries()).sort((a, b) => b[1] - a[1]);
+  }, [itens]);
+  const temGrupos = grupos.length > 1;
+  const opcoes = [...(temChips ? ['Em Alta'] : []), 'Todas', ...(temGrupos ? grupos.map(([g]) => g) : [])];
+  const mostrarChips = temChips || temGrupos;
+  const ativo = !mostrarChips ? 'Todas' : chip && opcoes.includes(chip) ? chip : temChips ? chipInicial : 'Todas';
 
   const visiveis = useMemo(() => {
     const q = busca.trim().toLowerCase();
     return itens.filter((i) => {
       if (ativo === 'Em Alta' && !i.emAlta) return false;
+      if (ativo !== 'Todas' && ativo !== 'Em Alta' && i.grupo !== ativo) return false;
       if (!q) return true;
       return [i.titulo, i.linha1, i.linha2].some((t) => (t || '').toLowerCase().includes(q));
     });
@@ -145,11 +172,11 @@ export default function ListaPadrao({ titulo, subtitulo, itens, carregando, vazi
           />
         </View>
 
-        {temChips && (
+        {mostrarChips && (
           <View style={styles.filterSection}>
             <FlatList
               horizontal
-              data={['Em Alta', 'Todas']}
+              data={opcoes}
               keyExtractor={(i) => i}
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.chipsContainer}
@@ -164,7 +191,7 @@ export default function ListaPadrao({ titulo, subtitulo, itens, carregando, vazi
                     accessibilityRole="button"
                   >
                     {emAlta && <Feather name="trending-up" size={12} color={sel ? '#FFF' : COLORS.gold} style={{ marginRight: 4 }} />}
-                    <Text style={[styles.chipText, sel && styles.chipTextActive, emAlta && !sel && { color: COLORS.gold }]}>{item}</Text>
+                    <Text style={[styles.chipText, sel && styles.chipTextActive, emAlta && !sel && { color: COLORS.gold }]}>{item}{grupos.find(([g]) => g === item) ? ` · ${grupos.find(([g]) => g === item)![1]}` : ''}</Text>
                   </TouchableOpacity>
                 );
               }}
