@@ -50,6 +50,8 @@ export default function DashboardPage() {
   const router = useRouter();
   const [carregando, setCarregando] = useState(true);
   const [local, setLocal] = useState<Local | null>(null);
+  // Liberação para subir pacotes (locais.pode_subir_pacotes, migration 052). null = coluna ainda não existe.
+  const [podePacotes, setPodePacotes] = useState<boolean | null>(null);
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [semLocalVinculado, setSemLocalVinculado] = useState(false);
   const [ehAdmin, setEhAdmin] = useState(false);
@@ -113,6 +115,10 @@ export default function DashboardPage() {
       }
 
       setLocal(localData as Local);
+      {
+        const { data: pp, error: ePP } = await supabase.from('locais').select('pode_subir_pacotes').eq('id', localData.id).maybeSingle();
+        if (!ePP && pp) setPodePacotes(!!(pp as { pode_subir_pacotes: boolean }).pode_subir_pacotes);
+      }
 
       // Analytics real (Rodada 17) — RPC criada em
       // 006_analytics_cliques_visualizacoes.sql. `security definer` na
@@ -253,7 +259,7 @@ export default function DashboardPage() {
               Catálogo de produtos
             </Link>
           )}
-          {local.categoria === 'turismo' && (
+          {(podePacotes ?? local.categoria === 'turismo') && (
             <Link
               href="/dashboard/pacotes"
               className="bg-[#232230] hover:bg-[#2D2B3D] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"

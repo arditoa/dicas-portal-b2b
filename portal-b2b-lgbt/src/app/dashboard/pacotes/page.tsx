@@ -78,7 +78,13 @@ export default function PacotesPage() {
         .eq('owner_id', userData.user.id)
         .maybeSingle();
 
-      if (!local || local.categoria !== 'turismo') {
+      // Só entra quem foi liberado (locais.pode_subir_pacotes, migration 052).
+      // Sem a migration, vale a regra antiga: categoria turismo.
+      const { data: lib, error: eLib } = local
+        ? await supabase.from('locais').select('pode_subir_pacotes').eq('id', local.id).maybeSingle()
+        : { data: null, error: null };
+      const liberado = eLib || !lib ? local?.categoria === 'turismo' : !!(lib as { pode_subir_pacotes: boolean }).pode_subir_pacotes;
+      if (!local || !liberado) {
         router.push('/dashboard');
         return;
       }

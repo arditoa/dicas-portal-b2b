@@ -13,6 +13,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import FundoCaixaDegrade from '../components/FundoCaixaDegrade';
 import { ehRoteiroCompleto, listarRoteiros, opcoesDoGrupo, Roteiro, tagsVisiveis, todasTags } from '../lib/roteiros';
 import { rotuloTag, TEMAS_ATALHO } from '../lib/taxonomia';
 
@@ -39,6 +40,19 @@ const FILTROS: { id: FiltroId; label: string; icone: string }[] = [
 
 const CORES_TAG = ['#E1306C', '#4CAF7D', '#B39DDB', '#FFB74D', '#4FC3F7'];
 
+// Degradê de cada experiência (mesmo estilo das caixas da Home e da Trip).
+const DEGRADE_TEMA: Record<string, [string, string]> = {
+  cultura: ['#E1306C', '#9B3CFF'],
+  gastronomia: ['#F2A900', '#C2410C'],
+  vida_noturna: ['#9B6BFF', '#4338CA'],
+  natureza: ['#10B981', '#0E7490'],
+  praias: ['#0EA5E9', '#3B5BDB'],
+  compras: ['#FF8A3D', '#C42660'],
+  historia_lgbt: ['#F0436F', '#8E24AA'],
+  arte: ['#F48FB1', '#7C3AED'],
+};
+const DEGRADE_PADRAO: [string, string] = ['#7E57C2', '#3B82F6'];
+
 function semAcento(t: string) {
   return t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 }
@@ -48,7 +62,8 @@ function Foto({ r, style, icone = 'map', semIcone = false }: { r: Roteiro; style
     <Image source={{ uri: r.foto_url }} style={style} resizeMode="cover" />
   ) : (
     <View style={[style, styles.semFoto]}>
-      {!semIcone && <Feather name={icone as any} size={26} color={C.pink} />}
+      <FundoCaixaDegrade id={`rot-${r.id}`} cores={['#4A1D7A', '#B02A6B']} />
+      {!semIcone && <Feather name={icone as any} size={26} color="#FFFFFF" />}
     </View>
   );
 }
@@ -133,7 +148,7 @@ export default function RoteirosScreen() {
                 {destaques.map((r) => (
                   <TouchableOpacity key={r.id} style={styles.hero} activeOpacity={0.9} onPress={() => abrir(r)}>
                     <Foto r={r} style={StyleSheet.absoluteFill} semIcone />
-                    <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.45)' }]} />
+                    {!!r.foto_url && <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.45)' }]} />}
                     <View style={styles.heroConteudo}>
                       <View style={[styles.selo, { backgroundColor: C.gold }]}>
                         <Text style={[styles.seloTxt, { color: '#000' }]}>DESTAQUE</Text>
@@ -204,10 +219,13 @@ export default function RoteirosScreen() {
                 return (
                   <TouchableOpacity
                     key={t.slug}
-                    style={[styles.tema, ativo && { borderColor: t.cor, backgroundColor: t.cor + '22' }]}
+                    style={[styles.tema, ativo && styles.temaAtivo]}
                     onPress={() => setFiltros((f) => ({ ...f, tema: ativo ? undefined : t.slug }))}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: ativo }}
                   >
-                    <Feather name={t.icone as any} size={22} color={t.cor} />
+                    <FundoCaixaDegrade id={`tema-${t.slug}`} cores={DEGRADE_TEMA[t.slug] || DEGRADE_PADRAO} />
+                    <Feather name={t.icone as any} size={22} color="#FFFFFF" />
                     <Text style={styles.temaTxt}>{t.label}</Text>
                   </TouchableOpacity>
                 );
@@ -338,8 +356,9 @@ const styles = StyleSheet.create({
   filtroAtivo: { backgroundColor: C.pink, borderColor: C.pink },
   filtroTxt: { color: C.text, fontSize: 12, fontWeight: '700' },
   secao: { color: C.text, fontSize: 17, fontWeight: '800', paddingHorizontal: 16, marginTop: 20, marginBottom: 10 },
-  tema: { width: 92, height: 76, borderRadius: 14, borderWidth: 1, borderColor: C.border, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center', gap: 6 },
-  temaTxt: { color: C.text, fontSize: 11, fontWeight: '700', textAlign: 'center' },
+  tema: { width: 92, height: 76, borderRadius: 14, borderWidth: 2, borderColor: 'transparent', backgroundColor: C.card, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  temaAtivo: { borderColor: '#FFFFFF' },
+  temaTxt: { color: '#FFFFFF', fontSize: 11, fontWeight: '800', textAlign: 'center', textShadowColor: 'rgba(0,0,0,0.25)', textShadowRadius: 2, textShadowOffset: { width: 0, height: 1 } },
   grade: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: 16 },
   card: { width: '48.5%', borderRadius: 14, overflow: 'hidden', backgroundColor: C.card, borderWidth: 1, borderColor: C.border },
   cardFoto: { width: '100%', height: 100 },
