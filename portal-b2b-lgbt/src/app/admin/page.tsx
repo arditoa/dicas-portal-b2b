@@ -1,5 +1,5 @@
 'use client';
-import { Check, ChevronDown, ChevronUp, Loader2, LogOut, MessageCircle, Search, ShieldAlert, Star, X } from 'lucide-react';
+import { Bell, CalendarDays, Check, ChevronDown, ChevronUp, ClipboardCheck, Compass, LayoutDashboard, Loader2, LogOut, Menu, MessageCircle, Route as RouteIcon, Search, ShieldAlert, Sparkles, Star, Store, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
@@ -11,6 +11,8 @@ import PainelDestinos from '../../components/PainelDestinos';
 import PainelRoteiros from '../../components/PainelRoteiros';
 import PainelPush from '../../components/PainelPush';
 import PainelRodizio from '../../components/PainelRodizio';
+import PainelDestaqueHora from '../../components/PainelDestaqueHora';
+import PainelVisaoGeral from '../../components/PainelVisaoGeral';
 import PainelOcorrencias from '../../components/PainelOcorrencias';
 
 const URL_PORTAL = 'https://dicas-portal-b2b-dun.vercel.app'; // ajuste aqui quando o domínio definitivo (ex.: portal.vezpabar.com) estiver configurado
@@ -465,6 +467,57 @@ type LeadInstitucional = {
   created_at: string;
 };
 
+// Rodada 89 — menu lateral do /admin, agrupado por tarefa do dia.
+type ItemMenu = { id: 'visao' | 'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos' | 'roteiros' | 'push' | 'rodizio' | 'denuncias'; rotulo: string; icone: typeof Store; badge?: number; alerta?: boolean };
+function MENU_ADMIN(pendentes: number, locais: number, eventos: number, fundadores: number): { grupo: string; itens: ItemMenu[] }[] {
+  return [
+    { grupo: 'Início', itens: [{ id: 'visao', rotulo: 'Visão geral', icone: LayoutDashboard }] },
+    { grupo: 'Operação', itens: [{ id: 'aprovacoes', rotulo: 'Aprovações', icone: ClipboardCheck, badge: pendentes, alerta: true }] },
+    {
+      grupo: 'Catálogo',
+      itens: [
+        { id: 'locais', rotulo: 'Locais', icone: Store, badge: locais },
+        { id: 'eventos', rotulo: 'Eventos', icone: CalendarDays, badge: eventos },
+        { id: 'destinos', rotulo: 'Destinos (Trip)', icone: Compass },
+        { id: 'roteiros', rotulo: 'Roteiros', icone: RouteIcon },
+      ],
+    },
+    {
+      grupo: 'Vitrine da Home',
+      itens: [
+        { id: 'rodizio', rotulo: 'Rodízio e Destaques', icone: Sparkles },
+        { id: 'fundador', rotulo: 'Membros Fundadores', icone: Star, badge: fundadores },
+      ],
+    },
+    { grupo: 'Comunicação', itens: [{ id: 'push', rotulo: 'Avisos (push)', icone: Bell }] },
+    { grupo: 'Segurança', itens: [{ id: 'denuncias', rotulo: 'Denúncias', icone: ShieldAlert }] },
+  ];
+}
+const TITULO_ABA: Record<ItemMenu['id'], string> = {
+  visao: 'Visão geral',
+  aprovacoes: 'Aprovações',
+  locais: 'Locais',
+  eventos: 'Eventos',
+  fundador: 'Membros Fundadores',
+  destinos: 'Destinos (Dicas Trip)',
+  roteiros: 'Roteiros',
+  push: 'Avisos (push)',
+  rodizio: 'Rodízio e Destaques',
+  denuncias: 'Denúncias',
+};
+const SUBTITULO_ABA: Record<ItemMenu['id'], string> = {
+  visao: 'Como o app e a carteira de parceiros estão indo: cadastros, uso das telas e desempenho dos locais.',
+  aprovacoes: 'Aprovações manuais — cadastros, vínculos de conta e leads institucionais.',
+  locais: 'Busque e filtre locais por categoria, e marque selos/destaques de cada estabelecimento.',
+  eventos: 'Busque e filtre eventos/festas, e marque em quais seções do app cada um aparece.',
+  fundador: 'Arte do banner e logo de cada local que aparece no selo "Membro Fundador" da Home.',
+  destinos: 'Cidades do Dicas Trip: foto de capa, frase, tags, melhor época e roteiro em destaque.',
+  roteiros: 'Roteiros e experiências do Dicas Trip: foto, tags (até 8 principais), paradas e publicação.',
+  push: 'Notificações push: escreva o aviso, teste no seu celular e envie para quem aceitou.',
+  rodizio: 'Rodízio por horário da Home: quantos locais aparecem por vez, de quanto em quanto tempo troca, e a oferta do bloco Destaques.',
+  denuncias: 'Ocorrências registradas no app: relato, provas, histórico e atendimento. Conteúdo sensível — acesso restrito à equipe.',
+};
+
 export default function AdminPage() {
   const router = useRouter();
   const [carregando, setCarregando] = useState(true);
@@ -481,13 +534,19 @@ export default function AdminPage() {
   // Rodada 46: a Andrea ainda achou confuso — "Eventos" sobe de sub-aba
   // pra aba própria, no mesmo nível de "Locais". `subAbaCategorias` saiu
   // de existir; `aba` agora cobre os três níveis direto.
-  const [aba, setAba] = useState<'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos' | 'roteiros' | 'push' | 'rodizio' | 'denuncias'>('aprovacoes');
+  const [aba, setAba] = useState<'visao' | 'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos' | 'roteiros' | 'push' | 'rodizio' | 'denuncias'>('visao');
   const [filtroPrincipal, setFiltroPrincipal] = useState<string>('todas');
   // Rodada 46 — filtro só da aba Eventos: "O que Fazer Hoje" (destaque_secoes
   // contém 'hoje', mesmo mecanismo que locais já tinham) vs todos.
   const [filtroEventos, setFiltroEventos] = useState<'todos' | 'hoje'>('todos');
   const [buscaLocal, setBuscaLocal] = useState('');
   const [buscaEvento, setBuscaEvento] = useState('');
+  // Rodada 89 — listas grandes: mostra 25 por vez ("Mostrar mais") para continuar rápido com 100+ locais.
+  const [limiteLocais, setLimiteLocais] = useState(25);
+  const [limiteEventos, setLimiteEventos] = useState(25);
+  const [menuAberto, setMenuAberto] = useState(false);
+  useEffect(() => { setLimiteLocais(25); }, [buscaLocal, filtroPrincipal]);
+  useEffect(() => { setLimiteEventos(25); }, [buscaEvento, filtroEventos]);
   const [experienciaAberta, setExperienciaAberta] = useState<Record<string, boolean>>({});
   // Rodada 48 — pedido direto da Andrea: "poder expandir os bares pros
   // dados (menos confuso quando tivermos vários)" — antes, o card de
@@ -753,7 +812,7 @@ export default function AdminPage() {
       if (!resp.ok) throw new Error(resultado.error || 'Erro ao aprovar.');
 
       if (resultado.senha) {
-        const mensagem = `Boas notícias! Seu cadastro do "${resultado.nomeLocal}" foi aprovado no Dicas LGBT+ 🏳️‍🌈\n\nJá criamos seu acesso ao Portal de Parceiros (fotos, cupons, lista VIP, plano):\n\nLink: ${URL_PORTAL}/login\nLogin (seu WhatsApp): ${resultado.telefone}\nSenha ${resultado.contaNova ? '' : 'nova '}temporária: ${resultado.senha}\n\nDepois de entrar, você pode trocar a senha em "Minha Página". Qualquer dúvida me chama por aqui!`;
+        const mensagem = `Oi! Tudo bem? Aqui é o Emerson, do Dicas LGBT+ 🏳️‍🌈\n\nAgradecemos por fazer parte! O cadastro de "${resultado.nomeLocal}" foi aprovado. 🎉\n\nJá criamos seu acesso ao Portal de Parceiros (fotos, cupons, lista VIP, plano):\n\nLink: ${URL_PORTAL}/login\nLogin (seu WhatsApp): ${resultado.telefone}\nSenha ${resultado.contaNova ? '' : 'nova '}temporária: ${resultado.senha}\n\nDepois de entrar, troque a senha em "Minha Página".\n\nO app será lançado no dia 03/12, e seu espaço já estará lá para a comunidade encontrar.\n\nConte com a gente: pode me chamar aqui no WhatsApp sempre que precisar, seja dúvida, ajuste de foto ou horário, ideia ou qualquer outra coisa.\n\nUm abraço,\nEmerson\nDicas LGBT+`;
         setContaCriada({
           nomeLocal: resultado.nomeLocal,
           telefone: resultado.telefone,
@@ -801,15 +860,25 @@ export default function AdminPage() {
       if (!resp.ok) throw new Error(resultado.error || 'Erro ao aprovar.');
 
       if (resultado.loginCriado && resultado.senha) {
-        const mensagem = `Boas notícias! Seu evento "${resultado.tituloEvento}" foi aprovado no Dicas LGBT+ 🏳️‍🌈 e já está aparecendo no app.
+        const mensagem = `Oi! Tudo bem? Aqui é o Emerson, do Dicas LGBT+ 🏳️‍🌈
 
-Já criamos seu acesso ao Portal de Parceiros pra você editar data, descrição e fotos da festa quando quiser:
+Agradecemos por fazer parte! O evento "${resultado.tituloEvento}" foi aprovado. 🎉
+
+Já criamos seu acesso ao Portal de Parceiros para você editar data, descrição e fotos da festa quando quiser:
 
 Link: ${URL_PORTAL}/login
 Login (seu WhatsApp): ${resultado.telefone}
 Senha ${resultado.contaNova ? '' : 'nova '}temporária: ${resultado.senha}
 
-Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!`;
+Depois de entrar, troque a senha em "Minha Página".
+
+O app será lançado no dia 03/12, e seu evento já estará lá para a comunidade encontrar.
+
+Conte com a gente: pode me chamar aqui no WhatsApp sempre que precisar.
+
+Um abraço,
+Emerson
+Dicas LGBT+`;
         setEventoContaCriada({
           titulo: resultado.tituloEvento,
           telefone: resultado.telefone,
@@ -826,7 +895,7 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
         const whatsappBruto = ev.contato_whatsapp || extraido?.whatsapp || null;
         if (whatsappBruto) {
           const telefone = normalizarTelefoneBR(whatsappBruto);
-          const mensagem = `Boas notícias${nomeContato ? `, ${nomeContato}` : ''}! Seu evento "${ev.titulo}" foi aprovado no Dicas LGBT+ 🏳️‍🌈 e já está aparecendo no app. Qualquer dúvida me chama por aqui!`;
+          const mensagem = `Boas notícias${nomeContato ? `, ${nomeContato}` : ''}! Seu evento "${ev.titulo}" foi aprovado no Dicas LGBT+ 🏳️‍🌈. O app será lançado no dia 03/12, e seu evento já estará lá. Conte com a gente: pode me chamar aqui no WhatsApp sempre que precisar. Um abraço, Emerson (Dicas LGBT+)`;
           setEventoAprovado({
             titulo: ev.titulo,
             telefone,
@@ -861,13 +930,21 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
       if (!resp.ok) throw new Error(resultado.error || 'Erro ao reenviar acesso.');
 
       if (resultado.senha) {
-        const mensagem = `Oi${ev.contato_nome ? `, ${ev.contato_nome}` : ''}! Aqui está um novo acesso ao Portal de Parceiros pro seu evento "${resultado.tituloEvento}":
+        const mensagem = `Oi${ev.contato_nome ? `, ${ev.contato_nome}` : ''}! Aqui é o Emerson, do Dicas LGBT+ 🏳️‍🌈
+
+Segue seu novo acesso ao Portal de Parceiros para o evento "${resultado.tituloEvento}":
 
 Link: ${URL_PORTAL}/login
 Login (seu WhatsApp): ${resultado.telefone}
 Senha nova temporária: ${resultado.senha}
 
-Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!`;
+Depois de entrar, troque a senha em "Minha Página".
+
+Conte com a gente: pode me chamar aqui no WhatsApp sempre que precisar.
+
+Um abraço,
+Emerson
+Dicas LGBT+`;
         setEventoContaCriada({
           titulo: resultado.tituloEvento,
           telefone: resultado.telefone,
@@ -1375,124 +1452,53 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
   });
 
   return (
-    <div className="p-8 max-w-5xl mx-auto text-white">
-      <div className="flex items-start justify-between gap-4 mb-1">
-        <h1 className="text-2xl font-black">Painel de moderação</h1>
-        <button
-          onClick={handleLogout}
-          className="text-xs text-[#626274] hover:text-white flex items-center gap-1.5 shrink-0 mt-1"
-        >
-          <LogOut size={13} /> Sair
-        </button>
-      </div>
-      <p className="text-[#A0A0B2] text-xs mb-4">
-        {aba === 'aprovacoes'
-          ? 'Aprovações manuais — cadastros, vínculos de conta e leads institucionais.'
-          : aba === 'locais'
-          ? 'Busque e filtre locais por categoria, e marque selos/destaques de cada estabelecimento.'
-          : aba === 'eventos'
-          ? 'Busque e filtre eventos/festas, e marque em quais seções do app cada um aparece.'
-          : aba === 'destinos'
-          ? 'Cidades do Dicas Trip: foto de capa, frase, tags, melhor época e roteiro em destaque.'
-          : aba === 'roteiros'
-          ? 'Roteiros e experiências do Dicas Trip: foto, tags (até 8 principais), paradas e publicação.'
-          : aba === 'push'
-          ? 'Notificações push: escreva o aviso, teste no seu celular e envie para quem aceitou.'
-          : aba === 'rodizio'
-          ? 'Rodízio por horário da Home: quantos locais aparecem por vez e de quanto em quanto tempo troca.'
-          : aba === 'denuncias'
-          ? 'Ocorrências registradas no app: relato, provas, histórico e atendimento. Conteúdo sensível — acesso restrito à equipe.'
-          : 'Arte do banner e logo de cada local que aparece no selo "Membro Fundador" da Home.'}
-      </p>
+    <div className="min-h-screen md:flex text-white">
+      {/* MENU LATERAL — agrupado por tarefa do dia. No celular vira botão "Menu". */}
+      <aside className="md:w-60 md:shrink-0 md:sticky md:top-0 md:h-screen md:overflow-y-auto border-b md:border-b-0 md:border-r border-[#232230] bg-[#0E0D14]">
+        <div className="flex items-center justify-between px-5 py-4 md:block">
+          <div>
+            <p className="text-base font-black leading-tight">Dicas LGBT+</p>
+            <p className="text-[11px] text-[#8888A0]">Painel de gestão</p>
+          </div>
+          <button className="md:hidden flex items-center gap-1.5 text-xs font-bold border border-[#232230] rounded-lg px-3 py-1.5" onClick={() => setMenuAberto((v) => !v)} aria-expanded={menuAberto}>
+            <Menu size={14} /> Menu
+          </button>
+        </div>
+        <nav className={`${menuAberto ? 'block' : 'hidden'} md:block px-3 pb-4`}>
+          {MENU_ADMIN(totalPendente, locaisDestaque.length, eventosDestaque.length, locaisDestaque.filter((l) => l.fundador).length).map((g) => (
+            <div key={g.grupo} className="mb-4">
+              <p className="px-2 mb-1 text-[10px] font-bold uppercase tracking-wider text-[#626274]">{g.grupo}</p>
+              {g.itens.map((it) => {
+                const Icone = it.icone;
+                const ativo = aba === it.id;
+                return (
+                  <button
+                    key={it.id}
+                    onClick={() => { setAba(it.id); setMenuAberto(false); }}
+                    aria-current={ativo ? 'page' : undefined}
+                    className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-semibold transition ${ativo ? 'bg-[#E1306C]/15 text-white' : 'text-[#A0A0B2] hover:bg-[#1D1C29] hover:text-white'}`}
+                  >
+                    <Icone size={16} className={ativo ? 'text-[#E1306C]' : ''} />
+                    <span className="flex-1 text-left truncate">{it.rotulo}</span>
+                    {it.badge != null && it.badge > 0 && (
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${it.alerta ? 'bg-[#E1306C] text-white' : 'bg-[#232230] text-[#A0A0B2]'}`}>{it.badge}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+          <button onClick={handleLogout} className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-[#626274] hover:text-white hover:bg-[#1D1C29]">
+            <LogOut size={16} /> Sair
+          </button>
+        </nav>
+      </aside>
 
-      {/* Rodada 44 — pedido direto da Andrea: separar o fluxo de
-          aprovação de uma tela dedicada a buscar/filtrar estabelecimentos
-          e atribuir selos/destaques, em vez de tudo empilhado numa página
-          só. Rodada 46 — "Eventos" ganha aba própria (era sub-aba dentro
-          de "Gestão de Categorias e Destaques" desde a 45; a Andrea
-          continuou achando confuso tudo dentro da mesma aba). */}
-      <div className="flex gap-1 mb-8 border-b border-[#232230]">
-        <button
-          onClick={() => setAba('aprovacoes')}
-          className={`text-sm font-bold px-4 py-2.5 border-b-2 -mb-px transition ${
-            aba === 'aprovacoes' ? 'border-[#E1306C] text-white' : 'border-transparent text-[#626274] hover:text-[#A0A0B2]'
-          }`}
-        >
-          Aprovações{totalPendente > 0 ? ` (${totalPendente})` : ''}
-        </button>
-        <button
-          onClick={() => setAba('locais')}
-          className={`text-sm font-bold px-4 py-2.5 border-b-2 -mb-px transition ${
-            aba === 'locais' ? 'border-[#E1306C] text-white' : 'border-transparent text-[#626274] hover:text-[#A0A0B2]'
-          }`}
-        >
-          Locais ({locaisDestaque.length})
-        </button>
-        <button
-          onClick={() => setAba('eventos')}
-          className={`text-sm font-bold px-4 py-2.5 border-b-2 -mb-px transition ${
-            aba === 'eventos' ? 'border-[#E1306C] text-white' : 'border-transparent text-[#626274] hover:text-[#A0A0B2]'
-          }`}
-        >
-          Eventos ({eventosDestaque.length})
-        </button>
-        {/* Rodada 57 (2ª rodada) — aba própria pedida pela Andrea: "não
-            achei aonde subo a foto menor do membro fundador [...] podemos
-            fazer uma aba do membro fundador". Antes o upload de logo
-            ficava escondido dentro de "Locais" > cada local > "Conteúdo do
-            local", e a arte do banner ficava num bloco recolhido acima das
-            abas — os dois mudaram pra cá, junto com o toggle que já
-            existia (alternarFundador). */}
-        <button
-          onClick={() => setAba('fundador')}
-          className={`text-sm font-bold px-4 py-2.5 border-b-2 -mb-px transition ${
-            aba === 'fundador' ? 'border-[#E1306C] text-white' : 'border-transparent text-[#626274] hover:text-[#A0A0B2]'
-          }`}
-        >
-          Membro Fundador ({locaisDestaque.filter((l) => l.fundador).length})
-        </button>
-        {/* Rodada 65 — cidades do Dicas Trip (tabela destinos, migration 036/038) */}
-        <button
-          onClick={() => setAba('destinos')}
-          className={`text-sm font-bold px-4 py-2.5 border-b-2 -mb-px transition ${
-            aba === 'destinos' ? 'border-[#E1306C] text-white' : 'border-transparent text-[#626274] hover:text-[#A0A0B2]'
-          }`}
-        >
-          Destinos
-        </button>
-        <button
-          onClick={() => setAba('roteiros')}
-          className={`text-sm font-bold px-4 py-2.5 border-b-2 -mb-px transition ${
-            aba === 'roteiros' ? 'border-[#E1306C] text-white' : 'border-transparent text-[#626274] hover:text-[#A0A0B2]'
-          }`}
-        >
-          Roteiros
-        </button>
-        <button
-          onClick={() => setAba('push')}
-          className={`text-sm font-bold px-4 py-2.5 border-b-2 -mb-px transition ${
-            aba === 'push' ? 'border-[#E1306C] text-white' : 'border-transparent text-[#626274] hover:text-[#A0A0B2]'
-          }`}
-        >
-          Avisos
-        </button>
-        <button
-          onClick={() => setAba('rodizio')}
-          className={`text-sm font-bold px-4 py-2.5 border-b-2 -mb-px transition ${
-            aba === 'rodizio' ? 'border-[#E1306C] text-white' : 'border-transparent text-[#626274] hover:text-[#A0A0B2]'
-          }`}
-        >
-          Rodízio
-        </button>
-        <button
-          onClick={() => setAba('denuncias')}
-          className={`text-sm font-bold px-4 py-2.5 border-b-2 -mb-px transition ${
-            aba === 'denuncias' ? 'border-[#E1306C] text-white' : 'border-transparent text-[#626274] hover:text-[#A0A0B2]'
-          }`}
-        >
-          Denúncias
-        </button>
-      </div>
+      <main className="flex-1 min-w-0 p-5 md:p-8 max-w-6xl">
+      <h1 className="text-2xl font-black mb-1">{TITULO_ABA[aba]}</h1>
+      <p className="text-[#A0A0B2] text-xs mb-6">{SUBTITULO_ABA[aba]}</p>
+
+      {aba === 'visao' && <PainelVisaoGeral pendencias={totalPendente} onIrPara={(a) => setAba(a as typeof aba)} />}
 
       {contaCriada && (
         <div className="bg-[#4CAF7D]/10 border border-[#4CAF7D]/30 text-[#4CAF7D] p-4 rounded-xl text-xs mb-6">
@@ -1891,7 +1897,7 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
                 : 'bg-[#161520] border-[#232230] text-[#A0A0B2] hover:bg-[#1D1C29]'
             }`}
           >
-            Todas
+            Todas ({locaisDestaque.length})
           </button>
           {CATEGORIA_CHIPS.map((c) => (
             <button
@@ -1906,7 +1912,7 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
                   : 'bg-transparent border-[#232230]/50 text-[#626274]'
               }`}
             >
-              {c.label}
+              {c.label} ({locaisDestaque.filter((l) => localCombinaComFiltroPrincipal(l, c.slug)).length})
             </button>
           ))}
           <button
@@ -1954,7 +1960,7 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
         )}
         <div className="space-y-2">
           {locaisFiltrados.length === 0 && <p className="text-xs text-[#626274]">Nenhum estabelecimento encontrado com esse filtro/busca.</p>}
-          {locaisFiltrados.map((l) => {
+          {locaisFiltrados.slice(0, limiteLocais).map((l) => {
             const rascunhoConteudoItem = lerRascunhoConteudo(l);
             const selecaoExperiencia = selecaoAtualExperiencia(l);
             const aberto = experienciaAberta[l.id] ?? selecaoExperiencia.length > 0;
@@ -2199,6 +2205,11 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
             );
           })}
         </div>
+        {locaisFiltrados.length > limiteLocais && (
+          <button type="button" onClick={() => setLimiteLocais((l) => l + 25)} className="mt-3 text-xs font-bold text-[#E1306C]">
+            Mostrar mais ({locaisFiltrados.length - limiteLocais} restantes)
+          </button>
+        )}
       </section>
       </>
       )}
@@ -2262,7 +2273,7 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
           {eventosFiltrados.length === 0 && (
             <p className="text-xs text-[#626274]">Nenhum evento aprovado encontrado com esse filtro/busca.</p>
           )}
-          {eventosFiltrados.map((ev) => {
+          {eventosFiltrados.slice(0, limiteEventos).map((ev) => {
             // Rodada 48 — só o prazo ("até quando") ainda usa rascunho;
             // as seções (checkboxes) abaixo agora aplicam na hora, ver
             // alternarSecaoInstantaneaEvento.
@@ -2394,6 +2405,11 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
             );
           })}
         </div>
+        {eventosFiltrados.length > limiteEventos && (
+          <button type="button" onClick={() => setLimiteEventos((l) => l + 25)} className="mt-3 text-xs font-bold text-[#E1306C]">
+            Mostrar mais ({eventosFiltrados.length - limiteEventos} restantes)
+          </button>
+        )}
       </section>
       </>
       )}
@@ -2412,7 +2428,12 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
       {aba === 'destinos' && <PainelDestinos />}
       {aba === 'roteiros' && <PainelRoteiros />}
       {aba === 'push' && <PainelPush />}
-      {aba === 'rodizio' && <PainelRodizio />}
+      {aba === 'rodizio' && (
+        <>
+          <PainelRodizio />
+          <PainelDestaqueHora />
+        </>
+      )}
       {aba === 'denuncias' && <PainelOcorrencias />}
 
       {aba === 'fundador' && (
@@ -2547,6 +2568,7 @@ Depois de entrar, você pode trocar a senha. Qualquer dúvida me chama por aqui!
       </section>
       </>
       )}
+      </main>
     </div>
   );
 }
