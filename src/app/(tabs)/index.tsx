@@ -7,7 +7,6 @@ import {
   Animated,
   Easing,
   Image,
-  ImageBackground,
   Linking,
   ScrollView,
   StyleSheet,
@@ -874,8 +873,6 @@ export default function HomeScreen() {
               onMomentumScrollEnd={(e) => setSlide(Math.round(e.nativeEvent.contentOffset.x / (TOPO_TILE + TOPO_GAP)))}
             >
               {destaquesTopo.map((d) => {
-                const Container: any = d.foto ? ImageBackground : View;
-                const props = d.foto ? { source: { uri: d.foto }, imageStyle: { borderRadius: 14 }, resizeMode: 'cover' as const } : {};
                 return (
                   <TouchableOpacity
                     key={`${d.tipo}-${d.id}`}
@@ -890,7 +887,13 @@ export default function HomeScreen() {
                           id={`anel-${d.tipo}-${d.id}`}
                           cores={d.tipo === 'patrocinado' ? ['#9B6BFF', '#3B82F6'] : ['#F2A900', '#E1306C']}
                         />
-                        <Container style={styles.topoTile} {...props}>
+                        <View style={styles.topoTile}>
+                          {/* fundo em degradê: aparece atrás de logos com transparência (ex.: Churras do Fiofó) */}
+                          <FundoCaixaDegrade
+                            id={`fundo-${d.tipo}-${d.id}`}
+                            cores={d.tipo === 'patrocinado' ? ['#2B2A5A', '#4B3A8F'] : ['#4A1D5C', '#8A2D5E']}
+                          />
+                          {!!d.foto && <Image source={{ uri: d.foto }} style={styles.topoImg} resizeMode="cover" />}
                           {d.tipo !== 'outro' && (
                             <View
                               style={[styles.topoSelo, { backgroundColor: d.tipo === 'fundador' ? '#F2A900' : '#7E57C2' }]}
@@ -899,7 +902,7 @@ export default function HomeScreen() {
                               <Ionicons name={d.tipo === 'fundador' ? 'star' : 'flash'} size={11} color={d.tipo === 'fundador' ? '#1A1020' : '#FFF'} />
                             </View>
                           )}
-                        </Container>
+                        </View>
                       </View>
                       <Text style={[styles.topoNome, d.tipo === 'fundador' && { color: '#FFC98B' }, d.tipo === 'patrocinado' && { color: '#C4B5FD' }]} numberOfLines={2}>{d.nome}</Text>
                     </View>
@@ -1101,8 +1104,9 @@ const styles = StyleSheet.create({
   },
   localChipTexto: { fontSize: 12, fontWeight: '700', color: COLORS.textPrimary, flexShrink: 1 },
   topoTitulo: { fontSize: 15, fontWeight: '800', color: COLORS.textPrimary, marginHorizontal: 16, marginBottom: 8 },
-  topoAnel: { width: TOPO_TILE, height: TOPO_TILE, borderRadius: 16, padding: 2, overflow: 'hidden', backgroundColor: COLORS.card },
+  topoAnel: { width: TOPO_TILE, height: TOPO_TILE, borderRadius: 16, padding: 3, overflow: 'hidden', backgroundColor: COLORS.card },
   topoTile: { flex: 1, borderRadius: 14, padding: 5, backgroundColor: COLORS.card, overflow: 'hidden' },
+  topoImg: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%' },
   topoSelo: { width: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   topoNome: { fontSize: 11, fontWeight: '800', color: '#FFFFFF', marginTop: 5, minHeight: 28, textAlign: 'center' },
   slide: { height: 92, borderRadius: 16, padding: 12, justifyContent: 'space-between', backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border, overflow: 'hidden' },
