@@ -6,6 +6,7 @@ export const CATEGORIES_LIST = [
   { slug: 'cultura', label: 'Cultura & Lazer', icon: 'film' },
   { slug: 'turismo', label: 'Dicas Trip (Turismo)', icon: 'map-pin' },
   { slug: 'beleza', label: 'Beleza & Bem-Estar', icon: 'scissors' },
+  { slug: 'educacao', label: 'Educação', icon: 'book-open' },
   { slug: '18plus', label: 'Espaços 18+', icon: 'eye-off' },
 ];
 
@@ -17,6 +18,7 @@ export const SUBCATEGORIES_MAP: Record<string, string[]> = {
   cultura: ['Teatros', 'Centros Culturais', 'Cinemas', 'Exposições', 'Museus'],
   turismo: ['Hotéis', 'Pousadas', 'Roteiros Guiados', 'Pontos Turísticos'],
   beleza: ['Barbearias', 'Salões Inclusivos', 'Spas & Estética', 'Tatuagem & Piercing'],
+  educacao: ['Cursos de Idiomas', 'Escolas e Faculdades', 'Cursos Profissionalizantes', 'Mentorias e Coaching', 'Preparatórios'],
   '18plus': ['Saunas', 'Darkrooms', 'Festas Privadas', 'Casas de Swing'],
 };
 

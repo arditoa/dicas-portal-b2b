@@ -33,9 +33,10 @@ export default function ApoiadorScreen() {
 
   const topo = (
     <View style={styles.topo}>
-      <TouchableOpacity onPress={() => router.back()} style={styles.voltar} accessibilityRole="button" accessibilityLabel="Voltar">
-        <Feather name="chevron-left" size={26} color="#F5F5F7" />
+      <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Voltar">
+        <Feather name="arrow-left" size={18} color="#F5F5F7" />
       </TouchableOpacity>
+      <Image source={require('../../assets/images/logolinear-semfundo.png')} style={styles.headerLogo} resizeMode="contain" accessibilityLabel="Dicas LGBT+" />
     </View>
   );
 
@@ -128,8 +129,9 @@ export default function ApoiadorScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0B0B0E' },
-  topo: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingTop: 8 },
-  voltar: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  topo: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
+  backBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: '#161520', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#232230' },
+  headerLogo: { width: 140, height: 34 },
   vazio: { color: '#C9C8D6', padding: 24, fontSize: 14 },
   hero: { borderRadius: 18, padding: 20, overflow: 'hidden', gap: 8, minHeight: 190 },
   selo: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', backgroundColor: '#FFD36A', borderRadius: 999, paddingVertical: 4, paddingHorizontal: 10 },

@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import FundoCaixaDegrade from '../components/FundoCaixaDegrade';
 import { ehRoteiroCompleto, listarRoteiros, opcoesDoGrupo, Roteiro, tagsVisiveis, todasTags } from '../lib/roteiros';
-import { rotuloTag, TEMAS_ATALHO } from '../lib/taxonomia';
+import { rotuloTag } from '../lib/taxonomia';
 
 const C = {
   bg: '#0B0B0E',
@@ -39,19 +39,6 @@ const FILTROS: { id: FiltroId; label: string; icone: string }[] = [
 ];
 
 const CORES_TAG = ['#E1306C', '#4CAF7D', '#B39DDB', '#FFB74D', '#4FC3F7'];
-
-// Degradê de cada experiência (mesmo estilo das caixas da Home e da Trip).
-const DEGRADE_TEMA: Record<string, [string, string]> = {
-  cultura: ['#E1306C', '#9B3CFF'],
-  gastronomia: ['#F2A900', '#C2410C'],
-  vida_noturna: ['#9B6BFF', '#4338CA'],
-  natureza: ['#10B981', '#0E7490'],
-  praias: ['#0EA5E9', '#3B5BDB'],
-  compras: ['#FF8A3D', '#C42660'],
-  historia_lgbt: ['#F0436F', '#8E24AA'],
-  arte: ['#F48FB1', '#7C3AED'],
-};
-const DEGRADE_PADRAO: [string, string] = ['#7E57C2', '#3B82F6'];
 
 function semAcento(t: string) {
   return t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -128,52 +115,22 @@ export default function RoteirosScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
-        <View style={styles.topo}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.voltar} accessibilityLabel="Voltar">
-            <Feather name="chevron-left" size={24} color={C.text} />
-          </TouchableOpacity>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.titulo}>Experiências e roteiros</Text>
-            <Text style={styles.sub}>Descubra roteiros e experiências para viver cada destino do seu jeito.</Text>
+<View style={styles.headerBlock}>
+          <View style={styles.topRow}>
+            <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Voltar">
+              <Feather name="arrow-left" size={18} color={C.text} />
+            </TouchableOpacity>
+            <Image source={require('../assets/images/logolinear-semfundo.png')} style={styles.headerLogo} resizeMode="contain" accessibilityLabel="Dicas LGBT+" />
           </View>
+          <Text style={styles.titulo}>Experiências e roteiros</Text>
+          <Text style={styles.sub}>Descubra roteiros e experiências para viver cada destino do seu jeito.</Text>
         </View>
 
         {carregando ? (
           <ActivityIndicator color={C.pink} style={{ marginTop: 40 }} />
         ) : (
           <>
-            {/* 1. Destaques */}
-            {destaques.length > 0 && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingHorizontal: 16 }} snapToInterval={312} decelerationRate="fast">
-                {destaques.map((r) => (
-                  <TouchableOpacity key={r.id} style={styles.hero} activeOpacity={0.9} onPress={() => abrir(r)}>
-                    <Foto r={r} style={StyleSheet.absoluteFill} semIcone />
-                    {!!r.foto_url && <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.45)' }]} />}
-                    <View style={styles.heroConteudo}>
-                      <View style={[styles.selo, { backgroundColor: C.gold }]}>
-                        <Text style={[styles.seloTxt, { color: '#000' }]}>DESTAQUE</Text>
-                      </View>
-                      <View style={{ flex: 1 }} />
-                      <Text style={styles.heroTitulo} numberOfLines={2}>{r.titulo}</Text>
-                      {!!r.subtitulo && <Text style={styles.heroSub} numberOfLines={2}>{r.subtitulo}</Text>}
-                      <View style={styles.heroStats}>
-                        {!!r.duracao_texto && (
-                          <View style={styles.stat}><Feather name="calendar" size={13} color={C.pink} /><Text style={styles.statTxt}>{r.duracao_texto}</Text></View>
-                        )}
-                        {!!r.paradas_qtd && (
-                          <View style={styles.stat}><Feather name="map-pin" size={13} color={C.lilas} /><Text style={styles.statTxt}>{r.paradas_qtd} paradas</Text></View>
-                        )}
-                        {!!r.tags.deslocamento?.length && (
-                          <View style={styles.stat}><Feather name="navigation" size={13} color="#4FC3F7" /><Text style={styles.statTxt} numberOfLines={1}>{r.tags.deslocamento.slice(0, 2).map(rotuloTag).join(' + ')}</Text></View>
-                        )}
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            )}
-
-            {/* 2. Pesquisa */}
+            {/* 1. Pesquisa */}
             <View style={styles.busca}>
               <Feather name="search" size={18} color={C.dim} />
               <TextInput
@@ -191,7 +148,7 @@ export default function RoteirosScreen() {
               )}
             </View>
 
-            {/* 3. Filtros */}
+            {/* 2. Filtros */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 16 }}>
               {FILTROS.map((f) => {
                 const ativo = !!filtros[f.id];
@@ -211,26 +168,36 @@ export default function RoteirosScreen() {
               )}
             </ScrollView>
 
-            {/* 4. Categorias */}
-            <Text style={styles.secao}>Escolha sua experiência</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 16 }}>
-              {TEMAS_ATALHO.map((t) => {
-                const ativo = filtros.tema === t.slug;
-                return (
-                  <TouchableOpacity
-                    key={t.slug}
-                    style={[styles.tema, ativo && styles.temaAtivo]}
-                    onPress={() => setFiltros((f) => ({ ...f, tema: ativo ? undefined : t.slug }))}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: ativo }}
-                  >
-                    <FundoCaixaDegrade id={`tema-${t.slug}`} cores={DEGRADE_TEMA[t.slug] || DEGRADE_PADRAO} />
-                    <Feather name={t.icone as any} size={22} color="#FFFFFF" />
-                    <Text style={styles.temaTxt}>{t.label}</Text>
+            {/* 3. Destaques */}
+            {destaques.length > 0 && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 16 }} contentContainerStyle={{ gap: 12, paddingHorizontal: 16 }} snapToInterval={262} decelerationRate="fast">
+                {destaques.map((r) => (
+                  <TouchableOpacity key={r.id} style={styles.hero} activeOpacity={0.9} onPress={() => abrir(r)}>
+                    <Foto r={r} style={StyleSheet.absoluteFill} semIcone />
+                    {!!r.foto_url && <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.45)' }]} />}
+                    <View style={styles.heroConteudo}>
+                      <View style={[styles.selo, { backgroundColor: C.gold }]}>
+                        <Text style={[styles.seloTxt, { color: '#000' }]}>DESTAQUE</Text>
+                      </View>
+                      <View style={{ flex: 1 }} />
+                      <Text style={styles.heroTitulo} numberOfLines={1}>{r.titulo}</Text>
+                      {!!r.subtitulo && <Text style={styles.heroSub} numberOfLines={1}>{r.subtitulo}</Text>}
+                      <View style={styles.heroStats}>
+                        {!!r.duracao_texto && (
+                          <View style={styles.stat}><Feather name="calendar" size={12} color="#FFF" /><Text style={styles.statTxt}>{r.duracao_texto}</Text></View>
+                        )}
+                        {!!r.paradas_qtd && (
+                          <View style={styles.stat}><Feather name="map-pin" size={12} color="#FFF" /><Text style={styles.statTxt}>{r.paradas_qtd} paradas</Text></View>
+                        )}
+                        {!!r.tags.deslocamento?.length && (
+                          <View style={styles.stat}><Feather name="navigation" size={12} color="#FFF" /><Text style={styles.statTxt} numberOfLines={1}>{r.tags.deslocamento.slice(0, 2).map(rotuloTag).join(' + ')}</Text></View>
+                        )}
+                      </View>
+                    </View>
                   </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
+                ))}
+              </ScrollView>
+            )}
 
             {/* 5. Roteiros em destaque */}
             {completos.length > 0 && (
@@ -336,18 +303,20 @@ export default function RoteirosScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
-  topo: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, paddingHorizontal: 8, paddingTop: 8, paddingBottom: 12 },
-  voltar: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  titulo: { color: C.text, fontSize: 20, fontWeight: '900' },
+  headerBlock: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 10 },
+  topRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
+  backBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: '#161520', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#232230' },
+  headerLogo: { width: 140, height: 34 },
+  titulo: { color: C.text, fontSize: 18, fontWeight: '800' },
   sub: { color: C.dim, fontSize: 12, marginTop: 2, lineHeight: 17 },
   semFoto: { backgroundColor: '#21173A', alignItems: 'center', justifyContent: 'center' },
-  hero: { width: 300, height: 200, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: C.border },
-  heroConteudo: { flex: 1, padding: 14 },
-  heroTitulo: { color: '#FFF', fontSize: 20, fontWeight: '900' },
-  heroSub: { color: '#E6E3EF', fontSize: 12, marginTop: 2, lineHeight: 16 },
-  heroStats: { flexDirection: 'row', gap: 12, marginTop: 10 },
+  hero: { width: 250, height: 132, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: C.border },
+  heroConteudo: { flex: 1, padding: 12 },
+  heroTitulo: { color: '#FFF', fontSize: 16, fontWeight: '800' },
+  heroSub: { color: '#E6E3EF', fontSize: 11, marginTop: 2, lineHeight: 14 },
+  heroStats: { flexDirection: 'row', gap: 10, marginTop: 6 },
   stat: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 },
-  statTxt: { color: '#FFF', fontSize: 12, fontWeight: '700', flexShrink: 1 },
+  statTxt: { color: '#FFF', fontSize: 11, fontWeight: '700', flexShrink: 1 },
   selo: { alignSelf: 'flex-start', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   seloTxt: { fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
   busca: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 16, marginTop: 16, marginBottom: 10, height: 46, borderRadius: 14, borderWidth: 1, borderColor: C.border, backgroundColor: C.card, paddingHorizontal: 14 },
@@ -356,9 +325,6 @@ const styles = StyleSheet.create({
   filtroAtivo: { backgroundColor: C.pink, borderColor: C.pink },
   filtroTxt: { color: C.text, fontSize: 12, fontWeight: '700' },
   secao: { color: C.text, fontSize: 17, fontWeight: '800', paddingHorizontal: 16, marginTop: 20, marginBottom: 10 },
-  tema: { width: 92, height: 76, borderRadius: 14, borderWidth: 2, borderColor: 'transparent', backgroundColor: C.card, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', gap: 6 },
-  temaAtivo: { borderColor: '#FFFFFF' },
-  temaTxt: { color: '#FFFFFF', fontSize: 11, fontWeight: '800', textAlign: 'center', textShadowColor: 'rgba(0,0,0,0.25)', textShadowRadius: 2, textShadowOffset: { width: 0, height: 1 } },
   grade: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: 16 },
   card: { width: '48.5%', borderRadius: 14, overflow: 'hidden', backgroundColor: C.card, borderWidth: 1, borderColor: C.border },
   cardFoto: { width: '100%', height: 100 },

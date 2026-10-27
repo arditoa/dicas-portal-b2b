@@ -25,6 +25,7 @@ import { formatarNome } from '../../lib/texto';
 import { useLocation } from '../../hooks/useLocation';
 import { supabase } from '../../lib/supabase';
 import { useRastrearTela } from '../../lib/usoTelas';
+import FiltrosPilulas, { FiltroDef } from '../../components/FiltrosPilulas';
 
 // Rodada 41 — mapeia o categoria_tipo real (enum do banco) pra o mesmo
 // slug de seção usado em destaque_secao_fixada (ver /admin), pra fixação
@@ -90,6 +91,8 @@ interface LocalItem {
   lng: number | null;
   logo_url?: string | null;
   galeria_fotos?: string[] | null;
+  atributos?: { comodidades?: string[] } | null;
+  tipo_hospedagem?: string | null;
 }
 
 export default function CategoryListScreen() {
@@ -144,7 +147,7 @@ export default function CategoryListScreen() {
       let query = supabase
         .from('locais')
         .select(
-          'id, nome, categoria, subcategoria, bairro, bairro_exibicao, cidade, foto_capa_url, safe_space, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status, experiencias, rating_media, rating_total, lat, lng, logo_url, galeria_fotos'
+          'id, nome, categoria, subcategoria, bairro, bairro_exibicao, cidade, foto_capa_url, safe_space, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status, experiencias, rating_media, rating_total, lat, lng, logo_url, galeria_fotos, atributos, tipo_hospedagem'
         )
         .eq('status', 'aprovado')
         .limit(1000);
@@ -216,6 +219,33 @@ export default function CategoryListScreen() {
   const abrirEmAlta = experienciaSlug ? qtdEmAlta >= 3 : temEmAlta;
   const subcatAtiva = selectedSubcat ?? (abrirEmAlta && !search && !tipo ? 'Em Alta' : 'Todas');
 
+  // Atalhos da Trip (Hospedagem, Passeios, Agências...): filtros em pílulas, no mesmo padrão
+  // dos Roteiros. As opções saem só dos locais DESSE atalho (antes saíam de tudo e apareciam
+  // pílulas sem resultado, como "Agência on-line" em Hospedagem).
+  const modoTrip = palavrasTipo.length > 0;
+  const [filtrosTrip, setFiltrosTrip] = useState<Record<string, string | undefined>>({});
+  const locaisDoTipo = useMemo(
+    () => (modoTrip ? locais.filter((l) => palavrasTipo.some((p) => (l.subcategoria || '').toLowerCase().includes(p))) : locais),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [locais, tipo]
+  );
+  const filtrosTripDef = useMemo<FiltroDef[]>(() => {
+    const unicos = (xs: (string | null | undefined)[]) =>
+      Array.from(new Set(xs.filter((x): x is string => !!x && x.trim().length > 0))).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    return [
+      { id: 'cidade', label: 'Destino', icone: 'map-pin', opcoes: unicos(locaisDoTipo.map((l) => l.cidade)), valor: filtrosTrip.cidade },
+      { id: 'tipo', label: 'Tipo', icone: 'sliders', opcoes: unicos(locaisDoTipo.map((l) => l.subcategoria)), valor: filtrosTrip.tipo },
+      {
+        id: 'comodidade',
+        label: 'Comodidades',
+        icone: 'check-circle',
+        opcoes: unicos(locaisDoTipo.flatMap((l) => l.atributos?.comodidades || [])),
+        valor: filtrosTrip.comodidade,
+      },
+      { id: 'selo', label: 'Selo', icone: 'shield', opcoes: locaisDoTipo.some((l) => l.safe_space) ? ['Safe Space'] : [], valor: filtrosTrip.selo },
+    ];
+  }, [locaisDoTipo, filtrosTrip]);
+
   const subcategoriasList = useMemo(() => {
     const reais = Array.from(
       new Set(locais.map((l) => l.subcategoria).filter((s): s is string => !!s && s.trim().length > 0))
@@ -259,10 +289,14 @@ export default function CategoryListScreen() {
       return { ...item, distanceKm };
     })
     .filter((item) => {
-      const matchesSubcat =
-        subcatAtiva === 'Em Alta'
-          ? idsEmAlta.has(item.id)
-          : subcatAtiva === 'Todas' || item.subcategoria === subcatAtiva;
+      const matchesSubcat = modoTrip
+        ? (!filtrosTrip.cidade || item.cidade === filtrosTrip.cidade) &&
+          (!filtrosTrip.tipo || item.subcategoria === filtrosTrip.tipo) &&
+          (!filtrosTrip.comodidade || (item.atributos?.comodidades || []).includes(filtrosTrip.comodidade)) &&
+          (!filtrosTrip.selo || item.safe_space)
+        : subcatAtiva === 'Em Alta'
+        ? idsEmAlta.has(item.id)
+        : subcatAtiva === 'Todas' || item.subcategoria === subcatAtiva;
 
       const matchesTipo =
         palavrasTipo.length === 0 ||
@@ -307,7 +341,17 @@ export default function CategoryListScreen() {
           />
         </View>
 
-        {subcategoriasList.length > 1 && (
+        {modoTrip && (
+          <View style={styles.filterSection}>
+            <FiltrosPilulas
+              filtros={filtrosTripDef}
+              onSelecionar={(id, v) => setFiltrosTrip((f) => ({ ...f, [id]: v }))}
+              onLimpar={() => setFiltrosTrip({})}
+            />
+          </View>
+        )}
+
+        {!modoTrip && subcategoriasList.length > 1 && (
           <View style={styles.filterSection}>
             <FlatList
               horizontal

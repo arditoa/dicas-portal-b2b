@@ -249,6 +249,7 @@ const en: Dic = {
   'cat.beleza': 'Beauty & Aesthetics',
   'cat.saude': 'Health & Wellness',
   'cat.comunidade': 'Community & Support',
+  'cat.educacao': 'Education',
   'cat.mais18': '18+ Venues',
 
   'home.voceEstaEm': 'You are in',
@@ -406,6 +407,7 @@ const es: Dic = {
   'cat.beleza': 'Belleza y Estética',
   'cat.saude': 'Salud y Bienestar',
   'cat.comunidade': 'Comunidad y Apoyo',
+  'cat.educacao': 'Educación',
   'cat.mais18': 'Espacios 18+',
 
   'home.voceEstaEm': 'Estás en',

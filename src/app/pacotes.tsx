@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import FiltrosPilulas, { FiltroDef } from '../components/FiltrosPilulas';
 import FundoCaixaDegrade from '../components/FundoCaixaDegrade';
 import { useI18n } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
@@ -22,8 +23,19 @@ type Item = {
   descricao: string | null;
   preco_de: number | null;
   foto_url: string | null;
+  destino?: string | null;
+  duracao_texto?: string | null;
+  tags?: string[] | null;
   locais: { nome: string; cidade: string | null; logo_url: string | null } | null;
 };
+
+const FAIXAS_PRECO: { label: string; min: number; max: number }[] = [
+  { label: 'Até R$ 1.000', min: 0, max: 1000 },
+  { label: 'R$ 1.000 a R$ 3.000', min: 1000, max: 3000 },
+  { label: 'Acima de R$ 3.000', min: 3000, max: Infinity },
+];
+const ORDEM_DURACAO = ['Bate-volta', '2 a 3 dias', '4 a 7 dias', '8 dias ou mais'];
+const destinoDe = (i: Item) => i.destino || i.locais?.cidade || null;
 
 const semAcento = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
@@ -34,18 +46,22 @@ export default function PacotesScreen() {
   const [itens, setItens] = useState<Item[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [busca, setBusca] = useState('');
-  const [cidade, setCidade] = useState<string | null>(null);
+  const [filtros, setFiltros] = useState<Record<string, string | undefined>>({});
 
   useEffect(() => {
     let ativo = true;
     (async () => {
-      let r: any = await supabase
-        .from('pacotes_turismo')
-        .select('id, local_id, nome, descricao, preco_de, foto_url, locais!inner(nome, cidade, logo_url, status)')
-        .eq('ativo', true)
-        .eq('locais.status', 'aprovado')
-        .order('ordem', { ascending: true })
-        .limit(200);
+      const consulta = (cols: string) =>
+        supabase
+          .from('pacotes_turismo')
+          .select(`id, local_id, nome, descricao, preco_de, foto_url, ${cols}locais!inner(nome, cidade, logo_url, status)`)
+          .eq('ativo', true)
+          .eq('locais.status', 'aprovado')
+          .order('ordem', { ascending: true })
+          .limit(200);
+      // destino/duração/tags chegam com a migration 054; sem ela a tela continua funcionando.
+      let r: any = await consulta('destino, duracao_texto, tags, ');
+      if (r.error) r = await consulta('');
       if (!ativo) return;
       setItens(((r.data as any) || []) as Item[]);
       setCarregando(false);
@@ -55,30 +71,48 @@ export default function PacotesScreen() {
     };
   }, []);
 
-  const cidades = useMemo(
-    () => Array.from(new Set(itens.map((i) => i.locais?.cidade).filter((c): c is string => !!c))).sort((a, b) => a.localeCompare(b, 'pt-BR')),
-    [itens]
-  );
+  const filtrosDef = useMemo<FiltroDef[]>(() => {
+    const unicos = (xs: (string | null | undefined)[]) =>
+      Array.from(new Set(xs.filter((x): x is string => !!x && x.trim().length > 0))).sort((x, y) => x.localeCompare(y, 'pt-BR'));
+    const duracoes = unicos(itens.map((i) => i.duracao_texto)).sort((x, y) => ORDEM_DURACAO.indexOf(x) - ORDEM_DURACAO.indexOf(y));
+    return [
+      { id: 'destino', label: 'Destino', icone: 'map-pin', opcoes: unicos(itens.map(destinoDe)), valor: filtros.destino },
+      { id: 'duracao', label: 'Duração', icone: 'calendar', opcoes: duracoes, valor: filtros.duracao },
+      { id: 'estilo', label: 'Estilo', icone: 'sliders', opcoes: unicos(itens.flatMap((i) => i.tags || [])), valor: filtros.estilo },
+      {
+        id: 'preco',
+        label: 'Preço',
+        icone: 'tag',
+        opcoes: FAIXAS_PRECO.filter((f) => itens.some((i) => i.preco_de != null && Number(i.preco_de) >= f.min && Number(i.preco_de) < f.max)).map((f) => f.label),
+        valor: filtros.preco,
+      },
+    ];
+  }, [itens, filtros]);
 
   const lista = useMemo(() => {
     const q = semAcento(busca.trim());
+    const faixa = FAIXAS_PRECO.find((f) => f.label === filtros.preco);
     return itens.filter((i) => {
-      if (cidade && i.locais?.cidade !== cidade) return false;
+      if (filtros.destino && destinoDe(i) !== filtros.destino) return false;
+      if (filtros.duracao && i.duracao_texto !== filtros.duracao) return false;
+      if (filtros.estilo && !(i.tags || []).includes(filtros.estilo)) return false;
+      if (faixa && !(i.preco_de != null && Number(i.preco_de) >= faixa.min && Number(i.preco_de) < faixa.max)) return false;
       if (!q) return true;
-      return semAcento([i.nome, i.descricao, i.locais?.nome, i.locais?.cidade].filter(Boolean).join(' ')).includes(q);
+      return semAcento([i.nome, i.descricao, i.locais?.nome, destinoDe(i)].filter(Boolean).join(' ')).includes(q);
     });
-  }, [itens, busca, cidade]);
+  }, [itens, busca, filtros]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.topo}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.voltar} accessibilityRole="button" accessibilityLabel="Voltar">
-          <Feather name="chevron-left" size={26} color={C.text} />
-        </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.titulo}>{t('trip.pacotes')}</Text>
-          <Text style={styles.sub}>{t('pacotes.sub')}</Text>
+      <View style={styles.headerBlock}>
+        <View style={styles.topRow}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Voltar">
+            <Feather name="arrow-left" size={18} color={C.text} />
+          </TouchableOpacity>
+          <Image source={require('../assets/images/logolinear-semfundo.png')} style={styles.headerLogo} resizeMode="contain" accessibilityLabel="Dicas LGBT+" />
         </View>
+        <Text style={styles.titulo}>{t('trip.pacotes')}</Text>
+        <Text style={styles.sub}>{t('pacotes.sub')}</Text>
       </View>
 
       <View style={styles.busca}>
@@ -94,18 +128,13 @@ export default function PacotesScreen() {
         />
       </View>
 
-      {cidades.length > 1 && (
-        <View style={styles.chips}>
-          {[null, ...cidades].map((c) => {
-            const ativo = cidade === c;
-            return (
-              <TouchableOpacity key={c ?? 'todos'} style={[styles.chip, ativo && styles.chipAtivo]} onPress={() => setCidade(c)} accessibilityRole="button" accessibilityState={{ selected: ativo }}>
-                <Text style={[styles.chipTxt, ativo && { color: '#FFF' }]}>{c ?? t('pacotes.todos')}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      )}
+      <View style={{ marginTop: 12 }}>
+        <FiltrosPilulas
+          filtros={filtrosDef}
+          onSelecionar={(id, v) => setFiltros((f) => ({ ...f, [id]: v }))}
+          onLimpar={() => setFiltros({})}
+        />
+      </View>
 
       {carregando ? (
         <ActivityIndicator color={C.pink} style={{ marginTop: 40 }} />
@@ -129,7 +158,7 @@ export default function PacotesScreen() {
                 <Text style={styles.nome} numberOfLines={2}>{item.nome}</Text>
                 {!!item.descricao && <Text style={styles.desc} numberOfLines={2}>{item.descricao}</Text>}
                 <Text style={styles.agencia} numberOfLines={1}>
-                  {t('pacotes.por')} {[item.locais?.nome, item.locais?.cidade].filter(Boolean).join(' · ')}
+                  {t('pacotes.por')} {[item.locais?.nome, destinoDe(item)].filter(Boolean).join(' · ')}
                 </Text>
                 {item.preco_de != null && (
                   <Text style={styles.preco}>
@@ -147,16 +176,14 @@ export default function PacotesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
-  topo: { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 8, paddingTop: 8, gap: 4 },
-  voltar: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  titulo: { fontSize: 24, fontWeight: '800', color: C.text, marginTop: 4 },
-  sub: { fontSize: 12, lineHeight: 17, color: C.dim, marginTop: 2, paddingRight: 12 },
+  headerBlock: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
+  topRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
+  backBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: C.card, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: C.border },
+  headerLogo: { width: 140, height: 34 },
+  titulo: { fontSize: 18, fontWeight: '800', color: C.text },
+  sub: { fontSize: 12, lineHeight: 17, color: C.dim, marginTop: 2 },
   busca: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 16, marginTop: 12, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 14, paddingHorizontal: 14, height: 46 },
   buscaInput: { flex: 1, color: C.text, fontSize: 14 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, marginTop: 12 },
-  chip: { borderRadius: 999, borderWidth: 1, borderColor: C.border, backgroundColor: C.card, paddingVertical: 8, paddingHorizontal: 14 },
-  chipAtivo: { backgroundColor: C.pink, borderColor: C.pink },
-  chipTxt: { color: C.dim, fontSize: 13, fontWeight: '700' },
   vazio: { color: C.dim, fontSize: 13, lineHeight: 19, textAlign: 'center', marginTop: 40, paddingHorizontal: 24 },
   card: { flexDirection: 'row', backgroundColor: C.card, borderRadius: 16, borderWidth: 1, borderColor: C.border, overflow: 'hidden' },
   foto: { width: 110, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },

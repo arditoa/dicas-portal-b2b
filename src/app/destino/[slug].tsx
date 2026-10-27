@@ -14,6 +14,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import FundoCaixaDegrade from '../../components/FundoCaixaDegrade';
 import { CATEGORIA_REAL_LABEL, SELO_FESTA, SeloCategoria, seloDaCategoria } from '../../lib/categorias';
 import { carregarDestinos, Destino, DESTINOS_PADRAO } from '../../lib/destinos';
 import { useI18n } from '../../lib/i18n';
@@ -36,11 +37,14 @@ const C = {
 
 type Aba = 'onde_ficar' | 'praias_passeios' | 'experiencias' | 'eventos_paradas';
 
-const TILES: { id: Aba; titulo: string; sub: string; icone: string; cor: string }[] = [
-  { id: 'onde_ficar', titulo: 'Onde ficar', sub: 'Hotéis, pousadas e regiões LGBT+ friendly', icone: 'home', cor: C.lilas },
-  { id: 'praias_passeios', titulo: 'Praias e passeios', sub: 'Praias, atrações e roteiros', icone: 'sun', cor: '#FFD54F' },
-  { id: 'experiencias', titulo: 'Experiências LGBT+', sub: 'Bares, festas, saunas, arte e cultura', icone: 'heart', cor: C.pink },
-  { id: 'eventos_paradas', titulo: 'Eventos e Paradas', sub: 'Datas, festas e Parada LGBT+', icone: 'calendar', cor: '#4FC3F7' },
+// Cores das pílulas de tema (mesma família dos degradês das caixas).
+const CORES_PILULA = ['#9B3CFF', '#E1306C', '#0EA5E9', '#10B981', '#F2692A', '#7048B8'];
+
+const TILES: { id: Aba; titulo: string; sub: string; icone: string; cor: string; degrade: [string, string] }[] = [
+  { id: 'onde_ficar', titulo: 'Onde ficar', sub: 'Hotéis, pousadas e regiões LGBT+ friendly', icone: 'home', cor: C.lilas, degrade: ['#7E57C2', '#3B82F6'] },
+  { id: 'praias_passeios', titulo: 'Praias e passeios', sub: 'Praias, atrações e roteiros', icone: 'sun', cor: '#FFD54F', degrade: ['#F2A900', '#E8590C'] },
+  { id: 'experiencias', titulo: 'Experiências LGBT+', sub: 'Bares, festas, saunas, arte e cultura', icone: 'heart', cor: C.pink, degrade: ['#E1306C', '#9B3CFF'] },
+  { id: 'eventos_paradas', titulo: 'Eventos e Paradas', sub: 'Datas, festas e Parada LGBT+', icone: 'calendar', cor: '#4FC3F7', degrade: ['#0EA5E9', '#4338CA'] },
 ];
 
 type Item = {
@@ -247,7 +251,11 @@ export default function DestinoScreen() {
         {/* Topo */}
         <View style={styles.hero}>
           {destino.foto_url ? <Image source={{ uri: destino.foto_url }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : null}
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: destino.foto_url ? 'rgba(0,0,0,0.45)' : '#21173A' }]} />
+          {destino.foto_url ? (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.45)' }]} />
+          ) : (
+            <FundoCaixaDegrade id="dest-hero" cores={['#4A1D7A', '#B02A6B']} />
+          )}
           <TouchableOpacity onPress={() => router.back()} style={styles.voltar} accessibilityRole="button" accessibilityLabel="Voltar">
             <Feather name="chevron-left" size={24} color="#FFF" />
           </TouchableOpacity>
@@ -266,8 +274,10 @@ export default function DestinoScreen() {
 
         {destino.tags.length > 0 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pills}>
-            {destino.tags.map((t) => (
-              <View key={t} style={styles.pill}><Text style={styles.pillTxt}>{rotuloTag(t)}</Text></View>
+            {destino.tags.map((t, i) => (
+              <View key={t} style={[styles.pill, { backgroundColor: CORES_PILULA[i % CORES_PILULA.length], borderColor: CORES_PILULA[i % CORES_PILULA.length] }]}>
+                <Text style={styles.pillTxt}>{rotuloTag(t)}</Text>
+              </View>
             ))}
           </ScrollView>
         )}
@@ -283,7 +293,7 @@ export default function DestinoScreen() {
             return (
               <TouchableOpacity
                 key={tile.id}
-                style={[styles.tile, ativo && { borderColor: tile.cor }]}
+                style={[styles.tile, ativo && styles.tileAtivo]}
                 activeOpacity={0.85}
                 onPress={() => {
                   setFiltro(null);
@@ -291,12 +301,13 @@ export default function DestinoScreen() {
                 }}
                 accessibilityRole="button"
               >
-                <Feather name={tile.icone as any} size={22} color={tile.cor} />
+                <FundoCaixaDegrade id={`dest-${tile.id}`} cores={tile.degrade} />
+                <Feather name={tile.icone as any} size={22} color="#FFFFFF" />
                 <Text style={styles.tileTitulo}>{tile.titulo}</Text>
                 <Text style={styles.tileSub} numberOfLines={2}>{tile.sub}</Text>
                 <View style={styles.tileRodape}>
                   <Text style={styles.tileQtd}>{carregando ? '…' : qtd === 0 ? 'Em breve' : qtd === 1 ? '1 opção' : `${qtd} opções`}</Text>
-                  <Feather name={ativo ? 'chevron-up' : 'chevron-right'} size={16} color={tile.cor} />
+                  <Feather name={ativo ? 'chevron-up' : 'chevron-right'} size={16} color="#FFFFFF" />
                 </View>
               </TouchableOpacity>
             );
@@ -401,11 +412,12 @@ export default function DestinoScreen() {
 
         {/* Melhor época */}
         {(destino.melhor_epoca.length > 0 || !!destino.melhor_epoca_texto) && (
-          <View style={[styles.cardLargo, { marginHorizontal: 16, marginTop: 18, flexDirection: 'row', gap: 12 }]}>
-            <Feather name="calendar" size={22} color={C.pink} />
+          <View style={[styles.cardLargo, { marginHorizontal: 16, marginTop: 18, flexDirection: 'row', gap: 12, overflow: 'hidden', borderColor: 'transparent' }]}>
+            <FundoCaixaDegrade id="dest-epoca" cores={['#C026A3', '#6D3FD1']} />
+            <Feather name="calendar" size={22} color="#FFFFFF" />
             <View style={{ flex: 1 }}>
-              <Text style={styles.nome}>Melhor época</Text>
-              {!!destino.melhor_epoca_texto && <Text style={[styles.linha2, { marginTop: 2 }]}>{destino.melhor_epoca_texto}</Text>}
+              <Text style={[styles.nome, { color: '#FFFFFF' }]}>Melhor época</Text>
+              {!!destino.melhor_epoca_texto && <Text style={[styles.linha2, { marginTop: 2, color: 'rgba(255,255,255,0.9)' }]}>{destino.melhor_epoca_texto}</Text>}
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
                 {destino.melhor_epoca.map((t) => (
                   <View key={t} style={styles.pillPeq}><Text style={styles.pillPeqTxt}>{rotuloTag(t)}</Text></View>
@@ -432,15 +444,16 @@ const styles = StyleSheet.create({
   credito: { position: 'absolute', right: 10, bottom: 6, color: 'rgba(255,255,255,0.6)', fontSize: 9 },
   pills: { gap: 8, paddingHorizontal: 16, paddingVertical: 12 },
   pill: { borderWidth: 1, borderColor: C.purple, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6, backgroundColor: '#1B1430' },
-  pillTxt: { color: C.lilas, fontSize: 12, fontWeight: '800' },
+  pillTxt: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
   descricao: { color: '#C0C0D0', fontSize: 13, lineHeight: 19, paddingHorizontal: 16, marginBottom: 4 },
   secao: { color: C.text, fontSize: 17, fontWeight: '800', paddingHorizontal: 16, marginTop: 12, marginBottom: 10 },
   grade: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: 16 },
-  tile: { width: '48.5%', minHeight: 140, borderRadius: 16, padding: 14, gap: 6, backgroundColor: C.card, borderWidth: 1, borderColor: C.border },
-  tileTitulo: { color: C.text, fontSize: 15, fontWeight: '800' },
-  tileSub: { color: C.dim, fontSize: 12, lineHeight: 16 },
+  tile: { width: '48.5%', minHeight: 132, borderRadius: 16, padding: 14, gap: 6, backgroundColor: C.card, borderWidth: 2, borderColor: 'transparent', overflow: 'hidden' },
+  tileAtivo: { borderColor: '#FFFFFF' },
+  tileTitulo: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
+  tileSub: { color: 'rgba(255,255,255,0.88)', fontSize: 12, lineHeight: 16 },
   tileRodape: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' },
-  tileQtd: { color: C.dim, fontSize: 12, fontWeight: '700' },
+  tileQtd: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
   filtro: { borderWidth: 1, borderColor: C.border, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: C.card },
   filtroAtivo: { backgroundColor: C.purple, borderColor: C.purple },
   filtroTxt: { color: C.dim, fontSize: 12, fontWeight: '800' },
@@ -461,6 +474,6 @@ const styles = StyleSheet.create({
   btnRoxoTxt: { color: '#FFF', fontWeight: '800', fontSize: 13 },
   roteiroCard: { width: 200, borderRadius: 14, overflow: 'hidden', backgroundColor: C.card, borderWidth: 1, borderColor: C.border },
   roteiroFoto: { width: '100%', height: 100 },
-  pillPeq: { borderWidth: 1, borderColor: C.border, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
-  pillPeqTxt: { color: '#D0D0E0', fontSize: 11, fontWeight: '700' },
+  pillPeq: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.45)', backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
+  pillPeqTxt: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
 });

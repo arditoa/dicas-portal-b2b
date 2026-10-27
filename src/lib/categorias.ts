@@ -26,7 +26,8 @@ export type CategoriaSlugUI =
   | 'produtos'
   | 'lazer'
   | 'saude'
-  | 'comunidade';
+  | 'comunidade'
+  | 'educacao';
 
 export interface CategoriaConfig {
   slug: CategoriaSlugUI;
@@ -139,6 +140,15 @@ export const CATEGORIAS: Record<CategoriaSlugUI, CategoriaConfig> = {
     categoriaReal: null,
     emBreve: true,
   },
+  // Nov/2026 — categoria nova pedida pela Andrea (migration 053). Cursos, idiomas,
+  // escolas, mentorias e formações inclusivas. Ativa desde o lançamento.
+  educacao: {
+    slug: 'educacao',
+    label: 'Educação',
+    icon: 'book-open',
+    color: '#FF8A65',
+    categoriaReal: 'educacao',
+  },
   comunidade: {
     slug: 'comunidade',
     label: 'Comunidade & Apoio',
@@ -161,6 +171,7 @@ export const CATEGORIA_ORDER: CategoriaSlugUI[] = [
   'saude',
   'beleza',
   'servicos',
+  'educacao',
   'produtos',
   'comunidade',
   'mais18',
@@ -176,6 +187,7 @@ export const CATEGORIA_REAL_LABEL: Record<string, string> = {
   turismo: 'Turismo',
   servicos: 'Serviços Inclusivos',
   produtos: 'Produtos',
+  educacao: 'Educação',
 };
 
 // Rodada 66 — selo colorido de categoria nos cards (pedido da Andrea a
@@ -196,6 +208,7 @@ const SELOS_POR_CATEGORIA_REAL: Record<string, SeloCategoria> = {
   lojas: { texto: 'COMPRAS', cor: '#FFB74D', textoCor: '#2A1700' },
   beleza: { texto: 'BELEZA', cor: '#F48FB1', textoCor: '#2A0A16' },
   lazer: { texto: 'LAZER', cor: '#26C6DA', textoCor: '#03252A' },
+  educacao: { texto: 'EDUCAÇÃO', cor: '#FF8A65', textoCor: '#2A0E05' },
 };
 
 // Selo de um local já carregado do banco. Hospedagem (tipo_hospedagem,

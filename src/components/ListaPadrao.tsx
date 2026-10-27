@@ -66,6 +66,7 @@ export const GRUPO_CATEGORIA: Record<string, string> = {
   beleza: 'Beleza',
   lojas: 'Lojas',
   produtos: 'Produtos',
+  educacao: 'Educação',
   lazer: 'Lazer',
 };
 

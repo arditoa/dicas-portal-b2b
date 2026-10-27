@@ -132,6 +132,7 @@ const CATEGORIAS = [
   { value: 'lojas', label: 'Lojas', disabled: true },
   { value: 'servicos', label: 'Serviços', disabled: false },
   { value: 'produtos', label: 'Produtos', disabled: false },
+  { value: 'educacao', label: 'Educação', disabled: false },
   { value: 'lazer', label: 'Lazer', disabled: true },
 ] as const;
 

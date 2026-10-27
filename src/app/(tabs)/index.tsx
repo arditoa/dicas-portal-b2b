@@ -77,7 +77,11 @@ const GAP_GRADE = 8;
 // Pedido da Andrea (out/2026): uma linha só, com rolagem lateral; Lazer
 // sai da Home; Serviços logo depois de Comer, e Beleza em seguida.
 // Mesma ordem oficial de lib/categorias.ts (12 categorias, out/2026).
-const ORDEM_GRADE = CATEGORIA_ORDER;
+// Categorias ativas primeiro; as "em breve" vão para o fim da fila (ordem oficial mantida dentro de cada grupo).
+const ORDEM_GRADE = [
+  ...CATEGORIA_ORDER.filter((slug) => !CATEGORIAS[slug].emBreve),
+  ...CATEGORIA_ORDER.filter((slug) => CATEGORIAS[slug].emBreve),
+];
 const LARGURA_TILE = 84;
 
 // Seção "Selos e benefícios" (out/2026): 3 cartões do mesmo tamanho, cada
@@ -121,7 +125,7 @@ const BANNERS_PRINCIPAIS = [
 ];
 
 // Quadrados do topo (Membros Fundadores e patrocinados).
-const TOPO_TILE = 84;
+const TOPO_TILE = 148;
 const TOPO_GAP = 10;
 
 const AVATAR = 54;
@@ -359,7 +363,7 @@ export default function HomeScreen() {
   const [bannerFundadorArteUrl, setBannerFundadorArteUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [abertosAgora, setAbertosAgora] = useState<LocalCard[]>([]);
-  type DestaqueTopo = { id: string; nome: string; foto: string | null; bairro: string; tipo: 'fundador' | 'patrocinado' | 'outro' };
+  type DestaqueTopo = { id: string; nome: string; foto: string | null; bairro: string; tipo: 'fundador' | 'patrocinado' | 'outro'; ehLogo?: boolean };
   // Fixos do topo: Membros Fundadores + patrocinados (destaque_secoes 'patrocinado').
   const [topoPrioritarios, setTopoPrioritarios] = useState<DestaqueTopo[]>([]);
   // Rodízio por horário: a cada intervalo (padrão 1 h) aparece um novo grupo de 6.
@@ -646,7 +650,7 @@ export default function HomeScreen() {
       for (const f of listaFundadorLogos as any[]) {
         if (vistosTopo.has(f.id)) continue;
         vistosTopo.add(f.id);
-        topo.push({ id: f.id, nome: formatarNome(f.nome), foto: f.foto_capa_url || f.galeria_fotos?.[0] || f.logo_url || null, bairro: textoLocalizacao(f), tipo: 'fundador' });
+        topo.push({ id: f.id, nome: formatarNome(f.nome), foto: f.foto_capa_url || f.galeria_fotos?.[0] || f.logo_url || null, ehLogo: !f.foto_capa_url && !f.galeria_fotos?.[0] && !!f.logo_url, bairro: textoLocalizacao(f), tipo: 'fundador' });
       }
       for (const p of ((emAltaRes.data as any) || []) as LocalCard[]) {
         if (vistosTopo.has(p.id) || !estaFixadoEm(p, 'patrocinado')) continue;
@@ -881,30 +885,23 @@ export default function HomeScreen() {
                     accessibilityRole="button"
                     accessibilityLabel={d.nome}
                   >
-                    <View style={{ width: TOPO_TILE }}>
-                      <View style={styles.topoAnel}>
-                        <FundoCaixaDegrade
-                          id={`anel-${d.tipo}-${d.id}`}
-                          cores={d.tipo === 'patrocinado' ? ['#9B6BFF', '#3B82F6'] : ['#F2A900', '#E1306C']}
-                        />
-                        <View style={styles.topoTile}>
-                          {/* fundo em degradê: aparece atrás de logos com transparência (ex.: Churras do Fiofó) */}
-                          <FundoCaixaDegrade
-                            id={`fundo-${d.tipo}-${d.id}`}
-                            cores={d.tipo === 'patrocinado' ? ['#2B2A5A', '#4B3A8F'] : ['#4A1D5C', '#8A2D5E']}
-                          />
-                          {!!d.foto && <Image source={{ uri: d.foto }} style={styles.topoImg} resizeMode="cover" />}
-                          {d.tipo !== 'outro' && (
-                            <View
-                              style={[styles.topoSelo, { backgroundColor: d.tipo === 'fundador' ? '#F2A900' : '#7E57C2' }]}
-                              accessibilityLabel={d.tipo === 'fundador' ? t('banner.fundadorTag') : t('home.patrocinado')}
-                            >
-                              <Ionicons name={d.tipo === 'fundador' ? 'star' : 'flash'} size={11} color={d.tipo === 'fundador' ? '#1A1020' : '#FFF'} />
-                            </View>
-                          )}
+                    {/* Cartão largo: a foto ocupa o cartão inteiro (fundo liso, sem degradê) e uma
+                        faixa escura embaixo leva o nome e o bairro. A cor fica só na pílula de cima:
+                        dourada = Fundador, lilás = Patrocinado. Logos entram inteiros (sem cortar). */}
+                    <View style={styles.topoCard}>
+                      {!!d.foto && <Image source={{ uri: d.foto }} style={[styles.topoImg, d.ehLogo && { padding: 14 }]} resizeMode={d.ehLogo ? 'contain' : 'cover'} />}
+                      {d.tipo !== 'outro' && (
+                        <View style={[styles.topoPilula, { backgroundColor: d.tipo === 'fundador' ? '#F2A900' : '#7E57C2' }]}>
+                          <Ionicons name={d.tipo === 'fundador' ? 'star' : 'flash'} size={9} color={d.tipo === 'fundador' ? '#1A1020' : '#FFF'} />
+                          <Text style={[styles.topoPilulaTxt, { color: d.tipo === 'fundador' ? '#1A1020' : '#FFF' }]}>
+                            {d.tipo === 'fundador' ? t('banner.fundadorTag') : t('home.patrocinado')}
+                          </Text>
                         </View>
+                      )}
+                      <View style={styles.topoFaixa}>
+                        <Text style={styles.topoNome} numberOfLines={1}>{d.nome}</Text>
+                        {!!d.bairro && <Text style={styles.topoBairro} numberOfLines={1}>{d.bairro}</Text>}
                       </View>
-                      <Text style={[styles.topoNome, d.tipo === 'fundador' && { color: '#FFC98B' }, d.tipo === 'patrocinado' && { color: '#C4B5FD' }]} numberOfLines={2}>{d.nome}</Text>
                     </View>
                   </TouchableOpacity>
                 );
@@ -1104,11 +1101,13 @@ const styles = StyleSheet.create({
   },
   localChipTexto: { fontSize: 12, fontWeight: '700', color: COLORS.textPrimary, flexShrink: 1 },
   topoTitulo: { fontSize: 15, fontWeight: '800', color: COLORS.textPrimary, marginHorizontal: 16, marginBottom: 8 },
-  topoAnel: { width: TOPO_TILE, height: TOPO_TILE, borderRadius: 16, padding: 3, overflow: 'hidden', backgroundColor: COLORS.card },
-  topoTile: { flex: 1, borderRadius: 14, padding: 5, backgroundColor: COLORS.card, overflow: 'hidden' },
+  topoCard: { width: TOPO_TILE, height: 112, borderRadius: 16, backgroundColor: '#1C1B26', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
   topoImg: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%' },
-  topoSelo: { width: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
-  topoNome: { fontSize: 11, fontWeight: '800', color: '#FFFFFF', marginTop: 5, minHeight: 28, textAlign: 'center' },
+  topoPilula: { position: 'absolute', top: 8, left: 8, flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 999, paddingHorizontal: 7, paddingVertical: 3 },
+  topoPilulaTxt: { fontSize: 9, fontWeight: '800', letterSpacing: 0.3 },
+  topoFaixa: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(11,11,14,0.72)', paddingHorizontal: 10, paddingVertical: 7 },
+  topoNome: { fontSize: 13, fontWeight: '800', color: '#FFFFFF' },
+  topoBairro: { fontSize: 10, fontWeight: '600', color: '#D6D3E0', marginTop: 1 },
   slide: { height: 92, borderRadius: 16, padding: 12, justifyContent: 'space-between', backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border, overflow: 'hidden' },
   slideTag: { alignSelf: 'flex-start', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   slideTagTexto: { fontSize: 10, fontWeight: '800', color: '#000', letterSpacing: 0.4 },

@@ -229,6 +229,7 @@ const CATEGORIA_CHIPS: { slug: string; label: string; categoriaReal: string | nu
   { slug: 'mais18', label: 'Espaço 18+', categoriaReal: null },
   { slug: 'lojas', label: 'Lojas', categoriaReal: 'lojas' },
   { slug: 'servicos', label: 'Serviços', categoriaReal: 'servicos' }, // existe no banco — só não aparece pro usuário final ainda (decisão da Andrea, não limitação técnica)
+  { slug: 'educacao', label: 'Educação', categoriaReal: 'educacao' }, // categoria nova — migration 053
   { slug: 'produtos', label: 'Produtos', categoriaReal: 'produtos' }, // categoria nova (Rodada 61) — ver migration 033
   { slug: 'lazer', label: 'Lazer', categoriaReal: 'lazer' },
 ];
@@ -240,6 +241,7 @@ const CATEGORIA_REAL_LABEL_ADMIN: Record<string, string> = {
   turismo: 'Dicas Trip',
   servicos: 'Serviços',
   produtos: 'Produtos',
+  educacao: 'Educação',
   beleza: 'Beleza',
   lojas: 'Lojas',
   lazer: 'Lazer',

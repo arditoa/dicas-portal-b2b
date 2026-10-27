@@ -53,6 +53,9 @@ export default function PacotesPage() {
   const [descricao, setDescricao] = useState('');
   const [precoDe, setPrecoDe] = useState('');
   const [precoAte, setPrecoAte] = useState('');
+  const [destino, setDestino] = useState('');
+  const [duracao, setDuracao] = useState('');
+  const [estilo, setEstilo] = useState('');
   const [foto, setFoto] = useState<File | null>(null);
 
   const carregarItens = useCallback(async (id: string) => {
@@ -106,14 +109,25 @@ export default function PacotesPage() {
         fotoUrl = await enviarFotoPacote(localId, foto);
       }
 
-      const { error } = await supabase.from('pacotes_turismo').insert({
+      const base = {
         local_id: localId,
         nome,
         descricao: descricao || null,
         preco_de: precoDe ? Number(precoDe) : null,
         preco_ate: precoAte ? Number(precoAte) : null,
         foto_url: fotoUrl,
+      };
+      // destino/duração/estilo alimentam os filtros do app (migration 054). Se ela ainda não
+      // rodou, salva o pacote sem esses campos em vez de falhar.
+      let { error } = await supabase.from('pacotes_turismo').insert({
+        ...base,
+        destino: destino.trim() || null,
+        duracao_texto: duracao || null,
+        tags: estilo ? [estilo] : [],
       });
+      if (error && /destino|duracao_texto/.test(error.message)) {
+        ({ error } = await supabase.from('pacotes_turismo').insert({ ...base, tags: estilo ? [estilo] : [] }));
+      }
 
       if (error) throw error;
 
@@ -121,6 +135,9 @@ export default function PacotesPage() {
       setDescricao('');
       setPrecoDe('');
       setPrecoAte('');
+      setDestino('');
+      setDuracao('');
+      setEstilo('');
       setFoto(null);
       setMostrarForm(false);
       await carregarItens(localId);
@@ -193,6 +210,39 @@ export default function PacotesPage() {
               rows={2}
               className="w-full bg-[#0B0B0E] border border-[#232230] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#E1306C]"
             />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">Destino da viagem</label>
+              <input
+                value={destino}
+                onChange={(e) => setDestino(e.target.value)}
+                placeholder="Ex: Rio de Janeiro"
+                className="w-full bg-[#0B0B0E] border border-[#232230] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#E1306C]"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">Duração</label>
+              <select
+                value={duracao}
+                onChange={(e) => setDuracao(e.target.value)}
+                className="w-full bg-[#0B0B0E] border border-[#232230] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#E1306C]"
+              >
+                <option value="">Selecione</option>
+                {['Bate-volta', '2 a 3 dias', '4 a 7 dias', '8 dias ou mais'].map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">Estilo</label>
+              <select
+                value={estilo}
+                onChange={(e) => setEstilo(e.target.value)}
+                className="w-full bg-[#0B0B0E] border border-[#232230] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#E1306C]"
+              >
+                <option value="">Selecione</option>
+                {['Praia', 'Cultura', 'Natureza', 'Vida noturna', 'Gastronomia', 'Aventura', 'Romântico', 'Cruzeiro'].map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
