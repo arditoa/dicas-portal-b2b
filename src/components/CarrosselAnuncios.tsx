@@ -28,7 +28,7 @@ const FAIXA = 72;
 
 export default function CarrosselAnuncios({ anuncios, onExibir }: { anuncios: Anuncio[]; onExibir?: (id: string) => void }) {
   const reduzir = useReduzirMovimento();
-  const ref = useRef<ScrollView>(null);
+  const ref = useRef<any>(null); // RN 0.88: ScrollView deixou de ser classe
   const [largura, setLargura] = useState(0);
   const [atual, setAtual] = useState(0);
   const tocando = useRef(false);

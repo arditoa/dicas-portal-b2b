@@ -21,6 +21,12 @@ export type Apoiador = {
   endereco?: string;
   horarios?: Tx;
   logoUrl?: string;
+  // Foto do espaço (aparece no topo da página). Preencher quando o parceiro enviar a foto.
+  fotoUrl?: string;
+  // Chamada principal da página (ex.: "Visite o Museu").
+  chamada: Tx;
+  // Mostrar a lista de programas? Por enquanto só foto + chamada + rota.
+  mostrarProgramas?: boolean;
 };
 
 export const APOIADORES: Record<string, Apoiador> = {
@@ -30,15 +36,16 @@ export const APOIADORES: Record<string, Apoiador> = {
     cores: ['#6D28D9', '#DB2777'],
     icone: 'book-open',
     tag: { pt: 'APOIO CULTURAL', en: 'CULTURAL SUPPORTER', es: 'APOYO CULTURAL' },
+    chamada: { pt: 'Visite o Museu', en: 'Visit the Museum', es: 'Visita el Museo' },
     resumo: {
-      pt: 'Memória, cultura e formação LGBT+ no centro de São Paulo.',
-      en: 'LGBTQ+ memory, culture and training in downtown São Paulo.',
-      es: 'Memoria, cultura y formación LGBT+ en el centro de São Paulo.',
+      pt: 'Um espaço que preserva e valoriza a arte, a cultura e as histórias da comunidade LGBTQIA+.',
+      en: 'A space that preserves and celebrates the art, culture and stories of the LGBTQIA+ community.',
+      es: 'Un espacio que preserva y valora el arte, la cultura y las historias de la comunidad LGBTQIA+.',
     },
     sobre: {
-      pt: 'O Museu da Diversidade Sexual existe desde 2012 e leva a história e a cultura LGBT+ para o centro de São Paulo, com atividades abertas ao público.',
-      en: 'The Museum of Sexual Diversity has existed since 2012 and brings LGBTQ+ history and culture to downtown São Paulo, with activities open to the public.',
-      es: 'El Museo de la Diversidad Sexual existe desde 2012 y lleva la historia y la cultura LGBT+ al centro de São Paulo, con actividades abiertas al público.',
+      pt: 'Onde a cultura é viva, a diversidade é protagonista.',
+      en: 'Where culture is alive, diversity takes center stage.',
+      es: 'Donde la cultura está viva, la diversidad es protagonista.',
     },
     programas: [
       {

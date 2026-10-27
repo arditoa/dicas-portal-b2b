@@ -58,7 +58,7 @@ export default function BuscaScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ cidade?: string; q?: string }>();
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<any>(null); // RN 0.88: TextInput deixou de ser classe
 
   const [texto, setTexto] = useState(params.q ? String(params.q) : '');
   const [buscado, setBuscado] = useState(params.q ? String(params.q) : '');

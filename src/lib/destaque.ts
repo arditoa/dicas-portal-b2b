@@ -126,7 +126,7 @@ export function deveIncluirEm(item: ItemComDestaque, secao: string): boolean {
 // quem paga premium/fundador, ou manual via destaque_secoes: ['destaque'].
 // Categorias de serviço (fotógrafo, barbeiro, loja…): não entram no rodízio de
 // "Em Alta" da Home, que fica só com lugares e programação. Têm bloco próprio.
-export const CATEGORIAS_SERVICO = ['servicos', 'beleza', 'lojas', 'educacao'];
+export const CATEGORIAS_SERVICO = ['servicos', 'beleza', 'lojas'];
 export function ehServico(item: { categoria?: string | null }): boolean {
   return CATEGORIAS_SERVICO.includes(String(item.categoria || ''));
 }

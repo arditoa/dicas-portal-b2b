@@ -217,7 +217,7 @@ export default function ListaPadrao({ titulo, subtitulo, itens, carregando, vazi
                 <Text style={styles.emptySub}>{vazioTexto}</Text>
               </View>
             }
-            ListFooterComponent={rodape ? <View>{rodape}</View> : null}
+            ListFooterComponent={rodape ? <View>{rodape}</View> : undefined}
             renderItem={({ item }) => (
               <TouchableOpacity style={styles.placeCard} activeOpacity={0.88} onPress={() => router.push(item.rota as any)}>
                 <View style={[styles.placeThumb, !item.foto && !!item.logo && { backgroundColor: '#F4F1FA' }]}>

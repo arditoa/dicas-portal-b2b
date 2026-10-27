@@ -600,6 +600,8 @@ export default function AdminPage() {
   // Locais liberados para subir pacotes (locais.pode_subir_pacotes, migration 052).
   // Consulta separada e tolerante: se a migration ainda não rodou, o catálogo continua funcionando.
   const [idsPodemPacotes, setIdsPodemPacotes] = useState<Set<string>>(new Set());
+  // Arte de destaque da Home por local (locais.arte_destaque_url, migration 055). Consulta tolerante.
+  const [artesDestaque, setArtesDestaque] = useState<Record<string, string>>({});
   const [eventosDestaque, setEventosDestaque] = useState<EventoDestaque[]>([]);
   const [eventosComOrganizador, setEventosComOrganizador] = useState<EventoComOrganizador[]>([]);
   const [vinculosPendentes, setVinculosPendentes] = useState<VinculoPendente[]>([]);
@@ -795,6 +797,14 @@ export default function AdminPage() {
     {
       const { data: pp, error: ePP } = await supabase.from('locais').select('id').eq('pode_subir_pacotes', true);
       if (!ePP) setIdsPodemPacotes(new Set(((pp as { id: string }[]) || []).map((x) => x.id)));
+    }
+    {
+      const { data: ar, error: eAr } = await supabase.from('locais').select('id, arte_destaque_url').not('arte_destaque_url', 'is', null);
+      if (!eAr) {
+        const mapa: Record<string, string> = {};
+        ((ar as { id: string; arte_destaque_url: string }[]) || []).forEach((x) => { mapa[x.id] = x.arte_destaque_url; });
+        setArtesDestaque(mapa);
+      }
     }
     setEventosDestaque((eventosDestaqueData as EventoDestaque[]) || []);
     setEventosComOrganizador(ordenarPorTitulo((eventosComOrganizadorData as EventoComOrganizador[]) || []));
@@ -1316,6 +1326,34 @@ Dicas LGBT+`;
       await carregarFilas();
     }
     setProcessando(null);
+  };
+
+  // Sobe/remove a arte de destaque (banner 2:1 do carrossel da Home). Só a equipe faz isso.
+  const enviarArteDestaque = async (local: LocalDestaque, arquivo: File | null) => {
+    setEnviandoFoto(local.id);
+    setErro('');
+    try {
+      let url: string | null = null;
+      if (arquivo) {
+        const erroFormato = erroFotoNaoSuportada(arquivo);
+        if (erroFormato) throw new Error(erroFormato);
+        const extensao = arquivo.name.split('.').pop() || 'jpg';
+        const caminho = `${local.id}/arte-destaque-${Date.now()}.${extensao}`;
+        const { error: erroUpload } = await supabase.storage.from('fotos-locais').upload(caminho, arquivo, { cacheControl: '3600', upsert: false });
+        if (erroUpload) throw erroUpload;
+        url = supabase.storage.from('fotos-locais').getPublicUrl(caminho).data.publicUrl;
+      }
+      const { error: erroUpdate } = await supabase.from('locais').update({ arte_destaque_url: url }).eq('id', local.id);
+      if (erroUpdate) throw new Error(`${erroUpdate.message} (rode a migration 055 no Supabase, se ainda não rodou)`);
+      setArtesDestaque((atual) => {
+        const novo = { ...atual };
+        if (url) novo[local.id] = url; else delete novo[local.id];
+        return novo;
+      });
+    } catch (e: any) {
+      setErro(e.message || 'Erro ao enviar a arte.');
+    }
+    setEnviandoFoto(null);
   };
 
   // Libera/bloqueia o local para cadastrar pacotes de viagem pelo portal dele.
@@ -2267,6 +2305,39 @@ Dicas LGBT+`;
                         }}
                       />
                     </label>
+                  </div>
+
+                  <div className="shrink-0">
+                    <p className="text-[10px] text-[#626274] mb-1">Arte de destaque da Home (1080×540)</p>
+                    {artesDestaque[l.id] ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={artesDestaque[l.id]} alt={`Arte de ${l.nome}`} className="w-40 h-20 rounded-lg object-cover border border-[#232230]" />
+                    ) : (
+                      <div className="w-40 h-20 rounded-lg bg-[#0B0B0E] border border-dashed border-[#232230] flex items-center justify-center text-[9px] text-[#626274] text-center px-2">
+                        sem arte: o app mostra a foto do local
+                      </div>
+                    )}
+                    <div className="flex items-center gap-3 mt-1">
+                      <label className="text-[10px] font-bold text-[#E1306C] cursor-pointer hover:underline">
+                        {enviandoFoto === l.id ? 'Enviando...' : artesDestaque[l.id] ? 'Trocar' : 'Subir arte'}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={enviandoFoto === l.id}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) enviarArteDestaque(l, f);
+                            e.target.value = '';
+                          }}
+                        />
+                      </label>
+                      {artesDestaque[l.id] && (
+                        <button type="button" className="text-[10px] font-bold text-[#A0A0B2] hover:underline" onClick={() => enviarArteDestaque(l, null)}>
+                          Remover
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div className="shrink-0">

@@ -19,6 +19,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import CarrosselAnuncios from '../../components/CarrosselAnuncios';
+import CarrosselArtes, { ItemArte } from '../../components/CarrosselArtes';
 import FundoCaixaDegrade from '../../components/FundoCaixaDegrade';
 import DestaqueHora, { ParceiroHora } from '../../components/DestaqueHora';
 import FundoDegrade from '../../components/FundoDegrade';
@@ -457,25 +458,24 @@ export default function HomeScreen() {
     () => rodizioHorario(servicosPool, 'em_alta', slotRodizio, 6),
     [servicosPool, slotRodizio]
   );
-  const [slide, setSlide] = useState(0);
-  const carrosselRef = useRef<ScrollView>(null);
-  const { width: larguraTela } = useWindowDimensions();
-
-  // Carrossel do topo passa sozinho a cada 4 segundos (só se não couber tudo na tela).
-  const passoTopo = TOPO_TILE + TOPO_GAP;
-  const cabeTudoNoTopo = destaquesTopo.length * passoTopo + 16 <= larguraTela;
-  useEffect(() => {
-    if (destaquesTopo.length < 2 || cabeTudoNoTopo) return;
-    const maxIdx = Math.max(0, Math.ceil((destaquesTopo.length * passoTopo + 32 - larguraTela) / passoTopo));
-    const timer = setInterval(() => {
-      setSlide((atual) => {
-        const proximo = atual >= maxIdx ? 0 : atual + 1;
-        carrosselRef.current?.scrollTo({ x: proximo * passoTopo, animated: true });
-        return proximo;
-      });
-    }, 4000);
-    return () => clearInterval(timer);
-  }, [destaquesTopo.length, passoTopo, cabeTudoNoTopo, larguraTela]);
+  // Artes da vitrine da Home (locais.arte_destaque_url, migration 055). Só a equipe
+  // sobe a arte pelo /admin; sem arte, o cartão usa a foto do local.
+  const [artesTopo, setArtesTopo] = useState<Record<string, string>>({});
+  const itensArte = useMemo<ItemArte[]>(() => {
+    const lista: ItemArte[] = destaquesTopo.map((d) => ({
+      id: `${d.tipo}-${d.id}`,
+      nome: d.nome,
+      bairro: d.bairro,
+      tipo: d.tipo,
+      arteUrl: artesTopo[d.id] ?? null,
+      fotoUrl: d.ehLogo ? null : d.foto,
+      rotulo: d.tipo === 'fundador' ? t('banner.fundadorTag') : t('home.patrocinado'),
+      onPress: () => router.push(`/business/${d.id}` as any),
+    }));
+    // Quem tem arte própria vem primeiro; limite de 5 para a vitrine continuar leve.
+    return [...lista.filter((i) => i.arteUrl), ...lista.filter((i) => !i.arteUrl)].slice(0, 5);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [destaquesTopo, artesTopo]);
 
   const isUserLogged = !!session;
 
@@ -658,6 +658,22 @@ export default function HomeScreen() {
         topo.push({ id: p.id, nome: formatarNome(p.nome), foto: fotoDestaqueUrl(p), bairro: textoLocalizacao(p), tipo: 'patrocinado' });
       }
       setTopoPrioritarios(topo);
+      // Artes da vitrine: consulta separada e tolerante (se a migration 055 ainda não rodou, só segue sem arte).
+      if (topo.length > 0) {
+        try {
+          const { data: artesData, error: artesErr } = await supabase
+            .from('locais')
+            .select('id, arte_destaque_url')
+            .in('id', topo.map((x) => x.id));
+          if (!artesErr && artesData) {
+            const mapa: Record<string, string> = {};
+            for (const r of artesData as any[]) if (r.arte_destaque_url) mapa[r.id] = r.arte_destaque_url;
+            setArtesTopo(mapa);
+          }
+        } catch {
+          /* sem arte: usa a foto do local */
+        }
+      }
       setBannerFundadorArteUrl(((appConfigRes.data as any)?.valor as string | undefined) || null);
 
       if (user?.id) {
@@ -827,6 +843,10 @@ export default function HomeScreen() {
 
         <View style={{ height: 14 }} />
 
+        {/* VITRINE DE ARTES — banners largos (2:1) logo abaixo da busca, passam sozinhos a
+            cada 5 s. Fundadores e patrocinados; a arte é enviada só pela equipe (/admin). */}
+        {itensArte.length > 0 && <CarrosselArtes itens={itensArte} />}
+
         {/* CATEGORIAS — ícones redondos de sempre (cor própria por categoria,
             vinda de lib/categorias.ts), numa linha com rolagem lateral. Dicas
             Trip segue o mesmo formato das demais. Em breve = "avise-me" real
@@ -861,55 +881,6 @@ export default function HomeScreen() {
             })}
           </ScrollView>
         </View>
-        {/* DESTAQUES DOS FUNDADORES E PATROCINADOS — quadrados pequenos que passam
-            sozinhos (um a cada 4 s) e se deslizam com o dedo. Cumpre a promessa do
-            plano Fundador (presença fixa na Home). */}
-        {destaquesTopo.length > 0 && (
-          <View style={{ marginBottom: 16 }}>
-            <Text style={styles.topoTitulo}>
-              {destaquesTopo.every((d) => d.tipo === 'fundador') ? t('banner.fundadorTitulo') : t('home.topoParceiros')}
-            </Text>
-            <ScrollView
-              ref={carrosselRef}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: 16, gap: TOPO_GAP }}
-              onMomentumScrollEnd={(e) => setSlide(Math.round(e.nativeEvent.contentOffset.x / (TOPO_TILE + TOPO_GAP)))}
-            >
-              {destaquesTopo.map((d) => {
-                return (
-                  <TouchableOpacity
-                    key={`${d.tipo}-${d.id}`}
-                    activeOpacity={0.9}
-                    onPress={() => router.push(`/business/${d.id}` as any)}
-                    accessibilityRole="button"
-                    accessibilityLabel={d.nome}
-                  >
-                    {/* Cartão largo: a foto ocupa o cartão inteiro (fundo liso, sem degradê) e uma
-                        faixa escura embaixo leva o nome e o bairro. A cor fica só na pílula de cima:
-                        dourada = Fundador, lilás = Patrocinado. Logos entram inteiros (sem cortar). */}
-                    <View style={styles.topoCard}>
-                      {!!d.foto && <Image source={{ uri: d.foto }} style={[styles.topoImg, d.ehLogo && { padding: 14 }]} resizeMode={d.ehLogo ? 'contain' : 'cover'} />}
-                      {d.tipo !== 'outro' && (
-                        <View style={[styles.topoPilula, { backgroundColor: d.tipo === 'fundador' ? '#F2A900' : '#7E57C2' }]}>
-                          <Ionicons name={d.tipo === 'fundador' ? 'star' : 'flash'} size={9} color={d.tipo === 'fundador' ? '#1A1020' : '#FFF'} />
-                          <Text style={[styles.topoPilulaTxt, { color: d.tipo === 'fundador' ? '#1A1020' : '#FFF' }]}>
-                            {d.tipo === 'fundador' ? t('banner.fundadorTag') : t('home.patrocinado')}
-                          </Text>
-                        </View>
-                      )}
-                      <View style={styles.topoFaixa}>
-                        <Text style={styles.topoNome} numberOfLines={1}>{d.nome}</Text>
-                        {!!d.bairro && <Text style={styles.topoBairro} numberOfLines={1}>{d.bairro}</Text>}
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-        )}
-
         {/* ACONTECIMENTO RÁPIDO — pílula "Hoje · 14h · ..." (abre /secao/hoje) */}
         {itensHoje.length > 0 && <FaixaHoje itens={itensHoje} onAbrir={(rota) => router.push(rota as any)} />}
 

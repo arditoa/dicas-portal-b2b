@@ -58,19 +58,33 @@ export default function ApoiadorScreen() {
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 14 }}>
         <View style={styles.hero}>
           <FundoCaixaDegrade id={`apoio-${a.slug}`} cores={a.cores} />
+          {!!a.fotoUrl && <Image source={{ uri: a.fotoUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />}
+          {!!a.fotoUrl && <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.38)' }]} />}
           <View style={styles.selo}>
             <Feather name="award" size={12} color="#0B0B0E" />
             <Text style={styles.seloTxt}>{a.tag[idioma]}</Text>
           </View>
+          <View style={{ flex: 1 }} />
           {a.logoUrl ? (
             <View style={styles.logoBox}>
               <Image source={{ uri: a.logoUrl }} style={styles.logo} resizeMode="contain" />
             </View>
-          ) : (
+          ) : !a.fotoUrl ? (
             <Feather name={a.icone as any} size={34} color="#FFFFFF" />
-          )}
+          ) : null}
+          <Text style={styles.chamada}>{a.chamada[idioma]}</Text>
           <Text style={styles.nome}>{a.nome}</Text>
-          <Text style={styles.resumo}>{a.resumo[idioma]}</Text>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.p}>{a.resumo[idioma]}</Text>
+          <Text style={styles.destaqueTxt}>{a.sobre[idioma]}</Text>
+          {!!a.endereco && <Text style={styles.p}>{a.endereco}</Text>}
+          {!!a.horarios && (
+            <Text style={styles.p}>
+              {L.horarios[idioma]}: {a.horarios[idioma]}
+            </Text>
+          )}
         </View>
 
         <View style={styles.acoes}>
@@ -92,34 +106,22 @@ export default function ApoiadorScreen() {
           )}
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.h}>{L.sobre[idioma]}</Text>
-          <Text style={styles.p}>{a.sobre[idioma]}</Text>
-          {!!a.endereco && <Text style={styles.p}>{a.endereco}</Text>}
-          {!!a.horarios && (
-            <Text style={styles.p}>
-              {L.horarios[idioma]}: {a.horarios[idioma]}
-            </Text>
-          )}
-        </View>
-
-        <Text style={styles.hSecao}>{L.prog[idioma]}</Text>
-        {a.programas.map((p) => (
-          <View key={p.titulo.pt} style={styles.prog}>
-            <View style={styles.progIcone}>
-              <Feather name={p.icone as any} size={18} color="#FFFFFF" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.progTitulo}>{p.titulo[idioma]}</Text>
-              <Text style={styles.progTxt}>{p.texto[idioma]}</Text>
-            </View>
-          </View>
-        ))}
-
-        <TouchableOpacity style={[styles.btn, { alignSelf: 'stretch', justifyContent: 'center' }]} onPress={() => router.push('/roteiros' as any)} accessibilityRole="button">
-          <Feather name="compass" size={16} color="#F5F5F7" />
-          <Text style={styles.btnTxt}>{L.roteiros[idioma]}</Text>
-        </TouchableOpacity>
+        {a.mostrarProgramas && (
+          <>
+            <Text style={styles.hSecao}>{L.prog[idioma]}</Text>
+            {a.programas.map((p) => (
+              <View key={p.titulo.pt} style={styles.prog}>
+                <View style={styles.progIcone}>
+                  <Feather name={p.icone as any} size={18} color="#FFFFFF" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.progTitulo}>{p.titulo[idioma]}</Text>
+                  <Text style={styles.progTxt}>{p.texto[idioma]}</Text>
+                </View>
+              </View>
+            ))}
+          </>
+        )}
 
         <Text style={styles.nota}>{L.nota[idioma]}</Text>
       </ScrollView>
@@ -133,13 +135,14 @@ const styles = StyleSheet.create({
   backBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: '#161520', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#232230' },
   headerLogo: { width: 140, height: 34 },
   vazio: { color: '#C9C8D6', padding: 24, fontSize: 14 },
-  hero: { borderRadius: 18, padding: 20, overflow: 'hidden', gap: 8, minHeight: 190 },
+  hero: { borderRadius: 18, padding: 18, overflow: 'hidden', gap: 6, minHeight: 240 },
   selo: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', backgroundColor: '#FFD36A', borderRadius: 999, paddingVertical: 4, paddingHorizontal: 10 },
   seloTxt: { fontSize: 10, fontWeight: '800', color: '#0B0B0E', letterSpacing: 0.6 },
   logoBox: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 8, alignSelf: 'flex-start' },
   logo: { width: 120, height: 48 },
-  nome: { fontSize: 24, fontWeight: '800', color: '#FFFFFF', marginTop: 4 },
-  resumo: { fontSize: 14, lineHeight: 20, color: '#F5F0FF' },
+  chamada: { fontSize: 28, fontWeight: '800', color: '#FFFFFF' },
+  nome: { fontSize: 14, fontWeight: '700', color: '#F5F0FF' },
+  destaqueTxt: { fontSize: 15, lineHeight: 21, fontWeight: '800', color: '#4A1D7A' },
   acoes: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   btn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#1C1B26', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14, minHeight: 44 },
   btnPrim: { backgroundColor: '#FFD36A' },

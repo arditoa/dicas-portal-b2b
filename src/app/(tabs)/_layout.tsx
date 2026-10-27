@@ -24,35 +24,35 @@ export default function TabLayout() {
         name="index"
         options={{
           title: t('tab.inicio'),
-          tabBarIcon: ({ color }) => <Feather name="home" size={21} color={color} />,
+          tabBarIcon: ({ color }) => <Feather name="home" size={21} color={color as string} />,
         }}
       />
       <Tabs.Screen
         name="explore"
         options={{
           title: t('tab.mapa'),
-          tabBarIcon: ({ color }) => <Feather name="map" size={21} color={color} />,
+          tabBarIcon: ({ color }) => <Feather name="map" size={21} color={color as string} />,
         }}
       />
       <Tabs.Screen
         name="events"
         options={{
           title: t('tab.eventos'),
-          tabBarIcon: ({ color }) => <Feather name="calendar" size={21} color={color} />,
+          tabBarIcon: ({ color }) => <Feather name="calendar" size={21} color={color as string} />,
         }}
       />
       <Tabs.Screen
         name="tourism"
         options={{
           title: t('tab.trip'),
-          tabBarIcon: ({ color }) => <Feather name="briefcase" size={21} color={color} />,
+          tabBarIcon: ({ color }) => <Feather name="briefcase" size={21} color={color as string} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: t('tab.conta'),
-          tabBarIcon: ({ color }) => <Feather name="user" size={21} color={color} />,
+          tabBarIcon: ({ color }) => <Feather name="user" size={21} color={color as string} />,
         }}
       />
 
