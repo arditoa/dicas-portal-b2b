@@ -2,6 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import { Image, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useReduzirMovimento } from '../hooks/useReduzirMovimento';
+import FundoCaixaDegrade from './FundoCaixaDegrade';
 
 // Carrossel de anúncios da Home (no lugar do antigo cartão único da Copa):
 // cartão claro com etiqueta, título, botão e uma faixa colorida com ícone.
@@ -18,6 +19,8 @@ export type Anuncio = {
   onPress: () => void;
   logoUrl?: string; // logo do parceiro (substitui o ícone na faixa)
   rotulo?: string; // ex.: PARCEIRO INSTITUCIONAL / APOIO — deixa claro quem é quem
+  degrade?: [string, string]; // cartão do Dicas (Museu, Recomendados): degradê + ícone grande, em vez do cartão claro de parceiro
+  chave?: string; // chave do banner no painel (ex.: 'museu'), usada para evitar duplicar cartões
   custom?: ReactNode; // cartão próprio (ex.: o cartão da Copa na Trip, com as cidades-sede)
 };
 
@@ -73,6 +76,24 @@ export default function CarrosselAnuncios({ anuncios, onExibir }: { anuncios: An
       >
         {anuncios.map((a) => a.custom ? (
           <View key={a.id} style={{ width: largura }}>{a.custom}</View>
+        ) : a.degrade ? (
+          <TouchableOpacity key={a.id} activeOpacity={0.9} onPress={a.onPress} style={{ width: largura }} accessibilityRole="button" accessibilityLabel={`${a.cta}: ${a.titulo}`}>
+            <View style={styles.cardDegrade}>
+              <FundoCaixaDegrade id={`anc-${a.id}`} cores={a.degrade} />
+              <Feather name={a.icone} size={132} color="rgba(255,255,255,0.16)" style={styles.marcaDagua} />
+              <View style={styles.corpoDegrade}>
+                <View style={styles.pilulaDegrade}>
+                  <Feather name={a.icone} size={11} color="#FFFFFF" />
+                  <Text style={styles.pilulaDegradeTxt} numberOfLines={1}>{a.tag}</Text>
+                </View>
+                <Text style={styles.tituloDegrade} numberOfLines={2}>{a.titulo}</Text>
+                <View style={styles.btnDegrade}>
+                  <Text style={styles.btnDegradeTxt}>{a.cta}</Text>
+                  <Feather name="arrow-right" size={14} color="#1A1020" />
+                </View>
+              </View>
+            </View>
+          </TouchableOpacity>
         ) : (
           <View key={a.id} style={[styles.card, { width: largura }]}>
             <View style={[styles.corpo, { width: largura - FAIXA }]}>
@@ -110,6 +131,14 @@ export default function CarrosselAnuncios({ anuncios, onExibir }: { anuncios: An
 const styles = StyleSheet.create({
   wrap: { marginHorizontal: 16, marginBottom: 18, minHeight: 112 },
   card: { flexDirection: 'row', borderRadius: 14, overflow: 'hidden', backgroundColor: COR_TILE, minHeight: 112 },
+  cardDegrade: { borderRadius: 14, overflow: 'hidden', minHeight: 112, backgroundColor: '#2A1B4A', justifyContent: 'center' },
+  marcaDagua: { position: 'absolute', right: -14, bottom: -18 },
+  corpoDegrade: { padding: 14, gap: 6, paddingRight: 96 },
+  pilulaDegrade: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.22)', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 },
+  pilulaDegradeTxt: { fontSize: 10, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.6 },
+  tituloDegrade: { fontSize: 15, fontWeight: '900', color: '#FFFFFF', lineHeight: 19 },
+  btnDegrade: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FFFFFF', borderRadius: 18, paddingHorizontal: 13, minHeight: 30 },
+  btnDegradeTxt: { fontSize: 12, fontWeight: '800', color: '#1A1020' },
   corpo: { padding: 14, gap: 4, justifyContent: 'center' },
   tag: { fontSize: 11, fontWeight: '800', color: '#7E57C2', letterSpacing: 0.6 },
   titulo: { fontSize: 14, fontWeight: '800', color: COR_TEXTO, lineHeight: 18, flexShrink: 1 },

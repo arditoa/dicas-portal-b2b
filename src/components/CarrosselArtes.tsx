@@ -2,17 +2,23 @@
 // Passam sozinhos a cada 5 s, deslizam com o dedo e mostram o próximo cartão espiando na lateral.
 // Cada item usa a arte enviada pela equipe (locais.arte_destaque_url); sem arte, vira um cartão
 // com a foto do local e o nome numa faixa escura. Só Membros Fundadores e patrocinados entram.
-import { Ionicons } from '@expo/vector-icons';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
 import { Image, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 
 import { useReduzirMovimento } from '../hooks/useReduzirMovimento';
+import FundoCaixaDegrade from './FundoCaixaDegrade';
 
 export type ItemArte = {
   id: string;
   nome: string;
   bairro?: string;
   tipo: 'fundador' | 'patrocinado' | 'outro';
+  // Cartão de categoria de destaque (Em alta, Hoje…): degradê + foto suave + ícone + título.
+  degrade?: [string, string];
+  icone?: string;
+  subtitulo?: string;
+  verTudo?: string;
   arteUrl?: string | null;
   fotoUrl?: string | null;
   rotulo: string; // texto da pílula (ex.: MEMBRO FUNDADOR)
@@ -85,6 +91,26 @@ export default function CarrosselArtes({ itens, onExibir }: { itens: ItemArte[];
           >
             {i.arteUrl ? (
               <Image source={{ uri: i.arteUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+            ) : i.degrade ? (
+              <>
+                <FundoCaixaDegrade id={`dest-${i.id}`} cores={i.degrade} />
+                {!!i.fotoUrl && <Image source={{ uri: i.fotoUrl }} style={[StyleSheet.absoluteFill, { opacity: 0.4 }]} resizeMode="cover" />}
+                <View style={styles.icone}>
+                  <Feather name={(i.icone || 'star') as any} size={20} color="#FFFFFF" />
+                </View>
+                <View style={styles.faixaCat}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.nomeCat} numberOfLines={1}>{i.nome}</Text>
+                    {!!i.subtitulo && <Text style={styles.bairro} numberOfLines={1}>{i.subtitulo}</Text>}
+                  </View>
+                  {!!i.verTudo && (
+                    <View style={styles.verTudo}>
+                      <Text style={styles.verTudoTxt}>{i.verTudo}</Text>
+                      <Feather name="chevron-right" size={14} color="#1A1020" />
+                    </View>
+                  )}
+                </View>
+              </>
             ) : (
               <>
                 {!!i.fotoUrl && <Image source={{ uri: i.fotoUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />}
@@ -120,6 +146,11 @@ const styles = StyleSheet.create({
   faixa: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(11,11,14,0.72)', paddingHorizontal: 14, paddingVertical: 10 },
   nome: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
   bairro: { color: '#D6D3E0', fontSize: 12, fontWeight: '600', marginTop: 1 },
+  icone: { position: 'absolute', top: 12, left: 12, width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+  faixaCat: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: 'rgba(11,11,14,0.35)' },
+  nomeCat: { color: '#FFFFFF', fontSize: 20, fontWeight: '900' },
+  verTudo: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 999, paddingLeft: 10, paddingRight: 6, paddingVertical: 5 },
+  verTudoTxt: { color: '#1A1020', fontSize: 11, fontWeight: '800' },
   pilula: { position: 'absolute', top: 10, left: 10, flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4 },
   pilulaTxt: { fontSize: 9, fontWeight: '800', letterSpacing: 0.3 },
   pontos: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 8 },

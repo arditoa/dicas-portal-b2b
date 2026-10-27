@@ -49,7 +49,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Usamos suas fotos e vídeos somente quando você escolhe anexar provas a uma ocorrência. Os arquivos ficam em área privada, visíveis só para você e para a equipe responsável."
+          "photosPermission": "Usamos suas fotos somente quando você escolhe: uma foto de perfil (opcional) ou provas anexadas a uma ocorrência. Os arquivos ficam em área privada, visíveis só para você e, no caso de ocorrências, para a equipe responsável."
         }
       ],
       [

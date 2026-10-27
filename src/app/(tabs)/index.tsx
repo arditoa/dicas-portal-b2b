@@ -18,8 +18,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import CarrosselAnuncios from '../../components/CarrosselAnuncios';
-import CarrosselArtes, { ItemArte } from '../../components/CarrosselArtes';
+import CarrosselAnuncios, { Anuncio } from '../../components/CarrosselAnuncios';
+import FundadoresMini from '../../components/FundadoresMini';
 import FundoCaixaDegrade from '../../components/FundoCaixaDegrade';
 import DestaqueHora, { ParceiroHora } from '../../components/DestaqueHora';
 import FundoDegrade from '../../components/FundoDegrade';
@@ -458,24 +458,37 @@ export default function HomeScreen() {
     () => rodizioHorario(servicosPool, 'em_alta', slotRodizio, 6),
     [servicosPool, slotRodizio]
   );
-  // Artes da vitrine da Home (locais.arte_destaque_url, migration 055). Só a equipe
-  // sobe a arte pelo /admin; sem arte, o cartão usa a foto do local.
-  const [artesTopo, setArtesTopo] = useState<Record<string, string>>({});
-  const itensArte = useMemo<ItemArte[]>(() => {
-    const lista: ItemArte[] = destaquesTopo.map((d) => ({
-      id: `${d.tipo}-${d.id}`,
-      nome: d.nome,
-      bairro: d.bairro,
-      tipo: d.tipo,
-      arteUrl: artesTopo[d.id] ?? null,
-      fotoUrl: d.ehLogo ? null : d.foto,
-      rotulo: d.tipo === 'fundador' ? t('banner.fundadorTag') : t('home.patrocinado'),
-      onPress: () => router.push(`/business/${d.id}` as any),
-    }));
-    // Quem tem arte própria vem primeiro; limite de 5 para a vitrine continuar leve.
-    return [...lista.filter((i) => i.arteUrl), ...lista.filter((i) => !i.arteUrl)].slice(0, 5);
+  // Quadradinhos pequenos de fundadores/patrocinados, logo abaixo da busca.
+  const fundadoresMini = useMemo(
+    () =>
+      destaquesTopo.map((d) => ({
+        id: `${d.tipo}-${d.id}`,
+        nome: d.nome,
+        foto: d.foto,
+        ehLogo: d.ehLogo,
+        tipo: d.tipo,
+        onPress: () => router.push(`/business/${d.id}` as any),
+      })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [destaquesTopo, artesTopo]);
+    [destaquesTopo]
+  );
+  // Vitrine logo abaixo dos fundadores: só o Museu e os Recomendados pela equipe, no mesmo tamanho
+  // dos banners de parceiros. O resto dos destaques (Em alta, Hoje, Top da semana…) já está nas
+  // caixas mais abaixo, então não se repete aqui.
+  const anunciosVitrine = useMemo<Anuncio[]>(
+    () => [
+      {
+        id: 'museu', chave: 'museu', tag: t('home.anuncioMuseuTag'), titulo: t('home.anuncioMuseuTitulo'), cta: t('home.anuncioMuseuCta'),
+        icone: 'book-open', cor: '#6D28D9', degrade: ['#6D28D9', '#DB2777'], onPress: () => router.push('/apoiador/museu-diversidade' as any),
+      },
+      {
+        id: 'recomendados', tag: t('banner.seloTag'), titulo: t('banner.seloTitulo'), cta: t('banner.seloCta'),
+        icone: 'check-circle', cor: '#E1306C', degrade: ['#F59E0B', '#E1306C'], onPress: () => router.push('/experience/Selo%20Dicas%20LGBT%2B' as any),
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [t]
+  );
 
   const isUserLogged = !!session;
 
@@ -658,22 +671,6 @@ export default function HomeScreen() {
         topo.push({ id: p.id, nome: formatarNome(p.nome), foto: fotoDestaqueUrl(p), bairro: textoLocalizacao(p), tipo: 'patrocinado' });
       }
       setTopoPrioritarios(topo);
-      // Artes da vitrine: consulta separada e tolerante (se a migration 055 ainda não rodou, só segue sem arte).
-      if (topo.length > 0) {
-        try {
-          const { data: artesData, error: artesErr } = await supabase
-            .from('locais')
-            .select('id, arte_destaque_url')
-            .in('id', topo.map((x) => x.id));
-          if (!artesErr && artesData) {
-            const mapa: Record<string, string> = {};
-            for (const r of artesData as any[]) if (r.arte_destaque_url) mapa[r.id] = r.arte_destaque_url;
-            setArtesTopo(mapa);
-          }
-        } catch {
-          /* sem arte: usa a foto do local */
-        }
-      }
       setBannerFundadorArteUrl(((appConfigRes.data as any)?.valor as string | undefined) || null);
 
       if (user?.id) {
@@ -843,9 +840,10 @@ export default function HomeScreen() {
 
         <View style={{ height: 14 }} />
 
-        {/* VITRINE DE ARTES — banners largos (2:1) logo abaixo da busca, passam sozinhos a
-            cada 5 s. Fundadores e patrocinados; a arte é enviada só pela equipe (/admin). */}
-        {itensArte.length > 0 && <CarrosselArtes itens={itensArte} />}
+        {/* FUNDADORES (pequenos) + VITRINE DE DESTAQUES — abaixo dos quadradinhos giram, a cada 5 s,
+            banners do Museu e dos Recomendados (mesmo tamanho dos de parceiros). */}
+        <FundadoresMini itens={fundadoresMini} titulo={destaquesTopo.every((d) => d.tipo === 'fundador') ? t('banner.fundadorTitulo') : t('home.topoParceiros')} />
+        <CarrosselAnuncios anuncios={anunciosVitrine} />
 
         {/* CATEGORIAS — ícones redondos de sempre (cor própria por categoria,
             vinda de lib/categorias.ts), numa linha com rolagem lateral. Dicas
@@ -914,7 +912,7 @@ export default function HomeScreen() {
             Para trocar os anúncios (ex.: durante a Copa), mude só esta lista. */}
         <CarrosselAnuncios
           onExibir={aoExibirBanner}
-          anuncios={anunciosApp ?? [
+          anuncios={anunciosApp ? anunciosApp.filter((a) => a.chave !== 'museu') : [
             {
               id: 'brasil2027',
               tag: t('home.brasil2027Tag'),
@@ -965,9 +963,6 @@ export default function HomeScreen() {
             ...(servicosPool.length > 0
               ? [{ tipo: 'servicos', titulo: t('home.tile.servicos'), icone: 'briefcase', degrade: ['#0F9F90', '#5558E3'] as [string, string], qtd: servicosPool.length, rota: '/secao/servicos' }]
               : []),
-            ...BANNERS_PRINCIPAIS.filter((bn) => bn.id === 'b2').map((bn) => ({
-              tipo: 'recomendados', titulo: t('home.tile.recomendados'), icone: bn.icone, degrade: ['#0DA372', '#0E7490'] as [string, string], qtd: 0, rota: bn.route as string,
-            })),
           ].map((b) => (
             <TouchableOpacity
               key={b.tipo}

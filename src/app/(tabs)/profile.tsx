@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../lib/authContext';
 import ContaAtividade from '../../components/ContaAtividade';
 import FundoCaixaDegrade from '../../components/FundoCaixaDegrade';
+import { AvatarEditavel, StatusRelacionamento } from '../../components/PerfilFotoStatus';
 import { IDIOMAS, useI18n } from '../../lib/i18n';
 
 // Site institucional (landing-dicaslgbt) — política e termos ficam lá e
@@ -559,11 +560,15 @@ export default function ProfileScreen() {
             </View>
           ) : (
             <View style={styles.profileCard}>
-              <View style={styles.avatarCircle}>
-                <Text style={styles.avatarInitials}>
-                  {(perfil?.display_name || user?.email || 'US').substring(0, 2).toUpperCase()}
-                </Text>
-              </View>
+              {user?.id ? (
+                <AvatarEditavel userId={user.id} iniciais={(perfil?.display_name || user?.email || 'US').substring(0, 2).toUpperCase()} />
+              ) : (
+                <View style={styles.avatarCircle}>
+                  <Text style={styles.avatarInitials}>
+                    {(perfil?.display_name || user?.email || 'US').substring(0, 2).toUpperCase()}
+                  </Text>
+                </View>
+              )}
               <Text style={styles.userName}>{perfil?.display_name || 'Sem nome cadastrado'}</Text>
               <Text style={styles.userEmail}>{user?.email}</Text>
 
@@ -580,6 +585,13 @@ export default function ProfileScreen() {
                   Nascimento: {perfil?.birth_date || 'não informado'}
                 </Text>
               </View>
+
+              {user?.id && (
+                <>
+                  <View style={styles.infoDivider} />
+                  <StatusRelacionamento userId={user.id} />
+                </>
+              )}
             </View>
           )}
 
@@ -621,6 +633,17 @@ export default function ProfileScreen() {
                 <Text style={styles.menuItemSub}>Parceira oficial de desenvolvimento</Text>
               </View>
               <Feather name="external-link" size={16} color={COLORS.textMuted} />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/onboarding' as any)} activeOpacity={0.7}>
+              <View style={[styles.menuIconBg, { backgroundColor: 'rgba(225, 48, 108, 0.15)' }]}>
+                <Feather name="heart" size={16} color={COLORS.pink} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.menuItemText}>Nossa missão e objetivo</Text>
+                <Text style={styles.menuItemSub}>Rever a abertura do Dicas LGBT+</Text>
+              </View>
+              <Feather name="chevron-right" size={16} color={COLORS.textMuted} />
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/denunciar')} activeOpacity={0.7}>

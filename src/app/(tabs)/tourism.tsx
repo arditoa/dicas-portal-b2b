@@ -214,7 +214,10 @@ export default function TripScreen() {
             mantém as cidades-sede; os outros vêm da tabela banners_app (painel /admin). */}
         <CarrosselAnuncios
           onExibir={aoExibirBanner}
-          anuncios={anunciosApp ? anunciosApp : [{ id: 'brasil2027', tag: '', titulo: '', cta: '', icone: 'globe', cor: '#E1306C', onPress: () => {}, custom: heroCopa }]}
+          anuncios={anunciosApp ? anunciosApp : [
+            { id: 'brasil2027', tag: '', titulo: '', cta: '', icone: 'globe', cor: '#E1306C', onPress: () => {}, custom: heroCopa },
+            { id: 'museu', chave: 'museu', tag: t('home.anuncioMuseuTag'), titulo: t('home.anuncioMuseuTitulo'), cta: t('home.anuncioMuseuCta'), icone: 'book-open', cor: '#6D28D9', degrade: ['#6D28D9', '#DB2777'], onPress: () => router.push('/apoiador/museu-diversidade' as any) },
+          ]}
         />
         {/* Planeje sua viagem */}
         <Text style={styles.secao}>{t('trip.planeje')}</Text>

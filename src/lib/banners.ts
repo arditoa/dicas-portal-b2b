@@ -128,6 +128,8 @@ export function useAnunciosApp(
       const rotulo = ROTULO_PARCERIA[b.parceria]?.[idioma] || ROTULO_PARCERIA[b.parceria]?.pt;
       return {
         id: b.id,
+        chave: b.chave ?? undefined,
+        degrade: b.chave === 'museu' ? (['#6D28D9', '#DB2777'] as [string, string]) : undefined,
         tag: tr.tag || b.tag,
         titulo: tr.titulo || b.titulo,
         cta: tr.cta || b.cta,
