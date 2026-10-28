@@ -48,6 +48,8 @@ export default function CupomPage() {
   const [validoDe, setValidoDe] = useState('');
   const [validoAte, setValidoAte] = useState('');
   const [limiteUso, setLimiteUso] = useState('');
+  // Migration 059 — quantas ofertas o plano permite por mês (null = sem limite).
+  const [uso, setUso] = useState<{ plano: string; limite: number | null; usadas: number } | null>(null);
 
   const carregarCupons = useCallback(async (id: string) => {
     const { data } = await supabase
@@ -61,6 +63,9 @@ export default function CupomPage() {
       resgates: c.cupons_resgatados?.[0]?.count ?? 0,
     }));
     setCupons(lista);
+    const { data: u } = await supabase.rpc('uso_ofertas_mes', { p_local_id: id });
+    const linha = Array.isArray(u) ? u[0] : u;
+    if (linha) setUso({ plano: linha.plano, limite: linha.limite ?? null, usadas: Number(linha.usadas) || 0 });
   }, []);
 
   useEffect(() => {
@@ -221,6 +226,21 @@ export default function CupomPage() {
           </div>
         )}
       </div>
+
+      {uso && (
+        <div className={`border rounded-2xl p-4 mb-6 text-xs ${uso.limite !== null && uso.usadas >= uso.limite ? 'bg-amber-500/10 border-amber-500/30 text-amber-300' : 'bg-[#161520] border-[#232230] text-[#A0A0B2]'}`}>
+          {uso.limite === null ? (
+            <>Plano <b className="text-white">{uso.plano}</b>: ofertas sem limite mensal. Elas aparecem no topo das categorias e em &ldquo;Ofertas e benefícios&rdquo;.</>
+          ) : (
+            <>
+              Plano <b className="text-white">{uso.plano}</b>: você usou <b className="text-white">{uso.usadas} de {uso.limite}</b> ofertas deste mês.
+              {uso.usadas >= uso.limite && (
+                <> Para publicar mais, <Link href="/planos" className="underline font-bold">conheça os planos</Link>.</>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       {erro && <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl text-xs mb-6">{erro}</div>}
 

@@ -22,10 +22,16 @@ import { CONFIG_RODIZIO_PADRAO, ConfigRodizio, lerConfigRodizio } from '../../li
 import { useSlotHora } from '../../hooks/useSlotHora';
 import { textoLocalizacao } from '../../lib/localizacao';
 import { formatarNome } from '../../lib/texto';
+import { abertoAgora } from '../../lib/horario';
+import { rotuloTag } from '../../lib/taxonomia';
 import { useLocation } from '../../hooks/useLocation';
 import { supabase } from '../../lib/supabase';
 import { useRastrearTela } from '../../lib/usoTelas';
 import FiltrosPilulas, { FiltroDef } from '../../components/FiltrosPilulas';
+import CabecalhoTela from '../../components/CabecalhoTela';
+import VitrineCategoria from '../../components/VitrineCategoria';
+import { Anuncio } from '../../components/CarrosselAnuncios';
+import { buscarIdsFundadores } from '../../lib/vitrine';
 
 // Rodada 41 — mapeia o categoria_tipo real (enum do banco) pra o mesmo
 // slug de seção usado em destaque_secao_fixada (ver /admin), pra fixação
@@ -38,6 +44,25 @@ const SECAO_POR_CATEGORIA_REAL: Record<string, string> = {
   cultura: 'cultura',
   turismo: 'turismo',
 };
+
+// Prioridade de plano na lista (menor = aparece antes). Só conta plano com status ativo.
+function ordemPlano(l: { plano_comercial?: string | null; plano_comercial_status?: string | null }): number {
+  if ((l.plano_comercial_status ?? 'ativo') !== 'ativo') return 3;
+  switch (l.plano_comercial) {
+    case 'fundador':
+    case 'premium':
+      return 0;
+    case 'intermediario':
+      return 1;
+    case 'starter':
+      return 2;
+    default:
+      return 3;
+  }
+}
+
+// Filtros mostrados nas páginas de categoria (Trip mantém os seus). Lista provisória — a Andrea ainda vai definir.
+const FILTROS_CATEGORIA = ['perto', 'aberto', 'bairro'];
 
 const COLORS = {
   background: '#0B0B0E',
@@ -52,11 +77,14 @@ const COLORS = {
   gold: '#FFD54F',
 };
 
-const OPCOES_DISTANCIA = [
-  { label: 'Qualquer distância', val: 999 },
-  { label: 'Até 2 km', val: 2 },
-  { label: 'Até 5 km', val: 5 },
-];
+// Filtro "Perto de mim": rótulo mostrado -> raio em km.
+const RAIOS_KM: Record<string, number> = {
+  'Até 1 km': 1,
+  'Até 3 km': 3,
+  'Até 5 km': 5,
+  'Até 10 km': 10,
+  'Até 25 km': 25,
+};
 
 function distanciaKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371;
@@ -93,6 +121,7 @@ interface LocalItem {
   galeria_fotos?: string[] | null;
   atributos?: { comodidades?: string[] } | null;
   tipo_hospedagem?: string | null;
+  horario_funcionamento?: any;
 }
 
 export default function CategoryListScreen() {
@@ -136,7 +165,9 @@ export default function CategoryListScreen() {
 
   // null = ainda não escolheu: abre em "Em Alta" só se houver quem entre ali (e não veio de busca, tag ou atalho).
   const [selectedSubcat, setSelectedSubcat] = useState<string | null>(null);
-  const [maxDistance, setMaxDistance] = useState(999);
+  // Filtros em pílulas (todas as categorias): id do filtro -> opção escolhida.
+  const [filtros, setFiltros] = useState<Record<string, string | undefined>>({});
+  const maxDistance = filtros.perto ? RAIOS_KM[filtros.perto] ?? 999 : 999;
   const [searchQuery, setSearchQuery] = useState(search ? decodeURIComponent(search) : '');
 
   const { coords, loading: loadingLocation, errorMsg: locationError } = useLocation(maxDistance !== 999);
@@ -147,12 +178,17 @@ export default function CategoryListScreen() {
       let query = supabase
         .from('locais')
         .select(
-          'id, nome, categoria, subcategoria, bairro, bairro_exibicao, cidade, foto_capa_url, safe_space, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status, experiencias, rating_media, rating_total, lat, lng, logo_url, galeria_fotos, atributos, tipo_hospedagem'
+          'id, nome, categoria, subcategoria, bairro, bairro_exibicao, cidade, foto_capa_url, safe_space, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status, experiencias, rating_media, rating_total, lat, lng, logo_url, galeria_fotos, atributos, tipo_hospedagem, horario_funcionamento'
         )
         .eq('status', 'aprovado')
         .limit(1000);
 
       if (categoriaReal) query = query.eq('categoria', categoriaReal);
+      // "Destaques" = Membros Fundadores (selo real em local_badges).
+      if (slug === 'destaques') {
+        const idsFund = await buscarIdsFundadores();
+        query = query.in('id', idsFund.length > 0 ? idsFund : ['00000000-0000-0000-0000-000000000000']);
+      }
       if (experienciaSlug) query = query.contains('experiencias', [experienciaSlug]);
 
       const { data, error } = await query;
@@ -162,7 +198,9 @@ export default function CategoryListScreen() {
       const secaoDestaque = categoriaReal ? SECAO_POR_CATEGORIA_REAL[categoriaReal] || 'nenhuma' : 'nenhuma';
       // Quem paga (selo DESTAQUE) ou foi fixado vem primeiro; depois a ordem de sempre.
       const cmp = compararDestaque<LocalItem>(secaoDestaque);
-      itens.sort((a, b) => Number(deveExibirGlow(b)) - Number(deveExibirGlow(a)) || cmp(a, b));
+      // Ordem da lista: Premium/Fundador primeiro, depois Intermediário, depois os demais (Starter, Freemium).
+      // Dentro de cada grupo vale a ordem de sempre (fixados no /admin, rotação, nome).
+      itens.sort((a, b) => ordemPlano(a) - ordemPlano(b) || Number(deveExibirGlow(b)) - Number(deveExibirGlow(a)) || cmp(a, b));
       setLocais(itens);
 
       if (user?.id && itens.length > 0) {
@@ -181,7 +219,7 @@ export default function CategoryListScreen() {
     } finally {
       setLoading(false);
     }
-  }, [categoriaReal, experienciaSlug, user?.id]);
+  }, [categoriaReal, experienciaSlug, user?.id, slug]);
 
   useEffect(() => {
     carregar();
@@ -190,7 +228,7 @@ export default function CategoryListScreen() {
   useEffect(() => {
     if (locationError) {
       Alert.alert('Localização', 'Não conseguimos acessar sua localização. Mostrando todas as distâncias.');
-      setMaxDistance(999);
+      setFiltros((f) => ({ ...f, perto: undefined }));
     }
   }, [locationError]);
 
@@ -217,34 +255,46 @@ export default function CategoryListScreen() {
   // Páginas de experiência (Dates, Dançar, Drag Show, Música ao vivo, Karaokê) seguem o
   // modelo de Em Alta: abrem em "Em Alta" quando há ao menos 3; senão, em "Todas".
   const abrirEmAlta = experienciaSlug ? qtdEmAlta >= 3 : temEmAlta;
-  const subcatAtiva = selectedSubcat ?? (abrirEmAlta && !search && !tipo ? 'Em Alta' : 'Todas');
+  // Páginas de experiência mantêm Em Alta/Todas. Categorias usam banners de subcategoria: selectedSubcat guarda a chave
+  // da subcategoria aberta ('' = Outros) e null = ainda na tela de banners.
+  const subcatAtiva = experienciaSlug ? (selectedSubcat ?? (abrirEmAlta && !search && !tipo ? 'Em Alta' : 'Todas')) : (selectedSubcat ?? 'Todas');
 
   // Atalhos da Trip (Hospedagem, Passeios, Agências...): filtros em pílulas, no mesmo padrão
   // dos Roteiros. As opções saem só dos locais DESSE atalho (antes saíam de tudo e apareciam
   // pílulas sem resultado, como "Agência on-line" em Hospedagem).
   const modoTrip = palavrasTipo.length > 0;
-  const [filtrosTrip, setFiltrosTrip] = useState<Record<string, string | undefined>>({});
   const locaisDoTipo = useMemo(
     () => (modoTrip ? locais.filter((l) => palavrasTipo.some((p) => (l.subcategoria || '').toLowerCase().includes(p))) : locais),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [locais, tipo]
   );
-  const filtrosTripDef = useMemo<FiltroDef[]>(() => {
+  // Pílulas de filtro de TODAS as categorias. Cada categoria mostra só o que faz sentido
+  // para ela, e cada pílula só aparece se existir ao menos uma opção com resultado.
+  const filtrosDef = useMemo<FiltroDef[]>(() => {
     const unicos = (xs: (string | null | undefined)[]) =>
       Array.from(new Set(xs.filter((x): x is string => !!x && x.trim().length > 0))).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-    return [
-      { id: 'cidade', label: 'Destino', icone: 'map-pin', opcoes: unicos(locaisDoTipo.map((l) => l.cidade)), valor: filtrosTrip.cidade },
-      { id: 'tipo', label: 'Tipo', icone: 'sliders', opcoes: unicos(locaisDoTipo.map((l) => l.subcategoria)), valor: filtrosTrip.tipo },
-      {
-        id: 'comodidade',
-        label: 'Comodidades',
-        icone: 'check-circle',
-        opcoes: unicos(locaisDoTipo.flatMap((l) => l.atributos?.comodidades || [])),
-        valor: filtrosTrip.comodidade,
-      },
-      { id: 'selo', label: 'Selo', icone: 'shield', opcoes: locaisDoTipo.some((l) => l.safe_space) ? ['Safe Space'] : [], valor: filtrosTrip.selo },
-    ];
-  }, [locaisDoTipo, filtrosTrip]);
+    const base = modoTrip ? locaisDoTipo : locais;
+    const cidades = unicos(base.map((l) => l.cidade));
+    const bairros = unicos(base.map((l) => l.bairro_exibicao || l.bairro));
+    const comNota = base.some((l) => (l.rating_total || 0) > 0 && (l.rating_media || 0) >= 4);
+    const lista: FiltroDef[] = [];
+    // "Perto de mim": útil em tudo — em casa (bares, comida) e em viagem (hotel, passeio).
+    lista.push({ id: 'perto', label: 'Perto de mim', icone: 'navigation', opcoes: base.some((l) => l.lat != null && l.lng != null) ? Object.keys(RAIOS_KM) : [], valor: filtros.perto });
+    if (modoTrip) {
+      lista.push({ id: 'cidade', label: 'Destino', icone: 'map-pin', opcoes: cidades, valor: filtros.cidade });
+      lista.push({ id: 'tipo', label: 'Tipo', icone: 'sliders', opcoes: unicos(base.map((l) => l.subcategoria)), valor: filtros.tipo });
+      lista.push({ id: 'comodidade', label: 'Comodidades', icone: 'check-circle', opcoes: unicos(base.flatMap((l) => l.atributos?.comodidades || [])), valor: filtros.comodidade });
+    } else {
+      lista.push({ id: 'aberto', label: 'Aberto agora', icone: 'clock', opcoes: base.some((l) => abertoAgora(l)) ? ['Aberto agora'] : [], valor: filtros.aberto });
+      lista.push({ id: 'experiencia', label: 'Experiência', icone: 'star', opcoes: unicos(base.flatMap((l) => (l.experiencias || []).map(rotuloTag))), valor: filtros.experiencia });
+      lista.push({ id: 'cidade', label: 'Cidade', icone: 'map-pin', opcoes: cidades.length > 1 ? cidades : [], valor: filtros.cidade });
+      lista.push({ id: 'bairro', label: 'Bairro', icone: 'home', opcoes: bairros.length > 1 && bairros.length <= 40 ? bairros : [], valor: filtros.bairro });
+    }
+    lista.push({ id: 'nota', label: 'Avaliação', icone: 'thumbs-up', opcoes: comNota ? ['4+ estrelas', '4,5+ estrelas'] : [], valor: filtros.nota });
+    lista.push({ id: 'selo', label: 'Selo', icone: 'shield', opcoes: base.some((l) => l.safe_space) ? ['Safe Space'] : [], valor: filtros.selo });
+    // Categorias: poucos filtros (a lista exata ainda será definida). Para mudar, ajuste FILTROS_CATEGORIA.
+    return modoTrip ? lista : lista.filter((f) => FILTROS_CATEGORIA.includes(f.id));
+  }, [locais, locaisDoTipo, modoTrip, filtros]);
 
   const subcategoriasList = useMemo(() => {
     const reais = Array.from(
@@ -280,6 +330,19 @@ export default function CategoryListScreen() {
     }
   };
 
+  // Em "Destaques" o espaço fixo de patrocínio mostra o Dicas Trip enquanto não houver patrocinador.
+  const bannerTrip: Anuncio = {
+    id: 'trip',
+    chave: 'trip',
+    tag: 'DICAS TRIP',
+    titulo: 'Viaje pelo Brasil com quem entende a comunidade',
+    cta: 'Explorar a Trip',
+    icone: 'compass',
+    cor: '#10B981',
+    degrade: ['#10B981', '#0E7490'],
+    onPress: () => router.push('/(tabs)/tourism' as any),
+  };
+
   const filteredPlaces = locais
     .map((item) => {
       const distanceKm =
@@ -289,20 +352,29 @@ export default function CategoryListScreen() {
       return { ...item, distanceKm };
     })
     .filter((item) => {
+      const matchesFiltros =
+        (!filtros.cidade || item.cidade === filtros.cidade) &&
+        (!filtros.tipo || item.subcategoria === filtros.tipo) &&
+        (!filtros.comodidade || (item.atributos?.comodidades || []).includes(filtros.comodidade)) &&
+        (!filtros.bairro || (item.bairro_exibicao || item.bairro) === filtros.bairro) &&
+        (!filtros.aberto || abertoAgora(item)) &&
+        (!filtros.experiencia || (item.experiencias || []).some((e) => rotuloTag(e) === filtros.experiencia)) &&
+        (!filtros.nota || ((item.rating_total || 0) > 0 && (item.rating_media || 0) >= (filtros.nota.startsWith('4,5') ? 4.5 : 4))) &&
+        (!filtros.selo || item.safe_space);
+
       const matchesSubcat = modoTrip
-        ? (!filtrosTrip.cidade || item.cidade === filtrosTrip.cidade) &&
-          (!filtrosTrip.tipo || item.subcategoria === filtrosTrip.tipo) &&
-          (!filtrosTrip.comodidade || (item.atributos?.comodidades || []).includes(filtrosTrip.comodidade)) &&
-          (!filtrosTrip.selo || item.safe_space)
-        : subcatAtiva === 'Em Alta'
-        ? idsEmAlta.has(item.id)
-        : subcatAtiva === 'Todas' || item.subcategoria === subcatAtiva;
+        ? true
+        : experienciaSlug
+        ? subcatAtiva === 'Em Alta'
+          ? idsEmAlta.has(item.id)
+          : subcatAtiva === 'Todas' || item.subcategoria === subcatAtiva
+        : true;
 
       const matchesTipo =
         palavrasTipo.length === 0 ||
         palavrasTipo.some((p) => (item.subcategoria || '').toLowerCase().includes(p));
 
-      const matchesDistance = maxDistance === 999 || item.distanceKm == null || item.distanceKm <= maxDistance;
+      const matchesDistance = maxDistance === 999 || (item.distanceKm != null && item.distanceKm <= maxDistance) || (item.distanceKm == null && !coords);
 
       const matchesSearch =
         !searchQuery.trim() ||
@@ -310,25 +382,26 @@ export default function CategoryListScreen() {
         (item.bairro || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.cidade.toLowerCase().includes(searchQuery.toLowerCase());
 
-      return matchesSubcat && matchesTipo && matchesDistance && matchesSearch;
+      return matchesFiltros && matchesSubcat && matchesTipo && matchesDistance && matchesSearch;
     });
+
+  // Filtros: ficam logo depois do patrocínio fixo (ou das ofertas, se não houver patrocínio), dentro do cabeçalho
+  // da lista. Com busca ativa ou subcategoria aberta (sem vitrine), aparecem no topo da lista.
+  const filtrosNode = (
+    <View style={styles.filterSection}>
+      <FiltrosPilulas
+        filtros={filtrosDef}
+        onSelecionar={(id, v) => setFiltros((f) => ({ ...f, [id]: v }))}
+        onLimpar={() => setFiltros({})}
+      />
+      {loadingLocation && maxDistance !== 999 && <ActivityIndicator size="small" color={COLORS.pink} style={{ marginTop: 6 }} />}
+    </View>
+  );
 
   return (
     <View style={styles.container}>
       <SafeAreaView style={[styles.safeArea, { paddingTop: insets.top }]}>
-        <View style={styles.headerBlock}>
-          <View style={styles.topRow}>
-            <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
-              <Feather name="arrow-left" size={18} color={COLORS.textPrimary} />
-            </TouchableOpacity>
-            <Image
-              source={require('../../assets/images/logolinear-semfundo.png')}
-              style={styles.headerLogo}
-              resizeMode="contain"
-            />
-          </View>
-          <Text style={styles.categoryTitleText}>{decodedTitle}</Text>
-        </View>
+        <CabecalhoTela titulo={decodedTitle} />
 
         <View style={styles.searchContainer}>
           <Feather name="search" size={16} color={COLORS.textMuted} />
@@ -341,17 +414,7 @@ export default function CategoryListScreen() {
           />
         </View>
 
-        {modoTrip && (
-          <View style={styles.filterSection}>
-            <FiltrosPilulas
-              filtros={filtrosTripDef}
-              onSelecionar={(id, v) => setFiltrosTrip((f) => ({ ...f, [id]: v }))}
-              onLimpar={() => setFiltrosTrip({})}
-            />
-          </View>
-        )}
-
-        {!modoTrip && subcategoriasList.length > 1 && (
+        {!modoTrip && !!experienciaSlug && subcategoriasList.length > 1 && (
           <View style={styles.filterSection}>
             <FlatList
               horizontal
@@ -381,31 +444,6 @@ export default function CategoryListScreen() {
           </View>
         )}
 
-        {(locais.length >= 6 || maxDistance !== 999) && (
-        <View style={styles.distanceSection}>
-          <View style={styles.distanceLabelRow}>
-            <Feather name="navigation" size={12} color={COLORS.pink} />
-            <Text style={styles.distanceSectionTitle}>Raio de distância</Text>
-            {loadingLocation && <ActivityIndicator size="small" color={COLORS.pink} style={{ marginLeft: 6 }} />}
-          </View>
-          <View style={styles.distanceRow}>
-            {OPCOES_DISTANCIA.map((d) => {
-              const isSelected = maxDistance === d.val;
-              return (
-                <TouchableOpacity
-                  key={d.val}
-                  style={[styles.distChip, isSelected && styles.distChipActive]}
-                  onPress={() => setMaxDistance(d.val)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.distChipText, isSelected && styles.distChipTextActive]}>{d.label}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-        )}
-
         {loading ? (
           <View style={styles.emptyContainer}>
             <ActivityIndicator color={COLORS.pink} />
@@ -414,9 +452,27 @@ export default function CategoryListScreen() {
           <FlatList
             data={filteredPlaces}
             keyExtractor={(item) => item.id}
+            ListHeaderComponent={
+              searchQuery.trim() ? (
+                <View style={{ marginHorizontal: -16 }}>{filtrosNode}</View>
+              ) : (
+                <>
+                  <VitrineCategoria
+                    slug={slug}
+                    titulo={decodedTitle}
+                    categoriaReal={categoriaReal}
+                    locais={locais}
+                    fundadores={slug === 'destaques'}
+                    bannerPadrao={slug === 'destaques' ? bannerTrip : undefined}
+                    aposPatrocinio={filtrosNode}
+                  />
+                </>
+              )
+            }
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={
+              (
               <View style={styles.emptyContainer}>
                 <Feather name="compass" size={32} color={COLORS.textMuted} />
                 <Text style={styles.emptyTitle}>
@@ -434,6 +490,7 @@ export default function CategoryListScreen() {
                     : 'Novos locais aparecem aqui assim que forem aprovados pelo time.'}
                 </Text>
               </View>
+              )
             }
             renderItem={({ item }) => {
               const isFavorited = favoritos.includes(item.id);
@@ -455,11 +512,6 @@ export default function CategoryListScreen() {
                     <View style={styles.placeHeaderRow}>
                       <Text style={styles.placeName} numberOfLines={1}>{formatarNome(item.nome)}</Text>
                       <View style={styles.actionRow}>
-                        {deveExibirGlow(item) && (
-                          <View style={styles.vipBadge}>
-                            <Text style={styles.vipBadgeText}>DESTAQUE</Text>
-                          </View>
-                        )}
                         <TouchableOpacity
                           style={styles.favBtn}
                           onPress={() => handleToggleFavorito(item.id)}

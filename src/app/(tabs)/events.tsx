@@ -1,3 +1,4 @@
+import { BotaoVoltar, TituloTela } from '../../components/CabecalhoTela';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
@@ -383,13 +384,16 @@ export default function EventsScreen() {
     <View style={styles.container}>
       {/* HEADER */}
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <View style={styles.headerEsquerda}>
-          <Image
-            source={require('../../assets/images/logolinear-semfundo.png')}
-            style={styles.logoLinear}
-            resizeMode="contain"
-          />
-          <Text style={styles.appSubtitulo}>Conexões e Experiências LGBT+</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <BotaoVoltar />
+          <View style={styles.headerEsquerda}>
+            <Image
+              source={require('../../assets/images/logolinear-semfundo.png')}
+              style={styles.logoLinear}
+              resizeMode="contain"
+            />
+            <Text style={styles.appSubtitulo}>Conexões e Experiências LGBT+</Text>
+          </View>
         </View>
         <TouchableOpacity
           style={styles.profileBtn}
@@ -404,7 +408,14 @@ export default function EventsScreen() {
 
         {/* TÍTULO E BOTÕES DE SELEÇÃO DE DATA */}
         <View style={styles.titleArea}>
-          <Text style={styles.mainTitle}>Eventos</Text>
+          <TituloTela
+            semMargem
+            titulo="Eventos"
+            tituloMenu="Quando?"
+            opcoes={CALENDAR_DATES.map((d) => ({ id: d.id, label: d.label }))}
+            valor={dateFilter}
+            onEscolher={(id) => setDateFilter(id as DateTag)}
+          />
 
           <View style={styles.dateSelectorRow}>
             <TouchableOpacity
@@ -825,8 +836,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  titleArea: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 12 },
-  mainTitle: { fontSize: 20, fontWeight: '800', color: COLORS.textPrimary },
+  titleArea: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginTop: 8, marginBottom: 16 },
+  mainTitle: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5, lineHeight: 32, color: COLORS.textPrimary },
 
   dateSelectorRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   dateBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },

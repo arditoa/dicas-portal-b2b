@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import FiltrosPilulas, { FiltroDef } from '../components/FiltrosPilulas';
 import FundoCaixaDegrade from '../components/FundoCaixaDegrade';
+import CabecalhoTela from '../components/CabecalhoTela';
 import { useI18n } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
 
@@ -104,16 +105,7 @@ export default function PacotesScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.headerBlock}>
-        <View style={styles.topRow}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Voltar">
-            <Feather name="arrow-left" size={18} color={C.text} />
-          </TouchableOpacity>
-          <Image source={require('../assets/images/logolinear-semfundo.png')} style={styles.headerLogo} resizeMode="contain" accessibilityLabel="Dicas LGBT+" />
-        </View>
-        <Text style={styles.titulo}>{t('trip.pacotes')}</Text>
-        <Text style={styles.sub}>{t('pacotes.sub')}</Text>
-      </View>
+      <CabecalhoTela titulo={t('trip.pacotes')} subtitulo={t('pacotes.sub')} />
 
       <View style={styles.busca}>
         <Feather name="search" size={18} color={C.dim} />

@@ -1,3 +1,4 @@
+import { BotaoVoltar, TituloTela } from '../../components/CabecalhoTela';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -210,13 +211,16 @@ export default function ExploreScreen() {
     <View style={styles.container}>
       {/* 1. HEADER FIXO */}
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <View style={styles.headerEsquerda}>
-          <Image
-            source={require('../../assets/images/logolinear-semfundo.png')}
-            style={styles.logoLinear}
-            resizeMode="contain"
-          />
-          <Text style={styles.appSubtitulo}>Mapa Interativo · Espaços LGBT+</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <BotaoVoltar />
+          <View style={styles.headerEsquerda}>
+            <Image
+              source={require('../../assets/images/logolinear-semfundo.png')}
+              style={styles.logoLinear}
+              resizeMode="contain"
+            />
+            <Text style={styles.appSubtitulo}>Mapa Interativo · Espaços LGBT+</Text>
+          </View>
         </View>
         <TouchableOpacity
           style={styles.profileBtn}
@@ -226,6 +230,21 @@ export default function ExploreScreen() {
           <Feather name="user" size={18} color="#D0D0E0" />
         </TouchableOpacity>
       </View>
+
+      {/* Título da aba no mesmo padrão das demais; o ∨ leva às listas por categoria */}
+      <TituloTela
+        titulo="Explorar"
+        subtitulo="Lugares que acolhem, perto de você"
+        tituloMenu="Ver lista de"
+        opcoes={[
+          { id: 'todos', label: 'Todos os lugares', icone: 'map-pin' },
+          { id: 'bares', label: 'Bares & Noite', icone: 'moon' },
+          { id: 'gastronomia', label: 'Gastronomia', icone: 'coffee' },
+          { id: 'cultura', label: 'Cultura', icone: 'book-open' },
+          { id: 'turismo', label: 'Turismo', icone: 'compass' },
+        ]}
+        onEscolher={(id) => router.push({ pathname: `/category/${id}` as any, params: { title: encodeURIComponent(id === 'todos' ? 'Todos os Locais' : id === 'bares' ? 'Bares & Noite' : id === 'gastronomia' ? 'Gastronomia' : id === 'cultura' ? 'Cultura' : 'Turismo') } })}
+      />
 
       {/* 2. BARRA DE BUSCA E BOTÃO DE FILTROS */}
       <View style={styles.controlsContainer}>

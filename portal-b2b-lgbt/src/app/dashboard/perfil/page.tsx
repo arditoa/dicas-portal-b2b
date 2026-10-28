@@ -1,5 +1,7 @@
 'use client';
+import { SUBCATEGORIAS_APP } from '../../../lib/subcategoriasApp';
 import { ArrowLeft, Check, KeyRound, Loader2, MapPin, Save, Upload } from 'lucide-react';
+import { TIPOS_SERVICO } from '../../../lib/servicosTipos';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
@@ -641,11 +643,24 @@ export default function MinhaPaginaPage() {
               type="text"
               value={local.subcategoria || ''}
               onChange={(e) => setLocal({ ...local, subcategoria: e.target.value })}
-              placeholder="Ex: Bar, Balada, Drag..."
+              placeholder={local.categoria === 'servicos' || local.categoria === 'beleza' || local.categoria === 'lojas' ? 'Escolha o tipo de serviço' : 'Ex: Bar, Balada, Drag...'}
+              list={local.categoria === 'servicos' || local.categoria === 'beleza' || local.categoria === 'lojas' ? 'tipos-servico' : local.categoria === 'lugares' ? 'tipos-lugares' : undefined}
               className="w-full bg-[#161520] border border-[#232230] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#E1306C]"
             />
           </div>
         </div>
+
+        <datalist id="tipos-lugares">
+          {SUBCATEGORIAS_APP.lugares.itens.map((i) => (
+            <option key={i.chave} value={i.rotulo} />
+          ))}
+        </datalist>
+
+        <datalist id="tipos-servico">
+          {TIPOS_SERVICO.map((t) => (
+            <option key={t.rotulo} value={t.rotulo} />
+          ))}
+        </datalist>
 
         {local.categoria === 'servicos' && (
           <div className="grid grid-cols-2 gap-4">

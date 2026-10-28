@@ -13,6 +13,7 @@
 import { Feather } from '@expo/vector-icons';
 import CarrosselAnuncios from '../../components/CarrosselAnuncios';
 import FundoCaixaDegrade from '../../components/FundoCaixaDegrade';
+import { BotaoVoltar, TituloTela } from '../../components/CabecalhoTela';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -20,7 +21,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '../../lib/authContext';
 import { registrarAviso } from '../../lib/avisos';
-import { useAnunciosApp } from '../../lib/banners';
 import { IDIOMAS, useI18n } from '../../lib/i18n';
 import { supabase } from '../../lib/supabase';
 import { carregarDestinos, Destino, DESTINOS_PADRAO } from '../../lib/destinos';
@@ -158,7 +158,6 @@ export default function TripScreen() {
           </TouchableOpacity>
         </View>
   );
-  const { anuncios: anunciosApp, aoExibir: aoExibirBanner } = useAnunciosApp('trip', { custom: { brasil2027: heroCopa } });
 
   const buscar = () => {
     if (!busca.trim()) return;
@@ -171,9 +170,12 @@ export default function TripScreen() {
         {/* Cabeçalho igual ao de Início/Eventos/Conta: logo + frase à esquerda,
             idioma à direita; título da tela logo abaixo (mesmo tamanho de "Eventos"). */}
         <View style={styles.header}>
-          <View>
-            <Image source={require('../../assets/images/logolinear-semfundo.png')} style={styles.logo} resizeMode="contain" accessibilityLabel="Dicas LGBT+" />
-            <Text style={styles.appSub}>{t('app.subtitulo')}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <BotaoVoltar />
+            <View>
+              <Image source={require('../../assets/images/logolinear-semfundo.png')} style={styles.logo} resizeMode="contain" accessibilityLabel="Dicas LGBT+" />
+              <Text style={styles.appSub}>{t('app.subtitulo')}</Text>
+            </View>
           </View>
           <View style={styles.idiomas}>
             {IDIOMAS.map((i) => (
@@ -191,8 +193,21 @@ export default function TripScreen() {
           </View>
         </View>
         <View style={styles.tituloArea}>
-          <Text style={styles.titulo}>{t('trip.titulo')}</Text>
-          <Text style={styles.sub}>{t('trip.sub')}</Text>
+          <TituloTela
+            semMargem
+            titulo={t('trip.titulo')}
+            subtitulo={t('trip.sub')}
+            tituloMenu="Ir para"
+            opcoes={SERVICOS.map((s) => ({ id: s.chave, label: t(s.chave), icone: s.icone }))}
+            onEscolher={(id) => {
+              const s = SERVICOS.find((x) => x.chave === id);
+              if (!s) return;
+              if (s.chave === 'trip.eventos') router.push('/(tabs)/events');
+              else if (s.chave === 'trip.roteiros') router.push('/roteiros' as any);
+              else if (s.chave === 'trip.pacotes') router.push('/pacotes' as any);
+              else abrirTurismo({ title: t(s.chave), tipo: s.tipo });
+            }}
+          />
         </View>
 
         {/* Busca */}
@@ -210,12 +225,9 @@ export default function TripScreen() {
           />
         </View>
 
-        {/* Brasil 2027 + banners (museu, Embratur, Câmara…) em carrossel. O cartão da Copa
-            mantém as cidades-sede; os outros vêm da tabela banners_app (painel /admin). */}
+        {/* Dicas Trip: só o Museu da Diversidade no topo (um banner, sem rodízio). */}
         <CarrosselAnuncios
-          onExibir={aoExibirBanner}
-          anuncios={anunciosApp ? anunciosApp : [
-            { id: 'brasil2027', tag: '', titulo: '', cta: '', icone: 'globe', cor: '#E1306C', onPress: () => {}, custom: heroCopa },
+          anuncios={[
             { id: 'museu', chave: 'museu', tag: t('home.anuncioMuseuTag'), titulo: t('home.anuncioMuseuTitulo'), cta: t('home.anuncioMuseuCta'), icone: 'book-open', cor: '#6D28D9', degrade: ['#6D28D9', '#DB2777'], onPress: () => router.push('/apoiador/museu-diversidade' as any) },
           ]}
         />
@@ -346,9 +358,9 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingTop: 8, marginBottom: 16 },
   logo: { width: 140, height: 34 },
   appSub: { fontSize: 11, fontWeight: '500', color: C.dim, marginTop: 2 },
-  tituloArea: { paddingHorizontal: 16 },
-  titulo: { fontSize: 20, fontWeight: '800', color: C.text },
-  sub: { fontSize: 12, color: C.dim, marginTop: 4 },
+  tituloArea: { paddingHorizontal: 16, marginTop: 6, marginBottom: 14 },
+  titulo: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5, lineHeight: 32, color: C.text },
+  sub: { fontSize: 13, color: '#8A8A9E', marginTop: 6, lineHeight: 18 },
   idiomas: { flexDirection: 'row', backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 18, padding: 3 },
   idiomaBtn: { minWidth: 34, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
   idiomaBtnAtivo: { backgroundColor: C.pink },

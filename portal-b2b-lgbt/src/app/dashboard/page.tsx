@@ -251,6 +251,12 @@ export default function DashboardPage() {
           >
             Cupons
           </Link>
+          <Link
+            href="/dashboard/destaques"
+            className="bg-[#E1306C]/15 hover:bg-[#E1306C]/25 text-[#FF6FA0] text-xs font-bold px-4 py-2.5 rounded-xl transition"
+          >
+            Destaques e resultados
+          </Link>
           {local.categoria === 'produtos' && (
             <Link
               href="/dashboard/produtos"

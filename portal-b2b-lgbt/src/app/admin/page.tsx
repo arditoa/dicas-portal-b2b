@@ -10,6 +10,7 @@ import PainelValidacaoHospedagem from '../../components/PainelValidacaoHospedage
 import PainelDestinos from '../../components/PainelDestinos';
 import PainelRoteiros from '../../components/PainelRoteiros';
 import PainelBanners from '../../components/PainelBanners';
+import PainelVitrine from '../../components/PainelVitrine';
 import PainelPush from '../../components/PainelPush';
 import PainelRodizio from '../../components/PainelRodizio';
 import PainelDestaqueHora from '../../components/PainelDestaqueHora';
@@ -472,7 +473,7 @@ type LeadInstitucional = {
 // Rodada 89 — menu lateral do /admin, agrupado por tarefa do dia.
 type SubAprov = 'todas' | 'interesse' | 'locais' | 'eventos' | 'vinculos' | 'leads' | 'hospedagem' | 'acesso';
 type ItemSub = { id: SubAprov; rotulo: string; badge?: number };
-type ItemMenu = { subs?: ItemSub[]; id: 'visao' | 'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos' | 'roteiros' | 'push' | 'rodizio' | 'banners' | 'denuncias'; rotulo: string; icone: typeof Store; badge?: number; alerta?: boolean };
+type ItemMenu = { subs?: ItemSub[]; id: 'visao' | 'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos' | 'roteiros' | 'push' | 'rodizio' | 'banners' | 'vitrine' | 'denuncias'; rotulo: string; icone: typeof Store; badge?: number; alerta?: boolean };
 function MENU_ADMIN(pendentes: number, locais: number, eventos: number, fundadores: number, filas: { interesse: number; locais: number; eventos: number; vinculos: number; leads: number; acesso: number }): { grupo: string; itens: ItemMenu[] }[] {
   return [
     { grupo: 'Início', itens: [{ id: 'visao', rotulo: 'Visão geral', icone: LayoutDashboard }] },
@@ -502,6 +503,7 @@ function MENU_ADMIN(pendentes: number, locais: number, eventos: number, fundador
       itens: [
         { id: 'rodizio', rotulo: 'Rodízio e Destaques', icone: Sparkles },
         { id: 'banners', rotulo: 'Banners e parceiros', icone: Megaphone },
+        { id: 'vitrine', rotulo: 'Vitrine das categorias', icone: Store },
         { id: 'fundador', rotulo: 'Membros Fundadores', icone: Star, badge: fundadores },
       ],
     },
@@ -530,6 +532,7 @@ const TITULO_ABA: Record<ItemMenu['id'], string> = {
   push: 'Avisos (push)',
   rodizio: 'Rodízio e Destaques',
   banners: 'Banners e parceiros',
+  vitrine: 'Vitrine das categorias',
   denuncias: 'Denúncias',
 };
 const SUBTITULO_ABA: Record<ItemMenu['id'], string> = {
@@ -543,6 +546,7 @@ const SUBTITULO_ABA: Record<ItemMenu['id'], string> = {
   push: 'Notificações push: escreva o aviso, teste no seu celular e envie para quem aceitou.',
   rodizio: 'Rodízio por horário da Home: quantos locais aparecem por vez, de quanto em quanto tempo troca, e a oferta do bloco Destaques.',
   banners: 'Cartões que giram na tela inicial e na aba Trip (Copa, Embratur, Câmara LGBT, patrocinadores): textos, onde aparecem, peso, período e relatório de exibições e cliques.',
+  vitrine: 'Banner fixo de patrocínio de cada categoria, comunicação dos Membros Fundadores (o gancho de venda), limite de ofertas por plano e desempenho dos destaques.',
   denuncias: 'Ocorrências registradas no app: relato, provas, histórico e atendimento. Conteúdo sensível — acesso restrito à equipe.',
 };
 
@@ -564,7 +568,7 @@ export default function AdminPage() {
   // de existir; `aba` agora cobre os três níveis direto.
   const [subAprov, setSubAprov] = useState<SubAprov>('todas');
   const ver = (k: SubAprov) => subAprov === 'todas' || subAprov === k;
-  const [aba, setAba] = useState<'visao' | 'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos' | 'roteiros' | 'push' | 'rodizio' | 'banners' | 'denuncias'>('visao');
+  const [aba, setAba] = useState<'visao' | 'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos' | 'roteiros' | 'push' | 'rodizio' | 'banners' | 'vitrine' | 'denuncias'>('visao');
   const [filtroPrincipal, setFiltroPrincipal] = useState<string>('todas');
   // Rodada 46 — filtro só da aba Eventos: "O que Fazer Hoje" (destaque_secoes
   // contém 'hoje', mesmo mecanismo que locais já tinham) vs todos.
@@ -2651,6 +2655,7 @@ Dicas LGBT+`;
       {aba === 'roteiros' && <PainelRoteiros />}
       {aba === 'push' && <PainelPush />}
       {aba === 'banners' && <PainelBanners />}
+      {aba === 'vitrine' && <PainelVitrine />}
       {aba === 'rodizio' && (
         <>
           <PainelRodizio />

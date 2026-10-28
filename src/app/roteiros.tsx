@@ -14,6 +14,7 @@ import { ActivityIndicator, Image, Modal, ScrollView, StyleSheet, Text, TextInpu
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import FundoCaixaDegrade from '../components/FundoCaixaDegrade';
+import CabecalhoTela from '../components/CabecalhoTela';
 import { ehRoteiroCompleto, listarRoteiros, opcoesDoGrupo, Roteiro, tagsVisiveis, todasTags } from '../lib/roteiros';
 import { rotuloTag } from '../lib/taxonomia';
 
@@ -115,16 +116,7 @@ export default function RoteirosScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
-<View style={styles.headerBlock}>
-          <View style={styles.topRow}>
-            <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Voltar">
-              <Feather name="arrow-left" size={18} color={C.text} />
-            </TouchableOpacity>
-            <Image source={require('../assets/images/logolinear-semfundo.png')} style={styles.headerLogo} resizeMode="contain" accessibilityLabel="Dicas LGBT+" />
-          </View>
-          <Text style={styles.titulo}>Experiências e roteiros</Text>
-          <Text style={styles.sub}>Descubra roteiros e experiências para viver cada destino do seu jeito.</Text>
-        </View>
+<CabecalhoTela titulo="Experiências e roteiros" subtitulo="Descubra roteiros e experiências para viver cada destino do seu jeito." />
 
         {carregando ? (
           <ActivityIndicator color={C.pink} style={{ marginTop: 40 }} />

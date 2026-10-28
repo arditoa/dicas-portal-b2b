@@ -14,6 +14,7 @@
 // que já existe.
 
 export type CategoriaSlugUI =
+  | 'destaques'
   | 'bares'
   | 'gastronomia'
   | 'festas'
@@ -41,6 +42,15 @@ export interface CategoriaConfig {
 }
 
 export const CATEGORIAS: Record<CategoriaSlugUI, CategoriaConfig> = {
+  // Primeira categoria da Home (out/2026): Membros Fundadores + Dicas Trip em destaque.
+  // Não entra em CATEGORIA_ORDER (esse array alimenta o mapa e os filtros); a Home a coloca na frente.
+  destaques: {
+    slug: 'destaques',
+    label: 'Destaques',
+    icon: 'star',
+    color: '#FFD54F',
+    categoriaReal: null,
+  },
   bares: {
     slug: 'bares',
     label: 'Bares & Vida Noturna',

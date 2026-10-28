@@ -18,6 +18,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../lib/authContext';
 import ContaAtividade from '../../components/ContaAtividade';
+import { PassoGostos, PassoSobreVoce, aplicarPendente, guardarPendente, salvarExtras } from '../../components/CadastroExtras';
+import { EXTRAS_VAZIO, ExtrasCadastro } from '../../lib/perfilOpcoes';
+import { BotaoVoltar, TituloTela } from '../../components/CabecalhoTela';
 import FundoCaixaDegrade from '../../components/FundoCaixaDegrade';
 import { AvatarEditavel, StatusRelacionamento } from '../../components/PerfilFotoStatus';
 import { IDIOMAS, useI18n } from '../../lib/i18n';
@@ -65,6 +68,9 @@ export default function ProfileScreen() {
   const [senha, setSenha] = useState('');
   const [aceitaLGPD, setAceitaLGPD] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // Cadastro em passos (como a abertura): 1 dados básicos · 2 sobre você · 3 gostos. Os passos 2 e 3 podem ser pulados.
+  const [passo, setPasso] = useState<1 | 2 | 3>(1);
+  const [extras, setExtras] = useState<ExtrasCadastro>(EXTRAS_VAZIO);
 
   const [perfil, setPerfil] = useState<{
     display_name: string | null;
@@ -150,22 +156,36 @@ export default function ProfileScreen() {
     };
   }, [user?.id]);
 
-  const handleCadastrar = async () => {
+  useEffect(() => {
+    if (user?.id) aplicarPendente(user.id).catch(() => {});
+  }, [user?.id]);
+
+  // Valida o passo 1; devolve a data ISO se estiver tudo certo.
+  const validarBasico = (): string | null => {
     if (!nomeSocial || !email || !telefone || !dataNascimento || !senha) {
       Alert.alert('Campos obrigatórios', 'Por favor, preencha todos os campos.');
-      return;
+      return null;
     }
     if (!aceitaLGPD) {
       Alert.alert('LGPD', 'Autorize o uso dos dados para continuar.');
-      return;
+      return null;
     }
     const dataISO = paraDataISO(dataNascimento);
     if (!dataISO) {
       Alert.alert('Data inválida', 'Informe a data de nascimento no formato DD/MM/AAAA.');
-      return;
+      return null;
     }
     if (!temMaisDe18(dataISO)) {
       Alert.alert('Idade mínima', 'Você precisa ter 18 anos ou mais para criar uma conta.');
+      return null;
+    }
+    return dataISO;
+  };
+
+  const handleCadastrar = async () => {
+    const dataISO = validarBasico();
+    if (!dataISO) {
+      setPasso(1);
       return;
     }
 
@@ -188,6 +208,7 @@ export default function ProfileScreen() {
 
       if (data.session) {
         const novoId = data.session.user.id;
+        salvarExtras(novoId, extras).catch(() => {});
         Alert.alert(
           'Conta criada!',
           `Seja bem-vinde, ${nomeSocial}! Quer receber avisos de festas, cupons, lembretes e novidades? Você pode mudar isso em Conta > Notificações.`,
@@ -197,6 +218,7 @@ export default function ProfileScreen() {
           ]
         );
       } else {
+        guardarPendente(extras).catch(() => {});
         Alert.alert(
           'Quase lá!',
           'Enviamos um e-mail de confirmação. Confirme para poder entrar na sua conta.'
@@ -348,16 +370,28 @@ export default function ProfileScreen() {
         
         {/* Cabeçalho no mesmo padrão de Início/Eventos/Trip */}
         <View style={styles.header}>
-          <View>
-            <Image
-              source={require('../../assets/images/logolinear-semfundo.png')}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-            <Text style={styles.appSub}>{t('app.subtitulo')}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <BotaoVoltar />
+            <View>
+              <Image
+                source={require('../../assets/images/logolinear-semfundo.png')}
+                style={styles.logo}
+                resizeMode="contain"
+              />
+              <Text style={styles.appSub}>{t('app.subtitulo')}</Text>
+            </View>
           </View>
         </View>
-        <Text style={styles.headerTitle}>{t('conta.titulo')}</Text>
+        <TituloTela
+          titulo={t('conta.titulo')}
+          tituloMenu="Ir para"
+          opcoes={[
+            { id: '/favorites', label: 'Locais salvos', icone: 'heart' },
+            { id: '/coupons', label: 'Cupons', icone: 'tag' },
+            { id: '/onboarding', label: 'Nossa missão e objetivo', icone: 'flag' },
+          ]}
+          onEscolher={(id) => (id === '/onboarding' ? router.push('/onboarding' as any) : handleCliqueExigente(id))}
+        />
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           
@@ -414,6 +448,20 @@ export default function ProfileScreen() {
                   : 'Informe seus dados para acessar sua conta.'}
               </Text>
 
+              {isModoCadastro && (
+                <View style={styles.passosBarra}>
+                  {[1, 2, 3].map((n) => (
+                    <View key={n} style={[styles.passoTraco, n <= passo && styles.passoTracoAtivo]} />
+                  ))}
+                  <Text style={styles.passoTxt}>Passo {passo} de 3</Text>
+                </View>
+              )}
+
+              {isModoCadastro && passo === 2 && <PassoSobreVoce valor={extras} onMudar={setExtras} />}
+              {isModoCadastro && passo === 3 && <PassoGostos valor={extras} onMudar={setExtras} />}
+
+              {(!isModoCadastro || passo === 1) && (
+                <>
               {isModoCadastro && (
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Nome Social *</Text>
@@ -520,9 +568,17 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
               )}
 
+                </>
+              )}
+
               <TouchableOpacity
                 style={[styles.actionBtn, submitting && { opacity: 0.6 }]}
-                onPress={isModoCadastro ? handleCadastrar : handleEntrar}
+                onPress={() => {
+                  if (!isModoCadastro) return handleEntrar();
+                  if (passo === 1) { if (validarBasico()) setPasso(2); return; }
+                  if (passo === 2) return setPasso(3);
+                  return handleCadastrar();
+                }}
                 activeOpacity={0.85}
                 disabled={submitting}
               >
@@ -530,10 +586,28 @@ export default function ProfileScreen() {
                   <ActivityIndicator color="#FFF" />
                 ) : (
                   <Text style={styles.actionBtnText}>
-                    {isModoCadastro ? 'Concluir Cadastro' : 'Entrar na Conta'}
+                    {!isModoCadastro ? 'Entrar na Conta' : passo === 1 ? 'Continuar' : passo === 2 ? 'Continuar' : 'Criar minha conta'}
                   </Text>
                 )}
               </TouchableOpacity>
+
+              {isModoCadastro && passo > 1 && (
+                <View style={styles.passosLinks}>
+                  <TouchableOpacity onPress={() => setPasso((passo - 1) as 1 | 2)} disabled={submitting} accessibilityRole="button">
+                    <Text style={styles.switchAuthText}>Voltar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (passo === 2) { setExtras({ ...extras, orientacao: undefined, identidade: undefined, pronomes: undefined, status: undefined, consentimento: false }); setPasso(3); }
+                      else { setExtras({ ...extras, gostos: { musica: [], experiencia: [], publico: [] } }); handleCadastrar(); }
+                    }}
+                    disabled={submitting}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.switchAuthText}>{passo === 2 ? 'Pular' : 'Pular e criar conta'}</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
 
               {!isModoCadastro && (
                 <TouchableOpacity
@@ -548,7 +622,7 @@ export default function ProfileScreen() {
 
               <TouchableOpacity
                 style={styles.switchAuthBtn}
-                onPress={() => setIsModoCadastro(!isModoCadastro)}
+                onPress={() => { setIsModoCadastro(!isModoCadastro); setPasso(1); }}
                 disabled={submitting}
               >
                 <Text style={styles.switchAuthText}>
@@ -707,7 +781,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 8, marginBottom: 16 },
   logo: { width: 140, height: 34 },
   appSub: { fontSize: 11, fontWeight: '500', color: COLORS.textSecondary, marginTop: 2 },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: COLORS.textPrimary, paddingHorizontal: 16, marginBottom: 12 },
+  headerTitle: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5, lineHeight: 32, color: COLORS.textPrimary, paddingHorizontal: 16, marginTop: 4, marginBottom: 16 },
   scrollContent: { paddingHorizontal: 16, paddingBottom: 40 },
 
   statsRow: { flexDirection: 'row', gap: 8, marginTop: 8, marginBottom: 14 },
@@ -733,6 +807,11 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     marginBottom: 20,
   },
+  passosBarra: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 14 },
+  passoTraco: { flex: 1, height: 4, borderRadius: 2, backgroundColor: '#2A2A38' },
+  passoTracoAtivo: { backgroundColor: COLORS.pink },
+  passoTxt: { fontSize: 11, color: COLORS.textMuted, marginLeft: 4 },
+  passosLinks: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 4, marginTop: 4 },
   authTitle: { fontSize: 16, fontWeight: '800', color: COLORS.textPrimary, marginBottom: 4 },
   authSub: { fontSize: 12, color: COLORS.textSecondary, marginBottom: 16 },
 

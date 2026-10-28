@@ -36,6 +36,7 @@ import { registrarAviso } from '../../lib/avisos';
 import { useAnunciosApp } from '../../lib/banners';
 import { IDIOMAS, useI18n } from '../../lib/i18n';
 import { CATEGORIA_ORDER, CATEGORIA_REAL_LABEL, CATEGORIAS, CategoriaConfig } from '../../lib/categorias';
+import { buscarComunicacao, Comunicacao, registrarVitrine } from '../../lib/vitrine';
 import {
   compararDestaque,
   ehPremiumAtivo,
@@ -80,10 +81,17 @@ const GAP_GRADE = 8;
 // Mesma ordem oficial de lib/categorias.ts (12 categorias, out/2026).
 // Categorias ativas primeiro; as "em breve" vão para o fim da fila (ordem oficial mantida dentro de cada grupo).
 const ORDEM_GRADE = [
+  'destaques' as (typeof CATEGORIA_ORDER)[number],
   ...CATEGORIA_ORDER.filter((slug) => !CATEGORIAS[slug].emBreve),
   ...CATEGORIA_ORDER.filter((slug) => CATEGORIAS[slug].emBreve),
 ];
 const LARGURA_TILE = 84;
+// Rótulos curtos da barra de categorias (cabem 6 por linha); o nome completo continua no leitor de tela e na página.
+const ROTULO_CURTO: Record<string, string> = {
+  destaques: 'Destaques', turismo: 'Dicas Trip', bares: 'Bares & Noite', festas: 'Festas', gastronomia: 'Gastronomia',
+  lazer: 'Lazer', cultura: 'Cultura', saude: 'Saúde', beleza: 'Beleza', servicos: 'Serviços', educacao: 'Educação',
+  produtos: 'Produtos', comunidade: 'Comunidade', mais18: '18+', lojas: 'Lojas',
+};
 
 // Seção "Selos e benefícios" (out/2026): 3 cartões do mesmo tamanho, cada
 // um explicando em uma frase o que é. "Cadastre seu estabelecimento" saiu
@@ -320,6 +328,10 @@ export default function HomeScreen() {
   const { t, idioma, proximoIdioma } = useI18n();
   const { anuncios: anunciosApp, aoExibir: aoExibirBanner } = useAnunciosApp('home');
   const idiomaAtual = IDIOMAS.find((i) => i.code === idioma) || IDIOMAS[0];
+  const { width: larguraTela } = useWindowDimensions();
+  // 6 categorias cabem inteiras e a 7ª aparece pela metade (+ seta): fica claro que há mais ao lado.
+  const larguraCat = Math.floor((larguraTela - 16 - 5 * 4) / 6.35);
+  const [catRolou, setCatRolou] = useState(false);
   const local = useCidadeAtual();
 
   const [busca, setBusca] = useState('');
@@ -472,9 +484,21 @@ export default function HomeScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [destaquesTopo]
   );
-  // Vitrine logo abaixo dos fundadores: só o Museu e os Recomendados pela equipe, no mesmo tamanho
+  // Vitrine logo abaixo dos fundadores: o Museu e o Dicas Trip, no mesmo tamanho
   // dos banners de parceiros. O resto dos destaques (Em alta, Hoje, Top da semana…) já está nas
   // caixas mais abaixo, então não se repete aqui.
+  // Comunicação dos Membros Fundadores (escrita pela equipe no /admin; migration 059).
+  const [comFundadores, setComFundadores] = useState<Record<string, Comunicacao>>({});
+  const idsFundTopo = useMemo(() => destaquesTopo.filter((d) => d.tipo === 'fundador').map((d) => d.id).join(','), [destaquesTopo]);
+  useEffect(() => {
+    let vivo = true;
+    if (!idsFundTopo) { setComFundadores({}); return; }
+    buscarComunicacao(idsFundTopo.split(',')).then((m) => { if (vivo) setComFundadores(m); });
+    return () => { vivo = false; };
+  }, [idsFundTopo]);
+
+  // Destaques do topo (mesmo tamanho dos banners de parceiros): Museu, Dicas Trip e os Membros
+  // Fundadores girando — cada fundador com a frase que a equipe de comunicação escreveu para ele.
   const anunciosVitrine = useMemo<Anuncio[]>(
     () => [
       {
@@ -482,12 +506,32 @@ export default function HomeScreen() {
         icone: 'book-open', cor: '#6D28D9', degrade: ['#6D28D9', '#DB2777'], onPress: () => router.push('/apoiador/museu-diversidade' as any),
       },
       {
-        id: 'recomendados', tag: t('banner.seloTag'), titulo: t('banner.seloTitulo'), cta: t('banner.seloCta'),
-        icone: 'check-circle', cor: '#E1306C', degrade: ['#F59E0B', '#E1306C'], onPress: () => router.push('/experience/Selo%20Dicas%20LGBT%2B' as any),
+        id: 'trip', tag: t('home.anuncioTripTag'), titulo: t('home.anuncioTripTitulo'), cta: t('home.anuncioTripCta'),
+        icone: 'compass', cor: '#10B981', degrade: ['#10B981', '#0E7490'], onPress: () => router.push('/(tabs)/tourism' as any),
       },
+      ...destaquesTopo
+        .filter((d) => d.tipo === 'fundador')
+        .slice(0, 5)
+        .map<Anuncio>((d) => {
+          const com = comFundadores[d.id];
+          return {
+            id: `fund-${d.id}`,
+            tag: 'MEMBRO FUNDADOR',
+            titulo: com?.headline || d.nome,
+            cta: com?.cta || 'Conhecer',
+            icone: 'star',
+            cor: '#F59E0B',
+            degrade: ['#B45309', '#9D174D'],
+            logoUrl: d.ehLogo && d.foto ? d.foto : undefined,
+            onPress: () => {
+              registrarVitrine(d.id, 'home:destaques', 'clique');
+              router.push(`/business/${d.id}` as any);
+            },
+          };
+        }),
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t]
+    [t, destaquesTopo, comFundadores]
   );
 
   const isUserLogged = !!session;
@@ -842,7 +886,6 @@ export default function HomeScreen() {
 
         {/* FUNDADORES (pequenos) + VITRINE DE DESTAQUES — abaixo dos quadradinhos giram, a cada 5 s,
             banners do Museu e dos Recomendados (mesmo tamanho dos de parceiros). */}
-        <FundadoresMini itens={fundadoresMini} titulo={destaquesTopo.every((d) => d.tipo === 'fundador') ? t('banner.fundadorTitulo') : t('home.topoParceiros')} />
         <CarrosselAnuncios anuncios={anunciosVitrine} />
 
         {/* CATEGORIAS — ícones redondos de sempre (cor própria por categoria,
@@ -850,20 +893,27 @@ export default function HomeScreen() {
             Trip segue o mesmo formato das demais. Em breve = "avise-me" real
             (avisos_interesse, migration 035). */}
         <View style={styles.secaoBloco}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriaScrollContent}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoriaScrollContent}
+            scrollEventThrottle={32}
+            onScroll={(e) => { const rolou = e.nativeEvent.contentOffset.x > 12; if (rolou !== catRolou) setCatRolou(rolou); }}
+          >
             {ORDEM_GRADE.map((slug) => {
               const cat = CATEGORIAS[slug];
-              const label = t(`cat.${slug}`) === `cat.${slug}` ? cat.label : t(`cat.${slug}`);
+              const completo = t(`cat.${slug}`) === `cat.${slug}` ? cat.label : t(`cat.${slug}`);
+              const label = idioma === 'pt' && ROTULO_CURTO[slug] ? ROTULO_CURTO[slug] : completo;
               return (
                 <TouchableOpacity
                   key={slug}
-                  style={styles.categoriaHorizontalItem}
+                  style={[styles.categoriaHorizontalItem, { width: larguraCat }]}
                   onPress={() => (slug === 'turismo' ? router.push('/(tabs)/tourism') : handleCategoryPress(cat))}
                   activeOpacity={0.7}
                   accessibilityRole="button"
-                  accessibilityLabel={cat.emBreve ? `${label}, ${t('home.emBreve')}` : label}
+                  accessibilityLabel={cat.emBreve ? `${completo}, ${t('home.emBreve')}` : completo}
                 >
-                  <View style={[styles.categoriaCircle, cat.emBreve && styles.categoriaDisabled]}>
+                  <View style={[styles.categoriaCircle, cat.emBreve && styles.categoriaDisabled, slug === 'destaques' && styles.categoriaCircleDestaque]}>
                     <Feather name={cat.icon as any} size={20} color={cat.emBreve ? COLORS.purple : cat.color} />
                     {cat.emBreve && (
                       <View style={styles.emBreveBadge}>
@@ -871,13 +921,20 @@ export default function HomeScreen() {
                       </View>
                     )}
                   </View>
-                  <Text style={[styles.categoriaLabel, cat.emBreve && { color: COLORS.textMuted }]} numberOfLines={2}>
-                    {label}
-                  </Text>
+                  <View style={styles.categoriaLabelBox}>
+                    <Text style={[styles.categoriaLabel, cat.emBreve && { color: COLORS.textMuted }]} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>
+                      {label}
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               );
             })}
           </ScrollView>
+          {!catRolou && (
+            <View style={styles.categoriaMais} pointerEvents="none">
+              <Feather name="chevron-right" size={16} color="#FFFFFF" />
+            </View>
+          )}
         </View>
         {/* ACONTECIMENTO RÁPIDO — pílula "Hoje · 14h · ..." (abre /secao/hoje) */}
         {itensHoje.length > 0 && <FaixaHoje itens={itensHoje} onAbrir={(rota) => router.push(rota as any)} />}
@@ -957,6 +1014,7 @@ export default function HomeScreen() {
         <View style={styles.gradeSecoes}>
           {[
             { tipo: 'em-alta', titulo: t('home.tile.emAlta'), icone: 'trending-up', degrade: ['#CC7A0A', '#9A4A0A'] as [string, string], qtd: emAlta.length, rota: '/secao/em-alta' },
+            { tipo: 'recomendados', titulo: t('home.tile.recomendados'), icone: 'check-circle', degrade: ['#0DA372', '#0E7490'] as [string, string], qtd: 0, rota: '/experience/Selo%20Dicas%20LGBT%2B' },
             { tipo: 'hoje', titulo: t('home.tile.hoje'), icone: 'zap', degrade: ['#C026A3', '#6D3FD1'] as [string, string], qtd: agendaHoje.length + locaisHoje.length + abertosAgora.length, rota: '/secao/hoje' },
             { tipo: 'semana', titulo: t('home.tile.semana'), icone: 'star', degrade: ['#F2692A', '#C42660'] as [string, string], qtd: destaqueSemana.length, rota: '/secao/semana' },
             { tipo: 'experiencia', titulo: t('home.tile.experiencia'), icone: 'heart', degrade: ['#0A8FD0', '#7048B8'] as [string, string], qtd: EXPERIENCIAS_HOME.length, rota: '/secao/experiencia' },
@@ -1307,7 +1365,7 @@ const styles = StyleSheet.create({
   bannerLogoMaisTexto: { fontSize: 10, fontWeight: '800', color: COLORS.textSecondary },
 
   // Out/2026 — Home mais compacta (cabe mais coisa na primeira tela).
-  secaoBloco: { marginBottom: 18 },
+  secaoBloco: { marginBottom: 18, position: 'relative' },
   // Mesmo padrão de título de seção em todas as telas (igual Eventos): 17/800.
   sectionTituloPadrao: { fontSize: 15, fontWeight: '800', color: COLORS.textPrimary, paddingHorizontal: 16, marginBottom: 10 },
   sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 12 },
@@ -1318,8 +1376,10 @@ const styles = StyleSheet.create({
   emptyInlineBox: { marginHorizontal: 16, backgroundColor: COLORS.card, borderRadius: 14, borderWidth: 1, borderColor: COLORS.border, padding: 16 },
   emptyInlineText: { fontSize: 12, color: COLORS.textSecondary, lineHeight: 17 },
 
-  categoriaScrollContent: { paddingHorizontal: 16, gap: 12 },
-  categoriaHorizontalItem: { alignItems: 'center', width: 80 },
+  categoriaScrollContent: { paddingHorizontal: 16, gap: 4 },
+  categoriaHorizontalItem: { alignItems: 'center', width: 56 },
+  categoriaCircleDestaque: { borderColor: 'rgba(255,213,79,0.7)', backgroundColor: 'rgba(255,213,79,0.12)' },
+  categoriaMais: { position: 'absolute', right: 4, top: 12, width: 24, height: 24, borderRadius: 12, backgroundColor: 'rgba(225,48,108,0.9)', alignItems: 'center', justifyContent: 'center' },
   categoriaCircle: {
     width: 46,
     height: 46,
@@ -1327,7 +1387,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.card,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 0,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -1335,7 +1395,10 @@ const styles = StyleSheet.create({
   emBreveBadge: { position: 'absolute', bottom: -4, backgroundColor: COLORS.purple, paddingHorizontal: 4, paddingVertical: 1, borderRadius: 4 },
   emBreveTexto: { fontSize: 7, fontWeight: '800', color: '#FFF' },
   // Nomes de 2 palavras ("Bares & Vida Noturna") quebram em até 2 linhas.
-  categoriaLabel: { fontSize: 11, lineHeight: 13, fontWeight: '600', color: COLORS.textPrimary, textAlign: 'center' },
+  // Caixa da legenda com altura de 2 linhas e texto centralizado na vertical: nomes de uma linha
+  // (Gastronomia, Cultura) ficam alinhados ao centro dos de duas (Festas & Eventos).
+  categoriaLabelBox: { height: 30, marginTop: 8, alignSelf: 'stretch', justifyContent: 'center', alignItems: 'center' },
+  categoriaLabel: { fontSize: 10, lineHeight: 12, fontWeight: '600', color: COLORS.textPrimary, textAlign: 'center' },
 
   carrosselPadding: { paddingHorizontal: 16, gap: 12 },
 

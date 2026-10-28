@@ -12,6 +12,7 @@ import { CATEGORIA_REAL_LABEL, SeloCategoria, seloDaCategoria } from '../lib/cat
 import { deveIncluirEm } from '../lib/destaque';
 import { textoLocalizacao } from '../lib/localizacao';
 import { formatarNome } from '../lib/texto';
+import CabecalhoTela, { OpcaoTitulo } from './CabecalhoTela';
 
 const COLORS = {
   background: '#0B0B0E',
@@ -25,6 +26,7 @@ const COLORS = {
   safeSpace: '#4CAF7D',
 };
 
+import { TIPOS_SERVICO } from '../lib/servicosTipos';
 // Campos de `locais` que as listas precisam (inclui o que deveIncluirEm/abertoAgora leem).
 export const CAMPOS_LOCAL =
   'id, nome, categoria, subcategoria, descricao, bairro, bairro_exibicao, cidade, foto_capa_url, galeria_fotos, logo_url, rating_media, rating_total, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status, horario_funcionamento';
@@ -90,27 +92,27 @@ export function localParaItem(l: any, extra: Partial<ItemLista> = {}): ItemLista
 }
 
 // Cabeçalho comum: botão voltar + logo, e título grande.
-export function CabecalhoPadrao({ titulo, subtitulo }: { titulo: string; subtitulo?: string }) {
-  const router = useRouter();
-  return (
-    <View style={styles.headerBlock}>
-      <View style={styles.topRow}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => router.back()}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          accessibilityLabel="Voltar"
-        >
-          <Feather name="arrow-left" size={18} color={COLORS.textPrimary} />
-        </TouchableOpacity>
-        <Image source={require('../assets/images/logolinear-semfundo.png')} style={styles.headerLogo} resizeMode="contain" />
-      </View>
-      <Text style={styles.titulo}>{titulo}</Text>
-      {!!subtitulo && <Text style={styles.subtitulo}>{subtitulo}</Text>}
-    </View>
-  );
+export function CabecalhoPadrao(props: { titulo: string; subtitulo?: string; opcoesTitulo?: OpcaoTitulo[]; valorTitulo?: string; onTrocarTitulo?: (id: string) => void; tituloSeletor?: string }) {
+  return <CabecalhoTela {...props} />;
 }
+
+// Chips mais "fofos": cada categoria com ícone e cor próprios (sem contagem).
+const CHIP_ESTILO: Record<string, { icone: string; cor: string }> = {
+  ...Object.fromEntries(TIPOS_SERVICO.map((t) => [t.rotulo, { icone: t.icone, cor: t.cor }])),
+  'Em Alta': { icone: 'trending-up', cor: '#FFD54F' },
+  Todas: { icone: 'grid', cor: '#A78BFA' },
+  'Bares & Noite': { icone: 'moon', cor: '#F472B6' },
+  Gastronomia: { icone: 'coffee', cor: '#FBBF24' },
+  Cultura: { icone: 'book-open', cor: '#38BDF8' },
+  Festas: { icone: 'music', cor: '#FB923C' },
+  Turismo: { icone: 'compass', cor: '#34D399' },
+  Serviços: { icone: 'briefcase', cor: '#60A5FA' },
+  Beleza: { icone: 'scissors', cor: '#F0ABFC' },
+  Lojas: { icone: 'shopping-bag', cor: '#FCA5A5' },
+  Produtos: { icone: 'package', cor: '#FDBA74' },
+  Educação: { icone: 'book-open', cor: '#FF8A65' },
+  Lazer: { icone: 'sun', cor: '#FDE047' },
+};
 
 interface Props {
   titulo: string;
@@ -123,9 +125,21 @@ interface Props {
   chipInicial?: 'Em Alta' | 'Todas';
   // Conteúdo extra no fim da lista (botões "ver mais", avisos).
   rodape?: ReactNode;
+  // Slot fixo no topo da lista para o patrocínio de um local (some se não houver patrocinador).
+  patrocinado?: ItemLista | null;
+  patrocinadoRotulo?: string;
+  // Linha de filtros própria da tela (ex.: "O que fazer hoje"), logo abaixo da busca.
+  filtros?: ReactNode;
+  // Bloco padrão do topo da lista (Destaques, patrocínio da categoria e ofertas): ver VitrineCategoria.
+  topo?: ReactNode;
+  // Título com setinha ∨ (seletor de período, ex.: Hoje / Amanhã / Fim de semana).
+  opcoesTitulo?: OpcaoTitulo[];
+  valorTitulo?: string;
+  onTrocarTitulo?: (id: string) => void;
+  tituloSeletor?: string;
 }
 
-export default function ListaPadrao({ titulo, subtitulo, itens, carregando, vazioTexto, vazioIcone = 'map-pin', chipInicial = 'Todas', rodape }: Props) {
+export default function ListaPadrao({ titulo, subtitulo, itens, carregando, vazioTexto, vazioIcone = 'map-pin', chipInicial = 'Todas', rodape, patrocinado, patrocinadoRotulo = 'PATROCINADO', filtros, topo, opcoesTitulo, valorTitulo, onTrocarTitulo, tituloSeletor }: Props) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [busca, setBusca] = useState('');
@@ -160,7 +174,7 @@ export default function ListaPadrao({ titulo, subtitulo, itens, carregando, vazi
   return (
     <View style={styles.container}>
       <View style={[styles.safeArea, { paddingTop: insets.top }]}>
-        <CabecalhoPadrao titulo={titulo} subtitulo={subtitulo} />
+        <CabecalhoPadrao titulo={titulo} subtitulo={subtitulo} opcoesTitulo={opcoesTitulo} valorTitulo={valorTitulo} onTrocarTitulo={onTrocarTitulo} tituloSeletor={tituloSeletor} />
 
         <View style={styles.searchContainer}>
           <Feather name="search" size={16} color={COLORS.textMuted} />
@@ -173,6 +187,8 @@ export default function ListaPadrao({ titulo, subtitulo, itens, carregando, vazi
           />
         </View>
 
+        {!!filtros && <View style={{ marginBottom: 8 }}>{filtros}</View>}
+
         {mostrarChips && (
           <View style={styles.filterSection}>
             <FlatList
@@ -183,16 +199,17 @@ export default function ListaPadrao({ titulo, subtitulo, itens, carregando, vazi
               contentContainerStyle={styles.chipsContainer}
               renderItem={({ item }) => {
                 const sel = ativo === item;
-                const emAlta = item === 'Em Alta';
+                const est = CHIP_ESTILO[item] || { icone: 'tag', cor: '#A78BFA' };
                 return (
                   <TouchableOpacity
-                    style={[styles.chip, sel && styles.chipActive, emAlta && !sel && styles.chipEmAltaInactive]}
+                    style={[styles.chipFofo, { backgroundColor: sel ? est.cor : est.cor + '1A', borderColor: sel ? est.cor : est.cor + '55' }]}
                     onPress={() => setChip(item)}
                     activeOpacity={0.8}
                     accessibilityRole="button"
+                    accessibilityState={{ selected: sel }}
                   >
-                    {emAlta && <Feather name="trending-up" size={12} color={sel ? '#FFF' : COLORS.gold} style={{ marginRight: 4 }} />}
-                    <Text style={[styles.chipText, sel && styles.chipTextActive, emAlta && !sel && { color: COLORS.gold }]}>{item}{grupos.find(([g]) => g === item) ? ` · ${grupos.find(([g]) => g === item)![1]}` : ''}</Text>
+                    <Feather name={est.icone as any} size={14} color={sel ? '#0B0B0E' : est.cor} />
+                    <Text style={[styles.chipFofoTxt, { color: sel ? '#0B0B0E' : '#E9E7F3' }]}>{item}</Text>
                   </TouchableOpacity>
                 );
               }}
@@ -211,6 +228,33 @@ export default function ListaPadrao({ titulo, subtitulo, itens, carregando, vazi
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            ListHeaderComponent={
+              <>
+              {topo && !busca.trim() ? topo : null}
+              {patrocinado && !busca.trim() ? (
+                <TouchableOpacity style={styles.slotPatr} activeOpacity={0.9} onPress={() => router.push(patrocinado.rota as any)} accessibilityRole="button" accessibilityLabel={`${patrocinadoRotulo}: ${patrocinado.titulo}`}>
+                  {patrocinado.foto ? (
+                    <Image source={{ uri: patrocinado.foto }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                  ) : patrocinado.logo ? (
+                    <Image source={{ uri: patrocinado.logo }} style={[StyleSheet.absoluteFill, { margin: 16, marginBottom: 56 }]} resizeMode="contain" />
+                  ) : (
+                    <Feather name="star" size={34} color={COLORS.pink} style={{ alignSelf: 'center', marginTop: 34 }} />
+                  )}
+                  <View style={styles.slotPatrPilula}>
+                    <Feather name="zap" size={10} color="#FFF" />
+                    <Text style={styles.slotPatrPilulaTxt}>{patrocinadoRotulo}</Text>
+                  </View>
+                  <View style={styles.slotPatrFaixa}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.slotPatrNome} numberOfLines={1}>{patrocinado.titulo}</Text>
+                      {!!patrocinado.linha2 && <Text style={styles.slotPatrSub} numberOfLines={1}>{patrocinado.linha2}</Text>}
+                    </View>
+                    <Feather name="chevron-right" size={20} color="#FFF" />
+                  </View>
+                </TouchableOpacity>
+              ) : null}
+              </>
+            }
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
                 <Feather name={vazioIcone as any} size={24} color={COLORS.textMuted} />
@@ -295,6 +339,14 @@ const styles = StyleSheet.create({
   chip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 18, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
   chipActive: { backgroundColor: COLORS.pink, borderColor: COLORS.pink },
   chipEmAltaInactive: { borderColor: 'rgba(255, 213, 79, 0.4)', backgroundColor: 'rgba(255, 213, 79, 0.08)' },
+  chipFofo: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, height: 38, borderRadius: 19, borderWidth: 1 },
+  chipFofoTxt: { fontSize: 13, fontWeight: '700' },
+  slotPatr: { height: 150, borderRadius: 18, overflow: 'hidden', backgroundColor: '#1C1B26', borderWidth: 1, borderColor: 'rgba(126,87,194,0.55)', marginBottom: 14 },
+  slotPatrPilula: { position: 'absolute', top: 10, left: 10, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#7E57C2', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 },
+  slotPatrPilulaTxt: { color: '#FFF', fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
+  slotPatrFaixa: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(11,11,14,0.72)', paddingHorizontal: 14, paddingVertical: 10 },
+  slotPatrNome: { color: '#FFF', fontSize: 16, fontWeight: '800' },
+  slotPatrSub: { color: '#D6D3E0', fontSize: 12, marginTop: 1 },
   chipText: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary },
   chipTextActive: { color: '#FFF', fontWeight: '700' },
 
