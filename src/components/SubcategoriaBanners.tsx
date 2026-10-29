@@ -41,19 +41,20 @@ export function agruparSubcategorias(
   return lista.sort((a, b) => (a.chave === '' ? 1 : b.chave === '' ? -1 : b.qtd - a.qtd || a.rotulo.localeCompare(b.rotulo, 'pt-BR')));
 }
 
-type Props = { grupos: GrupoSub[]; onAbrir: (chave: string) => void; defs?: SubDef[] };
+type Props = { grupos: GrupoSub[]; onAbrir: (chave: string) => void; defs?: SubDef[]; selecionada?: string | null };
 
 // Ícones redondos no mesmo desenho das categorias da Home (círculo 46, legenda de até 2 linhas, rolagem lateral).
-export default function SubcategoriaBanners({ grupos, onAbrir, defs }: Props) {
+export default function SubcategoriaBanners({ grupos, onAbrir, defs, selecionada }: Props) {
   const { width } = useWindowDimensions();
   const larg = Math.max(60, Math.floor((width - 16 - 5 * 4) / 5.6));
   if (grupos.length === 0) return null;
   return (
     <View style={s.raiz}>
-      <Text style={s.titulo}>Explore por tipo</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -16 }} contentContainerStyle={s.linha}>
         {grupos.map((g) => {
-          const icone = defs?.find((d) => d.chave === g.chave)?.icone || 'more-horizontal';
+          const def = defs?.find((d) => d.chave === g.chave);
+          const icone = def?.icone || 'more-horizontal';
+          const nomeCurto = def?.curto || g.rotulo;
           return (
             <TouchableOpacity
               key={g.chave || 'outros'}
@@ -63,11 +64,11 @@ export default function SubcategoriaBanners({ grupos, onAbrir, defs }: Props) {
               accessibilityRole="button"
               accessibilityLabel={`${g.rotulo}, ${g.qtd === 0 ? 'em breve' : `${g.qtd} ${g.qtd === 1 ? 'local' : 'locais'}`}`}
             >
-              <View style={[s.circulo, g.qtd === 0 && { opacity: 0.55 }]}>
-                <Feather name={icone as any} size={20} color={C.pink} />
+              <View style={[s.circulo, g.qtd === 0 && { opacity: 0.55 }, selecionada === g.chave && s.circuloAtivo]}>
+                <Feather name={icone as any} size={20} color={selecionada === g.chave ? '#FFF' : C.pink} />
               </View>
               <View style={s.rotuloBox}>
-                <Text style={s.rotulo} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>{g.rotulo}</Text>
+                <Text style={s.rotulo} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>{nomeCurto}</Text>
               </View>
               {g.qtd === 0 && <Text style={s.breve}>em breve</Text>}
             </TouchableOpacity>
@@ -79,7 +80,8 @@ export default function SubcategoriaBanners({ grupos, onAbrir, defs }: Props) {
 }
 
 const s = StyleSheet.create({
-  raiz: { marginTop: 18 },
+  raiz: { marginTop: 8 },
+  circuloAtivo: { backgroundColor: C.pink, borderColor: C.pink },
   titulo: { fontSize: 16, fontWeight: '800', color: C.text, marginBottom: 10 },
   linha: { paddingHorizontal: 16, gap: 4 },
   item: { alignItems: 'center' },

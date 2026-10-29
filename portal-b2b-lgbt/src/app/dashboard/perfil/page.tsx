@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { buscarCoordenadas } from '../../../lib/geocodificar';
+import { erroFotoNaoSuportada } from '../../../lib/validarFoto';
 import { telefoneParecCurto } from '../../../lib/parceiroAuth';
 import {
   HorarioFuncionamento,
@@ -163,6 +164,8 @@ type Local = {
   horario_funcionamento: HorarioFuncionamento;
   galeria_fotos: string[];
   video_url: string | null;
+  programacao_texto: string | null;
+  programacao_imagem_url: string | null;
 };
 
 export default function MinhaPaginaPage() {
@@ -174,6 +177,8 @@ export default function MinhaPaginaPage() {
   const [erro, setErro] = useState('');
   const [enviandoFoto, setEnviandoFoto] = useState(false);
   const [enviandoLogo, setEnviandoLogo] = useState(false);
+  const [enviandoProgramacao, setEnviandoProgramacao] = useState(false);
+  const inputProgramacaoRef = useRef<HTMLInputElement | null>(null);
 
   // Rodada 22: muita conta de parceiro agora nasce com senha temporária
   // gerada na aprovação (ver /api/aprovar-local) — este bloco é o único
@@ -199,7 +204,7 @@ export default function MinhaPaginaPage() {
       const { data, error } = await supabase
         .from('locais')
         .select(
-          'id, nome, categoria, subcategoria, descricao, bairro, bairro_exibicao, cidade, endereco, atendimento_tipo, especialidade, link_loja_online, lat, lng, instagram, contato_nome, contato_email, contato_telefone, foto_capa_url, logo_url, publico_tags, tags, plano_comercial, plano_comercial_status, status, plano_destaque, horario_funcionamento, galeria_fotos, video_url'
+          'id, nome, categoria, subcategoria, descricao, bairro, bairro_exibicao, cidade, endereco, atendimento_tipo, especialidade, link_loja_online, lat, lng, instagram, contato_nome, contato_email, contato_telefone, foto_capa_url, logo_url, publico_tags, tags, plano_comercial, plano_comercial_status, status, plano_destaque, horario_funcionamento, galeria_fotos, video_url, programacao_texto, programacao_imagem_url'
         )
         .eq('owner_id', userData.user.id)
         .maybeSingle();
@@ -372,6 +377,36 @@ export default function MinhaPaginaPage() {
     setEnviandoFoto(false);
   };
 
+  // Rodada 123 — flyer da programação da semana (imagem). Mesmo bucket/RLS
+  // da galeria: caminho "<local_id>/programacao-<timestamp>.<ext>".
+  const enviarProgramacao = async (arquivo: File) => {
+    if (!local) return;
+    setErro('');
+    const erroFormato = erroFotoNaoSuportada(arquivo);
+    if (erroFormato) {
+      setErro(erroFormato);
+      return;
+    }
+    if (arquivo.size > TAMANHO_MAXIMO_MB * 1024 * 1024) {
+      setErro(`A imagem precisa ter até ${TAMANHO_MAXIMO_MB}MB.`);
+      return;
+    }
+    setEnviandoProgramacao(true);
+    const extensao = arquivo.name.split('.').pop() || 'jpg';
+    const caminho = `${local.id}/programacao-${Date.now()}.${extensao}`;
+    const { error: erroUpload } = await supabase.storage
+      .from('fotos-locais')
+      .upload(caminho, arquivo, { cacheControl: '3600', upsert: false });
+    if (erroUpload) {
+      setErro(`Não deu pra enviar a imagem: ${erroUpload.message}`);
+      setEnviandoProgramacao(false);
+      return;
+    }
+    const { data } = supabase.storage.from('fotos-locais').getPublicUrl(caminho);
+    setLocal({ ...local, programacao_imagem_url: data.publicUrl });
+    setEnviandoProgramacao(false);
+  };
+
   const removerFotoGaleria = (url: string) => {
     if (!local) return;
     setLocal({ ...local, galeria_fotos: local.galeria_fotos.filter((f) => f !== url) });
@@ -411,6 +446,8 @@ export default function MinhaPaginaPage() {
         horario_funcionamento: limparHorarioFuncionamento(local.horario_funcionamento),
         galeria_fotos: local.galeria_fotos,
         video_url: local.video_url,
+        programacao_texto: local.programacao_texto?.trim() || null,
+        programacao_imagem_url: local.programacao_imagem_url || null,
       })
       .eq('id', local.id);
 
@@ -612,13 +649,19 @@ export default function MinhaPaginaPage() {
         </div>
 
         <div>
-          <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">Descrição</label>
+          <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">Sobre o seu negócio</label>
           <textarea
             value={local.descricao || ''}
-            onChange={(e) => setLocal({ ...local, descricao: e.target.value })}
-            rows={4}
+            onChange={(e) => setLocal({ ...local, descricao: e.target.value.slice(0, 800) })}
+            rows={6}
+            maxLength={800}
+            placeholder="Conte sua história, o clima do lugar, o que o público encontra aí, diferenciais e como você acolhe a comunidade LGBT+."
             className="w-full bg-[#161520] border border-[#232230] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#E1306C]"
           />
+          <p className="text-[10px] text-[#626274] mt-1 flex justify-between">
+            <span>Aparece no card &quot;Sobre&quot; da sua página no app. Quebras de linha são mantidas.</span>
+            <span>{(local.descricao || '').length}/800</span>
+          </p>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -643,15 +686,15 @@ export default function MinhaPaginaPage() {
               type="text"
               value={local.subcategoria || ''}
               onChange={(e) => setLocal({ ...local, subcategoria: e.target.value })}
-              placeholder={local.categoria === 'servicos' || local.categoria === 'beleza' || local.categoria === 'lojas' ? 'Escolha o tipo de serviço' : 'Ex: Bar, Balada, Drag...'}
-              list={local.categoria === 'servicos' || local.categoria === 'beleza' || local.categoria === 'lojas' ? 'tipos-servico' : local.categoria === 'lugares' ? 'tipos-lugares' : undefined}
+              placeholder={SUBCATEGORIAS_APP[local.categoria] ? 'Escolha na lista ou digite' : local.categoria === 'lojas' ? 'Escolha o tipo de serviço' : 'Ex: Bar, Balada, Drag...'}
+              list={SUBCATEGORIAS_APP[local.categoria] ? 'tipos-subcategoria' : local.categoria === 'lojas' ? 'tipos-servico' : undefined}
               className="w-full bg-[#161520] border border-[#232230] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#E1306C]"
             />
           </div>
         </div>
 
-        <datalist id="tipos-lugares">
-          {SUBCATEGORIAS_APP.lugares.itens.map((i) => (
+        <datalist id="tipos-subcategoria">
+          {(SUBCATEGORIAS_APP[local.categoria]?.itens || []).map((i) => (
             <option key={i.chave} value={i.rotulo} />
           ))}
         </datalist>
@@ -913,6 +956,88 @@ export default function MinhaPaginaPage() {
                 />
                 <p className="text-[10px] text-[#626274] mt-2">
                   Cole o link de um Reels, vídeo do Instagram ou YouTube. Sem upload de arquivo — só o link.
+                </p>
+                {!publicaNoApp && (
+                  <p className="text-xs text-[#E1A93A] bg-[#E1A93A]/10 border border-[#E1A93A]/30 rounded-xl p-3 mt-2">
+                    Fica salvo aqui, mas só aparece pros usuários no app quando seu plano for{' '}
+                    <b>Premium</b> ou <b>Fundador</b> (ativo). Veja em{' '}
+                    <Link href="/planos" className="underline hover:text-white">planos</Link>.
+                  </p>
+                )}
+              </>
+            );
+          })()}
+        </div>
+
+        <div>
+          {(() => {
+            const publicaNoApp = publicaRecursosNoApp(local.plano_comercial, local.plano_comercial_status);
+            return (
+              <>
+                <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">
+                  Programação da semana
+                </label>
+                <p className="text-xs text-[#A0A0B2] mb-3">
+                  Escreva a programação, envie a arte (flyer) ou faça os dois — aparece no card
+                  &quot;Programação da semana&quot; da sua página no app.
+                </p>
+                <textarea
+                  value={local.programacao_texto || ''}
+                  onChange={(e) => setLocal({ ...local, programacao_texto: e.target.value.slice(0, 1200) })}
+                  rows={7}
+                  maxLength={1200}
+                  placeholder={'Uma linha por dia, assim:\nQuinta: Karaokê com a Drag Lola, 21h\nSexta: DJ Mari — entrada R$ 20\nSábado: Noite Pop com show às 23h\nDomingo: Feijoada + pagode, a partir das 13h'}
+                  className="w-full bg-[#161520] border border-[#232230] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#E1306C]"
+                />
+                <p className="text-[10px] text-[#626274] mt-1 flex justify-between">
+                  <span>Comece cada linha com o dia (Segunda, Terça… ou Seg, Ter…) e dois pontos para o app destacar o dia.</span>
+                  <span>{(local.programacao_texto || '').length}/1200</span>
+                </p>
+
+                {local.programacao_imagem_url && (
+                  <div className="relative mt-3 w-full sm:w-64">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={local.programacao_imagem_url}
+                      alt="Programação da semana"
+                      className="w-full rounded-xl border border-[#232230]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setLocal({ ...local, programacao_imagem_url: null })}
+                      className="absolute top-2 right-2 bg-black/70 hover:bg-red-500 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm"
+                      title="Remover imagem"
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
+                <input
+                  ref={inputProgramacaoRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const arquivo = e.target.files?.[0];
+                    if (arquivo) enviarProgramacao(arquivo);
+                    e.target.value = '';
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={enviandoProgramacao}
+                  onClick={() => inputProgramacaoRef.current?.click()}
+                  className="w-full mt-3 bg-[#161520] border border-dashed border-[#232230] hover:border-[#E1306C]/50 rounded-xl py-3.5 px-4 text-[#D0D0E0] text-sm font-bold flex items-center justify-center gap-2 transition disabled:opacity-40"
+                >
+                  {enviandoProgramacao ? <Loader2 className="animate-spin" size={16} /> : <Upload size={16} />}
+                  {enviandoProgramacao
+                    ? 'Enviando...'
+                    : local.programacao_imagem_url
+                      ? 'Trocar imagem da programação'
+                      : 'Enviar imagem da programação (flyer)'}
+                </button>
+                <p className="text-[10px] text-[#626274] mt-1">
+                  JPG, PNG ou WebP, até {TAMANHO_MAXIMO_MB}MB. Atualize toda semana para manter o público informado.
                 </p>
                 {!publicaNoApp && (
                   <p className="text-xs text-[#E1A93A] bg-[#E1A93A]/10 border border-[#E1A93A]/30 rounded-xl p-3 mt-2">
