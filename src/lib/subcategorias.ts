@@ -27,14 +27,12 @@ export const SUBCATEGORIAS: Record<string, SubDef[]> = {
   ],
   // Festas & Eventos
   festas: [
-    def('Festas Temáticas & Baladas Itinerantes', 'Festas temáticas', 'gift', ['festa tematica', 'festas tematicas', 'tematica', 'itinerante', 'baladas itinerantes', 'pop', 'anos 2000', 'flashback']),
-    def('Festivais & Grandes Shows', 'Festivais e Shows', 'star', ['festival', 'festivais', 'grande show', 'grandes shows', 'show', 'shows', 'multi palcos', 'ao ar livre']),
-    def('Eventos Universitários & Calouradas', 'Universitários', 'book-open', ['universitario', 'universitaria', 'universitarios', 'calourada', 'calouradas', 'atletica', 'republica']),
-    def('Rodas & Bailes de Rua', 'Rodas e Bailes', 'music', ['roda de samba', 'samba de rua', 'baile', 'bailes', 'baile funk', 'funk', 'soundsystem', 'sound system', 'bloco de rua']),
-    def('Festas Eletrônicas & Raves', 'Eletrônicas e Raves', 'zap', ['eletronica', 'eletronicas', 'rave', 'raves', 'techno', 'house', 'edm']),
-    def('Pool Parties & Day Parties', 'Pool e Day Party', 'sun', ['pool party', 'pool parties', 'day party', 'day parties', 'piscina']),
-    def('Open Bar & Sunset Parties', 'Open Bar e Sunset', 'sunset', ['open bar', 'openbar', 'sunset', 'sunset party', 'pre carnaval']),
-    def('Feiras, Feirinhas & Blocos de Carnaval', 'Feiras e Blocos', 'flag', ['feira', 'feiras', 'feirinha', 'feirinhas', 'bloco', 'blocos', 'carnaval']),
+    def('Festas Gay', 'Festas Gay', 'users', ['festa gay', 'festas gay', 'festas gays', 'gay', 'gays', 'festa lgbt', 'festas lgbt', 'lgbt', 'lgbtqia', 'baile gay', 'ursos', 'bear']),
+    def('Festas Lésbicas', 'Festas Lésbicas', 'heart', ['festa lesbica', 'festas lesbicas', 'lesbica', 'lesbicas', 'sapphic', 'sapatao', 'festa de mulheres', 'festas de mulheres']),
+    def('Festas Eletrônicas', 'Eletrônicas', 'zap', ['eletronica', 'eletronicas', 'festa eletronica', 'festas eletronicas', 'rave', 'raves', 'techno', 'house', 'edm', 'dj']),
+    def('Open Bar', 'Open Bar', 'droplet', ['open bar', 'openbar', 'open bar gay', 'festa open bar']),
+    def('Sunset Parties', 'Sunset Parties', 'sunset', ['sunset', 'sunset party', 'sunset parties', 'por do sol', 'day party', 'day parties', 'pool party', 'pool parties', 'piscina']),
+    def('Festa Temática', 'Festa Temática', 'gift', ['festa tematica', 'festas tematicas', 'tematica', 'tematicas', 'festa pop', 'festas pop', 'pop', 'pop party', 'anos 2000', 'flashback', 'hits', 'diva', 'itinerante']),
   ],
   // Gastronomia
   gastronomia: [

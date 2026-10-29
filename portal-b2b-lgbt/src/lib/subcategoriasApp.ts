@@ -17,14 +17,12 @@ export const SUBCATEGORIAS_APP: Record<string, { titulo: string; itens: { chave:
   festas: {
     titulo: 'Festas & Eventos',
     itens: [
-      { chave: 'festas tematicas & baladas itinerantes', rotulo: 'Festas Temáticas & Baladas Itinerantes' },
-      { chave: 'festivais & grandes shows', rotulo: 'Festivais & Grandes Shows' },
-      { chave: 'eventos universitarios & calouradas', rotulo: 'Eventos Universitários & Calouradas' },
-      { chave: 'rodas & bailes de rua', rotulo: 'Rodas & Bailes de Rua' },
-      { chave: 'festas eletronicas & raves', rotulo: 'Festas Eletrônicas & Raves' },
-      { chave: 'pool parties & day parties', rotulo: 'Pool Parties & Day Parties' },
-      { chave: 'open bar & sunset parties', rotulo: 'Open Bar & Sunset Parties' },
-      { chave: 'feiras, feirinhas & blocos de carnaval', rotulo: 'Feiras, Feirinhas & Blocos de Carnaval' },
+      { chave: 'festas gay', rotulo: 'Festas Gay' },
+      { chave: 'festas lesbicas', rotulo: 'Festas Lésbicas' },
+      { chave: 'festas eletronicas', rotulo: 'Festas Eletrônicas' },
+      { chave: 'open bar', rotulo: 'Open Bar' },
+      { chave: 'sunset parties', rotulo: 'Sunset Parties' },
+      { chave: 'festa tematica', rotulo: 'Festa Temática' },
     ],
   },
   gastronomia: {
