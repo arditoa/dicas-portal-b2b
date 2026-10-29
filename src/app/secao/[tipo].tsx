@@ -2,7 +2,7 @@
 //   /secao/trip    → Dicas Trip (destaques de turismo)
 //   /secao/em-alta → Em Alta (rotação dos planos Intermediário/Premium e manuais)
 //   /secao/hoje    → O que fazer hoje (eventos de hoje, locais fixados e abertos agora)
-//   /secao/semana  → Destaques da semana (selo DESTAQUE: premium/fundador ou manual)
+//   /secao/semana  → Top da semana (selo DESTAQUE: premium/fundador ou manual)
 //   /secao/experiencia → Escolha pela experiência (tags → locais com aquela experiência)
 // Rodada 82 — todas usam o layout padrão da página de categoria (ListaPadrao):
 // voltar + logo, título, busca, chips Em Alta / Todas e cartões iguais.
@@ -25,7 +25,8 @@ import { abertoAgora, fechaAs } from '../../lib/horario';
 import { useI18n } from '../../lib/i18n';
 import { supabase } from '../../lib/supabase';
 import { useRastrearTela } from '../../lib/usoTelas';
-import { tipoDoServico } from '../../lib/servicosTipos';
+import { TIPOS_SERVICO, tipoDoServico } from '../../lib/servicosTipos';
+import BannersHome from '../../components/BannersHome';
 import VitrineCategoria from '../../components/VitrineCategoria';
 import { GRUPOS_EVENTO, LEGADO_EVENTO, rotuloTag, slugTag } from '../../lib/taxonomia';
 
@@ -69,12 +70,38 @@ const EXPERIENCIAS: { slug: string; icone: string; cor: string; degrade: [string
   { slug: 'karaoke', icone: 'radio', cor: '#4CAF7D', degrade: ['#10B981', '#0E7490'] },
 ];
 
+// "O que fazer hoje": ícones de vontade, abaixo do patrocinador. Cada item (festa ou lugar) entra em um ou mais.
+const ICONES_HOJE = [
+  { id: 'dancar', label: 'Dançar', icone: 'music', cor: '#FFB74D' },
+  { id: 'musica_ao_vivo', label: 'Música ao vivo', icone: 'mic', cor: '#4FC3F7' },
+  { id: 'drag_show', label: 'Drag show', icone: 'star', cor: '#B39DDB' },
+  { id: 'karaoke', label: 'Karaokê', icone: 'radio', cor: '#4CAF7D' },
+  { id: 'dates', label: 'Date', icone: 'heart', cor: '#E1306C' },
+  { id: 'aniversario', label: 'Aniversário', icone: 'gift', cor: '#FFD54F' },
+  { id: 'conhecer', label: 'Conhecer gente', icone: 'users', cor: '#F472B6' },
+  { id: 'arlivre', label: 'Ao ar livre', icone: 'sun', cor: '#FDE047' },
+];
+const MUSICAS_DANCA = ['pop', 'funk', 'eletronica', 'tribal', 'house', 'techno', 'disco', 'reggaeton', 'hip_hop', 'trap', 'k_pop', 'dj', 'open_format'];
+function iconesDoEvento(ev: any): string[] {
+  const tem = (label: string) => eventoTemTag(ev, slugTag(label));
+  const ids: string[] = [];
+  if (tem('Para dançar') || tem('Balada') || MUSICAS_DANCA.some((m) => eventoTemTag(ev, m))) ids.push('dancar');
+  if (tem('Música ao vivo') || tem('Show')) ids.push('musica_ao_vivo');
+  if (tem('Drag show') || /drag/i.test(ev.titulo || '')) ids.push('drag_show');
+  if (/karaok/i.test(ev.titulo || '')) ids.push('karaoke');
+  if (tem('Romântico')) ids.push('dates');
+  if (/anivers/i.test(ev.titulo || '')) ids.push('aniversario');
+  if (tem('Para conhecer pessoas') || tem('Para ir com amigos')) ids.push('conhecer');
+  if (tem('Ao ar livre') || tem('Rooftop') || tem('Pé na areia')) ids.push('arlivre');
+  return ids;
+}
+
 const CONFIG: Record<Tipo, { titulo: string; sub: string; icone: string }> = {
   servicos: { titulo: 'home.servicosDestaque', sub: 'secao.subServicos', icone: 'briefcase' },
   trip: { titulo: 'home.boxTrip', sub: 'secao.subTrip', icone: 'compass' },
   'em-alta': { titulo: 'home.emAlta', sub: 'secao.subEmAlta', icone: 'trending-up' },
   hoje: { titulo: 'home.hojeTitulo', sub: 'secao.subHoje', icone: 'zap' },
-  semana: { titulo: 'home.destaqueSemana', sub: 'secao.subSemana', icone: 'star' },
+  semana: { titulo: 'home.tile.semana', sub: 'secao.subSemana', icone: 'star' },
   experiencia: { titulo: 'home.experiencia', sub: 'secao.subExperiencia', icone: 'heart' },
 };
 
@@ -96,7 +123,7 @@ export default function SecaoScreen() {
   useEffect(() => {
     if (tipo !== 'hoje') return;
     AsyncStorage.getItem(CHAVE_GOSTOS_HOJE)
-      .then((v) => { if (v) setGostos(JSON.parse(v)); })
+      .then((v) => { if (v) { const g = JSON.parse(v); delete g.quando; delete g.clima; delete g.tipo; setGostos(g); } })
       .catch(() => {})
       .finally(() => setGostosLidos(true));
   }, [tipo]);
@@ -115,10 +142,6 @@ export default function SecaoScreen() {
   const slotRodizio = useSlotHora(cfgRodizio.intervaloMin);
 
   useEffect(() => {
-    if (tipo === 'experiencia') {
-      setCarregando(false);
-      return;
-    }
     let ativo = true;
     (async () => {
       setCarregando(true);
@@ -136,6 +159,20 @@ export default function SecaoScreen() {
               iconeVazio: 'compass',
             })
           );
+        } else if (tipo === 'experiencia') {
+          // Locais que têm alguma das experiências em destaque; os ícones redondos filtram por experiência.
+          const consultar = (c: string): any => (supabase.from('locais') as any).select(c).eq('status', 'aprovado').limit(1000);
+          const r = await consultar(`${CAMPOS_LOCAL}, experiencias`);
+          const slugs = EXPERIENCIAS.map((e) => e.slug);
+          const l = (((r.data as any[]) || []) as any[])
+            .filter((i) => !ehServico(i) && ((i.experiencias as string[]) || []).some((x) => slugs.includes(x)))
+            .sort(compararDestaque('em_alta'));
+          lista = l.map((i) =>
+            localParaItem(i, {
+              iconeIds: ((i.experiencias as string[]) || []).filter((x) => slugs.includes(x)),
+              destaque: deveExibirGlow(i),
+            })
+          );
         } else if (tipo === 'servicos') {
           // `especialidade` vem da migration 034; sem ela, segue só com o básico.
           const consultar = (c: string): any => (supabase.from('locais') as any).select(c).eq('status', 'aprovado').in('categoria', CATEGORIAS_SERVICO).limit(1000);
@@ -146,19 +183,13 @@ export default function SecaoScreen() {
           // Cada serviço entra num tipo (Beleza, Saúde, Fotografia, Seguros…) para filtrar pelos chips.
           lista = l.map((i) => {
             const tipoServ = tipoDoServico(i);
-            return localParaItem(i, { destaque: deveExibirGlow(i), grupo: tipoServ, linha1: i.especialidade || i.subcategoria || tipoServ });
+            return localParaItem(i, { destaque: deveExibirGlow(i), grupo: tipoServ, iconeIds: [tipoServ], linha1: i.especialidade || i.subcategoria || tipoServ });
           });
         } else if (tipo === 'em-alta' || tipo === 'semana') {
           const { data } = await supabase.from('locais').select(CAMPOS_LOCAL).eq('status', 'aprovado').limit(1000);
           // Serviços (fotógrafo, beleza, lojas) têm página própria; o Em Alta fica só com lugares.
           let todos = ((data as any[]) || []).filter((i) => tipo === 'semana' || !ehServico(i));
-          if (tipo === 'em-alta') {
-            // Slot de patrocínio no topo: locais marcados como "patrocinado" no /admin, um por vez, trocando a cada horário.
-            const patrocinados = todos.filter((i) => estaFixadoEm(i, 'patrocinado')).sort((x, y) => String(x.id).localeCompare(String(y.id)));
-            const escolhido = patrocinados.length > 0 ? patrocinados[slotRodizio % patrocinados.length] : null;
-            patr = escolhido ? localParaItem(escolhido, {}) : null;
-            if (escolhido) todos = todos.filter((i) => i.id !== escolhido.id);
-          }
+          // Em Alta: o patrocínio agora é o banner master da página (BannerMaster); locais VIP entram na lista com o selo.
           const destaque = todos.filter((i) => deveExibirGlow(i)).sort(compararDestaque('destaque'));
           if (tipo === 'semana') {
             lista = destaque.map((i) => localParaItem(i, { destaque: true }));
@@ -222,6 +253,8 @@ export default function SecaoScreen() {
               linha1: new Date(e.data_inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
               linha2: [e.locais?.nome, e.locais && (e.locais.bairro_exibicao || e.locais.bairro)].filter(Boolean).join(' • ') || undefined,
               foto: e.foto_capa_url || null,
+              categoriaReal: 'eventos',
+              iconeIds: iconesDoEvento(e),
               iconeVazio: 'calendar',
               seloCategoria: SELO_FESTA,
             };
@@ -234,6 +267,7 @@ export default function SecaoScreen() {
             return item;
           });
           const metaLocal = (l: any, item: ItemLista): ItemLista => {
+            item.iconeIds = ((l.experiencias as string[]) || []).filter((x) => ICONES_HOJE.some((i) => i.id === x));
             metaTmp[item.chave] = {
               tipo: TIPO_LUGAR,
               quando: abertoAgora(l) ? ['Agora'] : [],
@@ -280,7 +314,6 @@ export default function SecaoScreen() {
     if (tipo !== 'hoje') return [];
     const todas = Object.values(meta);
     const unicas = (pega: (m: MetaHoje) => string[]) => Array.from(new Set(todas.flatMap(pega)));
-    const quandoOrdem = ['Agora', 'Manhã', 'Tarde', 'Noite', 'Madrugada'];
     // Filtros de catálogo (Público, Estilo, Experiência…) ficam SEMPRE visíveis, mesmo que hoje
     // nenhum item tenha a tag: quem tem resultado vem primeiro na lista, o resto logo depois.
     const catalogo = (grupo: string, pega: (m: MetaHoje) => string[], so?: string[]) => {
@@ -289,11 +322,8 @@ export default function SecaoScreen() {
       return [...todos.filter((x) => existentes.includes(x)), ...todos.filter((x) => !existentes.includes(x))];
     };
     return [
-      { id: 'tipo', label: 'Tipo', icone: 'layers', opcoes: unicas((m) => [m.tipo]), valor: gostos.tipo },
-      { id: 'quando', label: 'Quando', icone: 'clock', opcoes: quandoOrdem.filter((q) => unicas((m) => m.quando).includes(q)), valor: gostos.quando },
       { id: 'publico', label: 'Público', icone: 'users', opcoes: catalogo('publico', (m) => m.publico), valor: gostos.publico },
       { id: 'musica', label: 'Estilo musical', icone: 'music', opcoes: catalogo('musica', (m) => m.musica), valor: gostos.musica },
-      { id: 'clima', label: 'Experiência', icone: 'heart', opcoes: catalogo('ambiente', (m) => m.clima), valor: gostos.clima },
       { id: 'ingresso', label: 'Entrada', icone: 'tag', opcoes: catalogo('ingresso', (m) => m.ingresso, ['Gratuito', 'Pago', 'Lista gratuita', 'Lista VIP', 'Open bar', 'Desconto no app', 'Cupom disponível']), valor: gostos.ingresso },
       { id: 'classificacao', label: 'Idade', icone: 'shield', opcoes: ['Livre', '16+', '18+'], valor: gostos.classificacao },
       { id: 'estrutura', label: 'Estrutura', icone: 'check-circle', opcoes: catalogo('estrutura', (m) => m.estrutura, ['Acessibilidade', 'Atendimento em Libras', 'Banheiro adaptado', 'Banheiro sem gênero', 'Área externa', 'Pet friendly', 'Estacionamento', 'Próximo ao metrô']), valor: gostos.estrutura },
@@ -304,11 +334,8 @@ export default function SecaoScreen() {
     return itens.filter((i) => {
       const m = meta[i.chave];
       if (!m) return !Object.values(gostos).some(Boolean);
-      if (gostos.tipo && m.tipo !== gostos.tipo) return false;
-      if (gostos.quando && !m.quando.includes(gostos.quando)) return false;
       if (gostos.musica && !m.musica.includes(gostos.musica)) return false;
       if (gostos.publico && !m.publico.includes(gostos.publico)) return false;
-      if (gostos.clima && !m.clima.includes(gostos.clima)) return false;
       if (gostos.ingresso && !m.ingresso.includes(gostos.ingresso)) return false;
       if (gostos.classificacao && !m.classificacao.includes(gostos.classificacao)) return false;
       if (gostos.estrutura && !m.estrutura.includes(gostos.estrutura)) return false;
@@ -316,34 +343,6 @@ export default function SecaoScreen() {
     });
   }, [tipo, itens, meta, gostos]);
   const algumGosto = Object.values(gostos).some(Boolean);
-
-  if (tipo === 'experiencia') {
-    return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <CabecalhoPadrao titulo={t(cfg.titulo)} subtitulo={t(cfg.sub)} />
-        <ScrollView contentContainerStyle={styles.expGrade}>
-          {EXPERIENCIAS.map((e) => {
-            const label = EXPERIENCIAS_REAIS.find((x) => x.slug === e.slug)?.label || e.slug;
-            return (
-              <TouchableOpacity
-                key={e.slug}
-                style={styles.expTile}
-                activeOpacity={0.85}
-                onPress={() =>
-                  router.push({ pathname: '/category/todos' as any, params: { title: encodeURIComponent(label), experiencia: e.slug } })
-                }
-                accessibilityRole="button"
-              >
-                <FundoCaixaDegrade id={`exp-${e.slug}`} cores={e.degrade} />
-                <Feather name={e.icone as any} size={22} color="#FFFFFF" />
-                <Text style={styles.expTxt}>{label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
-    );
-  }
 
   return (
     <ListaPadrao
@@ -356,22 +355,24 @@ export default function SecaoScreen() {
       itens={itensVisiveis}
       carregando={carregando}
       vazioTexto={tipo === 'hoje' && algumGosto ? 'Nada hoje com esses gostos. Toque em "Limpar" para ver tudo.' : t('secao.vazio')}
-      topo={
-        tipo === 'servicos' ? (
-          <VitrineCategoria slug="servicos" titulo="Serviços" categoriaReal={['servicos', 'beleza', 'lojas']} locais={locaisServ} />
-        ) : undefined
-      }
-      filtros={
-        tipo === 'hoje' && filtrosHoje.some((f) => f.opcoes.length > 0 || f.valor) ? (
-          <FiltrosPilulas
-            filtros={filtrosHoje}
-            onSelecionar={(id, valor) => setGostos((g) => ({ ...g, [id]: valor }))}
-            onLimpar={() => setGostos({})}
-          />
-        ) : undefined
+      filtrosExtras={tipo === 'hoje' ? filtrosHoje : undefined}
+      onFiltroExtra={(id, valor) => setGostos((g) => ({ ...g, [id]: valor }))}
+      onLimparExtras={() => setGostos({})}
+      semPublico={tipo === 'hoje'}
+      iconesSempre={tipo === 'experiencia' || tipo === 'semana' || tipo === 'hoje'}
+      iconesFiltro={
+        tipo === 'hoje'
+          ? ICONES_HOJE.map((i) => ({ id: i.id, label: i.label, icone: i.icone, cor: i.cor }))
+          : tipo === 'servicos'
+          ? TIPOS_SERVICO.map((t) => ({ id: t.rotulo, label: t.rotulo.replace(' e ', ' & '), icone: t.icone, cor: t.cor }))
+          : tipo === 'experiencia'
+          ? EXPERIENCIAS.map((e) => ({ id: e.slug, label: EXPERIENCIAS_REAIS.find((x) => x.slug === e.slug)?.label || e.slug, icone: e.icone, cor: e.cor }))
+          : undefined
       }
       vazioIcone={cfg.icone}
-      patrocinado={tipo === 'em-alta' ? patrocinado : null}
+      modoHome={tipo !== 'trip'}
+      bannerMaster={tipo !== 'trip' ? <BannersHome slug={tipo} nome={t(cfg.titulo)} /> : undefined}
+      patrocinado={null}
       patrocinadoRotulo={t('home.patrocinado')}
       rodape={
         tipo === 'trip' ? (

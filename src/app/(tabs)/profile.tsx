@@ -21,6 +21,7 @@ import ContaAtividade from '../../components/ContaAtividade';
 import { PassoGostos, PassoSobreVoce, aplicarPendente, guardarPendente, salvarExtras } from '../../components/CadastroExtras';
 import { EXTRAS_VAZIO, ExtrasCadastro } from '../../lib/perfilOpcoes';
 import { BotaoVoltar, TituloTela } from '../../components/CabecalhoTela';
+import MarcaApp from '../../components/MarcaApp';
 import FundoCaixaDegrade from '../../components/FundoCaixaDegrade';
 import { AvatarEditavel, StatusRelacionamento } from '../../components/PerfilFotoStatus';
 import { IDIOMAS, useI18n } from '../../lib/i18n';
@@ -373,12 +374,7 @@ export default function ProfileScreen() {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <BotaoVoltar />
             <View>
-              <Image
-                source={require('../../assets/images/logolinear-semfundo.png')}
-                style={styles.logo}
-                resizeMode="contain"
-              />
-              <Text style={styles.appSub}>{t('app.subtitulo')}</Text>
+              <MarcaApp />
             </View>
           </View>
         </View>
@@ -395,44 +391,6 @@ export default function ProfileScreen() {
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           
-          <View style={styles.statsRow}>
-            <TouchableOpacity
-              style={styles.statBox}
-              onPress={() => handleCliqueExigente('/favorites')}
-              activeOpacity={0.8}
-            >
-              {/* Rodada 57 — era "bookmark" (ícone de fita/bandeirinha):
-                  Andrea reportou confusão porque salvar um local em
-                  qualquer card da Home usa o coração (handleToggleFavorito),
-                  então o stat de "Locais Salvos" aqui devia usar o MESMO
-                  ícone do resto do app — um só símbolo pro mesmo conceito. */}
-              <FundoCaixaDegrade id="stat-salvos" cores={['#E1306C', '#9B3CFF']} />
-              <Feather name="heart" size={20} color="#FFFFFF" />
-              <View>
-                <Text style={styles.statNum}>{isLogado ? totalSalvos : 0}</Text>
-                <Text style={styles.statLabel}>Locais salvos</Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.statBox}
-              onPress={() => handleCliqueExigente('/coupons')}
-              activeOpacity={0.8}
-            >
-              <FundoCaixaDegrade id="stat-cupons" cores={['#F2A900', '#C2410C']} />
-              <Feather name="tag" size={20} color="#FFFFFF" />
-              <View>
-                <Text style={styles.statNum}>{isLogado ? totalCupons : 0}</Text>
-                <Text style={styles.statLabel}>Meus cupons</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-
-          {/* Nova versão — a caixa de entrada saiu da barra inferior e mora aqui,
-              junto das últimas ações (check-ins, cupons, listas VIP). Fica no topo pra o
-              atalho da caixa de entrada na Home cair direto nela. */}
-          <ContaAtividade userId={user?.id ?? null} abaInicial={aba === 'inbox' ? 'inbox' : undefined} />
-
           {authLoading ? (
             <View style={styles.authBox}>
               <ActivityIndicator color={COLORS.pink} />
@@ -634,130 +592,183 @@ export default function ProfileScreen() {
             </View>
           ) : (
             <View style={styles.profileCard}>
-              {user?.id ? (
-                <AvatarEditavel userId={user.id} iniciais={(perfil?.display_name || user?.email || 'US').substring(0, 2).toUpperCase()} />
-              ) : (
-                <View style={styles.avatarCircle}>
-                  <Text style={styles.avatarInitials}>
-                    {(perfil?.display_name || user?.email || 'US').substring(0, 2).toUpperCase()}
-                  </Text>
+              <View style={styles.heroTopo}>
+                <FundoCaixaDegrade id="conta-hero" cores={['#4C1D95', '#BE185D']} />
+                {user?.id ? (
+                  <AvatarEditavel userId={user.id} iniciais={(perfil?.display_name || user?.email || 'US').substring(0, 2).toUpperCase()} />
+                ) : (
+                  <View style={styles.avatarCircle}>
+                    <Text style={styles.avatarInitials}>
+                      {(perfil?.display_name || user?.email || 'US').substring(0, 2).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+                <Text style={styles.userName}>{perfil?.display_name || 'Sem nome cadastrado'}</Text>
+                <Text style={styles.userEmail}>{user?.email}</Text>
+              </View>
+
+              <View style={styles.heroBase}>
+                <View style={styles.infoRow}>
+                  <Feather name="phone" size={14} color={COLORS.textMuted} />
+                  <Text style={styles.infoText}>WhatsApp: {perfil?.phone || 'não informado'}</Text>
                 </View>
-              )}
-              <Text style={styles.userName}>{perfil?.display_name || 'Sem nome cadastrado'}</Text>
-              <Text style={styles.userEmail}>{user?.email}</Text>
-
-              <View style={styles.infoDivider} />
-
-              <View style={styles.infoRow}>
-                <Feather name="phone" size={14} color={COLORS.textMuted} />
-                <Text style={styles.infoText}>WhatsApp: {perfil?.phone || 'não informado'}</Text>
+                <View style={styles.infoRow}>
+                  <Feather name="calendar" size={14} color={COLORS.textMuted} />
+                  <Text style={styles.infoText}>Nascimento: {perfil?.birth_date || 'não informado'}</Text>
+                </View>
+                {user?.id && (
+                  <>
+                    <View style={styles.infoDivider} />
+                    <StatusRelacionamento userId={user.id} />
+                  </>
+                )}
               </View>
-
-              <View style={styles.infoRow}>
-                <Feather name="calendar" size={14} color={COLORS.textMuted} />
-                <Text style={styles.infoText}>
-                  Nascimento: {perfil?.birth_date || 'não informado'}
-                </Text>
-              </View>
-
-              {user?.id && (
-                <>
-                  <View style={styles.infoDivider} />
-                  <StatusRelacionamento userId={user.id} />
-                </>
-              )}
             </View>
           )}
 
-          <View style={styles.sectionBlock}>
-            <Text style={styles.sectionTitle}>Recursos e Comunidade</Text>
+          {isLogado && (
+          <View style={styles.statsRow}>
+            <TouchableOpacity
+              style={styles.statBox}
+              onPress={() => handleCliqueExigente('/favorites')}
+              activeOpacity={0.8}
+            >
+              {/* Rodada 57 — era "bookmark" (ícone de fita/bandeirinha):
+                  Andrea reportou confusão porque salvar um local em
+                  qualquer card da Home usa o coração (handleToggleFavorito),
+                  então o stat de "Locais Salvos" aqui devia usar o MESMO
+                  ícone do resto do app — um só símbolo pro mesmo conceito. */}
+              <FundoCaixaDegrade id="stat-salvos" cores={['#E1306C', '#9B3CFF']} />
+              <Feather name="heart" size={20} color="#FFFFFF" />
+              <View>
+                <Text style={styles.statNum}>{isLogado ? totalSalvos : 0}</Text>
+                <Text style={styles.statLabel}>Locais salvos</Text>
+              </View>
+            </TouchableOpacity>
 
-            <TouchableOpacity style={styles.menuItem} onPress={handleIndicarAmigos} activeOpacity={0.7}>
-              <View style={[styles.menuIconBg, { backgroundColor: 'rgba(126, 87, 194, 0.15)' }]}>
-                <Feather name="share-2" size={16} color={COLORS.purple} />
+            <TouchableOpacity
+              style={styles.statBox}
+              onPress={() => handleCliqueExigente('/coupons')}
+              activeOpacity={0.8}
+            >
+              <FundoCaixaDegrade id="stat-cupons" cores={['#F2A900', '#C2410C']} />
+              <Feather name="tag" size={20} color="#FFFFFF" />
+              <View>
+                <Text style={styles.statNum}>{isLogado ? totalCupons : 0}</Text>
+                <Text style={styles.statLabel}>Meus cupons</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+          )}
+
+          {/* Nova versão — a caixa de entrada saiu da barra inferior e mora aqui,
+              junto das últimas ações (check-ins, cupons, listas VIP). Fica no topo pra o
+              atalho da caixa de entrada na Home cair direto nela. */}
+          <ContaAtividade userId={user?.id ?? null} abaInicial={aba === 'inbox' ? 'inbox' : undefined} />
+
+          <Text style={styles.grupoTitulo}>COMUNIDADE</Text>
+          <View style={styles.grupoCard}>
+            <TouchableOpacity style={[styles.linha, styles.linhaBorda]} onPress={handleIndicarAmigos} activeOpacity={0.7} accessibilityRole="button">
+              <View style={[styles.menuIconBg, { backgroundColor: '#7E57C226' }]}>
+                <Feather name="share-2" size={16} color="#7E57C2" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.menuItemText}>Indicar a Amigos</Text>
+                <Text style={[styles.menuItemText]}>Indicar a Amigos</Text>
                 <Text style={styles.menuItemSub}>Compartilhe o app com mensagens acolhedoras</Text>
               </View>
               <Feather name="chevron-right" size={16} color={COLORS.textMuted} />
             </TouchableOpacity>
-
-            <TouchableOpacity style={styles.menuItem} onPress={handleIndicarParceiroWhatsApp} activeOpacity={0.7}>
-              <View style={[styles.menuIconBg, { backgroundColor: 'rgba(76, 175, 125, 0.15)' }]}>
-                <Feather name="message-circle" size={16} color={COLORS.safeSpace} />
+            <TouchableOpacity style={[styles.linha, styles.linhaBorda]} onPress={handleIndicarParceiroWhatsApp} activeOpacity={0.7} accessibilityRole="button">
+              <View style={[styles.menuIconBg, { backgroundColor: '#4CAF7D26' }]}>
+                <Feather name="message-circle" size={16} color="#4CAF7D" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.menuItemText}>Indicar Parceiro / Espaço</Text>
+                <Text style={[styles.menuItemText]}>Indicar Parceiro / Espaço</Text>
                 <Text style={styles.menuItemSub}>WhatsApp: (11) 94294-2028</Text>
               </View>
               <Feather name="external-link" size={16} color={COLORS.textMuted} />
             </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => Linking.openURL('https://camaralgbt.com.br/')}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.menuIconBg, { backgroundColor: 'rgba(255, 213, 79, 0.15)' }]}>
-                <Feather name="briefcase" size={16} color={COLORS.gold} />
+            <TouchableOpacity style={[styles.linha, styles.linhaBorda]} onPress={() => Linking.openURL('https://camaralgbt.com.br/')} activeOpacity={0.7} accessibilityRole="button">
+              <View style={[styles.menuIconBg, { backgroundColor: '#FFD54F26' }]}>
+                <Feather name="briefcase" size={16} color="#FFD54F" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.menuItemText}>Câmara de Comércio LGBT+</Text>
+                <Text style={[styles.menuItemText]}>Câmara de Comércio LGBT+</Text>
                 <Text style={styles.menuItemSub}>Parceira oficial de desenvolvimento</Text>
               </View>
               <Feather name="external-link" size={16} color={COLORS.textMuted} />
             </TouchableOpacity>
-
-            <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/onboarding' as any)} activeOpacity={0.7}>
-              <View style={[styles.menuIconBg, { backgroundColor: 'rgba(225, 48, 108, 0.15)' }]}>
-                <Feather name="heart" size={16} color={COLORS.pink} />
+            <TouchableOpacity style={[styles.linha, styles.linhaBorda]} onPress={() => router.push('/onboarding' as any)} activeOpacity={0.7} accessibilityRole="button">
+              <View style={[styles.menuIconBg, { backgroundColor: '#E1306C26' }]}>
+                <Feather name="heart" size={16} color="#E1306C" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.menuItemText}>Nossa missão e objetivo</Text>
+                <Text style={[styles.menuItemText]}>Nossa missão e objetivo</Text>
                 <Text style={styles.menuItemSub}>Rever a abertura do Dicas LGBT+</Text>
               </View>
               <Feather name="chevron-right" size={16} color={COLORS.textMuted} />
             </TouchableOpacity>
-
-            <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/denunciar')} activeOpacity={0.7}>
-              <View style={[styles.menuIconBg, { backgroundColor: 'rgba(255, 82, 82, 0.15)' }]}>
-                <Feather name="shield" size={16} color={COLORS.danger} />
+            <TouchableOpacity style={[styles.linha, styles.linhaUltima]} onPress={() => router.push('/denunciar')} activeOpacity={0.7} accessibilityRole="button">
+              <View style={[styles.menuIconBg, { backgroundColor: '#FF525226' }]}>
+                <Feather name="shield" size={16} color="#FF5252" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.menuItemText}>Denunciar Ocorrência</Text>
+                <Text style={[styles.menuItemText]}>Denunciar Ocorrência</Text>
                 <Text style={styles.menuItemSub}>Canal seguro contra discriminação</Text>
               </View>
               <Feather name="chevron-right" size={16} color={COLORS.textMuted} />
             </TouchableOpacity>
           </View>
 
-          <View style={styles.sectionBlock}>
-            <Text style={styles.sectionTitle}>Preferências e privacidade (LGPD)</Text>
-            <TouchableOpacity style={styles.menuItem} onPress={proximoIdioma} activeOpacity={0.7} accessibilityRole="button">
-              <Feather name="globe" size={16} color={COLORS.textPrimary} style={{ marginLeft: 6, marginRight: 10 }} />
+          <Text style={styles.grupoTitulo}>PREFERÊNCIAS</Text>
+          <View style={styles.grupoCard}>
+            <TouchableOpacity style={[styles.linha, styles.linhaBorda]} onPress={proximoIdioma} activeOpacity={0.7} accessibilityRole="button">
+              <View style={[styles.menuIconBg, { backgroundColor: '#FFFFFF1F' }]}>
+                <Feather name="globe" size={16} color={COLORS.textPrimary} />
+              </View>
               <Text style={[styles.menuItemText, { flex: 1 }]}>{t('conta.idioma')}</Text>
-              <Text style={styles.menuItemSub}>{idiomaAtual.nome}</Text>
+              <View style={styles.valorPilula}><Text style={styles.valorPilulaTxt}>{idiomaAtual.nome}</Text></View>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/notificacoes')} activeOpacity={0.7}>
-              <Feather name="bell" size={16} color={COLORS.textPrimary} style={{ marginLeft: 6, marginRight: 10 }} />
-              <Text style={[styles.menuItemText, { flex: 1 }]}>Notificações</Text>
+            <TouchableOpacity style={[styles.linha, styles.linhaUltima]} onPress={() => router.push('/notificacoes')} activeOpacity={0.7} accessibilityRole="button">
+              <View style={[styles.menuIconBg, { backgroundColor: '#FFFFFF26' }]}>
+                <Feather name="bell" size={16} color="#FFFFFF" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.menuItemText]}>Notificações</Text>
+
+              </View>
               <Feather name="chevron-right" size={16} color={COLORS.textMuted} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={() => Linking.openURL(`${URL_SITE}/privacidade`)} activeOpacity={0.7}>
-              <Feather name="lock" size={16} color={COLORS.textPrimary} style={{ marginLeft: 6, marginRight: 10 }} />
-              <Text style={[styles.menuItemText, { flex: 1 }]}>{t('conta.privacidade')}</Text>
+          </View>
+
+          <Text style={styles.grupoTitulo}>PRIVACIDADE E CONTA (LGPD)</Text>
+          <View style={styles.grupoCard}>
+            <TouchableOpacity style={[styles.linha, styles.linhaBorda]} onPress={() => Linking.openURL(`${URL_SITE}/privacidade`)} activeOpacity={0.7} accessibilityRole="button">
+              <View style={[styles.menuIconBg, { backgroundColor: '#FFFFFF26' }]}>
+                <Feather name="lock" size={16} color="#FFFFFF" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.menuItemText]}>{t('conta.privacidade')}</Text>
+
+              </View>
               <Feather name="external-link" size={16} color={COLORS.textMuted} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={() => Linking.openURL(`${URL_SITE}/termos`)} activeOpacity={0.7}>
-              <Feather name="file-text" size={16} color={COLORS.textPrimary} style={{ marginLeft: 6, marginRight: 10 }} />
-              <Text style={[styles.menuItemText, { flex: 1 }]}>{t('conta.termos')}</Text>
+            <TouchableOpacity style={[styles.linha, styles.linhaBorda]} onPress={() => Linking.openURL(`${URL_SITE}/termos`)} activeOpacity={0.7} accessibilityRole="button">
+              <View style={[styles.menuIconBg, { backgroundColor: '#FFFFFF26' }]}>
+                <Feather name="file-text" size={16} color="#FFFFFF" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.menuItemText]}>{t('conta.termos')}</Text>
+
+              </View>
               <Feather name="external-link" size={16} color={COLORS.textMuted} />
             </TouchableOpacity>
             {isLogado && (
-              <TouchableOpacity style={styles.menuItem} onPress={handleExcluirConta} activeOpacity={0.7}>
-                <Feather name="trash-2" size={16} color={COLORS.danger} style={{ marginLeft: 6, marginRight: 10 }} />
-                <Text style={[styles.menuItemText, { color: COLORS.danger }]}>Excluir minha conta</Text>
+              <TouchableOpacity style={[styles.linha, styles.linhaUltima]} onPress={handleExcluirConta} activeOpacity={0.7} accessibilityRole="button">
+                <View style={[styles.menuIconBg, { backgroundColor: '#FF52521F' }]}>
+                  <Feather name="trash-2" size={16} color={COLORS.danger} />
+                </View>
+                <Text style={[styles.menuItemText, { flex: 1, color: COLORS.danger }]}>Excluir minha conta</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -784,7 +795,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5, lineHeight: 32, color: COLORS.textPrimary, paddingHorizontal: 16, marginTop: 4, marginBottom: 16 },
   scrollContent: { paddingHorizontal: 16, paddingBottom: 40 },
 
-  statsRow: { flexDirection: 'row', gap: 8, marginTop: 8, marginBottom: 14 },
+  statsRow: { flexDirection: 'row', gap: 8, marginTop: 0, marginBottom: 14 },
   statBox: {
     flex: 1,
     flexDirection: 'row',
@@ -872,12 +883,14 @@ const styles = StyleSheet.create({
   profileCard: {
     backgroundColor: COLORS.card,
     borderRadius: 20,
-    padding: 20,
-    alignItems: 'center',
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: COLORS.border,
-    marginBottom: 20,
+    marginTop: 8,
+    marginBottom: 14,
   },
+  heroTopo: { alignItems: 'center', paddingVertical: 22, paddingHorizontal: 16, gap: 2 },
+  heroBase: { padding: 16 },
   avatarCircle: {
     width: 60,
     height: 60,
@@ -888,8 +901,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   avatarInitials: { fontSize: 17, fontWeight: '800', color: '#FFF' },
-  userName: { fontSize: 16, fontWeight: '800', color: COLORS.textPrimary },
-  userEmail: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
+  userName: { fontSize: 18, fontWeight: '800', color: '#FFFFFF', marginTop: 6 },
+  userEmail: { fontSize: 12, color: 'rgba(255,255,255,0.85)', marginTop: 2 },
   infoDivider: { height: 1, backgroundColor: COLORS.border, width: '100%', marginVertical: 12 },
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   infoText: { fontSize: 12, color: COLORS.textSecondary },
@@ -911,6 +924,13 @@ const styles = StyleSheet.create({
   menuItemText: { fontSize: 12, fontWeight: '600', color: COLORS.textPrimary },
   menuItemSub: { fontSize: 10, color: COLORS.textSecondary, marginTop: 1 },
 
+  grupoTitulo: { fontSize: 11, fontWeight: '800', color: COLORS.textMuted, letterSpacing: 0.8, marginTop: 8, marginBottom: 8, marginLeft: 6 },
+  grupoCard: { backgroundColor: COLORS.card, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, overflow: 'hidden', marginBottom: 18 },
+  linha: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 13 },
+  linhaBorda: { borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  linhaUltima: {},
+  valorPilula: { backgroundColor: '#232230', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
+  valorPilulaTxt: { fontSize: 11, fontWeight: '700', color: COLORS.textPrimary },
   logoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',

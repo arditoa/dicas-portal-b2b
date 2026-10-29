@@ -178,6 +178,7 @@ export default function MinhaPaginaPage() {
   const [enviandoFoto, setEnviandoFoto] = useState(false);
   const [enviandoLogo, setEnviandoLogo] = useState(false);
   const [enviandoProgramacao, setEnviandoProgramacao] = useState(false);
+  const [outrosAberto, setOutrosAberto] = useState(false);
   const inputProgramacaoRef = useRef<HTMLInputElement | null>(null);
 
   // Rodada 22: muita conta de parceiro agora nasce com senha temporária
@@ -682,22 +683,65 @@ export default function MinhaPaginaPage() {
           </div>
           <div>
             <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">Subcategoria</label>
-            <input
-              type="text"
-              value={local.subcategoria || ''}
-              onChange={(e) => setLocal({ ...local, subcategoria: e.target.value })}
-              placeholder={SUBCATEGORIAS_APP[local.categoria] ? 'Escolha na lista ou digite' : local.categoria === 'lojas' ? 'Escolha o tipo de serviço' : 'Ex: Bar, Balada, Drag...'}
-              list={SUBCATEGORIAS_APP[local.categoria] ? 'tipos-subcategoria' : local.categoria === 'lojas' ? 'tipos-servico' : undefined}
-              className="w-full bg-[#161520] border border-[#232230] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#E1306C]"
-            />
+            {(() => {
+              const lista = SUBCATEGORIAS_APP[local.categoria]?.itens;
+              const classe = 'w-full bg-[#161520] border border-[#232230] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#E1306C]';
+              if (!lista) {
+                return (
+                  <input
+                    type="text"
+                    value={local.subcategoria || ''}
+                    onChange={(e) => setLocal({ ...local, subcategoria: e.target.value })}
+                    placeholder={local.categoria === 'lojas' ? 'Escolha o tipo de serviço' : 'Ex: Bar, Balada, Drag...'}
+                    list={local.categoria === 'lojas' ? 'tipos-servico' : undefined}
+                    className={classe}
+                  />
+                );
+              }
+              const norm = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+              const atual = local.subcategoria || '';
+              const naLista = lista.find((i) => i.chave === norm(atual));
+              const modoOutros = !naLista && (outrosAberto || atual.trim() !== '');
+              return (
+                <>
+                  <select
+                    value={naLista ? naLista.rotulo : modoOutros ? '__outros__' : ''}
+                    onChange={(e) => {
+                      if (e.target.value === '__outros__') {
+                        setOutrosAberto(true);
+                        if (naLista) setLocal({ ...local, subcategoria: '' });
+                      } else {
+                        setOutrosAberto(false);
+                        setLocal({ ...local, subcategoria: e.target.value });
+                      }
+                    }}
+                    className={classe}
+                  >
+                    <option value="">Escolha uma subcategoria</option>
+                    {lista.map((i) => (
+                      <option key={i.chave} value={i.rotulo}>{i.rotulo}</option>
+                    ))}
+                    <option value="__outros__">Outros (não está na lista)</option>
+                  </select>
+                  {modoOutros && (
+                    <>
+                      <input
+                        type="text"
+                        value={atual}
+                        onChange={(e) => setLocal({ ...local, subcategoria: e.target.value })}
+                        placeholder="Qual é o seu tipo de negócio? Ex.: Chaveiro"
+                        className={`${classe} mt-2`}
+                      />
+                      <p className="text-[10px] text-[#626274] mt-1">
+                        Seu local aparece normalmente em &quot;Outros&quot; no app, e nossa equipe avalia criar essa subcategoria.
+                      </p>
+                    </>
+                  )}
+                </>
+              );
+            })()}
           </div>
         </div>
-
-        <datalist id="tipos-subcategoria">
-          {(SUBCATEGORIAS_APP[local.categoria]?.itens || []).map((i) => (
-            <option key={i.chave} value={i.rotulo} />
-          ))}
-        </datalist>
 
         <datalist id="tipos-servico">
           {TIPOS_SERVICO.map((t) => (

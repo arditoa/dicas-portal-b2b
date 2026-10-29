@@ -15,7 +15,10 @@ import { ActivityIndicator, Image, Linking, ScrollView, StyleSheet, Text, Toucha
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import FundoCaixaDegrade from '../../components/FundoCaixaDegrade';
-import { CATEGORIA_REAL_LABEL, SELO_FESTA, SeloCategoria, seloDaCategoria } from '../../lib/categorias';
+import SubcategoriaBanners, { GrupoSub } from '../../components/SubcategoriaBanners';
+import VitrineCategoria, { LocalVitrine } from '../../components/VitrineCategoria';
+import { SubDef } from '../../lib/subcategorias';
+import { CATEGORIAS, CATEGORIA_REAL_LABEL, SELO_FESTA, SeloCategoria, seloDaCategoria } from '../../lib/categorias';
 import { carregarDestinos, Destino, DESTINOS_PADRAO } from '../../lib/destinos';
 import { useI18n } from '../../lib/i18n';
 import { supabase } from '../../lib/supabase';
@@ -42,7 +45,7 @@ const CORES_PILULA = ['#9B3CFF', '#E1306C', '#0EA5E9', '#10B981', '#F2692A', '#7
 
 const TILES: { id: Aba; titulo: string; sub: string; icone: string; cor: string; degrade: [string, string] }[] = [
   { id: 'onde_ficar', titulo: 'Onde ficar', sub: 'Hotéis, pousadas e regiões LGBT+ friendly', icone: 'home', cor: C.lilas, degrade: ['#7E57C2', '#3B82F6'] },
-  { id: 'praias_passeios', titulo: 'Praias e passeios', sub: 'Praias, atrações e roteiros', icone: 'sun', cor: '#FFD54F', degrade: ['#F2A900', '#E8590C'] },
+  { id: 'praias_passeios', titulo: 'Passeios', sub: 'Atrações, trilhas e roteiros', icone: 'compass', cor: '#FFD54F', degrade: ['#F2A900', '#E8590C'] },
   { id: 'experiencias', titulo: 'Experiências LGBT+', sub: 'Bares, festas, saunas, arte e cultura', icone: 'heart', cor: C.pink, degrade: ['#E1306C', '#9B3CFF'] },
   { id: 'eventos_paradas', titulo: 'Eventos e Paradas', sub: 'Datas, festas e Parada LGBT+', icone: 'calendar', cor: '#4FC3F7', degrade: ['#0EA5E9', '#4338CA'] },
 ];
@@ -55,10 +58,11 @@ type Item = {
   foto: string | null;
   rota?: string;
   slugs: string[]; // tudo que serve pra filtrar por tag
+  rank?: number; // 0 = Premium/Fundador, 1 = Intermediário, 2 = demais (aparecem primeiro nas caixas)
   selo?: SeloCategoria;
 };
 
-const BASE_LOCAL = 'id, nome, categoria, subcategoria, descricao, bairro, bairro_exibicao, cidade, foto_capa_url, galeria_fotos, tags';
+const BASE_LOCAL = 'id, nome, categoria, subcategoria, descricao, bairro, bairro_exibicao, cidade, foto_capa_url, galeria_fotos, tags, plano_destaque, plano_comercial, plano_comercial_status, destaque_secao_fixada, destaque_secoes, destaque_ate';
 
 // Texto livre (subcategoria, tags de experiência) também vira slug, pra
 // que "Sauna" cadastrado como subcategoria bata com a tag "Saunas".
@@ -97,6 +101,29 @@ async function buscarLocais(cidade: string, nivel = 2): Promise<any[]> {
   return ((r.data as any[]) || []) as any[];
 }
 
+function rankPlano(l: any): number {
+  const ativo = (l.plano_comercial_status ?? 'ativo') === 'ativo';
+  if (ativo && (l.plano_comercial === 'premium' || l.plano_comercial === 'fundador')) return 0;
+  if (ativo && l.plano_comercial === 'intermediario') return 1;
+  return 2;
+}
+
+// Temas do destino em ícones (tags gerais do destino): aparecem os que a cidade tem cadastrados em `destinos.tags`.
+const TEMAS: SubDef[] = [
+  { chave: 'romance', rotulo: 'Romance', curto: 'Romance', icone: 'heart', palavras: [] },
+  { chave: 'natureza', rotulo: 'Natureza', curto: 'Natureza', icone: 'sun', palavras: [] },
+  { chave: 'gastronomia', rotulo: 'Gastronomia', curto: 'Gastronomia', icone: 'coffee', palavras: [] },
+  { chave: 'bem_estar', rotulo: 'Bem-estar', curto: 'Bem-estar', icone: 'smile', palavras: [] },
+  { chave: 'vida_noturna', rotulo: 'Vida noturna', curto: 'Vida noturna', icone: 'moon', palavras: [] },
+  { chave: 'cultura', rotulo: 'Cultura', curto: 'Cultura', icone: 'book-open', palavras: [] },
+  { chave: 'praia', rotulo: 'Praia', curto: 'Praia', icone: 'umbrella', palavras: [] },
+  { chave: 'aventura', rotulo: 'Aventura', curto: 'Aventura', icone: 'compass', palavras: [] },
+  { chave: 'compras', rotulo: 'Compras', curto: 'Compras', icone: 'shopping-bag', palavras: [] },
+  { chave: 'historia', rotulo: 'História', curto: 'História', icone: 'clock', palavras: [] },
+  { chave: 'amigos', rotulo: 'Amigos', curto: 'Amigos', icone: 'users', palavras: [] },
+  { chave: 'familia', rotulo: 'Família', curto: 'Família', icone: 'home', palavras: [] },
+];
+
 function completudeDe(l: any): number {
   const p = l.hospedagem_perfil;
   return (Array.isArray(p) ? p[0]?.completude : p?.completude) || 0;
@@ -106,12 +133,13 @@ export default function DestinoScreen() {
   useRastrearTela('destino', { detalheParam: 'slug' });
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { idioma } = useI18n();
+  const { idioma, t } = useI18n();
   const { slug } = useLocalSearchParams<{ slug: string }>();
 
   const [destino, setDestino] = useState<Destino | null>(DESTINOS_PADRAO.find((d) => d.slug === slug) || null);
   const [aba, setAba] = useState<Aba | null>(null);
   const [filtro, setFiltro] = useState<string | null>(null);
+  const [tema, setTema] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [locais, setLocais] = useState<any[]>([]);
   const [pacotes, setPacotes] = useState<any[]>([]);
@@ -178,12 +206,13 @@ export default function DestinoScreen() {
         foto: l.foto_capa_url || l.galeria_fotos?.[0] || null,
         rota: `/business/${l.id}`,
         selo: seloDaCategoria(l),
+        rank: rankPlano(l),
         slugs: [...atr, ...(l.tipo_hospedagem ? [l.tipo_hospedagem] : []), ...slugsDoTexto(l.subcategoria, l.categoria, ...(l.tags || []))],
       };
     };
     const ehHosp = (l: any) => !!l.tipo_hospedagem || (l.categoria === 'turismo' && /hotel|pousada|hostel|hosped|resort|flat/i.test(l.subcategoria || ''));
     // Cadastro mais completo aparece antes (Rodada 64)
-    const ondeFicar = [...locais.filter(ehHosp)].sort((a, b) => completudeDe(b) - completudeDe(a)).map((l) => {
+    const ondeFicar = [...locais.filter(ehHosp)].sort((a, b) => rankPlano(a) - rankPlano(b) || completudeDe(b) - completudeDe(a)).map((l) => {
       const it = paraItem(l, `${l.tipo_hospedagem ? rotuloTag(l.tipo_hospedagem) : l.subcategoria || 'Hospedagem'} • ${l.bairro_exibicao || l.bairro || ''}`);
       for (const [alias, origem] of Object.entries(ALIAS_ONDE_FICAR)) if (origem.some((o) => it.slugs.includes(o))) it.slugs.push(alias);
       return it;
@@ -222,7 +251,8 @@ export default function DestinoScreen() {
         slugs: [...(e.tags || []), ...slugsDoTexto(e.titulo, ...(e.estilos_musicais || []))],
       };
     });
-    return { onde_ficar: ondeFicar, praias_passeios: passeios, experiencias, eventos_paradas: evs };
+    const porRank = (lista: Item[]) => lista.slice().sort((a, b) => (a.rank ?? 2) - (b.rank ?? 2));
+    return { onde_ficar: ondeFicar, praias_passeios: porRank(passeios), experiencias: porRank(experiencias), eventos_paradas: evs };
   }, [locais, pacotes, eventos]);
 
   if (!destino) {
@@ -236,6 +266,16 @@ export default function DestinoScreen() {
     );
   }
 
+  const idsLocaisCidade = locais.map((l) => l.id as string);
+  const temasDoDestino = TEMAS.filter((tm) => destino.tags.includes(tm.chave));
+  const gruposTema: GrupoSub[] = temasDoDestino.map((tm) => ({ chave: tm.chave, rotulo: tm.rotulo, qtd: 1, foto: null }));
+  // Lista do tema escolhido: tudo da cidade (hospedagem, passeios, experiências, eventos) que combina com a tag.
+  const itensTema = tema
+    ? (() => {
+        const vistos = new Set<string>();
+        return Object.values(itensPorAba).flat().filter((i) => combina(i, tema) && !vistos.has(i.chave) && !!vistos.add(i.chave));
+      })()
+    : [];
   const grupoAba = aba ? GRUPOS_DESTINO.find((g) => g.id === aba) : null;
   const itensAba = aba ? itensPorAba[aba] : [];
   const itensFiltrados = filtro ? itensAba.filter((i) => combina(i, filtro)) : itensAba;
@@ -272,21 +312,66 @@ export default function DestinoScreen() {
           {!!destino.foto_url && !!destino.foto_credito && <Text style={styles.credito}>{destino.foto_credito}</Text>}
         </View>
 
-        {destino.tags.length > 0 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pills}>
-            {destino.tags.map((t, i) => (
-              <View key={t} style={[styles.pill, { backgroundColor: CORES_PILULA[i % CORES_PILULA.length], borderColor: CORES_PILULA[i % CORES_PILULA.length] }]}>
-                <Text style={styles.pillTxt}>{rotuloTag(t)}</Text>
-              </View>
-            ))}
-          </ScrollView>
+        {/* Vitrine do destino (mesma lógica das categorias): patrocinador master, banner Premium rotativo (até 12 vagas) e temas em ícones. */}
+        <View style={{ paddingHorizontal: 16, marginTop: 14 }}>
+          <VitrineCategoria
+            slug={`destino-${destino.slug}`}
+            titulo={destino.cidade}
+            locais={locais as LocalVitrine[]}
+            idsLocaisOfertas={idsLocaisCidade}
+            tituloLista={null}
+            aposOfertas={
+              gruposTema.length > 0 ? (
+                <SubcategoriaBanners
+                  grupos={gruposTema}
+                  defs={TEMAS}
+                  selecionada={tema}
+                  cor={CATEGORIAS.turismo.color}
+                  onAbrir={(chave) => { setAba(null); setTema((atual) => (atual === chave ? null : chave)); }}
+                />
+              ) : undefined
+            }
+          />
+        </View>
+
+        {tema && (
+          <View style={{ marginTop: 6 }}>
+            <Text style={styles.secao}>{`${rotuloTag(tema)} em ${destino.cidade}`}</Text>
+            <View style={{ paddingHorizontal: 16, gap: 10 }}>
+              {carregando ? (
+                <ActivityIndicator color={C.pink} style={{ marginTop: 20 }} />
+              ) : itensTema.length === 0 ? (
+                <View style={styles.vazio}>
+                  <Feather name="compass" size={20} color={C.dim} />
+                  <Text style={styles.vazioTxt}>Ainda estamos catalogando {rotuloTag(tema).toLowerCase()} em {destino.cidade}. Em breve novas opções por aqui.</Text>
+                </View>
+              ) : (
+                itensTema.map((it) => (
+                  <TouchableOpacity key={it.chave} style={styles.item} activeOpacity={0.85} onPress={() => it.rota && router.push(it.rota as any)}>
+                    <View style={styles.foto}>
+                      {it.foto ? <Image source={{ uri: it.foto }} style={{ width: '100%', height: '100%' }} /> : <Feather name="map-pin" size={18} color={C.dim} />}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      {it.selo && (
+                        <View style={[styles.selo, { backgroundColor: it.selo.cor }]}>
+                          <Text style={[styles.seloTxt, { color: it.selo.textoCor }]}>{it.selo.texto}</Text>
+                        </View>
+                      )}
+                      <Text style={styles.nome} numberOfLines={1}>{it.titulo}</Text>
+                      <Text style={styles.linha1} numberOfLines={1}>{it.linha1}</Text>
+                    </View>
+                    <Feather name="chevron-right" size={18} color={C.dim} />
+                  </TouchableOpacity>
+                ))
+              )}
+            </View>
+          </View>
         )}
 
         {!!destino.descricao && <Text style={styles.descricao}>{destino.descricao}</Text>}
 
-        {/* Explore o destino */}
-        <Text style={styles.secao}>Explore o destino</Text>
-        <View style={styles.grade}>
+        {/* Caixas do destino */}
+        <View style={[styles.grade, { marginTop: 14 }]}>
           {TILES.map((tile) => {
             const ativo = aba === tile.id;
             const qtd = itensPorAba[tile.id].length;
@@ -297,6 +382,7 @@ export default function DestinoScreen() {
                 activeOpacity={0.85}
                 onPress={() => {
                   setFiltro(null);
+                  setTema(null);
                   setAba(ativo ? null : tile.id);
                 }}
                 accessibilityRole="button"

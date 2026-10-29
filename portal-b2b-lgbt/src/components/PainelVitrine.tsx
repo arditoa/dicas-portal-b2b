@@ -10,6 +10,7 @@ import { Check, Loader2, Plus, Save, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { erroFotoNaoSuportada } from '../lib/validarFoto';
+import { SUBCATEGORIAS_APP } from '../lib/subcategoriasApp';
 
 const input = 'w-full bg-[#0B0B0E] border border-[#232230] rounded-xl py-2.5 px-3 text-white text-sm focus:outline-none focus:border-[#E1306C]';
 const label = 'text-[11px] font-bold text-[#A0A0B2] uppercase block mb-1.5';
@@ -21,7 +22,7 @@ const CATEGORIAS = [
   ['cultura', 'Cultura'], ['servicos', 'Serviços'], ['educacao', 'Educação'], ['produtos', 'Produtos'], ['lazer', 'Lazer'],
   ['saude', 'Saúde'], ['beleza', 'Beleza'], ['comunidade', 'Comunidade'], ['mais18', '18+'], ['todos', 'Todos os locais'],
 ] as const;
-const PLANOS = ['freemium', 'starter', 'intermediario', 'premium', 'fundador'] as const;
+const PLANOS = ['freemium', 'intermediario', 'premium', 'fundador'] as const;
 
 type Patrocinio = {
   id?: string;
@@ -69,6 +70,9 @@ export default function PainelVitrine() {
   const [fundadores, setFundadores] = useState<Fundador[]>([]);
   const [coms, setComs] = useState<Record<string, Comunicacao>>({});
   const [fundAberto, setFundAberto] = useState<string | null>(null);
+  // Resultado do salvar de cada fundador, mostrado ao lado do botão (antes o erro aparecia só no topo da página, fora da vista).
+  const [salvos, setSalvos] = useState<Set<string>>(new Set()); // fundadores com comunicação REALMENTE gravada no banco
+  const [msgCom, setMsgCom] = useState<Record<string, { ok: boolean; texto: string; salvando?: boolean }>>({});
   const [ofTitulo, setOfTitulo] = useState('');
   const [ofAte, setOfAte] = useState('');
 
@@ -88,6 +92,7 @@ export default function PainelVitrine() {
       const m: Record<string, Comunicacao> = {};
       for (const c of (cs as any[]) || []) m[c.local_id] = { ...COM_VAZIA(c.local_id), ...c, headline: c.headline || '', texto: c.texto || '', oferta: c.oferta || '', imagem_url: c.imagem_url || '' };
       setComs(m);
+      setSalvos(new Set(((cs as any[]) || []).filter((c) => c.headline).map((c) => c.local_id as string)));
     }
   }, []);
 
@@ -128,17 +133,18 @@ export default function PainelVitrine() {
   };
 
   // ---- 2b) Ofertas da equipe em qualquer local (carrossel lateral de ofertas das categorias)
-  type OfertaEq = { id: string; titulo: string; ativo: boolean; valido_ate: string | null; nome: string };
+  type OfertaEq = { id: string; titulo: string; ativo: boolean; valido_ate: string | null; nome: string; imagem_url: string };
   const [ofertasEq, setOfertasEq] = useState<OfertaEq[]>([]);
   const [oeTitulo, setOeTitulo] = useState('');
   const [oeAte, setOeAte] = useState('');
   const [oeBusca, setOeBusca] = useState('');
   const [oeAchados, setOeAchados] = useState<{ id: string; nome: string }[]>([]);
+  const [oeImg, setOeImg] = useState('');
   const [oeLocal, setOeLocal] = useState<{ id: string; nome: string } | null>(null);
   const carregarOfertasEq = useCallback(async () => {
-    const { data, error } = await supabase.from('cupons').select('id, titulo, ativo, valido_ate, locais(nome)').eq('criado_pela_equipe', true).order('created_at', { ascending: false }).limit(60);
+    const { data, error } = await supabase.from('cupons').select('id, titulo, ativo, valido_ate, imagem_url, locais(nome)').eq('criado_pela_equipe', true).order('created_at', { ascending: false }).limit(60);
     if (error) return;
-    setOfertasEq(((data as any[]) || []).map((r) => ({ id: r.id, titulo: r.titulo, ativo: r.ativo, valido_ate: r.valido_ate, nome: r.locais?.nome || '' })));
+    setOfertasEq(((data as any[]) || []).map((r) => ({ id: r.id, titulo: r.titulo, ativo: r.ativo, valido_ate: r.valido_ate, nome: r.locais?.nome || '', imagem_url: r.imagem_url || '' })));
   }, []);
   useEffect(() => { carregarOfertasEq(); }, [carregarOfertasEq]);
   useEffect(() => {
@@ -149,12 +155,30 @@ export default function PainelVitrine() {
     }, 250);
     return () => clearTimeout(t);
   }, [oeBusca]);
+  // Foto da oferta (ex.: caipirinha para "2 caipirinhas por R$ 49"): vai para o mesmo bucket das fotos do admin.
+  const subirFotoOferta = async (arquivo: File | undefined): Promise<string | null> => {
+    if (!arquivo) return null;
+    const e = erroFotoNaoSuportada(arquivo);
+    if (e) { setErro(e); return null; }
+    const caminho = `ofertas/${Date.now()}.${arquivo.name.split('.').pop() || 'jpg'}`;
+    const { error } = await supabase.storage.from('fotos-destinos').upload(caminho, arquivo, { cacheControl: '3600' });
+    if (error) { setErro(`Não deu pra enviar a foto: ${error.message}`); return null; }
+    return supabase.storage.from('fotos-destinos').getPublicUrl(caminho).data.publicUrl;
+  };
+  const trocarFotoOferta = async (id: string, arquivo: File | undefined) => {
+    const url = await subirFotoOferta(arquivo);
+    if (!url) return;
+    const { error } = await supabase.from('cupons').update({ imagem_url: url }).eq('id', id);
+    if (error) { setErro(error.message); return; }
+    setErro(''); setAviso('Foto da oferta atualizada.');
+    carregarOfertasEq();
+  };
   const criarOfertaLivre = async () => {
     if (!oeLocal) { setErro('Escolha o local da oferta.'); return; }
     if (!oeTitulo.trim()) { setErro('Escreva o texto da oferta.'); return; }
-    const { error } = await supabase.from('cupons').insert({ local_id: oeLocal.id, titulo: oeTitulo.trim(), valido_ate: oeAte ? new Date(oeAte).toISOString() : null, criado_pela_equipe: true });
+    const { error } = await supabase.from('cupons').insert({ local_id: oeLocal.id, titulo: oeTitulo.trim(), valido_ate: oeAte ? new Date(oeAte).toISOString() : null, criado_pela_equipe: true, imagem_url: oeImg || null });
     if (error) { setErro(error.message); setAviso(''); return; }
-    setOeTitulo(''); setOeAte(''); setErro(''); setAviso('Oferta criada — entra no carrossel de ofertas das categorias.');
+    setOeTitulo(''); setOeAte(''); setOeImg(''); setErro(''); setAviso('Oferta criada — entra no carrossel de ofertas das categorias.');
     carregarOfertasEq();
   };
   const alternarOferta = async (o: OfertaEq) => {
@@ -167,13 +191,59 @@ export default function PainelVitrine() {
     carregarOfertasEq();
   };
 
+  // ---- 2c) Liga/desliga das subcategorias (ícones redondos abaixo das ofertas)
+  const [subDesl, setSubDesl] = useState<Set<string>>(new Set());
+  const carregarSubs = useCallback(async () => {
+    const { data, error } = await supabase.from('subcategoria_config').select('categoria, chave').eq('ativo', false);
+    if (error) return; // migration 065 ainda não rodou
+    setSubDesl(new Set(((data as any[]) || []).map((r) => `${r.categoria}|${r.chave}`)));
+  }, []);
+  useEffect(() => { carregarSubs(); }, [carregarSubs]);
+  const alternarSub = async (categoria: string, chave: string, ligar: boolean) => {
+    const { error } = await supabase.from('subcategoria_config').upsert({ categoria, chave, ativo: ligar, atualizado_em: new Date().toISOString() });
+    if (error) { setErro(error.message.includes('subcategoria_config') ? 'Rode a migration 065 no Supabase.' : error.message); return; }
+    setErro('');
+    carregarSubs();
+  };
+
+  // ---- 2d) Sugestões: textos de subcategoria digitados em "Outros" (fora da lista oficial)
+  const [sugestoes, setSugestoes] = useState<Record<string, [string, number][]>>({});
+  useEffect(() => {
+    (async () => {
+      const { data, error } = await supabase.from('locais').select('categoria, subcategoria').not('subcategoria', 'is', null).limit(3000);
+      if (error) return;
+      const norm = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+      const acc: Record<string, Map<string, [string, number]>> = {};
+      for (const l of (data as any[]) || []) {
+        const cfg = SUBCATEGORIAS_APP[l.categoria];
+        const txt = String(l.subcategoria || '').trim();
+        if (!cfg || !txt || cfg.itens.some((i) => i.chave === norm(txt))) continue;
+        const m = (acc[l.categoria] ||= new Map());
+        const k = norm(txt);
+        const atual = m.get(k);
+        m.set(k, [atual ? atual[0] : txt, (atual ? atual[1] : 0) + 1]);
+      }
+      const out: Record<string, [string, number][]> = {};
+      for (const [cat, m] of Object.entries(acc)) {
+        out[cat] = Array.from(m.values()).sort((x, y) => y[1] - x[1]);
+      }
+      setSugestoes(out);
+    })();
+  }, []);
+
   // ---- 3) Limites
   const [limites, setLimites] = useState<Record<string, string>>({});
+  const [limitesSem, setLimitesSem] = useState<Record<string, string>>({});
   const carregarLimites = useCallback(async () => {
-    const { data } = await supabase.from('planos_limite_ofertas').select('plano, limite_mes');
+    const { data } = await supabase.from('planos_limite_ofertas').select('plano, limite_mes, limite_semana');
     const m: Record<string, string> = {};
-    for (const r of (data as any[]) || []) m[r.plano] = r.limite_mes == null ? '' : String(r.limite_mes);
+    const w: Record<string, string> = {};
+    for (const r of (data as any[]) || []) {
+      m[r.plano] = r.limite_mes == null ? '' : String(r.limite_mes);
+      w[r.plano] = r.limite_semana == null ? '' : String(r.limite_semana);
+    }
     setLimites(m);
+    setLimitesSem(w);
   }, []);
 
   // ---- 4) Desempenho
@@ -248,20 +318,32 @@ export default function PainelVitrine() {
     setEdit({ ...edit, imagem_url: supabase.storage.from('fotos-destinos').getPublicUrl(caminho).data.publicUrl });
   };
 
+  const explicarErro = (m: string) => {
+    if (/permission denied/i.test(m)) return 'O banco negou a gravação (permissão da tabela). Rode a migration 064_forcar_ambev_e_permissoes.sql no Supabase e tente de novo.';
+    if (/row-level security|violates row/i.test(m)) return 'O banco recusou: esta conta não está como admin no Supabase (função is_admin). Entre com a conta de admin e tente de novo.';
+    if (/does not exist|schema cache|relation/i.test(m)) return 'A tabela ainda não existe: rode a migration 059_vitrine_ofertas_patrocinio.sql no Supabase.';
+    if (/check constraint|too long|value too long/i.test(m)) return 'Algum texto passou do limite (frase até 90, texto até 280, oferta até 90, botão até 24).';
+    return m;
+  };
   const salvarCom = async (c: Comunicacao) => {
+    setMsgCom((m) => ({ ...m, [c.local_id]: { ok: true, texto: 'Salvando…', salvando: true } }));
     const { error } = await supabase.from('fundador_comunicacao').upsert({
       local_id: c.local_id,
       headline: c.headline.trim() || null,
       texto: c.texto.trim() || null,
       oferta: c.oferta.trim() || null,
-      cta: c.cta.trim() || 'Conhecer',
+      cta: c.cta.trim().slice(0, 24) || 'Conhecer',
       destino: c.destino.trim(),
       imagem_url: c.imagem_url.trim() || null,
       ativo: c.ativo,
       escrito_por: 'equipe',
     });
-    if (error) return falha(error.message);
-    dica('Comunicação salva — o fundador vê no portal dele e o app já usa.');
+    if (error) {
+      setMsgCom((m) => ({ ...m, [c.local_id]: { ok: false, texto: explicarErro(error.message) } }));
+      return;
+    }
+    setMsgCom((m) => ({ ...m, [c.local_id]: { ok: true, texto: 'Salvo — o app já usa esta comunicação.' } }));
+    carregarFundadores();
   };
 
   const criarOfertaEquipe = async (localId: string) => {
@@ -277,7 +359,13 @@ export default function PainelVitrine() {
   const salvarLimites = async () => {
     for (const p of PLANOS) {
       const v = (limites[p] ?? '').trim();
-      const { error } = await supabase.from('planos_limite_ofertas').upsert({ plano: p, limite_mes: v === '' ? null : Math.max(0, Number(v)), atualizado_em: new Date().toISOString() });
+      const sem = (limitesSem[p] ?? '').trim();
+      const { error } = await supabase.from('planos_limite_ofertas').upsert({
+        plano: p,
+        limite_mes: v === '' ? null : Math.max(0, Number(v)),
+        limite_semana: sem === '' ? null : Math.max(0, Number(sem)),
+        atualizado_em: new Date().toISOString(),
+      });
       if (error) return falha(error.message);
     }
     dica('Limites salvos.');
@@ -285,16 +373,16 @@ export default function PainelVitrine() {
 
   return (
     <div>
-      {erro && <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl text-xs mb-4">{erro}</div>}
-      {aviso && <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-3 rounded-xl text-xs mb-4 flex items-center gap-2"><Check size={14} /> {aviso}</div>}
+      {erro && <div className="sticky top-2 z-20 bg-red-950 border border-red-500/40 text-red-300 p-3 rounded-xl text-xs mb-4">{erro}</div>}
+      {aviso && <div className="sticky top-2 z-20 bg-emerald-950 border border-emerald-500/40 text-emerald-300 p-3 rounded-xl text-xs mb-4 flex items-center gap-2"><Check size={14} /> {aviso}</div>}
 
       {/* 1) PATROCÍNIO POR CATEGORIA */}
       <div className={card}>
         <div className="flex items-center justify-between mb-1">
-          <h2 className="text-sm font-black">Banner fixo de cada categoria (patrocínio)</h2>
+          <h2 className="text-sm font-black">Banner principal estático de cada categoria (patrocínio)</h2>
           <button className={botao} onClick={() => setEdit({ ...VAZIO })}><Plus size={14} /> Novo banner</button>
         </div>
-        <p className="text-[#A0A0B2] text-xs mb-4">Fica logo abaixo dos Destaques em toda página de categoria. Um por categoria. O patrocinador também pode ajustar texto, botão e cores pelo portal dele.</p>
+        <p className="text-[#A0A0B2] text-xs mb-4">Fica logo abaixo da busca, em largura total, baixo e comprido, em toda página de categoria que tiver patrocinador (sem patrocinador, não aparece). Um por categoria. O patrocinador também pode ajustar texto, botão e cores pelo portal dele.</p>
 
         {patrocinios.length === 0 && <p className="text-xs text-[#626274]">Nenhum banner ainda — o app mostra o convite "Sua marca em destaque".</p>}
         <div className="space-y-2">
@@ -420,7 +508,7 @@ export default function PainelVitrine() {
               <div key={f.id} className="bg-[#0B0B0E] border border-[#232230] rounded-xl">
                 <button className="w-full flex items-center gap-3 p-3 text-left" onClick={() => setFundAberto(aberto ? null : f.id)}>
                   <span className="flex-1 text-sm font-bold truncate">{f.nome}</span>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${coms[f.id]?.headline ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}`}>{coms[f.id]?.headline ? 'Comunicação pronta' : 'Falta escrever'}</span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${salvos.has(f.id) ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}`}>{salvos.has(f.id) ? 'Comunicação salva' : 'Não salva ainda'}</span>
                 </button>
                 {aberto && (
                   <div className="p-4 pt-0 space-y-3">
@@ -436,7 +524,8 @@ export default function PainelVitrine() {
                     </div>
                     <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={c.ativo} onChange={(e) => setComs({ ...coms, [f.id]: { ...c, ativo: e.target.checked } })} /> Ativo no app</label>
                     <div className="flex items-center gap-3 flex-wrap">
-                      <button className={botao} onClick={() => salvarCom(c)}><Save size={14} /> Salvar comunicação</button>
+                      <button className={botao} disabled={msgCom[f.id]?.salvando} onClick={() => salvarCom(c)}><Save size={14} /> Salvar comunicação</button>
+                      {msgCom[f.id] && <span className={`text-xs ${msgCom[f.id].ok ? 'text-emerald-400' : 'text-red-400'}`}>{msgCom[f.id].texto}</span>}
                       {c.escrito_por === 'fundador' && <span className="text-[11px] text-amber-400">Última edição feita pelo fundador</span>}
                     </div>
                     <div className="border-t border-[#232230] pt-3">
@@ -474,11 +563,18 @@ export default function PainelVitrine() {
           <div><label className={label}>Vale até (opcional)</label><input type="datetime-local" className={input} value={oeAte} onChange={(e) => setOeAte(e.target.value)} /></div>
           <button className={botao} onClick={criarOfertaLivre}><Plus size={14} /> Criar</button>
         </div>
+        <div className="mb-4">
+          <label className={label}>Foto da oferta (opcional) — ex.: caipirinha, batata, ingresso</label>
+          <input type="file" accept="image/*" className="text-xs" onChange={async (e) => { const u = await subirFotoOferta(e.target.files?.[0]); if (u) setOeImg(u); }} />
+          {oeImg && <p className="text-[11px] text-emerald-400 mt-1">Foto enviada — será usada ao criar.</p>}
+        </div>
         <div className="space-y-2">
           {ofertasEq.length === 0 && <p className="text-xs text-[#626274]">Nenhuma oferta da equipe ainda.</p>}
           {ofertasEq.map((o) => (
             <div key={o.id} className="flex items-center gap-3 bg-[#0B0B0E] border border-[#232230] rounded-xl p-3">
+              {o.imagem_url ? <img src={o.imagem_url} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" /> : <div className="w-10 h-10 rounded-lg bg-[#232230] shrink-0" />}
               <div className="flex-1 min-w-0"><p className="text-sm font-bold truncate">{o.titulo}</p><p className="text-[11px] text-[#8888A0]">{o.nome}{o.valido_ate ? ` · até ${o.valido_ate.slice(0, 10)}` : ''}</p></div>
+              <label className="text-[11px] font-bold text-[#E1306C] cursor-pointer">{o.imagem_url ? 'Trocar foto' : 'Subir foto'}<input type="file" accept="image/*" className="hidden" onChange={(e) => trocarFotoOferta(o.id, e.target.files?.[0])} /></label>
               <label className="flex items-center gap-1 text-[11px]"><input type="checkbox" checked={o.ativo} onChange={() => alternarOferta(o)} /> ativa</label>
               <button className="text-[#626274] hover:text-red-400" onClick={() => apagarOferta(o.id)} aria-label="Apagar"><Trash2 size={15} /></button>
             </div>
@@ -486,15 +582,58 @@ export default function PainelVitrine() {
         </div>
       </div>
 
+      {/* 2c) SUBCATEGORIAS */}
+      <div className={card}>
+        <h2 className="text-sm font-black mb-1">Subcategorias (ícones redondos abaixo das ofertas)</h2>
+        <p className="text-[#A0A0B2] text-xs mb-4">Desligue as que ainda não fazem sentido — o ícone some do app na hora. Os locais continuam cadastrados e aparecem na lista e na busca.</p>
+        {Object.entries(SUBCATEGORIAS_APP).map(([categoria, cfg]) => (
+          <div key={categoria} className="mb-4">
+            <p className="text-xs font-bold text-[#E1306C] mb-2">{cfg.titulo}</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {cfg.itens.map((i) => {
+                const ligada = !subDesl.has(`${categoria}|${i.chave}`);
+                return (
+                  <label key={i.chave} className={`flex items-center gap-2 text-xs rounded-xl border border-[#232230] bg-[#0B0B0E] px-3 py-2 cursor-pointer ${ligada ? '' : 'opacity-50'}`}>
+                    <input type="checkbox" checked={ligada} onChange={(e) => alternarSub(categoria, i.chave, e.target.checked)} />
+                    {i.rotulo}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 2d) SUGESTÕES DE SUBCATEGORIA */}
+      <div className={card}>
+        <h2 className="text-sm font-black mb-1">Sugestões de subcategoria (parceiros que escolheram &quot;Outros&quot;)</h2>
+        <p className="text-[#A0A0B2] text-xs mb-4">Textos digitados fora da lista oficial, com a quantidade de locais. Se um se repetir, vale criar a subcategoria. Locais antigos com sinônimos (ex.: &quot;balada&quot;) também aparecem aqui, mas já se encaixam no app.</p>
+        {Object.keys(sugestoes).length === 0 ? (
+          <p className="text-xs text-[#626274]">Nenhuma sugestão por enquanto.</p>
+        ) : (
+          Object.entries(sugestoes).map(([categoria, lista]) => (
+            <div key={categoria} className="mb-3">
+              <p className="text-xs font-bold text-[#E1306C] mb-2">{SUBCATEGORIAS_APP[categoria]?.titulo || categoria}</p>
+              <div className="flex flex-wrap gap-2">
+                {lista.map(([txt, qtd]) => (
+                  <span key={txt} className="text-xs rounded-full border border-[#232230] bg-[#0B0B0E] px-3 py-1">{txt} <b className="text-[#A0A0B2]">· {qtd}</b></span>
+                ))}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
       {/* 3) LIMITES */}
       <div className={card}>
-        <h2 className="text-sm font-black mb-1">Ofertas por mês, por plano</h2>
-        <p className="text-[#A0A0B2] text-xs mb-4">Quantas ofertas (cupons) cada plano pode criar por mês. Em branco = sem limite. A trava é no banco: o parceiro não passa do número, e a equipe/admin não tem limite.</p>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+        <h2 className="text-sm font-black mb-1">Ofertas por semana e por mês, por plano</h2>
+        <p className="text-[#A0A0B2] text-xs mb-4">Regra atual: só o Intermediário roda na faixa de ofertas das categorias (a cada 4 horas), com 1 oferta por semana (a semana começa na segunda-feira). Em branco = sem limite. A trava é no banco (migration 066): o parceiro não passa do número, e a equipe/admin não tem limite. Se um plano tiver limite semanal, ele vale no lugar do mensal.</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           {PLANOS.map((p) => (
-            <div key={p}>
+            <div key={p} className="space-y-2">
               <label className={label}>{p}</label>
-              <input className={input} inputMode="numeric" placeholder="sem limite" value={limites[p] ?? ''} onChange={(e) => setLimites({ ...limites, [p]: e.target.value.replace(/\D/g, '') })} />
+              <input className={input} inputMode="numeric" placeholder="por semana: sem limite" value={limitesSem[p] ?? ''} onChange={(e) => setLimitesSem({ ...limitesSem, [p]: e.target.value.replace(/\D/g, '') })} />
+              <input className={input} inputMode="numeric" placeholder="por mês: sem limite" value={limites[p] ?? ''} onChange={(e) => setLimites({ ...limites, [p]: e.target.value.replace(/\D/g, '') })} />
             </div>
           ))}
         </div>

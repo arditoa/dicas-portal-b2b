@@ -13,15 +13,18 @@ export type FiltroDef = {
   icone: string;
   opcoes: string[];
   valor?: string;
+  curto?: string; // rótulo enxuto da pílula nas páginas de categoria (compacto)
+  titulo?: string; // título da lista que abre (padrão: label)
 };
 
 type Props = {
   filtros: FiltroDef[];
   onSelecionar: (id: string, valor?: string) => void;
   onLimpar?: () => void;
+  compacto?: boolean; // pílulas menores (páginas de categoria)
 };
 
-export default function FiltrosPilulas({ filtros, onSelecionar, onLimpar }: Props) {
+export default function FiltrosPilulas({ filtros, onSelecionar, onLimpar, compacto }: Props) {
   const [abrindo, setAbrindo] = useState<string | null>(null);
   const visiveis = filtros.filter((f) => f.opcoes.length > 0 || f.valor);
   if (visiveis.length === 0) return null;
@@ -30,20 +33,20 @@ export default function FiltrosPilulas({ filtros, onSelecionar, onLimpar }: Prop
 
   return (
     <>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.linha}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.linha, compacto && styles.linhaCompacta]}>
         {visiveis.map((f) => {
           const ativo = !!f.valor;
           return (
             <TouchableOpacity
               key={f.id}
-              style={[styles.pilula, ativo && styles.pilulaAtiva]}
+              style={[styles.pilula, compacto && styles.pilulaCompacta, ativo && styles.pilulaAtiva]}
               onPress={() => setAbrindo(f.id)}
               accessibilityRole="button"
               accessibilityLabel={`${f.label}${f.valor ? `: ${f.valor}` : ''}`}
             >
-              <Feather name={f.icone as any} size={14} color={ativo ? '#FFF' : C.pink} />
-              <Text style={[styles.pilulaTxt, ativo && { color: '#FFF' }]} numberOfLines={1}>{f.valor || f.label}</Text>
-              <Feather name="chevron-down" size={14} color={ativo ? '#FFF' : C.dim} />
+              <Feather name={f.icone as any} size={compacto ? 12 : 14} color={ativo ? '#FFF' : C.pink} />
+              <Text style={[styles.pilulaTxt, compacto && { fontSize: 11 }, ativo && { color: '#FFF' }]} numberOfLines={1}>{f.valor || (compacto && f.curto) || f.label}</Text>
+              <Feather name="chevron-down" size={compacto ? 12 : 14} color={ativo ? '#FFF' : C.dim} />
             </TouchableOpacity>
           );
         })}
@@ -60,7 +63,7 @@ export default function FiltrosPilulas({ filtros, onSelecionar, onLimpar }: Prop
           <TouchableOpacity activeOpacity={1} style={styles.sheet}>
             {aberto && (
               <>
-                <Text style={styles.sheetTitulo}>{aberto.label}</Text>
+                <Text style={styles.sheetTitulo}>{aberto.titulo || aberto.label}</Text>
                 <ScrollView style={{ maxHeight: 380 }}>
                   {[undefined, ...aberto.opcoes].map((v) => {
                     const ativo = aberto.valor === v;
@@ -91,6 +94,8 @@ export default function FiltrosPilulas({ filtros, onSelecionar, onLimpar }: Prop
 const styles = StyleSheet.create({
   linha: { gap: 8, paddingHorizontal: 16, paddingVertical: 4 },
   pilula: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: C.border, backgroundColor: C.card, borderRadius: 12, paddingHorizontal: 12, height: 38, maxWidth: 220 },
+  linhaCompacta: { paddingVertical: 0, gap: 6 },
+  pilulaCompacta: { height: 28, paddingHorizontal: 10, gap: 5, borderRadius: 10 },
   pilulaAtiva: { backgroundColor: C.pink, borderColor: C.pink },
   pilulaTxt: { color: C.text, fontSize: 12, fontWeight: '700', flexShrink: 1 },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },

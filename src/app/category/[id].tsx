@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { CATEGORIAS, CATEGORIA_REAL_LABEL, CategoriaSlugUI } from '../../lib/categorias';
+import { CATEGORIAS, CATEGORIA_REAL_LABEL, CategoriaSlugUI, SUBTITULO_CATEGORIA } from '../../lib/categorias';
 import { useAuth } from '../../lib/authContext';
 import { compararDestaque, deveExibirGlow, deveIncluirEm, emAltaDaHora } from '../../lib/destaque';
 import { CONFIG_RODIZIO_PADRAO, ConfigRodizio, lerConfigRodizio } from '../../lib/rodizioConfig';
@@ -30,6 +30,10 @@ import { useRastrearTela } from '../../lib/usoTelas';
 import FiltrosPilulas, { FiltroDef } from '../../components/FiltrosPilulas';
 import CabecalhoTela from '../../components/CabecalhoTela';
 import VitrineCategoria from '../../components/VitrineCategoria';
+import BordaArcoIris from '../../components/BordaArcoIris';
+import SubcategoriaBanners, { agruparSubcategorias, chaveDoLocal } from '../../components/SubcategoriaBanners';
+import { SUBCATEGORIAS } from '../../lib/subcategorias';
+import { buscarSubcategoriasDesligadas } from '../../lib/vitrine';
 import { Anuncio } from '../../components/CarrosselAnuncios';
 import { buscarIdsFundadores } from '../../lib/vitrine';
 
@@ -44,6 +48,12 @@ const SECAO_POR_CATEGORIA_REAL: Record<string, string> = {
   cultura: 'cultura',
   turismo: 'turismo',
 };
+
+// Alguns cadastros vêm com CNPJ na frente da razão social ("34.076.279 Emerson Moreira…"): tira o número da lista.
+function nomeNaLista(nome?: string | null): string {
+  const limpo = (nome || '').replace(/^\s*[\d.\/-]{6,}\s+/, '');
+  return formatarNome(limpo || nome);
+}
 
 // Prioridade de plano na lista (menor = aparece antes). Só conta plano com status ativo.
 function ordemPlano(l: { plano_comercial?: string | null; plano_comercial_status?: string | null }): number {
@@ -62,7 +72,23 @@ function ordemPlano(l: { plano_comercial?: string | null; plano_comercial_status
 }
 
 // Filtros mostrados nas páginas de categoria (Trip mantém os seus). Lista provisória — a Andrea ainda vai definir.
-const FILTROS_CATEGORIA = ['perto', 'aberto', 'bairro'];
+const FILTROS_CATEGORIA = ['perto', 'aberto', 'publico', 'bairro'];
+
+// Predominância de público (locais.publico_tags, definido pelo parceiro no portal). Rótulo mostrado -> tag.
+const PUBLICOS: { slug: string; rotulo: string }[] = [
+  { slug: 'gay', rotulo: 'Gay' },
+  { slug: 'lesbica', rotulo: 'Lésbico' },
+  { slug: 'bi', rotulo: 'Bissexual' },
+  { slug: 'trans', rotulo: 'Trans e travestis' },
+  { slug: 'nao_binario', rotulo: 'Não binário' },
+  { slug: 'queer', rotulo: 'Queer' },
+  { slug: 'ursos', rotulo: 'Ursos' },
+  { slug: 'daddy', rotulo: 'Daddy' },
+  { slug: 'leather', rotulo: 'Leather' },
+  { slug: 'drag', rotulo: 'Drag' },
+  { slug: 'misto_lgbt', rotulo: 'Misto LGBT+' },
+  { slug: 'aliados', rotulo: 'Aliados (friendly)' },
+];
 
 const COLORS = {
   background: '#0B0B0E',
@@ -122,6 +148,7 @@ interface LocalItem {
   atributos?: { comodidades?: string[] } | null;
   tipo_hospedagem?: string | null;
   horario_funcionamento?: any;
+  publico_tags?: string[] | null;
 }
 
 export default function CategoryListScreen() {
@@ -178,7 +205,7 @@ export default function CategoryListScreen() {
       let query = supabase
         .from('locais')
         .select(
-          'id, nome, categoria, subcategoria, bairro, bairro_exibicao, cidade, foto_capa_url, safe_space, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status, experiencias, rating_media, rating_total, lat, lng, logo_url, galeria_fotos, atributos, tipo_hospedagem, horario_funcionamento'
+          'id, nome, categoria, subcategoria, bairro, bairro_exibicao, cidade, foto_capa_url, safe_space, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status, experiencias, rating_media, rating_total, lat, lng, logo_url, galeria_fotos, atributos, tipo_hospedagem, horario_funcionamento, publico_tags'
         )
         .eq('status', 'aprovado')
         .limit(1000);
@@ -279,13 +306,15 @@ export default function CategoryListScreen() {
     const comNota = base.some((l) => (l.rating_total || 0) > 0 && (l.rating_media || 0) >= 4);
     const lista: FiltroDef[] = [];
     // "Perto de mim": útil em tudo — em casa (bares, comida) e em viagem (hotel, passeio).
-    lista.push({ id: 'perto', label: 'Perto de mim', icone: 'navigation', opcoes: base.some((l) => l.lat != null && l.lng != null) ? Object.keys(RAIOS_KM) : [], valor: filtros.perto });
+    lista.push({ id: 'perto', label: 'Perto de mim', curto: 'Perto', icone: 'navigation', opcoes: base.some((l) => l.lat != null && l.lng != null) ? Object.keys(RAIOS_KM) : [], valor: filtros.perto });
     if (modoTrip) {
       lista.push({ id: 'cidade', label: 'Destino', icone: 'map-pin', opcoes: cidades, valor: filtros.cidade });
       lista.push({ id: 'tipo', label: 'Tipo', icone: 'sliders', opcoes: unicos(base.map((l) => l.subcategoria)), valor: filtros.tipo });
       lista.push({ id: 'comodidade', label: 'Comodidades', icone: 'check-circle', opcoes: unicos(base.flatMap((l) => l.atributos?.comodidades || [])), valor: filtros.comodidade });
     } else {
-      lista.push({ id: 'aberto', label: 'Aberto agora', icone: 'clock', opcoes: base.some((l) => abertoAgora(l)) ? ['Aberto agora'] : [], valor: filtros.aberto });
+      lista.push({ id: 'aberto', label: 'Aberto agora', curto: 'Aberto', icone: 'clock', opcoes: base.some((l) => abertoAgora(l)) ? ['Aberto agora'] : [], valor: filtros.aberto });
+      const publicosPresentes = PUBLICOS.filter((p) => base.some((l) => (l.publico_tags || []).includes(p.slug))).map((p) => p.rotulo);
+      lista.push({ id: 'publico', label: 'Público', titulo: 'Predominância de público', icone: 'users', opcoes: publicosPresentes, valor: filtros.publico });
       lista.push({ id: 'experiencia', label: 'Experiência', icone: 'star', opcoes: unicos(base.flatMap((l) => (l.experiencias || []).map(rotuloTag))), valor: filtros.experiencia });
       lista.push({ id: 'cidade', label: 'Cidade', icone: 'map-pin', opcoes: cidades.length > 1 ? cidades : [], valor: filtros.cidade });
       lista.push({ id: 'bairro', label: 'Bairro', icone: 'home', opcoes: bairros.length > 1 && bairros.length <= 40 ? bairros : [], valor: filtros.bairro });
@@ -343,6 +372,10 @@ export default function CategoryListScreen() {
     onPress: () => router.push('/(tabs)/tourism' as any),
   };
 
+  // Subcategorias fixas da categoria (ex.: Bares & Vida Noturna), se definidas em lib/subcategorias.ts.
+  // Destaques (Fundadores) e Dicas Trip têm layout próprio: não recebem os ícones de subcategoria.
+  const defsSub = !modoTrip && !experienciaSlug && categoriaReal && slug !== 'destaques' && slug !== 'turismo' ? SUBCATEGORIAS[categoriaReal] : undefined;
+
   const filteredPlaces = locais
     .map((item) => {
       const distanceKm =
@@ -358,6 +391,7 @@ export default function CategoryListScreen() {
         (!filtros.comodidade || (item.atributos?.comodidades || []).includes(filtros.comodidade)) &&
         (!filtros.bairro || (item.bairro_exibicao || item.bairro) === filtros.bairro) &&
         (!filtros.aberto || abertoAgora(item)) &&
+        (!filtros.publico || (item.publico_tags || []).includes(PUBLICOS.find((p) => p.rotulo === filtros.publico)?.slug || '')) &&
         (!filtros.experiencia || (item.experiencias || []).some((e) => rotuloTag(e) === filtros.experiencia)) &&
         (!filtros.nota || ((item.rating_total || 0) > 0 && (item.rating_media || 0) >= (filtros.nota.startsWith('4,5') ? 4.5 : 4))) &&
         (!filtros.selo || item.safe_space);
@@ -368,7 +402,7 @@ export default function CategoryListScreen() {
         ? subcatAtiva === 'Em Alta'
           ? idsEmAlta.has(item.id)
           : subcatAtiva === 'Todas' || item.subcategoria === subcatAtiva
-        : true;
+        : selectedSubcat === null || chaveDoLocal(item, defsSub) === selectedSubcat;
 
       const matchesTipo =
         palavrasTipo.length === 0 ||
@@ -385,14 +419,35 @@ export default function CategoryListScreen() {
       return matchesFiltros && matchesSubcat && matchesTipo && matchesDistance && matchesSearch;
     });
 
-  // Filtros: ficam logo depois do patrocínio fixo (ou das ofertas, se não houver patrocínio), dentro do cabeçalho
-  // da lista. Com busca ativa ou subcategoria aberta (sem vitrine), aparecem no topo da lista.
+  // Subcategorias em ícones redondos: logo abaixo das ofertas. Tocar filtra a lista; tocar de novo limpa.
+  const [subDesligadas, setSubDesligadas] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    let vivo = true;
+    if (categoriaReal) buscarSubcategoriasDesligadas(categoriaReal).then((x) => { if (vivo) setSubDesligadas(x); });
+    return () => { vivo = false; };
+  }, [categoriaReal]);
+  const gruposSub = useMemo(
+    () => (defsSub ? agruparSubcategorias(locais, defsSub).filter((g) => !subDesligadas.has(g.chave) && (g.chave !== '' || g.qtd > 0)) : []),
+    [locais, defsSub, subDesligadas]
+  );
+  const subNode = gruposSub.length > 0 ? (
+    <SubcategoriaBanners
+      grupos={gruposSub}
+      defs={defsSub}
+      selecionada={selectedSubcat}
+      cor={categoriaConfig?.color}
+      onAbrir={(chave) => setSelectedSubcat((atual) => (atual === chave ? null : chave))}
+    />
+  ) : undefined;
+
+  // Filtros pequenos, logo abaixo da busca.
   const filtrosNode = (
     <View style={styles.filterSection}>
       <FiltrosPilulas
         filtros={filtrosDef}
         onSelecionar={(id, v) => setFiltros((f) => ({ ...f, [id]: v }))}
         onLimpar={() => setFiltros({})}
+        compacto
       />
       {loadingLocation && maxDistance !== 999 && <ActivityIndicator size="small" color={COLORS.pink} style={{ marginTop: 6 }} />}
     </View>
@@ -401,18 +456,20 @@ export default function CategoryListScreen() {
   return (
     <View style={styles.container}>
       <SafeAreaView style={[styles.safeArea, { paddingTop: insets.top }]}>
-        <CabecalhoTela titulo={decodedTitle} />
+        <CabecalhoTela titulo={decodedTitle} subtitulo={isTodos || experienciaSlug ? undefined : SUBTITULO_CATEGORIA[slug as CategoriaSlugUI]} />
 
         <View style={styles.searchContainer}>
-          <Feather name="search" size={16} color={COLORS.textMuted} />
+          <Feather name="search" size={20} color={COLORS.textPrimary} />
           <TextInput
             style={styles.searchInput}
             placeholder={`Buscar em ${decodedTitle}...`}
-            placeholderTextColor={COLORS.textMuted}
+            placeholderTextColor={COLORS.textSecondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
         </View>
+
+        {filtrosNode}
 
         {!modoTrip && !!experienciaSlug && subcategoriasList.length > 1 && (
           <View style={styles.filterSection}>
@@ -453,21 +510,23 @@ export default function CategoryListScreen() {
             data={filteredPlaces}
             keyExtractor={(item) => item.id}
             ListHeaderComponent={
-              searchQuery.trim() ? (
-                <View style={{ marginHorizontal: -16 }}>{filtrosNode}</View>
-              ) : (
-                <>
+              <>
+                {!searchQuery.trim() && (
                   <VitrineCategoria
                     slug={slug}
                     titulo={decodedTitle}
                     categoriaReal={categoriaReal}
                     locais={locais}
                     fundadores={slug === 'destaques'}
-                    bannerPadrao={slug === 'destaques' ? bannerTrip : undefined}
-                    aposPatrocinio={filtrosNode}
+                    tituloLista={null}
+                    aposOfertas={subNode}
                   />
-                </>
-              )
+                )}
+                <View style={styles.contagemRow}>
+                  <Text style={styles.contagemTxt}>{slug === 'destaques' ? 'Membros Fundadores' : 'Locais'}</Text>
+                  <Text style={styles.contagemQtd}>{filteredPlaces.length} {filteredPlaces.length === 1 ? 'resultado' : 'resultados'}</Text>
+                </View>
+              </>
             }
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
@@ -494,9 +553,14 @@ export default function CategoryListScreen() {
             }
             renderItem={({ item }) => {
               const isFavorited = favoritos.includes(item.id);
-              return (
+              const premium = ordemPlano(item) === 0;
+              const avaliado = item.rating_total > 0;
+              const tipo = item.subcategoria || CATEGORIA_REAL_LABEL[item.categoria] || item.categoria;
+              const lugar = textoLocalizacao(item);
+              const fundador = item.plano_comercial === 'fundador' && (item.plano_comercial_status ?? 'ativo') === 'ativo';
+              const cartao = (
                 <TouchableOpacity
-                  style={styles.placeCard}
+                  style={[styles.placeCard, premium && styles.placeCardPremium, fundador && styles.placeCardFundador]}
                   onPress={() => router.push(`/business/${item.id}` as any)}
                   activeOpacity={0.88}
                 >
@@ -508,41 +572,35 @@ export default function CategoryListScreen() {
                     )}
                   </View>
 
-                  <View style={{ flex: 1 }}>
-                    <View style={styles.placeHeaderRow}>
-                      <Text style={styles.placeName} numberOfLines={1}>{formatarNome(item.nome)}</Text>
-                      <View style={styles.actionRow}>
-                        <TouchableOpacity
-                          style={styles.favBtn}
-                          onPress={() => handleToggleFavorito(item.id)}
-                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                        >
-                          <Feather name="heart" size={16} color={isFavorited ? COLORS.pink : COLORS.textMuted} />
-                        </TouchableOpacity>
+                  <View style={{ flex: 1, gap: 3 }}>
+                    <Text style={styles.placeName} numberOfLines={1}>{nomeNaLista(item.nome)}</Text>
+                    <Text style={styles.placeSubcat} numberOfLines={1}>{tipo}</Text>
+                    <Text style={styles.placeAddress} numberOfLines={1}>{lugar}</Text>
+                    {(item.distanceKm != null || avaliado) && (
+                      <View style={styles.placeFooterRow}>
+                        {item.distanceKm != null && <Text style={styles.placeDistance}>{`${item.distanceKm.toFixed(1)} km`}</Text>}
+                        {avaliado && (
+                          <View style={styles.ratingBadge}>
+                            <Feather name="star" size={11} color={COLORS.gold} />
+                            <Text style={styles.ratingText}>{item.rating_media.toFixed(1)}</Text>
+                          </View>
+                        )}
                       </View>
-                    </View>
-
-                    <Text style={styles.placeSubcat}>{item.subcategoria || CATEGORIA_REAL_LABEL[item.categoria] || item.categoria}</Text>
-                    <Text style={styles.placeAddress}>{textoLocalizacao(item)}</Text>
-
-                    <View style={styles.placeFooterRow}>
-                      {item.distanceKm != null ? (
-                        <Text style={styles.placeDistance}>{`${item.distanceKm.toFixed(1)} km`}</Text>
-                      ) : (
-                        <View />
-                      )}
-                      <View style={styles.ratingBadge}>
-                        <Feather name="star" size={12} color={COLORS.gold} />
-                        <Text style={styles.ratingText}>
-                          {item.rating_total > 0 ? item.rating_media.toFixed(1) : '—'}
-                        </Text>
-                      </View>
-                    </View>
+                    )}
                   </View>
 
-                  <Feather name="chevron-right" size={18} color={COLORS.textMuted} />
+                  <TouchableOpacity
+                    style={styles.favBtn}
+                    onPress={() => handleToggleFavorito(item.id)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    accessibilityRole="button"
+                    accessibilityLabel={isFavorited ? 'Remover dos favoritos' : 'Salvar nos favoritos'}
+                  >
+                    <Feather name="heart" size={18} color={isFavorited ? COLORS.pink : COLORS.textMuted} />
+                  </TouchableOpacity>
                 </TouchableOpacity>
               );
+              return fundador ? <BordaArcoIris raio={18} espessura={2}>{cartao}</BordaArcoIris> : cartao;
             }}
           />
         )}
@@ -561,8 +619,9 @@ const styles = StyleSheet.create({
   headerLogo: { width: 140, height: 34 },
   categoryTitleText: { fontSize: 18, fontWeight: '800', color: COLORS.textPrimary },
 
-  searchContainer: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginBottom: 10, paddingHorizontal: 14, height: 42, borderRadius: 12, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
-  searchInput: { flex: 1, color: COLORS.textPrimary, fontSize: 12 },
+  // Mesma pílula da busca da Home: 46 de altura, borda totalmente arredondada, fundo #232230.
+  searchContainer: { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 16, marginBottom: 10, paddingHorizontal: 18, height: 46, borderRadius: 23, backgroundColor: '#232230' },
+  searchInput: { flex: 1, color: COLORS.textPrimary, fontSize: 14, fontWeight: '700' },
 
   filterSection: { marginBottom: 10 },
   chipsContainer: { paddingHorizontal: 16, gap: 8 },
@@ -581,23 +640,29 @@ const styles = StyleSheet.create({
   distChipText: { fontSize: 11, fontWeight: '600', color: COLORS.textSecondary },
   distChipTextActive: { color: '#FFF', fontWeight: '700' },
 
-  listContent: { paddingHorizontal: 16, paddingBottom: 30, gap: 12 },
+  listContent: { paddingHorizontal: 16, paddingBottom: 32, gap: 10 },
   emptyContainer: { alignItems: 'center', gap: 8, paddingTop: 60, paddingHorizontal: 30 },
   emptyTitle: { fontSize: 13, fontWeight: '700', color: COLORS.textPrimary, marginTop: 6 },
   emptySub: { fontSize: 12, color: COLORS.textSecondary, textAlign: 'center' },
 
-  placeCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.card, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, gap: 12, marginBottom: 12 },
-  placeThumb: { width: 48, height: 48, borderRadius: 12, backgroundColor: '#1A1926', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
-  placeThumbImg: { width: 48, height: 48 },
+  placeCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.card, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, gap: 12 },
+  placeCardPremium: { borderColor: 'rgba(255, 213, 79, 0.45)' },
+  // Fundador: a borda de arco-íris (BordaArcoIris) envolve o cartão; aqui some a borda comum e o raio acompanha.
+  placeCardFundador: { borderWidth: 0, borderRadius: 16 },
+  contagemRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 14, marginBottom: 2 },
+  contagemTxt: { fontSize: 15, fontWeight: '800', color: COLORS.textPrimary },
+  contagemQtd: { fontSize: 12, color: COLORS.textMuted, fontWeight: '600' },
+  placeThumb: { width: 56, height: 56, borderRadius: 14, backgroundColor: '#1A1926', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  placeThumbImg: { width: 56, height: 56 },
   placeHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
-  placeName: { fontSize: 13, fontWeight: '700', color: COLORS.textPrimary, flex: 1 },
+  placeName: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary },
   actionRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   vipBadge: { backgroundColor: 'rgba(225, 48, 108, 0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
   vipBadgeText: { fontSize: 8, fontWeight: '800', color: COLORS.pink },
   favBtn: { padding: 2 },
-  placeSubcat: { fontSize: 11, color: COLORS.textSecondary, marginTop: 2 },
-  placeAddress: { fontSize: 11, color: COLORS.textMuted, marginTop: 2 },
-  placeFooterRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 },
+  placeSubcat: { fontSize: 12, color: COLORS.textSecondary },
+  placeAddress: { fontSize: 12, color: COLORS.textMuted },
+  placeFooterRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 1 },
   placeDistance: { fontSize: 11, fontWeight: '700', color: COLORS.safeSpace },
   ratingBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   ratingText: { fontSize: 11, fontWeight: '700', color: COLORS.textPrimary },

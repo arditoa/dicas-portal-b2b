@@ -21,14 +21,14 @@ export const SUBCATEGORIAS: Record<string, SubDef[]> = {
     def('Coquetelaria & Speakeasies', 'Coquetelaria', 'triangle', ['coquetelaria', 'coquetelarias', 'drinks', 'drink', 'mixologia', 'speakeasy', 'cocktail', 'coquetel', 'bar de drinks']),
     def('Wine Bars', 'Wine Bars', 'heart', ['wine bar', 'wine bars', 'vinho', 'vinhos', 'enoteca', 'adega', 'espumante']),
     def('Gastrobares & Lounges', 'Gastrobares e Lounges', 'sun', ['gastrobar', 'gastrobares', 'lounge', 'lounges', 'rooftop', 'rooftops', 'terraco', 'sky bar', 'skybar']),
-    def('Casas Noturnas & Boates', 'Casas Noturnas e Boates', 'disc', ['balada', 'baladas', 'baladas e clubes', 'club', 'clube', 'boate', 'boates', 'night', 'nightclub', 'casa noturna', 'dance', 'danceteria', 'drag', 'drag show', 'drag e shows', 'cabare', 'cabaret', 'performance']),
+    def('Casas Noturnas & Boates', 'Baladas e Boates', 'disc', ['balada', 'baladas', 'baladas e clubes', 'club', 'clube', 'boate', 'boates', 'night', 'nightclub', 'casa noturna', 'dance', 'danceteria', 'drag', 'drag show', 'drag e shows', 'cabare', 'cabaret', 'performance']),
     def('Música ao Vivo & Rodas de Samba', 'Música ao vivo', 'music', ['musica ao vivo', 'ao vivo', 'show', 'shows', 'sertanejo', 'pagode', 'samba', 'roda de samba', 'forro', 'mpb', 'jazz', 'rock', 'banda']),
     def('Bares Interativos & Esportes', 'Jogos e Esportes', 'target', ['karaoke', 'karaoke bar', 'karaokê', 'sinuca', 'fliperama', 'jogos de tabuleiro', 'sports bar', 'bar esportivo', 'telao', 'boliche']),
   ],
   // Festas & Eventos
   festas: [
-    def('Festas Gay', 'Festas Gay', 'users', ['festa gay', 'festas gay', 'festas gays', 'gay', 'gays', 'festa lgbt', 'festas lgbt', 'lgbt', 'lgbtqia', 'baile gay', 'ursos', 'bear']),
-    def('Festas Lésbicas', 'Festas Lésbicas', 'heart', ['festa lesbica', 'festas lesbicas', 'lesbica', 'lesbicas', 'sapphic', 'sapatao', 'festa de mulheres', 'festas de mulheres']),
+    def('Festas Gay', 'Festas\nGay', 'users', ['festa gay', 'festas gay', 'festas gays', 'gay', 'gays', 'festa lgbt', 'festas lgbt', 'lgbt', 'lgbtqia', 'baile gay', 'ursos', 'bear']),
+    def('Festas Lésbicas', 'Festas\nLésbicas', 'heart', ['festa lesbica', 'festas lesbicas', 'lesbica', 'lesbicas', 'sapphic', 'sapatao', 'festa de mulheres', 'festas de mulheres']),
     def('Festas Eletrônicas', 'Eletrônicas', 'zap', ['eletronica', 'eletronicas', 'festa eletronica', 'festas eletronicas', 'rave', 'raves', 'techno', 'house', 'edm', 'dj']),
     def('Open Bar', 'Open Bar', 'droplet', ['open bar', 'openbar', 'open bar gay', 'festa open bar']),
     def('Sunset Parties', 'Sunset Parties', 'sunset', ['sunset', 'sunset party', 'sunset parties', 'por do sol', 'day party', 'day parties', 'pool party', 'pool parties', 'piscina']),
@@ -37,11 +37,11 @@ export const SUBCATEGORIAS: Record<string, SubDef[]> = {
   // Gastronomia
   gastronomia: [
     def('Restaurantes Tradicionais & À la Carte', 'Restaurantes', 'award', ['restaurante', 'restaurantes', 'a la carte', 'massas', 'carnes', 'cozinha regional', 'comida regional', 'self service', 'bistro']),
-    def('Hamburguerias, Lanches & Fast Food', 'Hamburguerias e Lanches', 'shopping-bag', ['hamburgueria', 'hamburguerias', 'hamburguer', 'lanche', 'lanches', 'lanchonete', 'fast food', 'sanduiche']),
+    def('Hamburguerias, Lanches & Fast Food', 'Hambúrguer e Lanches', 'shopping-bag', ['hamburgueria', 'hamburguerias', 'hamburguer', 'lanche', 'lanches', 'lanchonete', 'fast food', 'sanduiche']),
     def('Pizzarias & Esfiharias', 'Pizzarias', 'pie-chart', ['pizza', 'pizzaria', 'pizzarias', 'esfiha', 'esfiharia', 'esfirra']),
     def('Culinária Japonesa & Asiática', 'Japonesa e Asiática', 'globe', ['japonesa', 'japones', 'sushi', 'temaki', 'asiatica', 'oriental', 'chinesa', 'coreana', 'tailandesa', 'culinaria japonesa']),
     def('Cafeterias, Docerias & Padarias Artesanais', 'Cafés e Doces', 'coffee', ['cafe', 'cafes', 'cafeteria', 'cafeterias', 'doceria', 'docerias', 'padaria', 'padarias', 'confeitaria', 'sorveteria', 'brunch']),
-    def('Churrascarias & Parrillas', 'Churrascarias', 'grid', ['churrasco', 'churrascaria', 'churrascarias', 'parrilla', 'parrillas', 'rodizio', 'steakhouse']),
+    def('Churrascarias & Parrillas', 'Churrasco', 'grid', ['churrasco', 'churrascaria', 'churrascarias', 'parrilla', 'parrillas', 'rodizio', 'steakhouse']),
     def('Saudável, Vegano & Vegetariano', 'Saudável e Vegano', 'feather', ['saudavel', 'vegano', 'vegana', 'vegetariano', 'vegetariana', 'plant based', 'natural', 'fit', 'organico']),
     def('Frutos do Mar & Pescados', 'Frutos do Mar', 'anchor', ['frutos do mar', 'peixe', 'peixes', 'pescado', 'pescados', 'camarao', 'marisqueira', 'moqueca']),
   ],
@@ -58,14 +58,11 @@ export const SUBCATEGORIAS: Record<string, SubDef[]> = {
   ],
   // Serviços
   servicos: [
-    def('Assistência Técnica & Eletrônicos', 'Assistência Técnica', 'smartphone', ['assistencia tecnica', 'assistencia', 'celular', 'celulares', 'informatica', 'eletros', 'eletrodomesticos', 'conserto']),
-    def('Automotivos', 'Automotivos', 'settings', ['automotivo', 'automotivos', 'oficina', 'oficinas', 'mecanica', 'lava jato', 'lava-jato', 'funilaria', 'auto center', 'carro']),
-    def('Reformas & Manutenção Predial', 'Reformas', 'tool', ['reforma', 'reformas', 'manutencao', 'manutencao predial', 'pedreiro', 'eletricista', 'encanador', 'pintura', 'pintor', 'marceneiro', 'obra']),
-    def('Serviços Domésticos', 'Domésticos', 'home', ['domestico', 'domesticos', 'diarista', 'diaristas', 'passadeira', 'cozinheira', 'faxina', 'limpeza', 'baba']),
-    def('Profissionais Liberais & Jurídico', 'Jurídico e Liberais', 'briefcase', ['juridico', 'advocacia', 'advogado', 'advogada', 'direito', 'contabilidade', 'contador', 'contabil', 'cartorio', 'seguros', 'seguro', 'financas', 'financeiro', 'profissional liberal', 'profissionais liberais', 'consultoria']),
-    def('Transporte, Mudanças & Fretes', 'Transporte e Fretes', 'truck', ['transporte', 'mudanca', 'mudancas', 'frete', 'fretes', 'motorista', 'carreto', 'motoboy', 'entregas']),
-    def('Design, TI & Marketing', 'Design, TI e Marketing', 'monitor', ['design', 'ti', 'tecnologia', 'software', 'desenvolvimento', 'marketing', 'comunicacao', 'comunicacao e marketing', 'publicidade', 'social media', 'branding', 'midia']),
-    def('Eventos & Organização', 'Eventos', 'camera', ['eventos', 'evento', 'eventos e festas', 'buffet', 'fotografia', 'fotografia e video', 'foto', 'video', 'filmagem', 'cerimonial', 'locacao', 'decoracao', 'casamento', 'organizacao']),
+    def('Fotografia', 'Fotografia', 'camera', ['fotografia', 'fotografia e video', 'foto', 'fotos', 'fotografo', 'fotografa', 'video', 'videomaker', 'filmagem', 'audiovisual', 'cinegrafia', 'ensaio']),
+    def('Jurídicos e Liberais', 'Jurídicos e Liberais', 'briefcase', ['juridico', 'juridicos', 'advocacia', 'advogado', 'advogada', 'direito', 'contabilidade', 'contador', 'contabil', 'cartorio', 'profissional liberal', 'profissionais liberais', 'liberais', 'consultoria']),
+    def('Seguros e Finanças', 'Seguros e Finanças', 'shield', ['seguro', 'seguros', 'corretor', 'corretora', 'corretor de seguros', 'financas', 'financeiro', 'financeira', 'credito', 'investimento', 'investimentos', 'consorcio', 'previdencia', 'planejamento financeiro']),
+    def('Comunicação e Marketing', 'Comunicação e Marketing', 'message-circle', ['comunicacao', 'marketing', 'comunicacao e marketing', 'publicidade', 'propaganda', 'social media', 'branding', 'midia', 'imprensa', 'assessoria', 'design', 'designer', 'ti', 'tecnologia', 'software', 'desenvolvimento', 'site', 'sites']),
+    def('Eventos', 'Eventos', 'gift', ['eventos', 'evento', 'eventos e festas', 'buffet', 'cerimonial', 'locacao', 'decoracao', 'casamento', 'organizacao', 'festa', 'festas']),
   ],
   // Educação
   educacao: [
@@ -74,7 +71,7 @@ export const SUBCATEGORIAS: Record<string, SubDef[]> = {
     def('Faculdades, Universidades & Pós-Graduação', 'Faculdades', 'bookmark', ['faculdade', 'faculdades', 'universidade', 'universidades', 'pos graduacao', 'pos-graduacao', 'mba', 'graduacao', 'ensino superior']),
     def('Escolas de Idiomas', 'Idiomas', 'globe', ['idioma', 'idiomas', 'ingles', 'espanhol', 'frances', 'italiano', 'alemao', 'escola de idiomas', 'lingua']),
     def('Aulas Particulares & Reforço Escolar', 'Aulas Particulares', 'edit-3', ['aula particular', 'aulas particulares', 'reforco', 'reforco escolar', 'professor particular', 'tutoria', 'mentoria']),
-    def('Preparatórios (Vestibulares, ENEM, Concursos)', 'Preparatórios', 'target', ['preparatorio', 'preparatorios', 'vestibular', 'enem', 'concurso', 'concursos', 'cursinho']),
+    def('Preparatórios (Vestibulares, ENEM, Concursos)', 'Vestibular e Concursos', 'target', ['preparatorio', 'preparatorios', 'vestibular', 'enem', 'concurso', 'concursos', 'cursinho']),
     def('Cursos de Tecnologia & Programação', 'Tecnologia e Programação', 'code', ['tecnologia', 'programacao', 'programador', 'dados', 'ciencia de dados', 'desenvolvimento web', 'ti', 'bootcamp']),
     def('Artes, Música & Dança', 'Artes, Música e Dança', 'music', ['arte', 'artes', 'musica', 'danca', 'canto', 'violao', 'teatro', 'instrumento', 'aula de musica']),
   ],
@@ -91,14 +88,14 @@ export const SUBCATEGORIAS: Record<string, SubDef[]> = {
   ],
   // Saúde & Bem-estar
   saude: [
-    def('Clínicas Médicas & Consultórios', 'Clínicas e Consultórios', 'activity', ['clinica', 'clinicas', 'consultorio', 'consultorios', 'medico', 'medica', 'clinico geral', 'cardiologia', 'pediatria', 'ginecologia', 'dermatologia', 'endocrinologia', 'medicina']),
+    def('Clínicas Médicas & Consultórios', 'Clínicas e Consultas', 'activity', ['clinica', 'clinicas', 'consultorio', 'consultorios', 'medico', 'medica', 'clinico geral', 'cardiologia', 'pediatria', 'ginecologia', 'dermatologia', 'endocrinologia', 'medicina']),
     def('Odontologia & Ortodontia', 'Odontologia', 'smile', ['odontologia', 'odonto', 'dentista', 'ortodontia', 'dentario', 'dentes']),
-    def('Laboratórios & Exames de Imagem', 'Laboratórios e Exames', 'eye', ['laboratorio', 'laboratorios', 'exame', 'exames', 'imagem', 'radiologia', 'diagnostico', 'ultrassom']),
+    def('Laboratórios & Exames de Imagem', 'Exames e Laboratório', 'eye', ['laboratorio', 'laboratorios', 'exame', 'exames', 'imagem', 'radiologia', 'diagnostico', 'ultrassom']),
     def('Farmácias, Drogarias & Manipulação', 'Farmácias', 'plus-square', ['farmacia', 'farmacias', 'drogaria', 'drogarias', 'manipulacao', 'manipulado']),
     def('Fisioterapia, Quiropraxia & Reabilitação', 'Fisioterapia', 'user-check', ['fisioterapia', 'fisioterapeuta', 'quiropraxia', 'reabilitacao', 'pilates', 'rpg', 'osteopatia']),
     def('Psicologia, Terapia & Psiquiatria', 'Psicologia e Terapia', 'heart', ['psicologia', 'psicologo', 'psicologa', 'terapia', 'terapeuta', 'psiquiatria', 'psiquiatra', 'psicanalise']),
     def('Nutrição & Nutrologia', 'Nutrição', 'feather', ['nutricao', 'nutricionista', 'nutrologia', 'nutrologo', 'dieta']),
-    def('Pronto-Atendimento & Urgências', 'Pronto-Atendimento', 'alert-circle', ['pronto atendimento', 'pronto-atendimento', 'urgencia', 'urgencias', 'emergencia', 'pronto socorro', 'upa', 'hospital']),
+    def('Pronto-Atendimento & Urgências', 'Pronto Atendimento', 'alert-circle', ['pronto atendimento', 'pronto-atendimento', 'urgencia', 'urgencias', 'emergencia', 'pronto socorro', 'upa', 'hospital']),
   ],
   // Beleza & Estética
   beleza: [
@@ -118,7 +115,7 @@ export const SUBCATEGORIAS: Record<string, SubDef[]> = {
     def('Casas Noturnas Adultas & Clubes de Strip', 'Casas Noturnas Adultas', 'moon', ['casa noturna adulta', 'strip', 'strip club', 'clube de strip', 'striptease', 'boate adulta']),
     def('Saunas & Clubes Liberais Masculinos/Gays', 'Saunas e Clubes', 'thermometer', ['sauna', 'saunas', 'sauna gay', 'clube liberal', 'clubes liberais', 'dark room', 'darkroom']),
     def('Clubes de Swing & Festas Liberais', 'Swing e Festas Liberais', 'users', ['swing', 'clube de swing', 'festa liberal', 'festas liberais', 'liberal', 'liberais']),
-    def('Boates & Lounges Adultos (Privês)', 'Boates e Lounges Adultos', 'lock', ['prive', 'prives', 'boate adulta', 'lounge adulto', 'lounges adultos', 'boates adultas']),
+    def('Boates & Lounges Adultos (Privês)', 'Lounges Adultos', 'lock', ['prive', 'prives', 'boate adulta', 'lounge adulto', 'lounges adultos', 'boates adultas']),
     def('Cinemas & Cabines Adultas', 'Cinemas e Cabines', 'film', ['cinema adulto', 'cabine', 'cabines', 'cabines adultas', 'cinema porno']),
     def('Tattoo & Body Piercing Sensual / BDSM', 'Tattoo, Piercing e BDSM', 'pen-tool', ['tattoo', 'tatuagem', 'tatuador', 'piercing', 'body piercing', 'bdsm', 'fetiche', 'sensual']),
   ],

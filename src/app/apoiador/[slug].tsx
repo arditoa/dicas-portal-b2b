@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FundoCaixaDegrade from '../../components/FundoCaixaDegrade';
 import { APOIADORES } from '../../lib/apoiadores';
 import { useI18n } from '../../lib/i18n';
+import MarcaApp from '../../components/MarcaApp';
 
 const L = {
   sobre: { pt: 'Sobre', en: 'About', es: 'Sobre' },
@@ -36,7 +37,7 @@ export default function ApoiadorScreen() {
       <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Voltar">
         <Feather name="arrow-left" size={18} color="#F5F5F7" />
       </TouchableOpacity>
-      <Image source={require('../../assets/images/logolinear-semfundo.png')} style={styles.headerLogo} resizeMode="contain" accessibilityLabel="Dicas LGBT+" />
+      <MarcaApp />
     </View>
   );
 

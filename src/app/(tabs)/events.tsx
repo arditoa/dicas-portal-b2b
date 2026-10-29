@@ -1,7 +1,14 @@
 import { BotaoVoltar, TituloTela } from '../../components/CabecalhoTela';
+import FiltrosPilulas, { FiltroDef } from '../../components/FiltrosPilulas';
+import SubcategoriaBanners, { GrupoSub } from '../../components/SubcategoriaBanners';
+import VitrineCategoria, { LocalVitrine } from '../../components/VitrineCategoria';
+import { CAMPOS_LOCAL } from '../../components/ListaPadrao';
+import { normTxt, SUBCATEGORIAS } from '../../lib/subcategorias';
+import { buscarSubcategoriasDesligadas } from '../../lib/vitrine';
+import MarcaApp from '../../components/MarcaApp';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -17,6 +24,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '../../lib/authContext';
+import { CATEGORIAS, SUBTITULO_CATEGORIA } from '../../lib/categorias';
 import { deveExibirGlow, estaFixadoEm } from '../../lib/destaque';
 import { supabase } from '../../lib/supabase';
 import { GRUPOS_EVENTO, LEGADO_EVENTO, TAGS_EVENTO_AUTOMATICAS, rotuloTag, slugTag } from '../../lib/taxonomia';
@@ -158,6 +166,23 @@ export default function EventsScreen() {
   const [selectedMusic, setSelectedMusic] = useState<string | null>(null);
   const [selectedPublic, setSelectedPublic] = useState<string | null>(null);
   const [filtrosExtras, setFiltrosExtras] = useState<string[]>([]);
+  const [busca, setBusca] = useState('');
+  const [selectedBairro, setSelectedBairro] = useState<string | null>(null);
+  const [selectedSub, setSelectedSub] = useState<string | null>(null);
+  // Locais de festa/noite: alimentam o banner rotativo Premium da vitrine.
+  const [locaisVitrine, setLocaisVitrine] = useState<LocalVitrine[]>([]);
+  const [subDesligadas, setSubDesligadas] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    let vivo = true;
+    (supabase.from('locais') as any)
+      .select(CAMPOS_LOCAL)
+      .eq('status', 'aprovado')
+      .in('categoria', ['eventos', 'lugares'])
+      .limit(500)
+      .then((r: any) => { if (vivo && r?.data) setLocaisVitrine(r.data as LocalVitrine[]); });
+    buscarSubcategoriasDesligadas('festas').then((x) => { if (vivo) setSubDesligadas(x); });
+    return () => { vivo = false; };
+  }, []);
   const [showFiltrosModal, setShowFiltrosModal] = useState(false);
 
   const [events, setEvents] = useState<EventItem[]>([]);
@@ -248,6 +273,10 @@ export default function EventsScreen() {
       if (selectedTipo && !eventoTem(ev, selectedTipo)) return false;
       if (selectedMusic && !eventoTem(ev, selectedMusic)) return false;
       if (selectedPublic && !eventoTem(ev, selectedPublic)) return false;
+      if (selectedBairro && ev.locais?.bairro !== selectedBairro) return false;
+      if (selectedSub && !subsDoEvento(ev).includes(selectedSub)) return false;
+      const q = busca.trim().toLowerCase();
+      if (q && ![ev.titulo, ev.locais?.nome, ev.locais?.bairro, ev.locais?.cidade].some((t) => (t || '').toLowerCase().includes(q))) return false;
       if (filtrosExtras.some((t) => !eventoTem(ev, t))) return false;
       return true;
     })
@@ -256,6 +285,37 @@ export default function EventsScreen() {
       const bFixado = estaFixadoEm(b, 'evento_destaque');
       return aFixado === bFixado ? 0 : aFixado ? -1 : 1;
     });
+
+  // Ícones de subcategoria de festa: cada evento entra nas que combinam com título, tags, estilos e público.
+  const defsFestas = SUBCATEGORIAS.festas;
+  const subsDoEvento = (ev: EventItem): string[] => {
+    const texto = normTxt([ev.titulo, ...(ev.tags || []).map(rotuloTag), ...(ev.estilos_musicais || []), ...(ev.publico_tags || [])].join(' '));
+    const partes = texto.split(/[^a-z0-9]+/).filter(Boolean);
+    return defsFestas.filter((d) => d.palavras.some((p) => (p.includes(' ') ? texto.includes(p) : partes.includes(p)))).map((d) => d.chave);
+  };
+  const gruposSub = useMemo<GrupoSub[]>(
+    () => defsFestas
+      .filter((d) => !subDesligadas.has(d.chave))
+      .map((d) => ({ chave: d.chave, rotulo: d.rotulo, qtd: events.filter((ev) => subsDoEvento(ev).includes(d.chave)).length, foto: null })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [events, subDesligadas]
+  );
+
+  // Filtros em pílulas (mesmo modelo das categorias): só aparecem as opções que existem nos eventos carregados.
+  const filtrosPilulas = useMemo<FiltroDef[]>(() => {
+    const doGrupo = (grupo: string) => GRUPO(grupo).tags.map(slugTag).filter((t) => t !== 'todos_os_publicos' && events.some((ev) => eventoTem(ev, t)));
+    const bairros = Array.from(new Set(events.map((ev) => ev.locais?.bairro).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    // Público fica sempre visível (catálogo completo); quem tem evento carregado vem primeiro.
+    const todosPublicos = GRUPO('publico').tags.map(slugTag).filter((t) => t !== 'todos_os_publicos');
+    const comEvento = todosPublicos.filter((t) => events.some((ev) => eventoTem(ev, t)));
+    const publicos = [...comEvento, ...todosPublicos.filter((t) => !comEvento.includes(t))];
+    return [
+      { id: 'publico', label: 'Tipo de público', curto: 'Público', titulo: 'Tipo de público', icone: 'users', opcoes: publicos.map(rotuloTag), valor: selectedPublic ? rotuloTag(selectedPublic) : undefined },
+      { id: 'bairro', label: 'Bairro', icone: 'map-pin', opcoes: bairros, valor: selectedBairro || undefined },
+      { id: 'tipo', label: 'Tipo de evento', curto: 'Tipo', icone: 'layers', opcoes: doGrupo('tipo').map(rotuloTag), valor: selectedTipo ? rotuloTag(selectedTipo) : undefined },
+      { id: 'musica', label: 'Estilo musical', curto: 'Estilo', icone: 'music', opcoes: doGrupo('musica').map(rotuloTag), valor: selectedMusic ? rotuloTag(selectedMusic) : undefined },
+    ];
+  }, [events, selectedBairro, selectedTipo, selectedMusic, selectedPublic]);
 
   const handleEventClick = (eventItem: EventItem) => {
     if (!eventItem.listaVipAtiva) {
@@ -387,12 +447,7 @@ export default function EventsScreen() {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <BotaoVoltar />
           <View style={styles.headerEsquerda}>
-            <Image
-              source={require('../../assets/images/logolinear-semfundo.png')}
-              style={styles.logoLinear}
-              resizeMode="contain"
-            />
-            <Text style={styles.appSubtitulo}>Conexões e Experiências LGBT+</Text>
+            <MarcaApp />
           </View>
         </View>
         <TouchableOpacity
@@ -406,85 +461,86 @@ export default function EventsScreen() {
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
-        {/* TÍTULO E BOTÕES DE SELEÇÃO DE DATA */}
+        {/* TÍTULO + FRASE (mesmo modelo das categorias) */}
         <View style={styles.titleArea}>
           <TituloTela
             semMargem
             titulo="Eventos"
+            subtitulo={SUBTITULO_CATEGORIA.festas}
             tituloMenu="Quando?"
             opcoes={CALENDAR_DATES.map((d) => ({ id: d.id, label: d.label }))}
             valor={dateFilter}
             onEscolher={(id) => setDateFilter(id as DateTag)}
           />
-
-          <View style={styles.dateSelectorRow}>
-            <TouchableOpacity
-              style={[styles.dateBtn, dateFilter === 'hoje' && styles.dateBtnActive]}
-              onPress={() => setDateFilter('hoje')}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.dateBtnText, dateFilter === 'hoje' && styles.dateBtnTextActive]}>
-                Hoje
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.dateBtn, dateFilter === 'fds' && styles.dateBtnActive]}
-              onPress={() => setDateFilter('fds')}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.dateBtnText, dateFilter === 'fds' && styles.dateBtnTextActive]}>
-                Fim de semana
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.calendarIconBtn}
-              onPress={() => setShowCalendarModal(true)}
-              activeOpacity={0.8}
-            >
-              <Feather name="calendar" size={16} color={COLORS.pink} />
-            </TouchableOpacity>
-          </View>
         </View>
 
-        {/* Rodada 63 — filtros com as tags oficiais. Cada fileira só mostra
-            as tags que têm pelo menos um evento carregado. */}
-        {[
-          { grupo: 'tipo', titulo: 'Tipo de evento', valor: selectedTipo, set: setSelectedTipo, estilo: styles.musicChip, ativo: styles.musicChipActive },
-          { grupo: 'musica', titulo: 'Estilo musical', valor: selectedMusic, set: setSelectedMusic, estilo: styles.musicChip, ativo: styles.musicChipActive },
-          { grupo: 'publico', titulo: 'Público', valor: selectedPublic, set: setSelectedPublic, estilo: styles.publicChip, ativo: styles.publicChipActive },
-        ].map((linha) => {
-          const opcoes = GRUPO(linha.grupo).tags.map(slugTag).filter((t) => t !== 'todos_os_publicos' && events.some((ev) => eventoTem(ev, t)));
-          if (opcoes.length === 0) return null;
-          return (
-            <View key={linha.grupo} style={styles.filterSection}>
-              <Text style={styles.filterLabel}>{linha.titulo}</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-                {[null, ...opcoes].map((tag) => {
-                  const isSelected = linha.valor === tag;
-                  return (
-                    <TouchableOpacity
-                      key={tag || 'todos'}
-                      style={[linha.estilo, isSelected && linha.ativo]}
-                      onPress={() => linha.set(tag)}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>{tag ? rotuloTag(tag) : 'Todos'}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            </View>
-          );
-        })}
+        {/* BUSCA — pílula igual à da Home */}
+        <View style={styles.searchContainer}>
+          <Feather name="search" size={20} color={COLORS.textPrimary} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Buscar em Eventos..."
+            placeholderTextColor={COLORS.textSecondary}
+            value={busca}
+            onChangeText={setBusca}
+          />
+        </View>
 
-        <TouchableOpacity style={styles.maisFiltrosBtn} onPress={() => setShowFiltrosModal(true)} activeOpacity={0.8}>
-          <Feather name="sliders" size={14} color={COLORS.pink} />
-          <Text style={styles.maisFiltrosTxt}>
-            Mais filtros{filtrosExtras.length > 0 ? ` (${filtrosExtras.length})` : ''}
-          </Text>
-        </TouchableOpacity>
+        {/* QUANDO: Hoje / Fim de semana / calendário + Mais filtros */}
+        <View style={styles.dateSelectorRow}>
+          <TouchableOpacity
+            style={[styles.dateBtn, dateFilter === 'hoje' && styles.dateBtnActive]}
+            onPress={() => setDateFilter('hoje')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.dateBtnText, dateFilter === 'hoje' && styles.dateBtnTextActive]}>Hoje</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.calendarIconBtn} onPress={() => setShowCalendarModal(true)} activeOpacity={0.8} accessibilityLabel="Escolher data">
+            <Feather name="calendar" size={16} color={COLORS.pink} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Filtros em pílulas: Bairro, Tipo, Estilo e Público (tags oficiais; só aparecem as que têm evento). */}
+        <View style={{ marginBottom: 12 }}>
+          <FiltrosPilulas
+            compacto
+            filtros={filtrosPilulas}
+            onSelecionar={(id, valor) => {
+              const slug = valor ? slugTag(valor) : null;
+              if (id === 'bairro') setSelectedBairro(valor || null);
+              else if (id === 'tipo') setSelectedTipo(slug);
+              else if (id === 'musica') setSelectedMusic(slug);
+              else if (id === 'publico') setSelectedPublic(slug);
+            }}
+            onLimpar={() => { setSelectedSub(null); setSelectedBairro(null); setSelectedTipo(null); setSelectedMusic(null); setSelectedPublic(null); }}
+          />
+        </View>
+
+        {/* VITRINE (mesma lógica das categorias): patrocinador master, banner Premium rotativo, subcategorias em ícones e até 6 ofertas. */}
+        {!busca.trim() && (
+          <View style={{ paddingHorizontal: 16 }}>
+            <VitrineCategoria
+              slug="festas"
+              titulo="Eventos"
+              categoriaReal={['eventos', 'lugares']}
+              locais={locaisVitrine}
+              tituloLista={null}
+              aposOfertas={
+                gruposSub.length > 0 ? (
+                  <SubcategoriaBanners
+                    grupos={gruposSub}
+                    defs={defsFestas}
+                    selecionada={selectedSub}
+                    compacto
+                    cor={CATEGORIAS.festas.color}
+                    onAbrir={(chave) => setSelectedSub((atual) => (atual === chave ? null : chave))}
+                  />
+                ) : undefined
+              }
+            />
+          </View>
+        )}
 
         {/* LISTA DE EVENTOS */}
         <View style={styles.listArea}>
@@ -581,69 +637,7 @@ export default function EventsScreen() {
 
       </ScrollView>
 
-      {/* MODAL 1: CALENDÁRIO */}
-      <Modal visible={showFiltrosModal} transparent animationType="fade" onRequestClose={() => setShowFiltrosModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { maxHeight: '80%' }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <Text style={styles.modalTitle}>Mais filtros</Text>
-              <TouchableOpacity onPress={() => setShowFiltrosModal(false)} accessibilityLabel="Fechar">
-                <Feather name="x" size={20} color={COLORS.textSecondary} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView>
-              {(() => {
-                const grupos = GRUPOS_EXTRAS.map((id) => {
-                  const g = GRUPO(id);
-                  const opcoes = g.tags
-                    .map(slugTag)
-                    .filter((t) => !TAGS_EVENTO_AUTOMATICAS.includes(t))
-                    .filter((t) => filtrosExtras.includes(t) || events.some((ev) => eventoTem(ev, t)));
-                  return { ...g, opcoes };
-                }).filter((g) => g.opcoes.length > 0);
-                if (grupos.length === 0) {
-                  return (
-                    <Text style={styles.maisFiltrosSub}>
-                      Os organizadores passam a marcar essas informações no cadastro do evento. Assim que houver eventos com elas, os filtros aparecem aqui.
-                    </Text>
-                  );
-                }
-                return grupos.map((g) => (
-                  <View key={g.id} style={{ marginBottom: 14 }}>
-                    <Text style={[styles.filterLabel, { paddingHorizontal: 0 }]}>{g.titulo}</Text>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                      {g.opcoes.map((t) => {
-                        const on = filtrosExtras.includes(t);
-                        return (
-                          <TouchableOpacity
-                            key={t}
-                            style={[styles.publicChip, on && styles.publicChipActive]}
-                            onPress={() => setFiltrosExtras((prev) => (on ? prev.filter((x) => x !== t) : [...prev, t]))}
-                          >
-                            <Text style={[styles.chipText, on && styles.chipTextActive]}>{rotuloTag(t)}</Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  </View>
-                ));
-              })()}
-            </ScrollView>
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
-              <TouchableOpacity style={[styles.maisFiltrosBtn, { flex: 1, marginHorizontal: 0, justifyContent: 'center' }]} onPress={() => setFiltrosExtras([])}>
-                <Text style={styles.maisFiltrosTxt}>Limpar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.maisFiltrosBtn, { flex: 1, marginHorizontal: 0, justifyContent: 'center', backgroundColor: COLORS.pink, borderColor: COLORS.pink }]}
-                onPress={() => setShowFiltrosModal(false)}
-              >
-                <Text style={[styles.maisFiltrosTxt, { color: '#FFF' }]}>Ver eventos</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
+      {/* MODAL: CALENDÁRIO */}
       <Modal
         visible={showCalendarModal}
         transparent
@@ -836,10 +830,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  titleArea: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginTop: 8, marginBottom: 16 },
+  titleArea: { paddingHorizontal: 16, marginTop: 0, marginBottom: 12 },
+  searchContainer: { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 16, marginBottom: 10, paddingHorizontal: 18, height: 46, borderRadius: 23, backgroundColor: '#232230' },
+  searchInput: { flex: 1, color: COLORS.textPrimary, fontSize: 14, fontWeight: '700' },
   mainTitle: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5, lineHeight: 32, color: COLORS.textPrimary },
 
-  dateSelectorRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  dateSelectorRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, marginBottom: 10 },
   dateBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
   dateBtnActive: { backgroundColor: COLORS.pink, borderColor: COLORS.pink },
   dateBtnText: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary },

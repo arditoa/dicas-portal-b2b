@@ -14,13 +14,17 @@ import { Feather } from '@expo/vector-icons';
 import CarrosselAnuncios from '../../components/CarrosselAnuncios';
 import FundoCaixaDegrade from '../../components/FundoCaixaDegrade';
 import { BotaoVoltar, TituloTela } from '../../components/CabecalhoTela';
+import BannerMaster from '../../components/BannerMaster';
+import MarcaApp from '../../components/MarcaApp';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useSlotHora } from '../../hooks/useSlotHora';
 import { useAuth } from '../../lib/authContext';
 import { registrarAviso } from '../../lib/avisos';
+import { CATEGORIAS } from '../../lib/categorias';
 import { IDIOMAS, useI18n } from '../../lib/i18n';
 import { supabase } from '../../lib/supabase';
 import { carregarDestinos, Destino, DESTINOS_PADRAO } from '../../lib/destinos';
@@ -56,6 +60,15 @@ const SERVICOS: readonly { chave: string; icone: string; tipo: string; degrade: 
   { chave: 'trip.eventos', icone: 'calendar', tipo: '', degrade: ['#C026A3', '#6D3FD1'] },
 ];
 
+const DEGRADES_DESTINO: [string, string][] = [
+  ['#0E9F6E', '#0E7490'],
+  ['#2563EB', '#7E57C2'],
+  ['#F59E0B', '#E1306C'],
+  ['#E1306C', '#7E57C2'],
+  ['#6366F1', '#EC4899'],
+  ['#0EA5E9', '#4338CA'],
+];
+
 // Cores da bandeira do Brasil: verde, amarelo e azul. No amarelo o texto é escuro (leitura).
 const DICAS: readonly { secao: string; icone: string; degrade: [string, string]; texto: string }[] = [
   { secao: 'seguranca', icone: 'shield', degrade: ['#00A63F', '#007A33'], texto: '#FFFFFF' },
@@ -86,36 +99,24 @@ export default function TripScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { t, idioma, setIdioma } = useI18n();
+  const { t, idioma, proximoIdioma } = useI18n();
+  const idiomaAtual = IDIOMAS.find((i) => i.code === idioma) || IDIOMAS[0];
   const [busca, setBusca] = useState('');
-  const [pacotes, setPacotes] = useState<Pacote[]>([]);
-  const [carregando, setCarregando] = useState(true);
   const [destinos, setDestinos] = useState<Destino[]>(DESTINOS_PADRAO);
   // Com 3 estados ou mais, aparece o filtro por estado acima dos destinos.
-  const [ufFiltro, setUfFiltro] = useState<string | null>(null);
+  const slotDestino = useSlotHora(360);
 
   useEffect(() => {
     carregarDestinos().then(setDestinos);
   }, []);
 
-  useEffect(() => {
-    let ativo = true;
-    (async () => {
-      const { data } = await supabase
-        .from('pacotes_turismo')
-        .select('id, local_id, nome, descricao, preco_de, foto_url, locais!inner(nome, cidade, status)')
-        .eq('ativo', true)
-        .eq('locais.status', 'aprovado')
-        .order('ordem', { ascending: true })
-        .limit(10);
-      if (!ativo) return;
-      setPacotes(((data as any) || []) as Pacote[]);
-      setCarregando(false);
-    })();
-    return () => {
-      ativo = false;
-    };
-  }, []);
+  // Janela de até 6 destinos; avança de 6 em 6 a cada 6 horas.
+  const destinosHora = useMemo(() => {
+    if (destinos.length === 0) return [];
+    const ord = destinos.slice().sort((a, b) => a.slug.localeCompare(b.slug));
+    const inicio = (((slotDestino * 6) % ord.length) + ord.length) % ord.length;
+    return [...ord.slice(inicio), ...ord.slice(0, inicio)].slice(0, 6);
+  }, [destinos, slotDestino]);
 
   const abrirTurismo = (params: { title: string; search?: string; tipo?: string }) => {
     router.push({
@@ -173,24 +174,19 @@ export default function TripScreen() {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <BotaoVoltar />
             <View>
-              <Image source={require('../../assets/images/logolinear-semfundo.png')} style={styles.logo} resizeMode="contain" accessibilityLabel="Dicas LGBT+" />
-              <Text style={styles.appSub}>{t('app.subtitulo')}</Text>
+              <MarcaApp />
             </View>
           </View>
-          <View style={styles.idiomas}>
-            {IDIOMAS.map((i) => (
-              <TouchableOpacity
-                key={i.code}
-                onPress={() => setIdioma(i.code)}
-                style={[styles.idiomaBtn, idioma === i.code && styles.idiomaBtnAtivo]}
-                accessibilityRole="button"
-                accessibilityState={{ selected: idioma === i.code }}
-                accessibilityLabel={i.nome}
-              >
-                <Text style={[styles.idiomaTxt, idioma === i.code && { color: '#FFFFFF' }]}>{i.sigla}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <TouchableOpacity
+            style={styles.idiomaBtn}
+            onPress={proximoIdioma}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={`${t('conta.idioma')}: ${idiomaAtual.nome}`}
+          >
+            <Feather name="globe" size={14} color={C.text} />
+            <Text style={styles.idiomaTxt}>{idiomaAtual.sigla}</Text>
+          </TouchableOpacity>
         </View>
         <View style={styles.tituloArea}>
           <TituloTela
@@ -225,20 +221,31 @@ export default function TripScreen() {
           />
         </View>
 
-        {/* Dicas Trip: só o Museu da Diversidade no topo (um banner, sem rodízio). */}
-        <CarrosselAnuncios
-          anuncios={[
-            { id: 'museu', chave: 'museu', tag: t('home.anuncioMuseuTag'), titulo: t('home.anuncioMuseuTitulo'), cta: t('home.anuncioMuseuCta'), icone: 'book-open', cor: '#6D28D9', degrade: ['#6D28D9', '#DB2777'], onPress: () => router.push('/apoiador/museu-diversidade' as any) },
-          ]}
-        />
+        {/* Patrocinador master da Trip (categoria_patrocinio, slug 'trip'); sem patrocínio cadastrado, o Museu da Diversidade. */}
+        <View style={{ paddingHorizontal: 16 }}>
+          <BannerMaster
+            slug="trip"
+            padrao={{
+              categoria: 'trip',
+              local_id: null,
+              tag: t('home.anuncioMuseuTag'),
+              titulo: t('home.anuncioMuseuTitulo'),
+              subtitulo: null,
+              cta: t('home.anuncioMuseuCta'),
+              destino: '/apoiador/museu-diversidade',
+              imagem_url: null,
+              cor1: '#6D28D9',
+              cor2: '#DB2777',
+            }}
+          />
+        </View>
         {/* Planeje sua viagem */}
-        <Text style={styles.secao}>{t('trip.planeje')}</Text>
-        <View style={styles.grade}>
+        <View style={styles.iconesLinha}>
           {SERVICOS.map((s) => (
             <TouchableOpacity
               key={s.chave}
-              style={styles.tile}
-              activeOpacity={0.85}
+              style={styles.iconeItem}
+              activeOpacity={0.75}
               onPress={() =>
                 s.chave === 'trip.eventos'
                   ? router.push('/(tabs)/events')
@@ -251,86 +258,36 @@ export default function TripScreen() {
               accessibilityRole="button"
               accessibilityLabel={t(s.chave)}
             >
-              <FundoCaixaDegrade id={`trip-${s.chave}`} cores={s.degrade} />
-              <Feather name={s.icone as any} size={22} color="#FFFFFF" />
-              <Text style={styles.tileTxt}>{t(s.chave)}</Text>
+              <View style={styles.iconeCirculo}>
+                <Feather name={s.icone as any} size={20} color={CATEGORIAS.turismo.color} />
+              </View>
+              <Text style={styles.iconeTxt} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} maxFontSizeMultiplier={1}>{t(s.chave)}</Text>
             </TouchableOpacity>
           ))}
         </View>
-        <Text style={styles.aviso}>{t('trip.parceiroAviso')}</Text>
 
-        {/* Destinos */}
-        <Text style={styles.secao}>{t('trip.destinos')}</Text>
-        {(() => {
-          const ufs = Array.from(new Set(destinos.map((d) => d.uf))).sort();
-          if (ufs.length < 3) return null;
-          return (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 16, paddingBottom: 10 }}>
-              {[null, ...ufs].map((uf) => {
-                const ativo = ufFiltro === uf;
-                return (
-                  <TouchableOpacity key={uf || 'todos'} onPress={() => setUfFiltro(uf)} style={[styles.ufChip, ativo && styles.ufChipAtivo]}>
-                    <Text style={[styles.ufChipTxt, ativo && { color: '#FFF' }]}>{uf || 'Todos'}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          );
-        })()}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingHorizontal: 16 }}>
-          {destinos.filter((d) => !ufFiltro || d.uf === ufFiltro).map((d) => (
-            <TouchableOpacity key={d.slug} style={styles.destino} onPress={() => router.push(`/destino/${d.slug}` as any)}>
-              {d.foto_url ? (
-                <>
-                  <Image source={{ uri: d.foto_url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-                  <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.45)' }]} />
-                </>
-              ) : null}
-              <View style={styles.destinoTopo}>
-                <Feather name="map-pin" size={22} color={C.pink} />
-                <Text style={styles.destinoUf}>{d.uf}</Text>
-              </View>
-              <View style={{ gap: 4 }}>
-                <View style={styles.destinoTag}><Text style={styles.destinoTagTxt}>{t('trip.tagDestino')}</Text></View>
-                <Text style={styles.destinoNome} numberOfLines={2}>{d.cidade}</Text>
-                <Text style={styles.destinoVibe} numberOfLines={2}>{d.vibe[idioma]}</Text>
-                <Text style={styles.destinoCta}>{t('trip.verGuia')} →</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        {/* Pacotes dos parceiros (dados reais) */}
-        <Text style={styles.secao}>{t('trip.pacotesDestaque')}</Text>
-        <View style={{ paddingHorizontal: 16 }}>
-          {!carregando && pacotes.length === 0 ? (
-            <Text style={styles.vazio}>{t('trip.semPacotes')}</Text>
-          ) : (
-            pacotes.map((p) => (
-              <TouchableOpacity key={p.id} style={styles.pacote} onPress={() => router.push(`/business/${p.local_id}` as any)}>
-                {p.foto_url ? (
-                  <Image source={{ uri: p.foto_url }} style={styles.pacoteFoto} />
-                ) : (
-                  <View style={[styles.pacoteFoto, { alignItems: 'center', justifyContent: 'center' }]}>
-                    <Feather name="map" size={20} color={C.dim} />
-                  </View>
-                )}
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.pacoteNome} numberOfLines={1}>{p.nome}</Text>
-                  <Text style={styles.pacoteMeta} numberOfLines={1}>
-                    {[p.locais?.nome, p.locais?.cidade].filter(Boolean).join(' · ')}
-                  </Text>
-                  {p.preco_de != null && (
-                    <Text style={styles.pacotePreco}>
-                      {t('trip.aPartirDe')} R$ {Number(p.preco_de).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
-                    </Text>
-                  )}
-                </View>
-                <Feather name="chevron-right" size={18} color={C.dim} />
+        {/* Destinos em destaque: até 6 por vez, no mesmo formato das ofertas, trocando a cada 6 horas. */}
+        {destinosHora.length > 0 && (
+          <View style={styles.gradeDestinos}>
+            {destinosHora.map((d, idx) => (
+              <TouchableOpacity
+                key={d.slug}
+                style={styles.destinoTile}
+                activeOpacity={0.9}
+                onPress={() => router.push(`/destino/${d.slug}` as any)}
+                accessibilityRole="button"
+                accessibilityLabel={`${d.cidade}, ${d.uf}`}
+              >
+                <FundoCaixaDegrade id={`dst-${d.slug}`} cores={DEGRADES_DESTINO[(idx + slotDestino) % DEGRADES_DESTINO.length]} />
+                {!!d.foto_url && <Image source={{ uri: d.foto_url }} style={StyleSheet.absoluteFill} resizeMode="cover" />}
+                {!!d.foto_url && <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(8,6,16,0.5)' }]} />}
+                <Feather name="map-pin" size={22} color="#FFFFFF" />
+                <Text style={styles.destinoTileTxt} numberOfLines={2}>{d.cidade}</Text>
+                <Text style={styles.destinoTileUf}>{d.uf}</Text>
               </TouchableOpacity>
-            ))
-          )}
-        </View>
+            ))}
+          </View>
+        )}
 
         {/* Dicas úteis sobre o Brasil */}
         <Text style={styles.secao}>{t('trip.dicasBrasil')}</Text>
@@ -344,7 +301,7 @@ export default function TripScreen() {
             >
               <FundoCaixaDegrade id={`dica-${d.secao}`} cores={d.degrade} />
               <Feather name={d.icone as any} size={20} color={d.texto} />
-              <Text style={[styles.dicaTxt, { color: d.texto }]}>{TITULO_DICA[d.secao][idioma]}</Text>
+              <Text style={[styles.dicaTxt, { color: d.texto }]} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8} maxFontSizeMultiplier={1}>{TITULO_DICA[d.secao][idioma]}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -355,27 +312,27 @@ export default function TripScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingTop: 8, marginBottom: 16 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingTop: 8, marginBottom: 18 },
   logo: { width: 140, height: 34 },
   appSub: { fontSize: 11, fontWeight: '500', color: C.dim, marginTop: 2 },
-  tituloArea: { paddingHorizontal: 16, marginTop: 6, marginBottom: 14 },
+  tituloArea: { paddingHorizontal: 16, marginTop: 0, marginBottom: 12 },
   titulo: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5, lineHeight: 32, color: C.text },
   sub: { fontSize: 13, color: '#8A8A9E', marginTop: 6, lineHeight: 18 },
-  idiomas: { flexDirection: 'row', backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 18, padding: 3 },
-  idiomaBtn: { minWidth: 34, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
-  idiomaBtnAtivo: { backgroundColor: C.pink },
-  idiomaTxt: { fontSize: 11, fontWeight: '800', color: C.text },
+  idiomaBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 36, paddingHorizontal: 12, borderRadius: 18, backgroundColor: C.card, borderWidth: 1, borderColor: C.border },
+  idiomaTxt: { fontSize: 12, fontWeight: '800', color: C.text },
   busca: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    margin: 16,
+    marginHorizontal: 16,
+    marginTop: 0,
+    marginBottom: 14,
     paddingHorizontal: 18,
-    height: 56,
-    borderRadius: 28,
+    height: 46,
+    borderRadius: 23,
     backgroundColor: C.border,
   },
-  buscaInput: { flex: 1, color: C.text, fontSize: 15, fontWeight: '700' },
+  buscaInput: { flex: 1, color: C.text, fontSize: 14, fontWeight: '700' },
   hero: { marginHorizontal: 16, borderRadius: 18, padding: 16, backgroundColor: C.tile, gap: 6 },
   heroTag: { fontSize: 11, fontWeight: '800', color: C.purple, letterSpacing: 0.6 },
   heroTitulo: { fontSize: 18, fontWeight: '800', color: C.tileText, lineHeight: 21 },
@@ -388,6 +345,14 @@ const styles = StyleSheet.create({
   secao: { fontSize: 15, fontWeight: '800', color: C.text, marginTop: 28, marginBottom: 12, paddingHorizontal: 16 },
   grade: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16 },
   tile: { width: '31.5%', height: 92, borderRadius: 14, backgroundColor: C.card, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  gradeDestinos: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, marginTop: 20 },
+  destinoTile: { width: '31.5%', height: 92, borderRadius: 14, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', gap: 4, paddingHorizontal: 6, backgroundColor: C.card },
+  destinoTileTxt: { fontSize: 12, fontWeight: '700', color: '#FFFFFF', textAlign: 'center' },
+  destinoTileUf: { fontSize: 10, fontWeight: '800', color: 'rgba(255,255,255,0.8)' },
+  iconesLinha: { flexDirection: 'row', paddingHorizontal: 16, gap: 4 },
+  iconeItem: { flex: 1, alignItems: 'center', gap: 5 },
+  iconeCirculo: { width: 46, height: 46, borderRadius: 23, borderWidth: 1, borderColor: C.border, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
+  iconeTxt: { fontSize: 10, lineHeight: 12, fontWeight: '600', color: '#FFFFFF', textAlign: 'center', alignSelf: 'stretch' },
   tileTxt: { fontSize: 12, fontWeight: '700', color: '#FFFFFF' },
   aviso: { fontSize: 12, color: C.dim, paddingHorizontal: 16, marginTop: 10 },
   ufChip: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: C.border, backgroundColor: C.card },
@@ -407,7 +372,7 @@ const styles = StyleSheet.create({
   pacoteNome: { fontSize: 14, fontWeight: '800', color: C.text },
   pacoteMeta: { fontSize: 12, color: C.dim, marginTop: 2 },
   pacotePreco: { fontSize: 12, fontWeight: '700', color: C.pink, marginTop: 2 },
-  gradeDicas: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16 },
-  dica: { width: '48.5%', minHeight: 84, borderRadius: 14, backgroundColor: C.card, overflow: 'hidden', padding: 14, gap: 8 },
-  dicaTxt: { fontSize: 13, fontWeight: '800', color: C.text },
+  gradeDicas: { flexDirection: 'row', gap: 8, paddingHorizontal: 16 },
+  dica: { flex: 1, height: 92, borderRadius: 14, backgroundColor: C.card, overflow: 'hidden', paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center', gap: 8 },
+  dicaTxt: { fontSize: 11, fontWeight: '800', color: C.text, textAlign: 'center' },
 });

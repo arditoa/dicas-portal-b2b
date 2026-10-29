@@ -6,7 +6,9 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Image, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+
+import MarcaApp from './MarcaApp';
 
 const C = { card: '#161520', border: '#232230', text: '#FFFFFF', dim: '#8A8A9E', chevron: '#B4B4C6', pink: '#E1306C' };
 
@@ -96,10 +98,10 @@ type Props = {
 
 export default function CabecalhoTela({ titulo, subtitulo, opcoesTitulo, valorTitulo, onTrocarTitulo, tituloSeletor }: Props) {
   return (
-    <View style={{ paddingBottom: 6 }}>
+    <View style={{ paddingBottom: 2 }}>
       <View style={styles.topo}>
         <BotaoVoltar />
-        <Image source={require('../assets/images/logolinear-semfundo.png')} style={styles.logo} resizeMode="contain" accessibilityLabel="Dicas LGBT+" />
+        <MarcaApp />
       </View>
       <TituloTela titulo={titulo} subtitulo={subtitulo} opcoes={opcoesTitulo} valor={valorTitulo} onEscolher={onTrocarTitulo} tituloMenu={tituloSeletor} />
     </View>
@@ -109,11 +111,10 @@ export default function CabecalhoTela({ titulo, subtitulo, opcoesTitulo, valorTi
 const styles = StyleSheet.create({
   topo: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 8, marginBottom: 18 },
   voltar: { width: 36, height: 36, borderRadius: 12, backgroundColor: C.card, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: C.border },
-  logo: { width: 140, height: 34 },
-  bloco: { paddingHorizontal: 16, paddingBottom: 12 },
+  bloco: { paddingHorizontal: 16, paddingBottom: 10 },
   tituloLinha: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start' },
   titulo: { fontSize: 22, fontWeight: '700', color: C.text, letterSpacing: -0.3, lineHeight: 28, flexShrink: 1 },
-  sub: { fontSize: 13, fontWeight: '400', color: C.dim, marginTop: 4, lineHeight: 18 },
+  sub: { fontSize: 13, fontWeight: '400', color: C.dim, marginTop: 0, lineHeight: 18 },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24 },
   sheet: { backgroundColor: C.card, borderRadius: 18, padding: 8, borderWidth: 1, borderColor: C.border },
   sheetTitulo: { color: C.dim, fontSize: 12, fontWeight: '700', paddingHorizontal: 14, paddingTop: 10, paddingBottom: 4 },

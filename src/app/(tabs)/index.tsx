@@ -19,8 +19,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import CarrosselAnuncios, { Anuncio } from '../../components/CarrosselAnuncios';
+import { MODO_DEMONSTRACAO } from '../../lib/demo';
 import FundadoresMini from '../../components/FundadoresMini';
 import FundoCaixaDegrade from '../../components/FundoCaixaDegrade';
+import MarcaApp from '../../components/MarcaApp';
 import DestaqueHora, { ParceiroHora } from '../../components/DestaqueHora';
 import FundoDegrade from '../../components/FundoDegrade';
 import FundoFaixaPremium from '../../components/FundoFaixaPremium';
@@ -202,6 +204,9 @@ function FaixaPremium({
     </View>
   );
 }
+
+// Faixa "Hoje · 14h · …" da Home: desligada a pedido da Andrea (out/2026). Para voltar, troque para true.
+const MOSTRAR_FAIXA_HOJE = false;
 
 // Enquanto não há premium suficiente: faixa fina com o que acontece hoje,
 // trocando sozinha a cada 4 s (esmaece de um item para o outro).
@@ -489,7 +494,13 @@ export default function HomeScreen() {
   // caixas mais abaixo, então não se repete aqui.
   // Comunicação dos Membros Fundadores (escrita pela equipe no /admin; migration 059).
   const [comFundadores, setComFundadores] = useState<Record<string, Comunicacao>>({});
-  const idsFundTopo = useMemo(() => destaquesTopo.filter((d) => d.tipo === 'fundador').map((d) => d.id).join(','), [destaquesTopo]);
+  // 12 vagas "Banner Fundador N Home": os Membros Fundadores em ordem fixa; a Home mostra 4 por vez e troca a cada hora.
+  const fundadoresBanner = useMemo(
+    () => topoPrioritarios.filter((d) => d.tipo === 'fundador').slice().sort((a, b) => a.id.localeCompare(b.id)).slice(0, 12),
+    [topoPrioritarios]
+  );
+  const slotFundador = useSlotHora(60);
+  const idsFundTopo = useMemo(() => fundadoresBanner.map((d) => d.id).join(','), [fundadoresBanner]);
   useEffect(() => {
     let vivo = true;
     if (!idsFundTopo) { setComFundadores({}); return; }
@@ -499,39 +510,67 @@ export default function HomeScreen() {
 
   // Destaques do topo (mesmo tamanho dos banners de parceiros): Museu, Dicas Trip e os Membros
   // Fundadores girando — cada fundador com a frase que a equipe de comunicação escreveu para ele.
-  const anunciosVitrine = useMemo<Anuncio[]>(
+  // Institucionais que também são Membros Fundadores: o Museu da Diversidade e o "Viaje pelo Brasil" (Dicas Trip).
+  // Ficam sempre no começo do banner do topo.
+  const anunciosInstitucionais = useMemo<Anuncio[]>(
     () => [
       {
         id: 'museu', chave: 'museu', tag: t('home.anuncioMuseuTag'), titulo: t('home.anuncioMuseuTitulo'), cta: t('home.anuncioMuseuCta'),
         icone: 'book-open', cor: '#6D28D9', degrade: ['#6D28D9', '#DB2777'], onPress: () => router.push('/apoiador/museu-diversidade' as any),
       },
       {
-        id: 'trip', tag: t('home.anuncioTripTag'), titulo: t('home.anuncioTripTitulo'), cta: t('home.anuncioTripCta'),
+        id: 'trip', chave: 'trip', tag: t('home.anuncioTripTag'), titulo: t('home.anuncioTripTitulo'), cta: t('home.anuncioTripCta'),
         icone: 'compass', cor: '#10B981', degrade: ['#10B981', '#0E7490'], onPress: () => router.push('/(tabs)/tourism' as any),
       },
-      ...destaquesTopo
-        .filter((d) => d.tipo === 'fundador')
-        .slice(0, 5)
-        .map<Anuncio>((d) => {
-          const com = comFundadores[d.id];
-          return {
-            id: `fund-${d.id}`,
-            tag: 'MEMBRO FUNDADOR',
-            titulo: com?.headline || d.nome,
-            cta: com?.cta || 'Conhecer',
-            icone: 'star',
-            cor: '#F59E0B',
-            degrade: ['#B45309', '#9D174D'],
-            logoUrl: d.ehLogo && d.foto ? d.foto : undefined,
-            onPress: () => {
-              registrarVitrine(d.id, 'home:destaques', 'clique');
-              router.push(`/business/${d.id}` as any);
-            },
-          };
-        }),
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t, destaquesTopo, comFundadores]
+    [t]
+  );
+
+  // Banners dos Fundadores na Home: 12 vagas, 4 por vez, a janela avança a cada hora. Vaga sem fundador aparece escrita
+  // ("Banner Fundador 5 Home") só em demonstração (lib/demo.ts).
+  const bannersFundadorHora = useMemo<Anuncio[]>(() => {
+    const total = MODO_DEMONSTRACAO ? 12 : fundadoresBanner.length;
+    if (total === 0) return [];
+    const ini = (((slotFundador * 4) % total) + total) % total;
+    return Array.from({ length: Math.min(4, total) }, (_, k) => {
+      const pos = (ini + k) % total;
+      const d = fundadoresBanner[pos];
+      if (!d) {
+        return {
+          id: `fund-demo-${pos}`, chave: `fund-demo-${pos}`, tag: 'BANNER FUNDADOR', titulo: `Banner Fundador ${pos + 1} Home`, cta: 'Conhecer',
+          icone: 'star', cor: '#F59E0B', degrade: ['#B45309', '#9D174D'] as [string, string],
+          onPress: () => Linking.openURL('https://www.dicaslgbt.com.br/parceiro-fundador').catch(() => {}),
+        } as Anuncio;
+      }
+      const com = comFundadores[d.id];
+      return {
+        id: `fund-${d.id}`,
+        chave: `fund-${d.id}`,
+        tag: formatarNome(d.nome).toUpperCase(),
+        titulo: com?.headline || com?.oferta || `Conheça ${formatarNome(d.nome)}`,
+        cta: com?.cta || 'Conhecer',
+        icone: 'star',
+        cor: '#F59E0B',
+        degrade: ['#B45309', '#9D174D'] as [string, string],
+        onPress: () => {
+          registrarVitrine(d.id, 'home:destaques', 'clique');
+          router.push(`/business/${d.id}` as any);
+        },
+      } as Anuncio;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fundadoresBanner, slotFundador, comFundadores]);
+
+  // Topo da Home: banner rotativo que GERA DESEJO — Museu, Dicas Trip e os Membros Fundadores (chamada escrita pela equipe).
+  // Dentro das categorias o mesmo cartão gira fundadores + premium.
+  const anunciosVitrine = useMemo<Anuncio[]>(
+    () => [
+      ...anunciosInstitucionais,
+      ...bannersFundadorHora,
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [t, bannersFundadorHora, anunciosInstitucionais]
   );
 
   const isUserLogged = !!session;
@@ -835,13 +874,7 @@ export default function HomeScreen() {
           permissão no toque (nunca ao abrir o app — App Store 5.1.1). */}
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <View style={styles.headerEsquerda}>
-          <Image
-            source={require('../../assets/images/logolinear-semfundo.png')}
-            style={styles.logoLinear}
-            resizeMode="contain"
-            accessibilityLabel="Dicas LGBT+"
-          />
-          <Text style={styles.appSubtitulo}>{t('app.subtitulo')}</Text>
+          <MarcaApp />
         </View>
         <View style={styles.headerDireita}>
           <TouchableOpacity
@@ -888,88 +921,11 @@ export default function HomeScreen() {
             banners do Museu e dos Recomendados (mesmo tamanho dos de parceiros). */}
         <CarrosselAnuncios anuncios={anunciosVitrine} />
 
-        {/* CATEGORIAS — ícones redondos de sempre (cor própria por categoria,
-            vinda de lib/categorias.ts), numa linha com rolagem lateral. Dicas
-            Trip segue o mesmo formato das demais. Em breve = "avise-me" real
-            (avisos_interesse, migration 035). */}
-        <View style={styles.secaoBloco}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoriaScrollContent}
-            scrollEventThrottle={32}
-            onScroll={(e) => { const rolou = e.nativeEvent.contentOffset.x > 12; if (rolou !== catRolou) setCatRolou(rolou); }}
-          >
-            {ORDEM_GRADE.map((slug) => {
-              const cat = CATEGORIAS[slug];
-              const completo = t(`cat.${slug}`) === `cat.${slug}` ? cat.label : t(`cat.${slug}`);
-              const label = idioma === 'pt' && ROTULO_CURTO[slug] ? ROTULO_CURTO[slug] : completo;
-              return (
-                <TouchableOpacity
-                  key={slug}
-                  style={[styles.categoriaHorizontalItem, { width: larguraCat }]}
-                  onPress={() => (slug === 'turismo' ? router.push('/(tabs)/tourism') : handleCategoryPress(cat))}
-                  activeOpacity={0.7}
-                  accessibilityRole="button"
-                  accessibilityLabel={cat.emBreve ? `${completo}, ${t('home.emBreve')}` : completo}
-                >
-                  <View style={[styles.categoriaCircle, cat.emBreve && styles.categoriaDisabled, slug === 'destaques' && styles.categoriaCircleDestaque]}>
-                    <Feather name={cat.icon as any} size={20} color={cat.emBreve ? COLORS.purple : cat.color} />
-                    {cat.emBreve && (
-                      <View style={styles.emBreveBadge}>
-                        <Text style={styles.emBreveTexto}>{t('home.emBreve')}</Text>
-                      </View>
-                    )}
-                  </View>
-                  <View style={styles.categoriaLabelBox}>
-                    <Text style={[styles.categoriaLabel, cat.emBreve && { color: COLORS.textMuted }]} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>
-                      {label}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-          {!catRolou && (
-            <View style={styles.categoriaMais} pointerEvents="none">
-              <Feather name="chevron-right" size={16} color="#FFFFFF" />
-            </View>
-          )}
-        </View>
-        {/* ACONTECIMENTO RÁPIDO — pílula "Hoje · 14h · ..." (abre /secao/hoje) */}
-        {itensHoje.length > 0 && <FaixaHoje itens={itensHoje} onAbrir={(rota) => router.push(rota as any)} />}
-
-        {/* DESTAQUES — um parceiro patrocinado por vez, troca a cada hora.
-            Some se não houver parceiro pago com imagem; a oferta só aparece
-            com validade (tabela destaque_hora_ofertas, migration 047). */}
-        {parceiroHora && (
-          <View>
-            <Text style={styles.tituloSecaoHome}>{t('home.destaquesTitulo')}</Text>
-            <DestaqueHora
-              parceiro={parceiroHora}
-              inicioDoSlot={inicioDoSlot(slotRodizio, cfgRodizio.intervaloMin).getTime()}
-              fimDoSlot={inicioDoSlot(slotRodizio + 1, cfgRodizio.intervaloMin).getTime()}
-              tagTexto={t('home.patrocinado')}
-              rotulos={{
-                rotacionaEm: t('home.rotacionaEm'),
-                ativoAgora: t('home.ativoAgora'),
-                botao: t(
-                  parceiroHora.botao === 'garantir' ? 'home.btnGarantir'
-                    : parceiroHora.botao === 'como_chegar' ? 'home.btnComoChegar'
-                    : parceiroHora.botao === 'ver_beneficio' ? 'home.btnVerBeneficio'
-                    : 'home.btnVerLocal'
-                ),
-              }}
-              onAbrir={() => router.push(`/business/${parceiroHora.id}` as any)}
-            />
-          </View>
-        )}
-
-        {/* ANÚNCIOS — carrossel que passa sozinho (Copa 2027, Embratur, Câmara LGBT).
+        {/* ANÚNCIOS (acima das categorias) — carrossel que passa sozinho (Copa 2027, Embratur, Câmara LGBT).
             Para trocar os anúncios (ex.: durante a Copa), mude só esta lista. */}
         <CarrosselAnuncios
           onExibir={aoExibirBanner}
-          anuncios={anunciosApp ? anunciosApp.filter((a) => a.chave !== 'museu') : [
+          anuncios={[...(anunciosApp ? anunciosApp.filter((a) => a.chave !== 'museu' && a.chave !== 'trip') : [
             {
               id: 'brasil2027',
               tag: t('home.brasil2027Tag'),
@@ -1004,9 +960,85 @@ export default function HomeScreen() {
               cor: COLORS.purple,
               onPress: () => Linking.openURL('https://camaralgbt.com.br/').catch(() => {}),
             },
-          ]}
+          ])]}
         />
 
+        {/* CATEGORIAS — ícones redondos de sempre (cor própria por categoria,
+            vinda de lib/categorias.ts), numa linha com rolagem lateral. Dicas
+            Trip segue o mesmo formato das demais. Em breve = "avise-me" real
+            (avisos_interesse, migration 035). */}
+        <View style={styles.secaoBloco}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoriaScrollContent}
+            scrollEventThrottle={32}
+            onScroll={(e) => { const rolou = e.nativeEvent.contentOffset.x > 12; if (rolou !== catRolou) setCatRolou(rolou); }}
+          >
+            {ORDEM_GRADE.map((slug) => {
+              const cat = CATEGORIAS[slug];
+              const completo = t(`cat.${slug}`) === `cat.${slug}` ? cat.label : t(`cat.${slug}`);
+              const label = idioma === 'pt' && ROTULO_CURTO[slug] ? ROTULO_CURTO[slug] : completo;
+              return (
+                <TouchableOpacity
+                  key={slug}
+                  style={[styles.categoriaHorizontalItem, { width: larguraCat }]}
+                  onPress={() => (slug === 'turismo' ? router.push('/(tabs)/tourism') : handleCategoryPress(cat))}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={cat.emBreve ? `${completo}, ${t('home.emBreve')}` : completo}
+                >
+                  <View style={[styles.categoriaCircle, cat.emBreve && styles.categoriaDisabled, slug === 'destaques' && styles.categoriaCircleDestaque]}>
+                    <Feather name={cat.icon as any} size={20} color={cat.emBreve ? COLORS.purple : cat.color} />
+                    {cat.emBreve && (
+                      <View style={styles.emBreveBadge}>
+                        <Text style={styles.emBreveTexto}>{t('home.emBreve')}</Text>
+                      </View>
+                    )}
+                  </View>
+                  <View style={styles.categoriaLabelBox}>
+                    <Text style={[styles.categoriaLabel, cat.emBreve && { color: COLORS.textMuted }]} numberOfLines={label.includes(' ') ? 2 : 1} adjustsFontSizeToFit minimumFontScale={0.75} maxFontSizeMultiplier={1}>
+                      {label}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+          {!catRolou && (
+            <View style={styles.categoriaMais} pointerEvents="none">
+              <Feather name="chevron-right" size={16} color="#FFFFFF" />
+            </View>
+          )}
+        </View>
+        {/* ACONTECIMENTO RÁPIDO — pílula "Hoje · 14h · ..." (abre /secao/hoje) */}
+        {MOSTRAR_FAIXA_HOJE && itensHoje.length > 0 && <FaixaHoje itens={itensHoje} onAbrir={(rota) => router.push(rota as any)} />}
+
+        {/* DESTAQUES — um parceiro patrocinado por vez, troca a cada hora.
+            Some se não houver parceiro pago com imagem; a oferta só aparece
+            com validade (tabela destaque_hora_ofertas, migration 047). */}
+        {parceiroHora && (
+          <View>
+            <Text style={styles.tituloSecaoHome}>{t('home.destaquesTitulo')}</Text>
+            <DestaqueHora
+              parceiro={parceiroHora}
+              inicioDoSlot={inicioDoSlot(slotRodizio, cfgRodizio.intervaloMin).getTime()}
+              fimDoSlot={inicioDoSlot(slotRodizio + 1, cfgRodizio.intervaloMin).getTime()}
+              tagTexto={t('home.patrocinado')}
+              rotulos={{
+                rotacionaEm: t('home.rotacionaEm'),
+                ativoAgora: t('home.ativoAgora'),
+                botao: t(
+                  parceiroHora.botao === 'garantir' ? 'home.btnGarantir'
+                    : parceiroHora.botao === 'como_chegar' ? 'home.btnComoChegar'
+                    : parceiroHora.botao === 'ver_beneficio' ? 'home.btnVerBeneficio'
+                    : 'home.btnVerLocal'
+                ),
+              }}
+              onAbrir={() => router.push(`/business/${parceiroHora.id}` as any)}
+            />
+          </View>
+        )}
 
         {/* 4 CAIXAS LADO A LADO — cada uma abre uma página com os slots
             relacionados (src/app/secao/[tipo].tsx). Na Home fica só o atalho

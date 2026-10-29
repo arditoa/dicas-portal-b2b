@@ -1,4 +1,5 @@
 import { BotaoVoltar, TituloTela } from '../../components/CabecalhoTela';
+import MarcaApp from '../../components/MarcaApp';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -214,12 +215,7 @@ export default function ExploreScreen() {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <BotaoVoltar />
           <View style={styles.headerEsquerda}>
-            <Image
-              source={require('../../assets/images/logolinear-semfundo.png')}
-              style={styles.logoLinear}
-              resizeMode="contain"
-            />
-            <Text style={styles.appSubtitulo}>Mapa Interativo · Espaços LGBT+</Text>
+            <MarcaApp />
           </View>
         </View>
         <TouchableOpacity
@@ -249,12 +245,12 @@ export default function ExploreScreen() {
       {/* 2. BARRA DE BUSCA E BOTÃO DE FILTROS */}
       <View style={styles.controlsContainer}>
         <View style={styles.searchBar}>
-          <Feather name="search" size={18} color={COLORS.textMuted} />
+          <Feather name="search" size={20} color={COLORS.textPrimary} />
           <TextInput
             value={search}
             onChangeText={setSearch}
             placeholder="Buscar por nome ou bairro..."
-            placeholderTextColor={COLORS.textMuted}
+            placeholderTextColor={COLORS.textSecondary}
             style={styles.searchInput}
           />
           {search !== '' && (
@@ -492,15 +488,15 @@ const darkMapStyle = [
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 12 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 18 },
   headerEsquerda: { justifyContent: 'center' },
   logoLinear: { width: 140, height: 34 },
   appSubtitulo: { fontSize: 11, fontWeight: '500', color: COLORS.textSecondary, marginTop: 2 },
   profileBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border, justifyContent: 'center', alignItems: 'center' },
 
-  controlsContainer: { gap: 12, marginBottom: 12 },
-  searchBar: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, paddingHorizontal: 14, height: 42, borderRadius: 12, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
-  searchInput: { flex: 1, color: COLORS.textPrimary, fontSize: 12 },
+  controlsContainer: { gap: 10, marginBottom: 12 },
+  searchBar: { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 16, paddingHorizontal: 18, height: 46, borderRadius: 23, backgroundColor: '#232230' },
+  searchInput: { flex: 1, color: COLORS.textPrimary, fontSize: 14, fontWeight: '700' },
 
   filtrosRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, gap: 12 },
   btnFiltroPrincipal: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: COLORS.card, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: COLORS.border },

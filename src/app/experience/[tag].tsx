@@ -7,6 +7,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import BannersHome from '../../components/BannersHome';
 import ListaPadrao, { CAMPOS_LOCAL, ItemLista, localParaItem } from '../../components/ListaPadrao';
 import { supabase } from '../../lib/supabase';
 import { useRastrearTela } from '../../lib/usoTelas';
@@ -141,6 +142,9 @@ export default function FeaturedScreen() {
       vazioTexto="Ainda não há locais nesta seleção. Assim que os primeiros forem aprovados, eles aparecem aqui."
       vazioIcone="award"
       rodape={rodape}
+      modoHome={ehSeloDicas}
+      iconesSempre={ehSeloDicas}
+      bannerMaster={ehSeloDicas ? <BannersHome slug="recomendados" nome="Recomendados" /> : undefined}
     />
   );
 }

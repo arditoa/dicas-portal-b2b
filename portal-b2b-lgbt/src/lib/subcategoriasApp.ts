@@ -54,14 +54,11 @@ export const SUBCATEGORIAS_APP: Record<string, { titulo: string; itens: { chave:
   servicos: {
     titulo: 'Serviços',
     itens: [
-      { chave: 'assistencia tecnica & eletronicos', rotulo: 'Assistência Técnica & Eletrônicos' },
-      { chave: 'automotivos', rotulo: 'Automotivos' },
-      { chave: 'reformas & manutencao predial', rotulo: 'Reformas & Manutenção Predial' },
-      { chave: 'servicos domesticos', rotulo: 'Serviços Domésticos' },
-      { chave: 'profissionais liberais & juridico', rotulo: 'Profissionais Liberais & Jurídico' },
-      { chave: 'transporte, mudancas & fretes', rotulo: 'Transporte, Mudanças & Fretes' },
-      { chave: 'design, ti & marketing', rotulo: 'Design, TI & Marketing' },
-      { chave: 'eventos & organizacao', rotulo: 'Eventos & Organização' },
+      { chave: 'fotografia', rotulo: 'Fotografia' },
+      { chave: 'juridicos e liberais', rotulo: 'Jurídicos e Liberais' },
+      { chave: 'seguros e financas', rotulo: 'Seguros e Finanças' },
+      { chave: 'comunicacao e marketing', rotulo: 'Comunicação e Marketing' },
+      { chave: 'eventos', rotulo: 'Eventos' },
     ],
   },
   educacao: {

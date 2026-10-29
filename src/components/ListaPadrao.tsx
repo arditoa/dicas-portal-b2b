@@ -4,15 +4,19 @@
 // voltar + logo, título grande, busca, chips (Em Alta / Todas) e cartões.
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { ReactNode, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ReactNode, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CATEGORIA_REAL_LABEL, SeloCategoria, seloDaCategoria } from '../lib/categorias';
 import { deveIncluirEm } from '../lib/destaque';
 import { textoLocalizacao } from '../lib/localizacao';
 import { formatarNome } from '../lib/texto';
+import { useLocation } from '../hooks/useLocation';
+import { distanciaKm, PUBLICOS, RAIOS_KM } from '../lib/filtrosLocais';
 import CabecalhoTela, { OpcaoTitulo } from './CabecalhoTela';
+import FiltrosPilulas, { FiltroDef } from './FiltrosPilulas';
+import IconesCategoria, { IconeFiltro, iconesPadraoCategorias } from './IconesCategoria';
 
 const COLORS = {
   background: '#0B0B0E',
@@ -29,7 +33,7 @@ const COLORS = {
 import { TIPOS_SERVICO } from '../lib/servicosTipos';
 // Campos de `locais` que as listas precisam (inclui o que deveIncluirEm/abertoAgora leem).
 export const CAMPOS_LOCAL =
-  'id, nome, categoria, subcategoria, descricao, bairro, bairro_exibicao, cidade, foto_capa_url, galeria_fotos, logo_url, rating_media, rating_total, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status, horario_funcionamento';
+  'id, nome, categoria, subcategoria, descricao, bairro, bairro_exibicao, cidade, foto_capa_url, galeria_fotos, logo_url, rating_media, rating_total, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status, horario_funcionamento, lat, lng, publico_tags';
 
 export interface ItemLista {
   chave: string;
@@ -51,6 +55,12 @@ export interface ItemLista {
   selo?: { texto: string; cor: string; textoCor: string };
   seloCategoria?: SeloCategoria;
   iconeVazio?: string;
+  // Usados pelo modo Home (Perto, Público e ícones de categoria).
+  categoriaReal?: string;
+  iconeIds?: string[]; // ids dos ícones de filtro a que o item pertence (padrão: a categoria)
+  lat?: number | null;
+  lng?: number | null;
+  publicoTags?: string[];
 }
 
 export function fotoDoLocal(l: any): string | null {
@@ -87,6 +97,10 @@ export function localParaItem(l: any, extra: Partial<ItemLista> = {}): ItemLista
     grupo: GRUPO_CATEGORIA[l.categoria] || undefined,
     seloCategoria: seloDaCategoria(l),
     iconeVazio: 'map-pin',
+    categoriaReal: l.categoria || undefined,
+    lat: l.lat ?? null,
+    lng: l.lng ?? null,
+    publicoTags: Array.isArray(l.publico_tags) ? l.publico_tags : [],
     ...extra,
   };
 }
@@ -132,6 +146,17 @@ interface Props {
   filtros?: ReactNode;
   // Bloco padrão do topo da lista (Destaques, patrocínio da categoria e ofertas): ver VitrineCategoria.
   topo?: ReactNode;
+  // Modo Home (Em Alta etc.): sem busca; filtros Perto + Público, banner master, ícones das categorias e a lista.
+  modoHome?: boolean;
+  bannerMaster?: ReactNode;
+  // Ícones de filtro próprios da tela (ex.: tipos de serviço, experiências). Padrão: categorias.
+  iconesFiltro?: IconeFiltro[];
+  // Filtros extras da tela (ex.: gostos do "O que fazer hoje") na mesma linha de Perto/Público.
+  filtrosExtras?: FiltroDef[];
+  onFiltroExtra?: (id: string, valor?: string) => void;
+  onLimparExtras?: () => void;
+  iconesSempre?: boolean; // mostra todos os ícones, mesmo os sem locais ainda
+  semPublico?: boolean; // a tela já traz o seu próprio filtro "Público"
   // Título com setinha ∨ (seletor de período, ex.: Hoje / Amanhã / Fim de semana).
   opcoesTitulo?: OpcaoTitulo[];
   valorTitulo?: string;
@@ -139,16 +164,27 @@ interface Props {
   tituloSeletor?: string;
 }
 
-export default function ListaPadrao({ titulo, subtitulo, itens, carregando, vazioTexto, vazioIcone = 'map-pin', chipInicial = 'Todas', rodape, patrocinado, patrocinadoRotulo = 'PATROCINADO', filtros, topo, opcoesTitulo, valorTitulo, onTrocarTitulo, tituloSeletor }: Props) {
+export default function ListaPadrao({ titulo, subtitulo, itens, carregando, vazioTexto, vazioIcone = 'map-pin', chipInicial = 'Todas', rodape, patrocinado, patrocinadoRotulo = 'PATROCINADO', filtros, topo, opcoesTitulo, valorTitulo, onTrocarTitulo, tituloSeletor, modoHome, bannerMaster, iconesFiltro, filtrosExtras, onFiltroExtra, onLimparExtras, semPublico, iconesSempre }: Props) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [busca, setBusca] = useState('');
   const [chip, setChip] = useState<string | null>(null);
+  // Modo Home: filtros Perto/Público e categoria escolhida nos ícones.
+  const [perto, setPerto] = useState<string | undefined>();
+  const [publico, setPublico] = useState<string | undefined>();
+  const [catSel, setCatSel] = useState<string | null>(null);
+  const raioKm = modoHome && perto ? RAIOS_KM[perto] ?? 999 : 999;
+  const { coords, errorMsg: erroLocal } = useLocation(raioKm !== 999);
+  useEffect(() => {
+    if (!erroLocal) return;
+    Alert.alert('Localização', 'Não conseguimos acessar sua localização. Mostrando todas as distâncias.');
+    setPerto(undefined);
+  }, [erroLocal]);
 
   const qtdEmAlta = useMemo(() => itens.filter((i) => i.emAlta).length, [itens]);
   // O chip só aparece quando a lista mistura os dois grupos; se tudo é Em Alta
   // (ou nada é), o filtro não serve pra nada.
-  const temChips = qtdEmAlta > 0 && qtdEmAlta < itens.length;
+  const temChips = !modoHome && qtdEmAlta > 0 && qtdEmAlta < itens.length;
   // Chips por categoria: aparecem quando a lista mistura 2+ categorias, pra
   // ninguém confundir um fotógrafo com um bar.
   const grupos = useMemo(() => {
@@ -156,36 +192,74 @@ export default function ListaPadrao({ titulo, subtitulo, itens, carregando, vazi
     for (const i of itens) if (i.grupo) cont.set(i.grupo, (cont.get(i.grupo) || 0) + 1);
     return Array.from(cont.entries()).sort((a, b) => b[1] - a[1]);
   }, [itens]);
-  const temGrupos = grupos.length > 1;
+  const temGrupos = !modoHome && grupos.length > 1;
   const opcoes = [...(temChips ? ['Em Alta'] : []), 'Todas', ...(temGrupos ? grupos.map(([g]) => g) : [])];
   const mostrarChips = temChips || temGrupos;
   const ativo = !mostrarChips ? 'Todas' : chip && opcoes.includes(chip) ? chip : temChips ? chipInicial : 'Todas';
 
   const visiveis = useMemo(() => {
     const q = busca.trim().toLowerCase();
+    const tagPublico = publico ? PUBLICOS.find((p) => p.rotulo === publico)?.slug : undefined;
     return itens.filter((i) => {
+      if (modoHome) {
+        if (catSel && !(i.iconeIds ?? [i.categoriaReal]).includes(catSel)) return false;
+        if (tagPublico && !(i.publicoTags || []).includes(tagPublico)) return false;
+        if (raioKm !== 999 && coords && i.lat != null && i.lng != null && distanciaKm(coords.latitude, coords.longitude, i.lat, i.lng) > raioKm) return false;
+        return true;
+      }
       if (ativo === 'Em Alta' && !i.emAlta) return false;
       if (ativo !== 'Todas' && ativo !== 'Em Alta' && i.grupo !== ativo) return false;
       if (!q) return true;
       return [i.titulo, i.linha1, i.linha2].some((t) => (t || '').toLowerCase().includes(q));
     });
-  }, [itens, ativo, busca]);
+  }, [itens, ativo, busca, modoHome, catSel, publico, raioKm, coords]);
+
+  // Filtros do modo Home: só aparece "Perto" se há locais com coordenadas e "Público" se algum local tem a tag.
+  const filtrosHome = useMemo<FiltroDef[]>(() => {
+    if (!modoHome) return [];
+    const publicosPresentes = PUBLICOS.filter((p) => itens.some((i) => (i.publicoTags || []).includes(p.slug))).map((p) => p.rotulo);
+    return [
+      { id: 'perto', label: 'Perto de mim', curto: 'Perto', icone: 'navigation', opcoes: itens.some((i) => i.lat != null && i.lng != null) ? Object.keys(RAIOS_KM) : [], valor: perto },
+      ...(semPublico ? [] : [{ id: 'publico', label: 'Público', titulo: 'Predominância de público', icone: 'users', opcoes: publicosPresentes, valor: publico }]),
+      ...(filtrosExtras || []),
+    ];
+  }, [modoHome, itens, perto, publico, semPublico, filtrosExtras]);
+  // Só aparecem os ícones que têm locais na lista.
+  const iconesVisiveis = useMemo(() => {
+    if (!modoHome) return [];
+    const base = iconesFiltro ?? iconesPadraoCategorias();
+    const presentes = new Set(itens.flatMap((i) => i.iconeIds ?? (i.categoriaReal ? [i.categoriaReal] : [])));
+    return iconesSempre ? base : base.filter((c) => presentes.has(c.id));
+  }, [modoHome, iconesFiltro, itens, iconesSempre]);
 
   return (
     <View style={styles.container}>
       <View style={[styles.safeArea, { paddingTop: insets.top }]}>
         <CabecalhoPadrao titulo={titulo} subtitulo={subtitulo} opcoesTitulo={opcoesTitulo} valorTitulo={valorTitulo} onTrocarTitulo={onTrocarTitulo} tituloSeletor={tituloSeletor} />
 
-        <View style={styles.searchContainer}>
-          <Feather name="search" size={16} color={COLORS.textMuted} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder={`Buscar em ${titulo}...`}
-            placeholderTextColor={COLORS.textMuted}
-            value={busca}
-            onChangeText={setBusca}
-          />
-        </View>
+        {modoHome ? (
+          filtrosHome.some((f) => f.opcoes.length > 0 || f.valor) ? (
+            <View style={{ marginBottom: 10 }}>
+              <FiltrosPilulas
+                compacto
+                filtros={filtrosHome}
+                onSelecionar={(id, valor) => (id === 'perto' ? setPerto(valor) : id === 'publico' && !semPublico ? setPublico(valor) : onFiltroExtra?.(id, valor))}
+                onLimpar={() => { setPerto(undefined); setPublico(undefined); setCatSel(null); onLimparExtras?.(); }}
+              />
+            </View>
+          ) : null
+        ) : (
+          <View style={styles.searchContainer}>
+            <Feather name="search" size={20} color={COLORS.textPrimary} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder={`Buscar em ${titulo}...`}
+              placeholderTextColor={COLORS.textSecondary}
+              value={busca}
+              onChangeText={setBusca}
+            />
+          </View>
+        )}
 
         {!!filtros && <View style={{ marginBottom: 8 }}>{filtros}</View>}
 
@@ -231,7 +305,9 @@ export default function ListaPadrao({ titulo, subtitulo, itens, carregando, vazi
             ListHeaderComponent={
               <>
               {topo && !busca.trim() ? topo : null}
-              {patrocinado && !busca.trim() ? (
+              {modoHome && bannerMaster ? bannerMaster : null}
+              {modoHome ? <IconesCategoria icones={iconesVisiveis} selecionada={catSel} onSelecionar={setCatSel} /> : null}
+              {patrocinado && !busca.trim() && !modoHome ? (
                 <TouchableOpacity style={styles.slotPatr} activeOpacity={0.9} onPress={() => router.push(patrocinado.rota as any)} accessibilityRole="button" accessibilityLabel={`${patrocinadoRotulo}: ${patrocinado.titulo}`}>
                   {patrocinado.foto ? (
                     <Image source={{ uri: patrocinado.foto }} style={StyleSheet.absoluteFill} resizeMode="cover" />
@@ -331,8 +407,9 @@ const styles = StyleSheet.create({
   titulo: { fontSize: 18, fontWeight: '800', color: COLORS.textPrimary },
   subtitulo: { fontSize: 12, color: COLORS.textSecondary, marginTop: 3, lineHeight: 17 },
 
-  searchContainer: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginBottom: 10, paddingHorizontal: 14, height: 42, borderRadius: 12, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
-  searchInput: { flex: 1, color: COLORS.textPrimary, fontSize: 12 },
+  // Mesma pílula da busca da Home: 46 de altura, borda totalmente arredondada, fundo #232230.
+  searchContainer: { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 16, marginBottom: 10, paddingHorizontal: 18, height: 46, borderRadius: 23, backgroundColor: '#232230' },
+  searchInput: { flex: 1, color: COLORS.textPrimary, fontSize: 14, fontWeight: '700' },
 
   filterSection: { marginBottom: 10 },
   chipsContainer: { paddingHorizontal: 16, gap: 8 },
