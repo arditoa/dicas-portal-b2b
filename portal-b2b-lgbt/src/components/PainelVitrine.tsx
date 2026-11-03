@@ -19,7 +19,7 @@ const botao = 'bg-[#E1306C] hover:bg-[#C2285C] disabled:opacity-50 text-white te
 
 const CATEGORIAS = [
   ['destaques', 'Destaques'], ['turismo', 'Turismo | Dicas Trip'], ['bares', 'Bares & Vida Noturna'], ['gastronomia', 'Gastronomia'],
-  ['cultura', 'Cultura'], ['servicos', 'Serviços'], ['educacao', 'Educação'], ['produtos', 'Produtos'], ['lazer', 'Lazer'],
+  ['cultura', 'Cultura'], ['servicos', 'Serviços'], ['educacao', 'Educação'], ['artistas', 'Artistas'], ['produtos', 'Produtos'], ['lazer', 'Lazer'],
   ['saude', 'Saúde'], ['beleza', 'Beleza'], ['comunidade', 'Comunidade'], ['mais18', '18+'], ['todos', 'Todos os locais'],
 ] as const;
 const PLANOS = ['freemium', 'intermediario', 'premium', 'fundador'] as const;
@@ -234,16 +234,20 @@ export default function PainelVitrine() {
   // ---- 3) Limites
   const [limites, setLimites] = useState<Record<string, string>>({});
   const [limitesSem, setLimitesSem] = useState<Record<string, string>>({});
+  const [periodos, setPeriodos] = useState<Record<string, string>>({});
   const carregarLimites = useCallback(async () => {
-    const { data } = await supabase.from('planos_limite_ofertas').select('plano, limite_mes, limite_semana');
+    const { data } = await supabase.from('planos_limite_ofertas').select('plano, limite_mes, limite_semana, periodo_dias');
     const m: Record<string, string> = {};
     const w: Record<string, string> = {};
+    const d: Record<string, string> = {};
     for (const r of (data as any[]) || []) {
+      d[r.plano] = r.periodo_dias == null ? '' : String(r.periodo_dias);
       m[r.plano] = r.limite_mes == null ? '' : String(r.limite_mes);
       w[r.plano] = r.limite_semana == null ? '' : String(r.limite_semana);
     }
     setLimites(m);
     setLimitesSem(w);
+    setPeriodos(d);
   }, []);
 
   // ---- 4) Desempenho
@@ -360,10 +364,12 @@ export default function PainelVitrine() {
     for (const p of PLANOS) {
       const v = (limites[p] ?? '').trim();
       const sem = (limitesSem[p] ?? '').trim();
+      const dias = (periodos[p] ?? '').trim();
       const { error } = await supabase.from('planos_limite_ofertas').upsert({
         plano: p,
         limite_mes: v === '' ? null : Math.max(0, Number(v)),
         limite_semana: sem === '' ? null : Math.max(0, Number(sem)),
+        periodo_dias: dias === '' ? null : Math.max(1, Number(dias)),
         atualizado_em: new Date().toISOString(),
       });
       if (error) return falha(error.message);
@@ -626,13 +632,14 @@ export default function PainelVitrine() {
 
       {/* 3) LIMITES */}
       <div className={card}>
-        <h2 className="text-sm font-black mb-1">Ofertas por semana e por mês, por plano</h2>
-        <p className="text-[#A0A0B2] text-xs mb-4">Regra atual: só o Intermediário roda na faixa de ofertas das categorias (a cada 4 horas), com 1 oferta por semana (a semana começa na segunda-feira). Em branco = sem limite. A trava é no banco (migration 066): o parceiro não passa do número, e a equipe/admin não tem limite. Se um plano tiver limite semanal, ele vale no lugar do mensal.</p>
+        <h2 className="text-sm font-black mb-1">Cupons por período e por mês, por plano</h2>
+        <p className="text-[#A0A0B2] text-xs mb-4">Regra atual (migration 075): Premium e Fundador publicam 1 cupom a cada 7 dias; Intermediário, 1 a cada 14 dias. A faixa de cupons de cada categoria tem 24 posições (10 Premium + 2 Fundador + 12 Intermediário). Em branco = sem limite. A trava é no banco: o parceiro não passa do número, e a equipe/admin não tem limite. Se o plano tiver limite por período, ele vale no lugar do mensal.</p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           {PLANOS.map((p) => (
             <div key={p} className="space-y-2">
               <label className={label}>{p}</label>
-              <input className={input} inputMode="numeric" placeholder="por semana: sem limite" value={limitesSem[p] ?? ''} onChange={(e) => setLimitesSem({ ...limitesSem, [p]: e.target.value.replace(/\D/g, '') })} />
+              <input className={input} inputMode="numeric" placeholder="cupons por período: sem limite" value={limitesSem[p] ?? ''} onChange={(e) => setLimitesSem({ ...limitesSem, [p]: e.target.value.replace(/\D/g, '') })} />
+              <input className={input} inputMode="numeric" placeholder="período em dias (7 = semana)" value={periodos[p] ?? ''} onChange={(e) => setPeriodos({ ...periodos, [p]: e.target.value.replace(/\D/g, '') })} />
               <input className={input} inputMode="numeric" placeholder="por mês: sem limite" value={limites[p] ?? ''} onChange={(e) => setLimites({ ...limites, [p]: e.target.value.replace(/\D/g, '') })} />
             </div>
           ))}

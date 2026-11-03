@@ -40,12 +40,13 @@ const CATEGORIAS = [
   { value: 'gastronomia', label: 'Gastronomia', disabled: false },
   { value: 'cultura', label: 'Cultura', disabled: false },
   { value: 'turismo', label: 'Turismo / Agências de turismo', disabled: false },
-  { value: 'beleza', label: 'Beleza', disabled: true },
-  { value: 'mais18', label: 'Espaços 18+', disabled: true },
+  { value: 'beleza', label: 'Beleza & Estética', disabled: false },
+  { value: 'mais18', label: 'Espaços 18+', disabled: false },
   { value: 'lojas', label: 'Lojas', disabled: true },
   { value: 'servicos', label: 'Serviços', disabled: false },
   { value: 'produtos', label: 'Produtos', disabled: false },
   { value: 'educacao', label: 'Educação', disabled: false },
+  { value: 'artistas', label: 'Artistas', disabled: false },
   { value: 'lazer', label: 'Lazer', disabled: true },
 ] as const;
 
@@ -177,9 +178,7 @@ export default function MinhaPaginaPage() {
   const [erro, setErro] = useState('');
   const [enviandoFoto, setEnviandoFoto] = useState(false);
   const [enviandoLogo, setEnviandoLogo] = useState(false);
-  const [enviandoProgramacao, setEnviandoProgramacao] = useState(false);
   const [outrosAberto, setOutrosAberto] = useState(false);
-  const inputProgramacaoRef = useRef<HTMLInputElement | null>(null);
 
   // Rodada 22: muita conta de parceiro agora nasce com senha temporária
   // gerada na aprovação (ver /api/aprovar-local) — este bloco é o único
@@ -376,36 +375,6 @@ export default function MinhaPaginaPage() {
     const { data } = supabase.storage.from('fotos-locais').getPublicUrl(caminho);
     setLocal({ ...local, galeria_fotos: [...local.galeria_fotos, data.publicUrl] });
     setEnviandoFoto(false);
-  };
-
-  // Rodada 123 — flyer da programação da semana (imagem). Mesmo bucket/RLS
-  // da galeria: caminho "<local_id>/programacao-<timestamp>.<ext>".
-  const enviarProgramacao = async (arquivo: File) => {
-    if (!local) return;
-    setErro('');
-    const erroFormato = erroFotoNaoSuportada(arquivo);
-    if (erroFormato) {
-      setErro(erroFormato);
-      return;
-    }
-    if (arquivo.size > TAMANHO_MAXIMO_MB * 1024 * 1024) {
-      setErro(`A imagem precisa ter até ${TAMANHO_MAXIMO_MB}MB.`);
-      return;
-    }
-    setEnviandoProgramacao(true);
-    const extensao = arquivo.name.split('.').pop() || 'jpg';
-    const caminho = `${local.id}/programacao-${Date.now()}.${extensao}`;
-    const { error: erroUpload } = await supabase.storage
-      .from('fotos-locais')
-      .upload(caminho, arquivo, { cacheControl: '3600', upsert: false });
-    if (erroUpload) {
-      setErro(`Não deu pra enviar a imagem: ${erroUpload.message}`);
-      setEnviandoProgramacao(false);
-      return;
-    }
-    const { data } = supabase.storage.from('fotos-locais').getPublicUrl(caminho);
-    setLocal({ ...local, programacao_imagem_url: data.publicUrl });
-    setEnviandoProgramacao(false);
   };
 
   const removerFotoGaleria = (url: string) => {
@@ -1013,86 +982,20 @@ export default function MinhaPaginaPage() {
           })()}
         </div>
 
-        <div>
-          {(() => {
-            const publicaNoApp = publicaRecursosNoApp(local.plano_comercial, local.plano_comercial_status);
-            return (
-              <>
-                <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">
-                  Programação da semana
-                </label>
-                <p className="text-xs text-[#A0A0B2] mb-3">
-                  Escreva a programação, envie a arte (flyer) ou faça os dois — aparece no card
-                  &quot;Programação da semana&quot; da sua página no app.
-                </p>
-                <textarea
-                  value={local.programacao_texto || ''}
-                  onChange={(e) => setLocal({ ...local, programacao_texto: e.target.value.slice(0, 1200) })}
-                  rows={7}
-                  maxLength={1200}
-                  placeholder={'Uma linha por dia, assim:\nQuinta: Karaokê com a Drag Lola, 21h\nSexta: DJ Mari — entrada R$ 20\nSábado: Noite Pop com show às 23h\nDomingo: Feijoada + pagode, a partir das 13h'}
-                  className="w-full bg-[#161520] border border-[#232230] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#E1306C]"
-                />
-                <p className="text-[10px] text-[#626274] mt-1 flex justify-between">
-                  <span>Comece cada linha com o dia (Segunda, Terça… ou Seg, Ter…) e dois pontos para o app destacar o dia.</span>
-                  <span>{(local.programacao_texto || '').length}/1200</span>
-                </p>
-
-                {local.programacao_imagem_url && (
-                  <div className="relative mt-3 w-full sm:w-64">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={local.programacao_imagem_url}
-                      alt="Programação da semana"
-                      className="w-full rounded-xl border border-[#232230]"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setLocal({ ...local, programacao_imagem_url: null })}
-                      className="absolute top-2 right-2 bg-black/70 hover:bg-red-500 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm"
-                      title="Remover imagem"
-                    >
-                      ×
-                    </button>
-                  </div>
-                )}
-                <input
-                  ref={inputProgramacaoRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const arquivo = e.target.files?.[0];
-                    if (arquivo) enviarProgramacao(arquivo);
-                    e.target.value = '';
-                  }}
-                />
-                <button
-                  type="button"
-                  disabled={enviandoProgramacao}
-                  onClick={() => inputProgramacaoRef.current?.click()}
-                  className="w-full mt-3 bg-[#161520] border border-dashed border-[#232230] hover:border-[#E1306C]/50 rounded-xl py-3.5 px-4 text-[#D0D0E0] text-sm font-bold flex items-center justify-center gap-2 transition disabled:opacity-40"
-                >
-                  {enviandoProgramacao ? <Loader2 className="animate-spin" size={16} /> : <Upload size={16} />}
-                  {enviandoProgramacao
-                    ? 'Enviando...'
-                    : local.programacao_imagem_url
-                      ? 'Trocar imagem da programação'
-                      : 'Enviar imagem da programação (flyer)'}
-                </button>
-                <p className="text-[10px] text-[#626274] mt-1">
-                  JPG, PNG ou WebP, até {TAMANHO_MAXIMO_MB}MB. Atualize toda semana para manter o público informado.
-                </p>
-                {!publicaNoApp && (
-                  <p className="text-xs text-[#E1A93A] bg-[#E1A93A]/10 border border-[#E1A93A]/30 rounded-xl p-3 mt-2">
-                    Fica salvo aqui, mas só aparece pros usuários no app quando seu plano for{' '}
-                    <b>Premium</b> ou <b>Fundador</b> (ativo). Veja em{' '}
-                    <Link href="/planos" className="underline hover:text-white">planos</Link>.
-                  </p>
-                )}
-              </>
-            );
-          })()}
+        <div className="bg-[#7E57C2]/10 border border-[#7E57C2]/30 rounded-2xl p-4">
+          <p className="text-[11px] font-bold text-[#B39DDB] uppercase mb-1">Programação da semana</p>
+          <p className="text-xs text-[#D0D0E0] mb-3">
+            A programação semanal não fica mais no perfil: agora você publica na{' '}
+            <b>Agenda da semana</b> e ela aparece na aba <b>Eventos → Essa semana</b> do app, onde o
+            público procura o que fazer. Lá você preenche dia a dia, envia o cartaz (flyer) e pode deixar
+            a próxima semana pronta.
+          </p>
+          <Link
+            href="/dashboard/agenda"
+            className="inline-block bg-[#E1306C] hover:bg-[#C2285C] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"
+          >
+            Abrir Agenda da semana
+          </Link>
         </div>
 
         <div className="grid grid-cols-2 gap-4">

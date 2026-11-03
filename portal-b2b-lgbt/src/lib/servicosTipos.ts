@@ -1,3 +1,4 @@
+// Beleza & Estética saiu de Serviços (nov/2026): virou categoria própria.
 // Tipos de serviço (filtros "fofos" da página Serviços em destaque).
 // O parceiro pode escolher o tipo na Subcategoria do cadastro (o portal sugere esta lista); para
 // quem não escolheu, o app deduz pelo texto de subcategoria/especialidade/nome. Sem pista = "Outros serviços".
@@ -6,7 +7,6 @@
 export type TipoServico = { rotulo: string; icone: string; cor: string; palavras: string[] };
 
 export const TIPOS_SERVICO: TipoServico[] = [
-  { rotulo: 'Beleza e estética', icone: 'scissors', cor: '#F0ABFC', palavras: ['beleza', 'cabel', 'barbe', 'salao', 'estetic', 'maquiag', 'unha', 'manicure', 'sobrancelha', 'depila', 'tatuag'] },
   { rotulo: 'Saúde e bem-estar', icone: 'heart', cor: '#F472B6', palavras: ['psicolog', 'terapeut', 'psiquiatr', 'clinic', 'medic', 'dentis', 'odonto', 'nutri', 'fisioterap', 'saude', 'bem-estar', 'bem estar', 'massag', 'yoga', 'pilates', 'personal'] },
   { rotulo: 'Fotografia e vídeo', icone: 'camera', cor: '#60A5FA', palavras: ['foto', 'video', 'filmag', 'audiovisual', 'cinegraf'] },
   { rotulo: 'Seguros e finanças', icone: 'shield', cor: '#34D399', palavras: ['seguro', 'corretor', 'financ', 'contab', 'credito', 'investiment', 'consorcio', 'previdenc'] },
@@ -25,7 +25,6 @@ export function tipoDoServico(l: { categoria?: string | null; subcategoria?: str
   const exato = TIPOS_SERVICO.find((t) => norm(t.rotulo) === norm(l.subcategoria));
   if (exato) return exato.rotulo;
   // 2) categoria própria no banco
-  if (l.categoria === 'beleza') return 'Beleza e estética';
   if (l.categoria === 'lojas') return 'Lojas e moda';
   // 3) palavras na subcategoria/especialidade e, por último, no nome
   for (const texto of [`${norm(l.subcategoria)} ${norm(l.especialidade)}`, norm(l.nome)]) {

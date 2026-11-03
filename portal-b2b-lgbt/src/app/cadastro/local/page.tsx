@@ -9,6 +9,7 @@ import { buscarCoordenadas } from '../../../lib/geocodificar';
 import { telefoneParecCurto } from '../../../lib/parceiroAuth';
 import { erroFotoNaoSuportada, TAMANHO_MAXIMO_FOTO_MB } from '../../../lib/validarFoto';
 import { CLASSIFICACOES_LGBT } from '../../../lib/classificacaoLgbt';
+import { SUBCATEGORIAS_APP } from '../../../lib/subcategoriasApp';
 
 // Rodada 49 — pedido direto da Andrea: dar a opção de já subir a foto de
 // capa aqui no cadastro público (antes só existia depois de aprovado, via
@@ -127,12 +128,13 @@ const CATEGORIAS = [
   { value: 'gastronomia', label: 'Gastronomia', disabled: false },
   { value: 'cultura', label: 'Cultura', disabled: false },
   { value: 'turismo', label: 'Turismo / Agências de turismo', disabled: false },
-  { value: 'beleza', label: 'Beleza', disabled: true },
-  { value: 'mais18', label: 'Espaços 18+', disabled: true },
+  { value: 'beleza', label: 'Beleza & Estética', disabled: false },
+  { value: 'mais18', label: 'Espaços 18+', disabled: false },
   { value: 'lojas', label: 'Lojas', disabled: true },
   { value: 'servicos', label: 'Serviços', disabled: false },
   { value: 'produtos', label: 'Produtos', disabled: false },
   { value: 'educacao', label: 'Educação', disabled: false },
+  { value: 'artistas', label: 'Artistas', disabled: false },
   { value: 'lazer', label: 'Lazer', disabled: true },
 ] as const;
 
@@ -221,6 +223,8 @@ export default function CadastroLocalPage() {
   const [nomeEspaco, setNomeEspaco] = useState('');
   const [nomeVeioDaRazaoSocial, setNomeVeioDaRazaoSocial] = useState(false);
   const [categoria, setCategoria] = useState<string>('');
+  const [subcategoria, setSubcategoria] = useState<string>(''); // da lista do app; '__outros__' = digitar
+  const [subcategoriaLivre, setSubcategoriaLivre] = useState<string>('');
   const [classificacaoLgbt, setClassificacaoLgbt] = useState<string>('');
   // Rodada 61 (fazer direito) — campos que só fazem sentido pra
   // Serviços (atendimento_tipo/especialidade) ou Produtos
@@ -243,7 +247,7 @@ export default function CadastroLocalPage() {
   // (atendimento remoto, agência sem loja de rua, loja 100% online) —
   // endereço vira opcional pra essas categorias. Bares/Gastronomia/
   // Cultura/Eventos continuam exigindo endereço normalmente.
-  const enderecoObrigatorio = !['servicos', 'turismo', 'produtos'].includes(categoria);
+  const enderecoObrigatorio = !['servicos', 'turismo', 'produtos', 'artistas'].includes(categoria); // artista pode não ter endereço fixo
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -398,6 +402,7 @@ export default function CadastroLocalPage() {
         id: novoId,
         nome: nomeEspaco,
         categoria,
+        subcategoria: (subcategoria === '__outros__' ? subcategoriaLivre : subcategoria).trim() || null,
         cnpj: cnpjLimpo,
         bairro,
         cidade,
@@ -591,7 +596,7 @@ export default function CadastroLocalPage() {
               <select
                 required
                 value={categoria}
-                onChange={(e) => setCategoria(e.target.value)}
+                onChange={(e) => { setCategoria(e.target.value); setSubcategoria(''); setSubcategoriaLivre(''); }}
                 className={inputClass}
                 disabled={loading}
               >
@@ -606,6 +611,27 @@ export default function CadastroLocalPage() {
                 ))}
               </select>
             </div>
+
+            {SUBCATEGORIAS_APP[categoria] && (
+              <div>
+                <label className={labelClass}>Subcategoria</label>
+                <select value={subcategoria} onChange={(e) => setSubcategoria(e.target.value)} className={inputClass} disabled={loading}>
+                  <option value="">Escolha a que mais combina com você</option>
+                  {SUBCATEGORIAS_APP[categoria].itens.map((i) => <option key={i.chave} value={i.rotulo}>{i.rotulo}</option>)}
+                  <option value="__outros__">Outros (não está na lista)</option>
+                </select>
+                {subcategoria === '__outros__' && (
+                  <input type="text" value={subcategoriaLivre} onChange={(e) => setSubcategoriaLivre(e.target.value)} placeholder="Qual é o seu tipo de negócio?" className={`${inputClass} mt-2`} disabled={loading} />
+                )}
+                <p className="text-[11px] text-[#8888A0] mt-1.5">É o ícone redondo em que você aparece dentro da categoria no app. Dá para mudar depois, no seu painel.</p>
+              </div>
+            )}
+
+            {categoria && (
+              <div className="rounded-xl border border-[#232230] bg-[#0B0B0E] p-3 text-[11px] text-[#A0A0B2] leading-relaxed">
+                <b className="text-white">Como você aparece:</b> todo cadastro começa no <b>plano gratuito</b> e aparece na lista da categoria. Depois, se quiser mais destaque: <b>Intermediário</b> (quadradinho de oferta, 1 por semana), <b>Premium</b> (banner grande no topo da categoria, com frase que você troca toda semana) ou <b>Fundador</b> (selo dourado e banner nos Destaques). Você escolhe depois, sem compromisso.
+              </div>
+            )}
 
             {categoria === 'servicos' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

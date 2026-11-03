@@ -61,6 +61,17 @@ export const SUBCATEGORIAS_APP: Record<string, { titulo: string; itens: { chave:
       { chave: 'eventos', rotulo: 'Eventos' },
     ],
   },
+  artistas: {
+    titulo: 'Artistas',
+    itens: [
+      { chave: 'banda', rotulo: 'Banda' },
+      { chave: 'solo', rotulo: 'Solo' },
+      { chave: 'drag queens & kings', rotulo: 'Drag Queens & Kings' },
+      { chave: 'djs', rotulo: 'DJs' },
+      { chave: 'humor & stand-up', rotulo: 'Humor & Stand-up' },
+      { chave: 'danca & performance', rotulo: 'Dança & Performance' },
+    ],
+  },
   educacao: {
     titulo: 'Educação',
     itens: [

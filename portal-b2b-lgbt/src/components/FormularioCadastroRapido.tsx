@@ -24,12 +24,13 @@ const CATEGORIAS = [
   { value: 'gastronomia', label: 'Gastronomia', disabled: false },
   { value: 'cultura', label: 'Cultura', disabled: false },
   { value: 'turismo', label: 'Turismo / Agências de turismo', disabled: false },
-  { value: 'beleza', label: 'Beleza', disabled: true },
-  { value: 'mais18', label: 'Espaços 18+', disabled: true },
+  { value: 'beleza', label: 'Beleza & Estética', disabled: false },
+  { value: 'mais18', label: 'Espaços 18+', disabled: false },
   { value: 'lojas', label: 'Lojas', disabled: true },
   { value: 'servicos', label: 'Serviços', disabled: false },
   { value: 'produtos', label: 'Produtos', disabled: false },
   { value: 'educacao', label: 'Educação', disabled: false },
+  { value: 'artistas', label: 'Artistas', disabled: false },
   { value: 'lazer', label: 'Lazer', disabled: true },
 ] as const;
 

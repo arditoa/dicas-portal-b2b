@@ -11,6 +11,8 @@ import PainelDestinos from '../../components/PainelDestinos';
 import PainelRoteiros from '../../components/PainelRoteiros';
 import PainelBanners from '../../components/PainelBanners';
 import PainelVitrine from '../../components/PainelVitrine';
+import PainelCategorias from '../../components/PainelCategorias';
+import PosicaoLocal from '../../components/PosicaoLocal';
 import PainelPush from '../../components/PainelPush';
 import PainelRodizio from '../../components/PainelRodizio';
 import PainelDestaqueHora from '../../components/PainelDestaqueHora';
@@ -105,15 +107,14 @@ function corDias(dias: number): string {
 }
 
 const PLANO_PRECO: Record<string, string> = {
-  starter: 'R$59/mês',
-  intermediario: 'R$249/mês',
-  premium: 'R$599/mês',
+  intermediario: 'R$359/mês',
+  premium: 'R$499/mês',
   // Rodada 59 — Andrea corrigiu: "esse 3500 esta equivocado". Fundador
   // não é mensalidade — é pacote único de 12 meses (mesmo valor de
   // /planos e da página /parceiro-fundador do site institucional).
   // Atualização — "12x R$349" agora lidera (mais vendável), R$3.490 à
   // vista fica como opção entre parênteses.
-  fundador: 'R$349/mês × 12 (ou R$3.490 à vista)',
+  fundador: 'R$349,90/mês × 12',
 };
 
 type InteresseNoPlano = {
@@ -224,10 +225,11 @@ const CATEGORIA_CHIPS: { slug: string; label: string; categoriaReal: string | nu
   { slug: 'bares', label: 'Bares', categoriaReal: 'lugares' },
   { slug: 'gastronomia', label: 'Gastronomia', categoriaReal: 'gastronomia' },
   { slug: 'festas', label: 'Festas', categoriaReal: null }, // eventos ficam na tabela `eventos`, não em `locais` — ver seção de eventos mais abaixo
+  { slug: 'artistas', label: 'Artistas', categoriaReal: 'artistas' }, // categoria nova — migration 069
   { slug: 'cultura', label: 'Cultura', categoriaReal: 'cultura' },
   { slug: 'dicas_trip', label: 'Dicas Trip', categoriaReal: 'turismo' },
   { slug: 'beleza', label: 'Beleza', categoriaReal: 'beleza' },
-  { slug: 'mais18', label: 'Espaço 18+', categoriaReal: null },
+  { slug: 'mais18', label: 'Espaço 18+', categoriaReal: 'mais18' }, // valor novo do enum — migration 070
   { slug: 'lojas', label: 'Lojas', categoriaReal: 'lojas' },
   { slug: 'servicos', label: 'Serviços', categoriaReal: 'servicos' }, // existe no banco — só não aparece pro usuário final ainda (decisão da Andrea, não limitação técnica)
   { slug: 'educacao', label: 'Educação', categoriaReal: 'educacao' }, // categoria nova — migration 053
@@ -243,7 +245,9 @@ const CATEGORIA_REAL_LABEL_ADMIN: Record<string, string> = {
   servicos: 'Serviços',
   produtos: 'Produtos',
   educacao: 'Educação',
+  artistas: 'Artistas',
   beleza: 'Beleza',
+  mais18: 'Espaços 18+',
   lojas: 'Lojas',
   lazer: 'Lazer',
 };
@@ -473,7 +477,7 @@ type LeadInstitucional = {
 // Rodada 89 — menu lateral do /admin, agrupado por tarefa do dia.
 type SubAprov = 'todas' | 'interesse' | 'locais' | 'eventos' | 'vinculos' | 'leads' | 'hospedagem' | 'acesso';
 type ItemSub = { id: SubAprov; rotulo: string; badge?: number };
-type ItemMenu = { subs?: ItemSub[]; id: 'visao' | 'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos' | 'roteiros' | 'push' | 'rodizio' | 'banners' | 'vitrine' | 'denuncias'; rotulo: string; icone: typeof Store; badge?: number; alerta?: boolean };
+type ItemMenu = { subs?: ItemSub[]; id: 'visao' | 'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos' | 'roteiros' | 'push' | 'rodizio' | 'banners' | 'vitrine' | 'categorias' | 'denuncias'; rotulo: string; icone: typeof Store; badge?: number; alerta?: boolean };
 function MENU_ADMIN(pendentes: number, locais: number, eventos: number, fundadores: number, filas: { interesse: number; locais: number; eventos: number; vinculos: number; leads: number; acesso: number }): { grupo: string; itens: ItemMenu[] }[] {
   return [
     { grupo: 'Início', itens: [{ id: 'visao', rotulo: 'Visão geral', icone: LayoutDashboard }] },
@@ -501,6 +505,7 @@ function MENU_ADMIN(pendentes: number, locais: number, eventos: number, fundador
     {
       grupo: 'Vitrine da Home',
       itens: [
+        { id: 'categorias', rotulo: 'Categorias (vagas)', icone: LayoutDashboard },
         { id: 'rodizio', rotulo: 'Rodízio e Destaques', icone: Sparkles },
         { id: 'banners', rotulo: 'Banners e parceiros', icone: Megaphone },
         { id: 'vitrine', rotulo: 'Vitrine das categorias', icone: Store },
@@ -533,6 +538,7 @@ const TITULO_ABA: Record<ItemMenu['id'], string> = {
   rodizio: 'Rodízio e Destaques',
   banners: 'Banners e parceiros',
   vitrine: 'Vitrine das categorias',
+  categorias: 'Categorias e vagas',
   denuncias: 'Denúncias',
 };
 const SUBTITULO_ABA: Record<ItemMenu['id'], string> = {
@@ -547,6 +553,7 @@ const SUBTITULO_ABA: Record<ItemMenu['id'], string> = {
   rodizio: 'Rodízio por horário da Home: quantos locais aparecem por vez, de quanto em quanto tempo troca, e a oferta do bloco Destaques.',
   banners: 'Cartões que giram na tela inicial e na aba Trip (Copa, Embratur, Câmara LGBT, patrocinadores): textos, onde aparecem, peso, período e relatório de exibições e cliques.',
   vitrine: 'Banner fixo de patrocínio de cada categoria, comunicação dos Membros Fundadores (o gancho de venda), limite de ofertas por plano e desempenho dos destaques.',
+  categorias: 'Escolha uma categoria: Patrocínio Master, 12 Banners Premium, subcategorias e 24 Intermediários, na ordem em que aparecem no app. Vaga sem local escolhido é automática (pelo plano).',
   denuncias: 'Ocorrências registradas no app: relato, provas, histórico e atendimento. Conteúdo sensível — acesso restrito à equipe.',
 };
 
@@ -568,7 +575,8 @@ export default function AdminPage() {
   // de existir; `aba` agora cobre os três níveis direto.
   const [subAprov, setSubAprov] = useState<SubAprov>('todas');
   const ver = (k: SubAprov) => subAprov === 'todas' || subAprov === k;
-  const [aba, setAba] = useState<'visao' | 'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos' | 'roteiros' | 'push' | 'rodizio' | 'banners' | 'vitrine' | 'denuncias'>('visao');
+  const [posicaoLocalId, setPosicaoLocalId] = useState<string | null>(null);
+  const [aba, setAba] = useState<'visao' | 'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos' | 'roteiros' | 'push' | 'rodizio' | 'banners' | 'vitrine' | 'categorias' | 'denuncias'>('visao');
   const [filtroPrincipal, setFiltroPrincipal] = useState<string>('todas');
   // Rodada 46 — filtro só da aba Eventos: "O que Fazer Hoje" (destaque_secoes
   // contém 'hoje', mesmo mecanismo que locais já tinham) vs todos.
@@ -2166,6 +2174,13 @@ Dicas LGBT+`;
                     <option value="vip">Prioridade: VIP</option>
                   </select>
                   <button
+                    onClick={() => setPosicaoLocalId(l.id)}
+                    className="flex items-center gap-1 text-xs font-bold px-3 py-2 rounded-lg border border-[#E1306C]/50 text-[#E1306C] hover:bg-[#E1306C]/10"
+                    title="Categoria, subcategoria, plano e vaga (Master, Premium, Intermediário) deste local"
+                  >
+                    Posição no app
+                  </button>
+                  <button
                     onClick={() => setLocalExpandido((atual) => ({ ...atual, [l.id]: !expandido }))}
                     className="flex items-center gap-1 text-xs font-bold px-3 py-2 rounded-lg border border-[#232230] text-[#D0D0E0] hover:bg-[#1D1C29]"
                     aria-expanded={expandido}
@@ -2656,6 +2671,8 @@ Dicas LGBT+`;
       {aba === 'push' && <PainelPush />}
       {aba === 'banners' && <PainelBanners />}
       {aba === 'vitrine' && <PainelVitrine />}
+      {aba === 'categorias' && <PainelCategorias />}
+      {posicaoLocalId && <PosicaoLocal localId={posicaoLocalId} onFechar={() => setPosicaoLocalId(null)} onSalvo={() => { carregarFilas(); }} />}
       {aba === 'rodizio' && (
         <>
           <PainelRodizio />

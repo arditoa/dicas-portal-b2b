@@ -3,7 +3,7 @@
 // exposições/toques dos últimos 30 dias, uso das ofertas do mês e (para Fundadores) a comunicação
 // escrita pela equipe, que ele pode ajustar. Quem ainda não paga vê o que está perdendo + CTA de upgrade.
 // Tabelas/funções: migration 059 (uso_ofertas_mes, resumo_vitrine_local, fundador_comunicacao, categoria_patrocinio).
-import { ArrowLeft, Check, Loader2, Save, Sparkles, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Check, Loader2, Lock, Save, Sparkles, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -18,6 +18,30 @@ type Resumo = { secao: string; exibicoes: number; cliques: number };
 type Com = { headline: string; texto: string; oferta: string; cta: string; destino: string; escrito_por: string };
 type Patro = { categoria: string; tag: string; titulo: string; subtitulo: string; cta: string; destino: string; cor1: string; cor2: string };
 
+// O que cada plano dá ao parceiro — texto simples, sem jargão (mostrado no topo da tela).
+const NOME_CATEGORIA_APP: Record<string, string> = { bares: 'Bares & Vida Noturna', festas: 'Festas & Eventos', servicos: 'Serviços', turismo: 'Dicas Trip', artistas: 'Artistas', beleza: 'Beleza & Estética', mais18: 'Espaços 18+', gastronomia: 'Gastronomia', cultura: 'Cultura', educacao: 'Educação', produtos: 'Compras & Produtos', lazer: 'Experiências & Lazer', destaques: 'Destaques' };
+const PLANO_TEXTO: Record<string, { nome: string; cor: string; itens: string[] }> = {
+  fundador: { nome: 'Membro Fundador', cor: '#FFD54F', itens: [
+    'Seu banner roda nos Destaques e na Home do app, com o selo dourado de Membro Fundador.',
+    'Nossa equipe de comunicação escreve a frase do seu banner para dar vontade de conhecer. Você pode ajustar quando quiser, aqui mesmo.',
+    'Você publica 1 cupom por semana na faixa de cupons da categoria (2 vagas de Fundador por categoria, trocando a cada 20 minutos).',
+  ] },
+  premium: { nome: 'Plano Premium', cor: '#E1306C', itens: [
+    'Seu banner roda no topo da sua categoria — são 12 vagas, 4 aparecem por hora, então você é visto o dia todo.',
+    'Você escreve a frase do banner e pode trocá-la toda semana: é o jeito mais fácil de manter o banner novo e as pessoas voltando. Basta editar a frase abaixo e salvar.',
+    'Além do banner, você publica 1 cupom por semana na faixa de cupons da categoria (10 vagas Premium por categoria).',
+  ] },
+  intermediario: { nome: 'Plano Intermediário', cor: '#7E57C2', itens: [
+    'Você aparece nos quadradinhos de cupom da sua categoria: são 12 vagas para Intermediários, que se alternam (12 por hora), e a tela muda a cada 20 minutos.',
+    'Publique 1 cupom a cada 2 semanas em “Gerenciar ofertas”: é ele que aparece no quadradinho.',
+    'Quer o banner grande no topo da categoria, com a sua frase? Isso é do Plano Premium.',
+  ] },
+  freemium: { nome: 'Plano gratuito', cor: '#A0A0B2', itens: [
+    'Seu local aparece na lista da categoria, como todos.',
+    'No plano Intermediário você ganha um quadradinho de cupom; no Premium, o banner grande no topo da categoria com a sua frase e um cupom por semana.',
+  ] },
+};
+
 const NOME_SECAO: Record<string, string> = { destaques: 'Destaques da categoria', patrocinio: 'Banner patrocinador', oferta: 'Ofertas e benefícios', home: 'Home do app' };
 const rotuloSecao = (s: string) => {
   const [tipo, cat] = s.split(':');
@@ -29,10 +53,12 @@ export default function DestaquesPage() {
   const [carregando, setCarregando] = useState(true);
   const [local, setLocal] = useState<Local | null>(null);
   const [resumo, setResumo] = useState<Resumo[]>([]);
-  const [uso, setUso] = useState<{ limite: number | null; usadas: number } | null>(null);
+  const [uso, setUso] = useState<{ plano: string; periodo: 'semana' | 'mes' | 'dias'; limite: number | null; usadas: number; dias: number; liberaEm: string | null } | null>(null);
   const [com, setCom] = useState<Com | null>(null);
   const [patro, setPatro] = useState<Patro | null>(null);
   const [cham, setCham] = useState<{ chamada: string; cta: string }>({ chamada: '', cta: 'Conhecer' });
+  const [chamAtualizada, setChamAtualizada] = useState<string | null>(null);
+  const [vagas, setVagas] = useState<{ categoria: string; tipo: string; posicao: number }[]>([]);
   const [aviso, setAviso] = useState('');
   const [erro, setErro] = useState('');
 
@@ -46,15 +72,18 @@ export default function DestaquesPage() {
     const { data: r } = await supabase.rpc('resumo_vitrine_local', { p_local_id: l.id, p_dias: 30 });
     setResumo(((r as any[]) || []).map((x) => ({ secao: x.secao, exibicoes: Number(x.exibicoes), cliques: Number(x.cliques) })));
 
-    const { data: o } = await supabase.rpc('uso_ofertas_mes', { p_local_id: l.id });
+    const { data: o } = await supabase.rpc('uso_ofertas_periodo', { p_local_id: l.id });
     const lo = Array.isArray(o) ? o[0] : o;
-    if (lo) setUso({ limite: lo.limite ?? null, usadas: Number(lo.usadas) || 0 });
+    if (lo) setUso({ plano: lo.plano, periodo: lo.periodo === 'dias' ? 'dias' : lo.periodo === 'semana' ? 'semana' : 'mes', limite: lo.limite ?? null, usadas: Number(lo.usadas) || 0, dias: Number(lo.dias) || 7, liberaEm: lo.libera_em ?? null });
 
     const { data: c } = await supabase.from('fundador_comunicacao').select('headline, texto, oferta, cta, destino, escrito_por').eq('local_id', l.id).maybeSingle();
     if (c) setCom({ headline: c.headline || '', texto: c.texto || '', oferta: c.oferta || '', cta: c.cta || 'Conhecer', destino: c.destino || '', escrito_por: c.escrito_por });
 
-    const { data: ch } = await supabase.from('destaque_chamada').select('chamada, cta').eq('local_id', l.id).maybeSingle();
-    if (ch) setCham({ chamada: (ch as any).chamada || '', cta: (ch as any).cta || 'Conhecer' });
+    const { data: ch } = await supabase.from('destaque_chamada').select('chamada, cta, updated_at').eq('local_id', l.id).maybeSingle();
+    if (ch) { setCham({ chamada: (ch as any).chamada || '', cta: (ch as any).cta || 'Conhecer' }); setChamAtualizada((ch as any).updated_at || null); }
+
+    const { data: vg } = await supabase.from('vitrine_vaga').select('categoria, tipo, posicao').eq('local_id', l.id);
+    setVagas((vg as any[]) || []);
 
     const { data: p } = await supabase.from('categoria_patrocinio').select('categoria, tag, titulo, subtitulo, cta, destino, cor1, cor2').eq('local_id', l.id).maybeSingle();
     if (p) setPatro({ ...(p as any), subtitulo: (p as any).subtitulo || '' });
@@ -78,7 +107,7 @@ export default function DestaquesPage() {
     setErro(''); setAviso('');
     if (!cham.chamada.trim()) { setErro('Escreva a chamada do seu banner.'); return; }
     const { error } = await supabase.from('destaque_chamada').upsert({ local_id: local.id, chamada: cham.chamada.trim(), cta: cham.cta.trim() || 'Conhecer' });
-    if (error) setErro(error.message); else setAviso('Chamada salva — o banner já usa esse texto.');
+    if (error) setErro(error.message); else { setAviso('Frase salva — o banner já usa esse texto.'); setChamAtualizada(new Date().toISOString()); }
   };
 
   const salvarPatro = async () => {
@@ -99,6 +128,10 @@ export default function DestaquesPage() {
   const totalExib = resumo.reduce((a, x) => a + x.exibicoes, 0);
   const totalCliq = resumo.reduce((a, x) => a + x.cliques, 0);
   const ehFundador = !!com || local.plano_comercial === 'fundador';
+  const planoAtivo = pago ? local.plano_comercial : 'freemium';
+  const textoPlano = PLANO_TEXTO[planoAtivo] || PLANO_TEXTO.freemium;
+  const podeEditarFrase = pago && (local.plano_comercial === 'premium' || local.plano_comercial === 'fundador');
+  const diasChamada = chamAtualizada ? Math.floor((Date.now() - new Date(chamAtualizada).getTime()) / 86400000) : null;
 
   return (
     <div className="max-w-3xl mx-auto px-5 py-8 text-white">
@@ -116,6 +149,22 @@ export default function DestaquesPage() {
           <Link href="/planos" className="inline-block bg-[#E1306C] hover:bg-[#C2285C] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition">Quero aparecer em destaque</Link>
         </div>
       )}
+
+      <div className={card} style={{ borderColor: textoPlano.cor + '66' }}>
+        <p className="text-[11px] font-bold uppercase text-[#A0A0B2] mb-1">O seu plano</p>
+        <h2 className="text-base font-black mb-3" style={{ color: textoPlano.cor }}>{textoPlano.nome}{pago ? '' : ''}</h2>
+        <ul className="space-y-2 text-xs text-[#D0D0E0] list-disc list-inside">
+          {textoPlano.itens.map((t) => <li key={t}>{t}</li>)}
+        </ul>
+        {vagas.length > 0 && (
+          <p className="text-xs mt-3 text-[#D0D0E0]">
+            <b>Sua vaga no app:</b>{' '}
+            {vagas.map((v) => `${v.tipo === 'premium' ? (local.plano_comercial === 'fundador' ? 'Banner Fundador' : 'Banner Premium') : 'Intermediário'} ${v.posicao} em ${NOME_CATEGORIA_APP[v.categoria] || v.categoria}`).join(' · ')}.
+          </p>
+        )}
+        {vagas.length === 0 && pago && <p className="text-[11px] mt-3 text-[#A0A0B2]">A posição exata do seu banner entre as vagas é definida pela nossa equipe; você não precisa fazer nada para entrar na rotação.</p>}
+        {!pago && <Link href="/planos" className="inline-block mt-4 bg-[#E1306C] hover:bg-[#C2285C] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition">Conhecer os planos</Link>}
+      </div>
 
       <div className="grid grid-cols-3 gap-3 mb-6">
         <div className={card + ' !mb-0 text-center'}><p className="text-2xl font-black">{totalExib}</p><p className="text-[11px] text-[#A0A0B2]">Exibições</p></div>
@@ -136,20 +185,31 @@ export default function DestaquesPage() {
       </div>
 
       <div className={card}>
-        <h2 className="text-sm font-black mb-1">Chamada do seu banner de destaque</h2>
-        <p className="text-xs text-[#A0A0B2] mb-3">No banner que gira no topo das categorias <b>seu nome não aparece</b>: aparece uma chamada que dá vontade de conhecer. Ex.: &ldquo;Conheça o nosso queridinho drink de Lichia&rdquo;. Quem toca vai para a página do {local.nome}.</p>
+        <h2 className="text-sm font-black mb-1 flex items-center gap-2">{!podeEditarFrase && <Lock size={14} className="text-[#A0A0B2]" />} Frase do seu banner</h2>
+        {podeEditarFrase && (
+          <p className={`text-xs mb-3 ${diasChamada !== null && diasChamada >= 7 ? 'text-amber-400' : 'text-[#A0A0B2]'}`}>
+            {diasChamada === null ? 'Você ainda não escreveu a frase do seu banner.' : diasChamada >= 7 ? `Sua frase foi atualizada há ${diasChamada} dias. Que tal trocar por uma novidade da semana? Banner novo chama mais atenção.` : `Sua frase foi atualizada há ${diasChamada} dia${diasChamada === 1 ? '' : 's'}. Você pode trocar quando quiser — o ideal é toda semana.`}
+          </p>
+        )}
+        {!podeEditarFrase && (
+          <div className="bg-[#0B0B0E] border border-[#232230] rounded-xl p-3 mb-3 text-xs text-[#C9C9D6]">
+            A frase do banner grande no topo da categoria é do <b>Plano Premium</b> (e do Fundador): ele roda 4 por hora e você troca a frase toda semana. Hoje o seu plano não inclui esse banner{pago ? '' : ', e o plano ainda não está ativo'}.
+            <Link href="/planos" className="text-[#E1306C] font-bold ml-1">Ver planos</Link>
+          </div>
+        )}
+        <p className="text-xs text-[#A0A0B2] mb-3">No banner que gira no topo da categoria <b>seu nome não aparece</b>: aparece uma chamada que dá vontade de conhecer. Ex.: &ldquo;Conheça o nosso queridinho drink de Lichia&rdquo;. Quem toca vai para a página do {local.nome}.</p>
         <div className="space-y-3">
           <div><label className={label}>Chamada (até 90 caracteres)</label><input className={input} maxLength={90} value={cham.chamada} onChange={(e) => setCham({ ...cham, chamada: e.target.value })} /></div>
           <div><label className={label}>Texto do botão</label><input className={input} maxLength={24} value={cham.cta} onChange={(e) => setCham({ ...cham, cta: e.target.value })} /></div>
-          <button onClick={salvarChamada} className="bg-[#E1306C] hover:bg-[#C2285C] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition inline-flex items-center gap-2"><Save size={14} /> Salvar chamada</button>
-          {!pago && <p className="text-[11px] text-[#A0A0B2]">O banner só gira para planos pagos — a chamada fica guardada para quando o plano for ativado.</p>}
+          <button onClick={salvarChamada} className="bg-[#E1306C] hover:bg-[#C2285C] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition inline-flex items-center gap-2"><Save size={14} /> Salvar frase</button>
+          {!podeEditarFrase && <p className="text-[11px] text-[#A0A0B2]">Você pode guardar a frase desde já: ela entra no ar quando o plano Premium for ativado.</p>}
         </div>
       </div>
 
       <div className={card}>
-        <h2 className="text-sm font-black mb-1">Ofertas do mês</h2>
+        <h2 className="text-sm font-black mb-1">{uso?.periodo === 'dias' ? (uso.dias === 7 ? 'Cupom da semana' : `Cupom a cada ${uso.dias} dias`) : 'Ofertas'}</h2>
         <p className="text-xs text-[#A0A0B2] mb-3">
-          {uso === null ? 'Carregando…' : uso.limite === null ? `Sem limite mensal no seu plano. Você publicou ${uso.usadas} neste mês.` : `Você usou ${uso.usadas} de ${uso.limite} ofertas deste mês.`}
+          {uso === null ? 'Carregando…' : uso.periodo === 'dias' ? `Seu plano permite ${uso.limite ?? 1} cupom a cada ${uso.dias} dias${uso.dias === 7 ? ' (1 por semana)' : uso.dias === 14 ? ' (1 a cada 2 semanas)' : ''}; ele aparece na faixa de cupons da sua categoria. Você publicou ${uso.usadas} nos últimos ${uso.dias} dias${uso.liberaEm && uso.limite !== null && uso.usadas >= uso.limite ? ` e libera o próximo em ${new Date(uso.liberaEm).toLocaleDateString('pt-BR')}` : ''}.` : uso.limite === null ? `Sem limite mensal no seu plano. Você publicou ${uso.usadas} neste mês.` : `Você usou ${uso.usadas} de ${uso.limite} ofertas deste mês.`}
         </p>
         <Link href="/dashboard/cupons" className="inline-block bg-[#232230] hover:bg-[#2D2B3D] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition">Gerenciar ofertas</Link>
       </div>
@@ -176,8 +236,8 @@ export default function DestaquesPage() {
 
       {patro && (
         <div className={card}>
-          <h2 className="text-sm font-black mb-1">Seu banner de patrocinador ({patro.categoria})</h2>
-          <p className="text-xs text-[#A0A0B2] mb-4">Fica logo abaixo dos destaques da categoria. Ajuste o texto, o botão e as cores; imagem, período e categoria são definidos pela equipe.</p>
+          <h2 className="text-sm font-black mb-1">Seu Patrocínio Master ({NOME_CATEGORIA_APP[patro.categoria] || patro.categoria})</h2>
+          <p className="text-xs text-[#A0A0B2] mb-4">É a faixa grande no topo da categoria, só sua. Você pode ajustar os dizeres, o botão e as cores quando quiser; a arte e o período são definidos pela nossa equipe.</p>
           <div className="space-y-3">
             <div className="rounded-xl p-4" style={{ background: `linear-gradient(135deg, ${patro.cor1}, ${patro.cor2})` }}>
               <p className="text-[10px] font-black tracking-wider opacity-80">{patro.tag}</p>

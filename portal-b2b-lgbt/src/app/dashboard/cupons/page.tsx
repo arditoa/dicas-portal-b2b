@@ -48,8 +48,8 @@ export default function CupomPage() {
   const [validoDe, setValidoDe] = useState('');
   const [validoAte, setValidoAte] = useState('');
   const [limiteUso, setLimiteUso] = useState('');
-  // Migration 059 — quantas ofertas o plano permite por mês (null = sem limite).
-  const [uso, setUso] = useState<{ plano: string; limite: number | null; usadas: number } | null>(null);
+  // Migration 066 — quantas ofertas o plano permite por período (Premium/Fundador: 1 a cada 7 dias; Intermediário: 1 a cada 14 dias; null = sem limite).
+  const [uso, setUso] = useState<{ plano: string; periodo: 'semana' | 'mes' | 'dias'; limite: number | null; usadas: number; dias: number; liberaEm: string | null } | null>(null);
 
   const carregarCupons = useCallback(async (id: string) => {
     const { data } = await supabase
@@ -63,9 +63,9 @@ export default function CupomPage() {
       resgates: c.cupons_resgatados?.[0]?.count ?? 0,
     }));
     setCupons(lista);
-    const { data: u } = await supabase.rpc('uso_ofertas_mes', { p_local_id: id });
+    const { data: u } = await supabase.rpc('uso_ofertas_periodo', { p_local_id: id });
     const linha = Array.isArray(u) ? u[0] : u;
-    if (linha) setUso({ plano: linha.plano, limite: linha.limite ?? null, usadas: Number(linha.usadas) || 0 });
+    if (linha) setUso({ plano: linha.plano, periodo: linha.periodo === 'dias' ? 'dias' : linha.periodo === 'semana' ? 'semana' : 'mes', limite: linha.limite ?? null, usadas: Number(linha.usadas) || 0, dias: Number(linha.dias) || 7, liberaEm: linha.libera_em ?? null });
   }, []);
 
   useEffect(() => {
@@ -229,8 +229,17 @@ export default function CupomPage() {
 
       {uso && (
         <div className={`border rounded-2xl p-4 mb-6 text-xs ${uso.limite !== null && uso.usadas >= uso.limite ? 'bg-amber-500/10 border-amber-500/30 text-amber-300' : 'bg-[#161520] border-[#232230] text-[#A0A0B2]'}`}>
-          {uso.limite === null ? (
-            <>Plano <b className="text-white">{uso.plano}</b>: ofertas sem limite mensal. Elas aparecem no topo das categorias e em &ldquo;Ofertas e benefícios&rdquo;.</>
+          {uso.periodo === 'dias' ? (
+            <>
+              Plano <b className="text-white">{uso.plano === 'fundador' ? 'Fundador' : uso.plano === 'premium' ? 'Premium' : uso.plano === 'intermediario' ? 'Intermediário' : uso.plano}</b>:
+              {' '}você pode publicar <b className="text-white">{uso.limite ?? 1} cupom a cada {uso.dias} dias</b>{uso.dias === 7 ? ' (1 por semana)' : uso.dias === 14 ? ' (1 a cada 2 semanas)' : ''}.
+              {' '}Nos últimos {uso.dias} dias você publicou <b className="text-white">{uso.usadas}</b>.
+              {uso.limite !== null && uso.usadas >= uso.limite
+                ? <> {uso.liberaEm ? <>Você libera o próximo em <b className="text-white">{new Date(uso.liberaEm).toLocaleDateString('pt-BR')}</b>.</> : <>Em breve você libera outro.</>}</>
+                : <> Seu cupom aparece na faixa de cupons da sua categoria no app (os quadradinhos que passam de lado).</>}
+            </>
+          ) : uso.limite === null ? (
+            <>Plano <b className="text-white">{uso.plano}</b>: você pode criar cupons para o perfil do seu local. A faixa de cupons das categorias é dos planos Intermediário, Premium e Fundador.</>
           ) : (
             <>
               Plano <b className="text-white">{uso.plano}</b>: você usou <b className="text-white">{uso.usadas} de {uso.limite}</b> ofertas deste mês.

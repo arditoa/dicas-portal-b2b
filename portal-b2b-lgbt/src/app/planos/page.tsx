@@ -7,7 +7,20 @@ import { supabase } from '../../lib/supabase';
 
 // Nomes/valores usados no enum public.plano_comercial (005). Precisam bater
 // exatamente com os `slug`s abaixo.
-const planos = [
+type PlanoCard = {
+  slug: string;
+  nome: string;
+  preco: string;
+  sub: string;
+  tag?: string;
+  beneficios: readonly { text: string; ok: boolean }[];
+  cta: string;
+  highlight: boolean;
+  color?: string;
+  borderGold?: boolean;
+};
+
+const planos: readonly PlanoCard[] = [
   {
     slug: 'freemium',
     nome: 'Freemium',
@@ -16,36 +29,23 @@ const planos = [
     beneficios: [
       { text: 'Aparece no mapa e na categoria', ok: true },
       { text: '@Instagram no perfil', ok: false },
-      { text: 'Cupons', ok: false },
-      { text: 'Destaque / tags', ok: false },
+      { text: 'Oferta semanal', ok: false },
+      { text: 'Posição de destaque na categoria', ok: false },
     ],
     cta: 'Continuar grátis',
     highlight: false,
   },
   {
-    slug: 'starter',
-    nome: 'Starter',
-    preco: 'R$59',
+    slug: 'intermediario',
+    nome: 'Intermediário',
+    preco: 'R$359',
     sub: '/mês',
     beneficios: [
       { text: 'Tudo do Freemium', ok: true },
-      { text: 'Mostre seu instagram', ok: true },
-      { text: '2 cupons por mês', ok: false },
-      { text: 'Destaque / tags', ok: false },
-    ],
-    cta: 'Selecionar',
-    highlight: false,
-  },
-  {
-    slug: 'intermediario',
-    nome: 'Intermediário',
-    preco: 'R$249',
-    sub: '/mês',
-    beneficios: [
-      { text: 'Tudo do Starter', ok: true },
-      { text: 'Suba na sua categoria', ok: true },
-      { text: 'Prioridade — Top 15 da categoria', ok: true },
-      { text: 'Cupons ilimitados', ok: true },
+      { text: '1 cupom a cada 2 semanas na faixa de cupons da categoria (24 posições por categoria: 12 delas para Intermediários, que se alternam)', ok: true },
+      { text: 'Seu cupom roda em telas de 6, que mudam a cada 20 minutos', ok: true },
+      { text: 'Na busca da categoria, aparece logo depois dos Fundadores e Premiums', ok: true },
+      { text: 'Roda nos banners de destaque inferiores da tela inicial, entre os 15 primeiros, a cada 4 horas', ok: true },
     ],
     cta: 'Selecionar',
     highlight: false,
@@ -54,12 +54,14 @@ const planos = [
     slug: 'premium',
     nome: 'Premium',
     tag: 'RECOMENDADO',
-    preco: 'R$599',
+    preco: 'R$499',
     sub: '/mês',
     beneficios: [
-      { text: 'Tudo do Intermediário', ok: true },
-      { text: 'Apareça no "Em Alta"', ok: true },
-      { text: 'Seção "Em Alta" rotativa (pool de 20)', ok: true },
+      { text: 'Tudo do Freemium', ok: true },
+      { text: 'Banner rotativo no topo da categoria (12 vagas por categoria, slots de 4, troca a cada 3 horas, texto de curiosidade trocado toda semana)', ok: true },
+      { text: '1 cupom por semana na faixa de cupons da categoria (10 vagas Premium por categoria)', ok: true },
+      { text: 'Sempre em primeiro na lista da categoria, por 12 meses', ok: true },
+      { text: 'Roda nos banners de destaque inferiores da tela inicial, entre os 10 primeiros, a cada 3 horas', ok: true },
       { text: '3 tags — Top 5', ok: true },
       { text: '1 push mensal', ok: true },
     ],
@@ -68,35 +70,26 @@ const planos = [
     color: '#E1306C',
   },
   {
-    // Rodada 59 — Andrea corrigiu: "esse 3500 esta equivocado". O plano
-    // Fundador nunca foi mensal de verdade — é um pacote único de 12
-    // meses (R$3.490 à vista ou 12x R$349, ~R$4.188 parcelado), igual ao
-    // que a página /parceiro-fundador do site institucional já anuncia
-    // (Rodada 58, copy do Guia). R$3.500/mês era o valor errado, usado
-    // desde a Rodada 24.
-    // Rodada 59 (parte 2) — "5 VAGAS NO TOTAL" também estava errado;
-    // Andrea confirmou "10 oportunidades", batendo com "Lote 1 | 10
-    // oportunidades" que já estava certo em /parceiro-fundador.
-    // Atualização — Andrea pediu pra liderar com "12x R$349" em vez de
-    // "R$3.490", pra parecer mais barato/vendável (mesmo pacote de 12
-    // meses, só troca qual número fica em destaque). R$3.490 à vista
-    // continua disponível, agora como opção secundária no "sub".
+    // Fundador: 12 vagas, R$349,90/mês por 12 meses (confirmado pela Andrea).
+    // Único plano com o ícone "Destaques" e o banner na tela inicial (4 por hora).
     slug: 'fundador',
     nome: 'Fundador',
-    tag: '10 VAGAS NO TOTAL',
-    preco: 'R$349',
-    sub: '/mês × 12 (ou R$3.490 à vista)',
+    tag: '12 VAGAS NO TOTAL',
+    preco: 'R$349,90',
+    sub: '/mês × 12 meses',
     beneficios: [
       { text: 'Tudo do Premium', ok: true },
-      { text: 'Banner permanente na Home', ok: true },
-      { text: 'Não entra em rotação', ok: true },
+      { text: 'Banner no topo da tela inicial por 12 meses (slots de 4, troca a cada 3 horas, texto de curiosidade trocado toda semana)', ok: true },
+      { text: '1 cupom por semana na faixa de cupons da categoria (2 vagas de Fundador, trocando a cada 20 minutos)', ok: true },
+      { text: 'Categoria Destaques — exclusiva dos 12 Fundadores, por ordem de fechamento', ok: true },
+      { text: 'Sempre em primeiro na lista da categoria; fixo na página principal', ok: true },
       { text: 'Vagas travadas — exclusividade', ok: true },
     ],
     cta: 'Consultar vaga',
     highlight: false,
     borderGold: true,
   },
-] as const;
+];
 
 export default function PlanosPage() {
   const router = useRouter();
@@ -199,7 +192,7 @@ export default function PlanosPage() {
 
       {erro && <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl text-xs mb-6">{erro}</div>}
 
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
         {planos.map((p) => (
           <div
             key={p.slug}

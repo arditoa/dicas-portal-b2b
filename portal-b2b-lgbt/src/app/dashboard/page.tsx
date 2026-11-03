@@ -10,13 +10,12 @@ import { supabase } from '../../lib/supabase';
 // os cards mostrados em /planos.
 const PLANO_INFO: Record<string, { nome: string; preco: string }> = {
   freemium: { nome: 'Freemium', preco: 'R$0' },
-  starter: { nome: 'Starter', preco: 'R$59/mês' },
-  intermediario: { nome: 'Intermediário', preco: 'R$249/mês' },
-  premium: { nome: 'Premium', preco: 'R$599/mês' },
+  intermediario: { nome: 'Intermediário', preco: 'R$359/mês' },
+  premium: { nome: 'Premium', preco: 'R$499/mês' },
   // Rodada 59 — Andrea corrigiu: "esse 3500 esta equivocado". Fundador
   // não é mensalidade, é pacote único de 12 meses.
   // Atualização — "12x R$349" agora lidera (mais vendável).
-  fundador: { nome: 'Fundador', preco: 'R$349/mês × 12 (ou R$3.490 à vista)' },
+  fundador: { nome: 'Fundador', preco: 'R$349,90/mês × 12' },
 };
 
 const STATUS_PLANO_INFO: Record<string, { label: string; cor: string }> = {
@@ -250,6 +249,12 @@ export default function DashboardPage() {
             className="bg-[#232230] hover:bg-[#2D2B3D] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"
           >
             Cupons
+          </Link>
+          <Link
+            href="/dashboard/fidelidade"
+            className="bg-[#232230] hover:bg-[#2D2B3D] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"
+          >
+            Fidelidade
           </Link>
           <Link
             href="/dashboard/destaques"
