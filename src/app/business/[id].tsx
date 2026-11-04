@@ -217,6 +217,11 @@ interface ProgressoFidelidade {
   janela: 'mes' | 'sempre';
   visitas: number;
   ja_ganhou: boolean;
+  // Migration 081: visitas sem teto e nível VIP opcional da casa.
+  visitas_periodo?: number;
+  visitas_total?: number;
+  visitas_vip?: number | null;
+  beneficio_vip?: string | null;
 }
 
 interface CheckinAtivo {
@@ -424,6 +429,24 @@ export default function BusinessDetailScreen() {
         ? 'Você já fez check-in nesse local nas últimas 12 horas — tente de novo mais tarde.'
         : texto || 'Não foi possível fazer o check-in. Tente novamente.';
       Alert.alert('Check-in', mensagem);
+    } finally {
+      setFazendoCheckin(false);
+    }
+  };
+
+  // Migration 081: o cliente já fez o check-in (que conta a visita da fidelidade) e escolhe o cupom depois.
+  const handleUsarCupom = async (cupomId: string) => {
+    if (!user) {
+      exigirLogin('Crie sua conta ou entre para usar o cupom.');
+      return;
+    }
+    setFazendoCheckin(true);
+    try {
+      const { error } = await supabase.rpc('usar_cupom_no_checkin', { p_cupom_id: cupomId });
+      if (error) throw error;
+      carregarDados();
+    } catch (err: any) {
+      Alert.alert('Cupom', err?.message || 'Não foi possível usar o cupom. Tente novamente.');
     } finally {
       setFazendoCheckin(false);
     }
@@ -717,6 +740,8 @@ export default function BusinessDetailScreen() {
                 : null;
               const confirmado = !!meuCheckin?.validado_em;
               const checkinExpirado = meuCheckin && !confirmado ? new Date(meuCheckin.expira_em).getTime() < Date.now() : false;
+              // Check-in da fidelidade já feito (confirmado, ou com código ainda válido) e sem cupom: o cupom entra nele, sem novo check-in.
+              const checkinSemCupom = !!meuCheckin && !meuCheckin.cupom_id && (confirmado || !checkinExpirado);
               const horaConfirmado = meuCheckin?.validado_em
                 ? new Date(meuCheckin.validado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
                 : '';
@@ -732,7 +757,11 @@ export default function BusinessDetailScreen() {
                     <Text style={styles.cupomHeaderText}>Cupom disponível</Text>
                   </View>
 
-                  {confirmado ? (
+                  {checkinSemCupom && (
+                    <Text style={styles.fidDica}>Seu check-in de hoje já conta como visita. Escolha o cupom que quer usar:</Text>
+                  )}
+
+                  {confirmado && !checkinSemCupom ? (
                     <>
                       <Text style={styles.cupomTitulo}>{cupomAtivoDoCheckin?.titulo || 'Seu check-in'}</Text>
                       <View style={styles.codigoBox}>
@@ -742,7 +771,7 @@ export default function BusinessDetailScreen() {
                         <Text style={styles.codigoValidade}>Mostre esta tela ao atendente para usar seu cupom</Text>
                       </View>
                     </>
-                  ) : meuCheckin && !checkinExpirado ? (
+                  ) : meuCheckin && !checkinExpirado && !checkinSemCupom ? (
                     <>
                       <Text style={styles.cupomTitulo}>{cupomAtivoDoCheckin?.titulo || 'Seu check-in'}</Text>
                       <View style={styles.codigoBox}>
@@ -763,7 +792,7 @@ export default function BusinessDetailScreen() {
                         )}
                         <TouchableOpacity
                           style={[styles.actionBtn, styles.cupomBtn, (fazendoCheckin || !dentroDaJanela(cupom.dias_semana, cupom.hora_inicio, cupom.hora_fim)) && { opacity: 0.5 }]}
-                          onPress={() => handleFazerCheckin(cupom.id)}
+                          onPress={() => (checkinSemCupom ? handleUsarCupom(cupom.id) : handleFazerCheckin(cupom.id))}
                           disabled={fazendoCheckin || !dentroDaJanela(cupom.dias_semana, cupom.hora_inicio, cupom.hora_fim)}
                         >
                           <Feather name="check-circle" size={18} color="#FFF" style={{ marginRight: 8 }} />
@@ -771,7 +800,7 @@ export default function BusinessDetailScreen() {
                             {fazendoCheckin
                               ? 'Fazendo check-in...'
                               : dentroDaJanela(cupom.dias_semana, cupom.hora_inicio, cupom.hora_fim)
-                                ? 'Fazer check-in pra resgatar'
+                                ? (checkinSemCupom ? 'Usar este cupom' : 'Fazer check-in pra resgatar')
                                 : 'Fora do dia/horário deste cupom'}
                           </Text>
                         </TouchableOpacity>
@@ -793,6 +822,10 @@ export default function BusinessDetailScreen() {
               const v = Math.min(f.visitas, n);
               const meta = f.visitas >= n;
               const noMes = f.janela === 'mes';
+              const noPeriodo = f.visitas_periodo ?? f.visitas;
+              const totalVisitas = Math.max(f.visitas_total ?? noPeriodo, noPeriodo);
+              const vipN = f.visitas_vip ?? null;
+              const ehVip = !!vipN && noPeriodo >= vipN;
               const checkinConfirmado = !!meuCheckin?.validado_em;
               const checkinAberto = !!meuCheckin && !checkinConfirmado && new Date(meuCheckin.expira_em).getTime() >= Date.now();
               return (
@@ -833,7 +866,25 @@ export default function BusinessDetailScreen() {
                           : `Você tem ${f.visitas} de ${n} visitas${noMes ? ' neste mês' : ''}.`}
                   </Text>
 
-                  {user && cupons.length === 0 && checkinAberto && meuCheckin && (
+                  {!!user && (
+                    <Text style={styles.fidVezes}>
+                      Você já foi {noPeriodo} {noPeriodo === 1 ? 'vez' : 'vezes'}{noMes ? ' neste mês' : ''} a esta casa
+                      {totalVisitas > noPeriodo ? ` · ${totalVisitas} no total` : ''}.
+                    </Text>
+                  )}
+
+                  {!!vipN && !!f.beneficio_vip && (
+                    <View style={[styles.fidVip, ehVip && styles.fidVipOn]}>
+                      <Feather name="star" size={14} color={ehVip ? '#0B0B0E' : '#FFD54F'} />
+                      <Text style={[styles.fidVipTexto, ehVip && { color: '#0B0B0E' }]}>
+                        {ehVip
+                          ? `Cliente VIP! ${f.beneficio_vip}`
+                          : `Nível VIP: com ${vipN} visitas${noMes ? ' no mês' : ''} você ganha ${f.beneficio_vip}${user ? ` (faltam ${Math.max(0, vipN - noPeriodo)})` : ''}`}
+                      </Text>
+                    </View>
+                  )}
+
+                  {user && checkinAberto && meuCheckin && !meuCheckin.cupom_id && (
                     <View style={styles.codigoBox}>
                       <Text style={styles.codigoLabel}>Mostre este código no caixa para contar a visita</Text>
                       <Text style={styles.codigoTexto}>{meuCheckin.codigo}</Text>
@@ -843,7 +894,10 @@ export default function BusinessDetailScreen() {
                     </View>
                   )}
 
-                  {user && cupons.length === 0 && checkinConfirmado && (
+                  {user && checkinConfirmado && !!meuCheckin?.cupom_id && (
+                    <Text style={styles.fidDica}>Visita de hoje contada neste check-in.</Text>
+                  )}
+                  {user && checkinConfirmado && !meuCheckin?.cupom_id && (
                     <View style={styles.codigoBox}>
                       <Feather name="check-circle" size={26} color="#4CAF7D" />
                       <Text style={styles.confirmadoTitulo}>Check-in confirmado</Text>
@@ -851,18 +905,18 @@ export default function BusinessDetailScreen() {
                     </View>
                   )}
 
-                  {cupons.length === 0 && !checkinAberto && !checkinConfirmado && !f.ja_ganhou && (
+                  {!checkinAberto && !checkinConfirmado && (
                     <TouchableOpacity
                       style={[styles.actionBtn, styles.cupomBtn, { marginTop: 10 }, fazendoCheckin && { opacity: 0.6 }]}
                       onPress={() => handleFazerCheckin(null)}
                       disabled={fazendoCheckin}
                     >
                       <Feather name="check-circle" size={18} color="#FFF" style={{ marginRight: 8 }} />
-                      <Text style={styles.actionBtnText}>{fazendoCheckin ? 'Fazendo check-in...' : 'Fazer check-in (conta 1 visita)'}</Text>
+                      <Text style={styles.actionBtnText}>{fazendoCheckin ? 'Fazendo check-in...' : cupons.length > 0 ? 'Fazer check-in (visita + cupons)' : 'Fazer check-in (conta 1 visita)'}</Text>
                     </TouchableOpacity>
                   )}
-                  {cupons.length > 0 && !f.ja_ganhou && (
-                    <Text style={styles.fidDica}>Cada check-in confirmado pela casa (use o cupom acima) conta 1 visita.</Text>
+                  {cupons.length > 0 && !checkinAberto && !checkinConfirmado && (
+                    <Text style={styles.fidDica}>Um check-in só: conta a visita aqui e libera o cupom que você escolher.</Text>
                   )}
                   {!!user && (
                     <TouchableOpacity onPress={carregarDados} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -1188,6 +1242,10 @@ const styles = StyleSheet.create({
   fidBarraOn: { height: 8, backgroundColor: '#FFD54F' },
   fidProgresso: { fontSize: 13, color: '#D0D0E0', marginTop: 8 },
   fidDica: { fontSize: 11, color: '#A0A0B2', marginTop: 8 },
+  fidVezes: { color: '#D0D0E0', fontSize: 12, fontWeight: '700', marginTop: 6 },
+  fidVip: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10, padding: 10, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,213,79,0.35)', backgroundColor: 'rgba(255,213,79,0.08)' },
+  fidVipOn: { backgroundColor: '#FFD54F', borderColor: '#FFD54F' },
+  fidVipTexto: { flex: 1, color: '#FFD54F', fontSize: 12, fontWeight: '700' },
   fidAtualizar: { fontSize: 11, fontWeight: '700', color: '#E1306C', marginTop: 10, textDecorationLine: 'underline' },
 
   videoCard: { marginTop: 16, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230', borderRadius: 18, padding: 14 },
