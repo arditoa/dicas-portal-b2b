@@ -323,7 +323,7 @@ export default function DashboardEventosPage() {
       {eventos.length === 0 && (
         <p className="text-xs text-[#626274]">
           Nenhum evento seu por aqui ainda. Cadastre uma festa em{' '}
-          <Link href="/cadastro/evento" className="underline hover:text-white">/cadastro/evento</Link>.
+          <Link href="/onboarding?aba=evento" className="underline hover:text-white">cadastro de festas</Link>.
         </p>
       )}
 

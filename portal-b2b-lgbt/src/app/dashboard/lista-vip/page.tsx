@@ -191,7 +191,7 @@ export default function ListaVipPage() {
           {eventos.length === 0 && (
             <p className="text-xs text-[#626274]">
               Nenhum evento cadastrado ainda pra este local. Cadastre um pelo{' '}
-              <Link href="/cadastro/evento" className="underline hover:text-white">
+              <Link href="/onboarding?aba=evento" className="underline hover:text-white">
                 formulário público
               </Link>{' '}
               (não precisa estar logado pra isso).

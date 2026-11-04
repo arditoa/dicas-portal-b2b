@@ -13,6 +13,7 @@
 import { Check, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { SUBCATEGORIAS_APP } from '../lib/subcategoriasApp';
+import { sugestaoDeCategoria } from '../lib/sugestaoCategoria';
 import { supabase } from '../lib/supabase';
 
 const campo =
@@ -33,6 +34,7 @@ export default function SubcategoriaAdmin({
   const atual = (valor ?? '').trim();
   const naLista = itens.some((i) => i.rotulo === atual);
   const textoLivreSalvo = !!atual && !naLista;
+  const sugestao = sugestaoDeCategoria(valor);
 
   const [escrevendo, setEscrevendo] = useState(false);
   const [texto, setTexto] = useState(textoLivreSalvo ? atual : '');
@@ -132,7 +134,13 @@ export default function SubcategoriaAdmin({
         )}
       </div>
 
-      {textoLivreSalvo && (
+      {sugestao && (
+        <p className="rounded-lg border border-[#A855F7]/40 bg-[#A855F7]/10 px-3 py-2 text-[11px] leading-relaxed text-[#D8B4FE]">
+          O parceiro sugeriu uma categoria nova: <b>&quot;{sugestao}&quot;</b>. O cadastro entrou como Serviços só para caber no
+          sistema. Escolha a categoria certa acima (ou crie a nova) e depois limpe este campo.
+        </p>
+      )}
+      {textoLivreSalvo && !sugestao && (
         <p className="text-[11px] leading-relaxed text-[#FFB74D]">
           &quot;{atual}&quot; não está na lista do app: o local aparece em &quot;Outros&quot; dentro da categoria (a menos que o app
           reconheça o nome). Escolha uma da lista para ele cair no ícone certo.

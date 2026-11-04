@@ -1180,7 +1180,7 @@ Dicas LGBT+`;
   // (fotos_locais_insert_dono/update_dono, migration 007) já libera
   // is_admin() pra escrever em qualquer local, então não precisou de
   // migration nova, só esta UI. Mesmo padrão de path já usado no
-  // cadastro rápido (FormularioCadastroRapido.tsx): `${id}/capa-...` /
+  // cadastro (FormularioLocal.tsx): `${id}/capa-...` /
   // `${id}/galeria-...` no bucket público fotos-locais.
   const enviarFotoLocal = async (
     local: LocalDestaque,

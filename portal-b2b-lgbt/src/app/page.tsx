@@ -49,7 +49,7 @@ export default function HomePage() {
       <section className="w-full max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 my-auto">
         {/* Card 1: Local / Estabelecimento */}
         <Link
-          href="/cadastro/local"
+          href="/onboarding"
           className="group relative bg-[#181920] border border-white/10 hover:border-pink-500/50 rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-pink-500/5 flex flex-col justify-between"
         >
           <div>
@@ -69,7 +69,7 @@ export default function HomePage() {
 
         {/* Card 2: Evento */}
         <Link
-          href="/cadastro/evento"
+          href="/onboarding?aba=evento"
           className="group relative bg-[#181920] border border-white/10 hover:border-purple-500/50 rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-purple-500/5 flex flex-col justify-between"
         >
           <div>

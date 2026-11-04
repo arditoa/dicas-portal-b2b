@@ -57,7 +57,7 @@ export default function InicioPage() {
         <h1 className="mb-2 text-xl font-black text-white">Nenhum espaço vinculado a esta conta ainda</h1>
         <p className="mb-6 text-sm text-[#A0A0B2]">
           Se você já fez o cadastro do seu espaço, ele pode estar aprovado — só falta vincular esta conta a ele. Se ainda não
-          cadastrou, comece pelo cadastro rápido.
+          cadastrou, comece pelo cadastro.
         </p>
         <div className="flex flex-col gap-3">
           <Link href="/vincular" className="rounded-xl bg-[#E1306C] py-3 text-sm font-bold text-white transition hover:bg-[#C2285C]">

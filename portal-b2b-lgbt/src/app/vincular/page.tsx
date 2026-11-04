@@ -182,7 +182,7 @@ export default function VincularLocalPage() {
           <div className="mt-6 bg-[#161520] border border-[#232230] p-4 rounded-xl text-sm text-[#A0A0B2]">
             Não achamos nenhum local aprovado e sem responsável com esse CNPJ/CPF. Isso pode ser porque:
             ainda não cadastrou (
-            <Link href="/cadastro/local" className="text-[#E1306C] font-bold hover:underline">
+            <Link href="/onboarding" className="text-[#E1306C] font-bold hover:underline">
               cadastre aqui
             </Link>
             ), o cadastro ainda está em análise (só aparece aqui depois de aprovado — normalmente até
