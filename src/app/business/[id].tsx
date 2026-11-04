@@ -1,4 +1,5 @@
 import { Feather } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -223,6 +224,10 @@ interface CheckinAtivo {
   codigo: string;
   expira_em: string;
   cupom_id: string | null;
+  // Migration 079: confirmado pela localização (gps), pela casa (codigo) ou no fim da noite (automatico).
+  validado_em?: string | null;
+  metodo_validacao?: string | null;
+  created_at?: string | null;
 }
 
 export default function BusinessDetailScreen() {
@@ -293,6 +298,10 @@ export default function BusinessDetailScreen() {
       setBadges((badgesRes.data as any) || []);
       setAvaliacoes((avaliacoesRes.data as any) || []);
       setCupons((cuponsRes.data as any) || []);
+      // Fim de noite (migration 079): check-ins que a casa não confirmou entram sozinhos às 6h. Falha silenciosa.
+      if (user?.id) {
+        try { await supabase.rpc('confirmar_checkins_pendentes'); } catch {}
+      }
       // Cartão fidelidade (só vem se a casa ligou "mostrar no app"). Sem a migration 074, segue sem o cartão.
       const fidRes = await supabase.rpc('progresso_fidelidade_local', { p_local_id: id });
       setFidelidade(fidRes.error ? [] : ((fidRes.data as any) || []));
@@ -316,10 +325,10 @@ export default function BusinessDetailScreen() {
           // código de novo se ele saiu da tela e voltou antes de usar.
           supabase
             .from('checkins')
-            .select('id, codigo, expira_em, cupom_id')
+            .select('id, codigo, expira_em, cupom_id, validado_em, metodo_validacao, created_at')
             .eq('local_id', id)
             .eq('user_id', user.id)
-            .is('validado_em', null)
+            .gte('created_at', new Date(Date.now() - 12 * 3600 * 1000).toISOString())
             .is('cancelado_em', null)
             .order('created_at', { ascending: false })
             .limit(1)
@@ -356,25 +365,64 @@ export default function BusinessDetailScreen() {
   // trigger enforce_checkin_seguro_insert no banco) pra resgatar o cupom.
   // A casa confirma esse código no portal (validar_checkin) — só isso
   // libera o cupom de verdade em cupons_resgatados.
-  const handleFazerCheckin = async (cupomId: string | null) => {
+  // Posição atual do celular (só quando a pessoa permite). null = sem permissão ou sem sinal.
+  const obterPosicao = async (): Promise<{ lat: number; lng: number } | null> => {
+    try {
+      const perm = await Location.requestForegroundPermissionsAsync();
+      if (perm.status !== 'granted') return null;
+      const pos = await Promise.race([
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 12000)),
+      ]);
+      if (!pos) return null;
+      return { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    } catch {
+      return null;
+    }
+  };
+
+  const handleFazerCheckin = async (cupomId: string | null, forcarCodigo = false) => {
     if (!user) {
       exigirLogin('Crie sua conta ou entre para fazer check-in neste local.');
       return;
     }
     setFazendoCheckin(true);
     try {
+      // Migration 079: com a localização do celular perto do local, o check-in já nasce confirmado
+      // (sem a casa precisar digitar nada). Sem localização, cai no código que a casa confirma.
+      const posicao = forcarCodigo ? null : await obterPosicao();
+      if (!forcarCodigo && !posicao) {
+        Alert.alert(
+          'Check-in',
+          'Não conseguimos pegar a sua localização. Ative a localização do app nos ajustes do celular, ou faça o check-in com um código que a casa confirma.',
+          [
+            { text: 'Agora não', style: 'cancel' },
+            { text: 'Usar código', onPress: () => handleFazerCheckin(cupomId, true) },
+          ]
+        );
+        return;
+      }
       const { data, error } = await supabase
         .from('checkins')
-        .insert({ local_id: id, cupom_id: cupomId })
-        .select('id, codigo, expira_em, cupom_id')
+        .insert({ local_id: id, cupom_id: cupomId, ...(posicao ? { lat: posicao.lat, lng: posicao.lng } : {}) })
+        .select('id, codigo, expira_em, cupom_id, validado_em, metodo_validacao, created_at')
         .single();
 
       if (error) throw error;
       setMeuCheckin(data as unknown as CheckinAtivo);
+      carregarDados(); // atualiza cupom e cartão fidelidade na hora
     } catch (err: any) {
-      const mensagem = (err?.message || '').includes('últimas 12 horas')
+      const texto = err?.message || '';
+      if (texto.includes('Chegue mais perto')) {
+        Alert.alert('Check-in', texto, [
+          { text: 'Ok', style: 'cancel' },
+          { text: 'Usar código da casa', onPress: () => handleFazerCheckin(cupomId, true) },
+        ]);
+        return;
+      }
+      const mensagem = texto.includes('últimas 12 horas')
         ? 'Você já fez check-in nesse local nas últimas 12 horas — tente de novo mais tarde.'
-        : err?.message || 'Não foi possível fazer o check-in. Tente novamente.';
+        : texto || 'Não foi possível fazer o check-in. Tente novamente.';
       Alert.alert('Check-in', mensagem);
     } finally {
       setFazendoCheckin(false);
@@ -667,7 +715,12 @@ export default function BusinessDetailScreen() {
               const cupomAtivoDoCheckin = meuCheckin
                 ? cupons.find((c) => c.id === meuCheckin.cupom_id) || cupons[0]
                 : null;
-              const checkinExpirado = meuCheckin ? new Date(meuCheckin.expira_em).getTime() < Date.now() : false;
+              const confirmado = !!meuCheckin?.validado_em;
+              const checkinExpirado = meuCheckin && !confirmado ? new Date(meuCheckin.expira_em).getTime() < Date.now() : false;
+              const horaConfirmado = meuCheckin?.validado_em
+                ? new Date(meuCheckin.validado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                : '';
+              const nomeCliente = ((user as any)?.user_metadata?.display_name || (user as any)?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Cliente') as string;
               const horaExpira = meuCheckin
                 ? new Date(meuCheckin.expira_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
                 : '';
@@ -679,11 +732,21 @@ export default function BusinessDetailScreen() {
                     <Text style={styles.cupomHeaderText}>Cupom disponível</Text>
                   </View>
 
-                  {meuCheckin && !checkinExpirado ? (
+                  {confirmado ? (
                     <>
                       <Text style={styles.cupomTitulo}>{cupomAtivoDoCheckin?.titulo || 'Seu check-in'}</Text>
                       <View style={styles.codigoBox}>
-                        <Text style={styles.codigoLabel}>Mostre este código no caixa</Text>
+                        <Feather name="check-circle" size={30} color="#4CAF7D" />
+                        <Text style={styles.confirmadoTitulo}>Check-in confirmado</Text>
+                        <Text style={styles.codigoLabel}>{nomeCliente} · {horaConfirmado}</Text>
+                        <Text style={styles.codigoValidade}>Mostre esta tela ao atendente para usar seu cupom</Text>
+                      </View>
+                    </>
+                  ) : meuCheckin && !checkinExpirado ? (
+                    <>
+                      <Text style={styles.cupomTitulo}>{cupomAtivoDoCheckin?.titulo || 'Seu check-in'}</Text>
+                      <View style={styles.codigoBox}>
+                        <Text style={styles.codigoLabel}>Mostre este código no caixa (a casa confirma, ou confirma sozinho no fim da noite)</Text>
                         <Text style={styles.codigoTexto}>{meuCheckin.codigo}</Text>
                         <Text style={styles.codigoValidade}>Válido até {horaExpira}</Text>
                       </View>
@@ -730,7 +793,8 @@ export default function BusinessDetailScreen() {
               const v = Math.min(f.visitas, n);
               const meta = f.visitas >= n;
               const noMes = f.janela === 'mes';
-              const checkinAberto = !!meuCheckin && new Date(meuCheckin.expira_em).getTime() >= Date.now();
+              const checkinConfirmado = !!meuCheckin?.validado_em;
+              const checkinAberto = !!meuCheckin && !checkinConfirmado && new Date(meuCheckin.expira_em).getTime() >= Date.now();
               return (
                 <View key={f.programa_id} style={styles.fidCard}>
                   <View style={styles.cupomHeaderRow}>
@@ -779,7 +843,15 @@ export default function BusinessDetailScreen() {
                     </View>
                   )}
 
-                  {cupons.length === 0 && !checkinAberto && !f.ja_ganhou && (
+                  {user && cupons.length === 0 && checkinConfirmado && (
+                    <View style={styles.codigoBox}>
+                      <Feather name="check-circle" size={26} color="#4CAF7D" />
+                      <Text style={styles.confirmadoTitulo}>Check-in confirmado</Text>
+                      <Text style={styles.codigoValidade}>Visita contada. Mostre esta tela ao atendente.</Text>
+                    </View>
+                  )}
+
+                  {cupons.length === 0 && !checkinAberto && !checkinConfirmado && !f.ja_ganhou && (
                     <TouchableOpacity
                       style={[styles.actionBtn, styles.cupomBtn, { marginTop: 10 }, fazendoCheckin && { opacity: 0.6 }]}
                       onPress={() => handleFazerCheckin(null)}
@@ -1081,7 +1153,8 @@ const styles = StyleSheet.create({
   codigoBox: { backgroundColor: '#0B0B0E', borderRadius: 12, borderWidth: 1, borderColor: '#232230', padding: 14, alignItems: 'center', marginTop: 4 },
   codigoLabel: { fontSize: 11, color: '#A0A0B2', marginBottom: 6 },
   codigoTexto: { fontSize: 22, fontWeight: '900', color: '#FFD54F', letterSpacing: 4 },
-  codigoValidade: { fontSize: 11, color: '#A0A0B2', marginTop: 6 },
+  codigoValidade: { fontSize: 11, color: '#A0A0B2', marginTop: 6, textAlign: 'center' },
+  confirmadoTitulo: { fontSize: 18, fontWeight: '800', color: '#4CAF7D', marginTop: 6, marginBottom: 2 },
   cupomExpiradoTexto: { fontSize: 12, color: '#A0A0B2', marginTop: 4 },
   videoBtn: { backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230' },
   actionBtnText: { color: '#FFF', fontSize: 13, fontWeight: '700' },

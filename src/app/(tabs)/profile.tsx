@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -118,7 +118,8 @@ export default function ProfileScreen() {
     return nascimento <= limite;
   };
 
-  useEffect(() => {
+  // useFocusEffect: a aba Conta fica montada; sem isso o contador de "Locais salvos" só atualizava ao reabrir o app.
+  useFocusEffect(useCallback(() => {
     if (!user?.id) {
       setPerfil(null);
       setTotalSalvos(0);
@@ -155,7 +156,7 @@ export default function ProfileScreen() {
     return () => {
       ativo = false;
     };
-  }, [user?.id]);
+  }, [user?.id]));
 
   useEffect(() => {
     if (user?.id) aplicarPendente(user.id).catch(() => {});

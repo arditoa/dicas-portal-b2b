@@ -12,7 +12,7 @@
       "buildNumber": "1",
       "supportsTablet": false,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Usamos sua localização só enquanto você usa o app, para mostrar a cidade onde você está e os locais, eventos e roteiros LGBT+ por perto. Ela não é mostrada para outras pessoas.",
+        "NSLocationWhenInUseUsageDescription": "Usamos sua localização só enquanto você usa o app, para mostrar a cidade onde você está, os locais, eventos e roteiros LGBT+ por perto e para confirmar o seu check-in quando você está no local. Ela não é mostrada para outras pessoas.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -55,7 +55,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Usamos sua localização só enquanto você usa o app, para mostrar a cidade onde você está e os locais, eventos e roteiros LGBT+ por perto. Ela não é mostrada para outras pessoas."
+          "locationWhenInUsePermission": "Usamos sua localização só enquanto você usa o app, para mostrar a cidade onde você está, os locais, eventos e roteiros LGBT+ por perto e para confirmar o seu check-in quando você está no local. Ela não é mostrada para outras pessoas."
         }
       ],
       [

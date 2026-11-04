@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 
 import { supabase } from '../lib/supabase';
+import { statusDoLegado, statusLegado, STATUS_OPCOES } from '../lib/perfilOpcoes';
 
 const COR = '#7E57C2';
 
@@ -78,23 +79,20 @@ export function AvatarEditavel({ userId, iniciais }: { userId: string; iniciais:
   );
 }
 
-const OPCOES: { valor: string; rotulo: string }[] = [
-  { valor: 'solteiro', rotulo: 'Solteire' },
-  { valor: 'aberto', rotulo: 'Aberte' },
-  { valor: 'comprometido', rotulo: 'Comprometide' },
-  { valor: 'nao_informado', rotulo: 'Prefiro não informar' },
-];
+const OPCOES = STATUS_OPCOES.filter((o) => o.valor !== 'nao_informado');
 
 export function StatusRelacionamento({ userId }: { userId: string }) {
-  const [status, setStatus] = useState('nao_informado');
+  // Lista vazia = prefere não informar. Pode marcar mais de uma opção (migration 080).
+  const [status, setStatus] = useState<string[]>([]);
   const [mostrar, setMostrar] = useState(false);
 
   useEffect(() => {
     let vivo = true;
-    supabase.from('profiles').select('status_relacionamento, mostrar_status_relacionamento').eq('id', userId).single()
+    supabase.from('profiles').select('status_relacionamento, status_relacionamento_lista, mostrar_status_relacionamento').eq('id', userId).single()
       .then(({ data, error }) => {
         if (!vivo || error || !data) return;
-        setStatus((data as any).status_relacionamento || 'nao_informado');
+        const lista = ((data as any).status_relacionamento_lista as string[] | null) || [];
+        setStatus(lista.length > 0 ? lista : statusDoLegado((data as any).status_relacionamento));
         setMostrar(!!(data as any).mostrar_status_relacionamento);
       }, () => {});
     return () => { vivo = false; };
@@ -108,13 +106,15 @@ export function StatusRelacionamento({ userId }: { userId: string }) {
     }
   };
 
-  const escolher = (valor: string) => {
+  const gravarLista = (nova: string[]) => {
     const antes = status;
-    setStatus(valor);
-    const campos: Record<string, unknown> = { status_relacionamento: valor };
-    if (valor === 'nao_informado') { campos.mostrar_status_relacionamento = false; setMostrar(false); }
+    setStatus(nova);
+    const campos: Record<string, unknown> = { status_relacionamento_lista: nova, status_relacionamento: statusLegado(nova) };
+    if (nova.length === 0) { campos.mostrar_status_relacionamento = false; setMostrar(false); }
     salvar(campos, () => setStatus(antes));
   };
+
+  const alternarOpcao = (valor: string) => gravarLista(status.includes(valor) ? status.filter((x) => x !== valor) : [...status, valor]);
 
   const alternar = (v: boolean) => {
     setMostrar(v);
@@ -123,20 +123,23 @@ export function StatusRelacionamento({ userId }: { userId: string }) {
 
   return (
     <View style={s.bloco}>
-      <Text style={s.titulo}>Status (opcional)</Text>
+      <Text style={s.titulo}>Status (opcional) — pode marcar mais de uma</Text>
       <View style={s.chips}>
         {OPCOES.map((o) => {
-          const ativo = status === o.valor;
+          const ativo = status.includes(o.valor);
           return (
-            <TouchableOpacity key={o.valor} onPress={() => escolher(o.valor)} style={[s.chip, ativo && { backgroundColor: COR, borderColor: COR }]} accessibilityRole="button" accessibilityState={{ selected: ativo }}>
+            <TouchableOpacity key={o.valor} onPress={() => alternarOpcao(o.valor)} style={[s.chip, ativo && { backgroundColor: COR, borderColor: COR }]} accessibilityRole="button" accessibilityState={{ selected: ativo }}>
               <Text style={[s.chipTxt, ativo && { color: '#FFF' }]}>{o.rotulo}</Text>
             </TouchableOpacity>
           );
         })}
+        <TouchableOpacity onPress={() => gravarLista([])} style={[s.chip, status.length === 0 && { backgroundColor: COR, borderColor: COR }]} accessibilityRole="button" accessibilityState={{ selected: status.length === 0 }}>
+          <Text style={[s.chipTxt, status.length === 0 && { color: '#FFF' }]}>Prefiro não informar</Text>
+        </TouchableOpacity>
       </View>
       <View style={s.linhaSwitch}>
         <Text style={s.switchTxt}>Mostrar para outras pessoas (quando esse recurso existir)</Text>
-        <Switch value={mostrar} onValueChange={alternar} disabled={status === 'nao_informado'} trackColor={{ true: COR }} />
+        <Switch value={mostrar} onValueChange={alternar} disabled={status.length === 0} trackColor={{ true: COR }} />
       </View>
       <Text style={s.nota}>Dado pessoal sensível: fica só com você, a menos que você ative. Pode mudar ou apagar quando quiser.</Text>
     </View>

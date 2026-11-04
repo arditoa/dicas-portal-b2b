@@ -31,6 +31,15 @@ interface CheckinPendente {
   cupons: { titulo: string } | null;
 }
 
+interface CheckinConfirmado {
+  id: string;
+  created_at: string;
+  validado_em: string | null;
+  metodo_validacao: string | null;
+  locais: { nome: string } | null;
+  cupons: { titulo: string } | null;
+}
+
 interface CupomResgatado {
   id: string;
   resgatado_em: string;
@@ -42,18 +51,22 @@ export default function CouponsScreen() {
   const { user, session } = useAuth();
   const [pendentes, setPendentes] = useState<CheckinPendente[]>([]);
   const [resgatados, setResgatados] = useState<CupomResgatado[]>([]);
+  const [confirmados, setConfirmados] = useState<CheckinConfirmado[]>([]);
   const [loading, setLoading] = useState(true);
 
   const carregar = useCallback(async () => {
     if (!user?.id) {
       setPendentes([]);
       setResgatados([]);
+      setConfirmados([]);
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      const [checkinsRes, resgatadosRes] = await Promise.all([
+      // Fim de noite (migration 079): check-ins que a casa não confirmou entram sozinhos às 6h.
+      try { await supabase.rpc('confirmar_checkins_pendentes'); } catch {}
+      const [checkinsRes, resgatadosRes, confirmadosRes] = await Promise.all([
         supabase
           .from('checkins')
           .select('id, codigo, expira_em, locais(nome), cupons(titulo)')
@@ -67,14 +80,24 @@ export default function CouponsScreen() {
           .select('id, resgatado_em, cupons(titulo, locais(nome))')
           .eq('user_id', user.id)
           .order('resgatado_em', { ascending: false }),
+        supabase
+          .from('checkins')
+          .select('id, created_at, validado_em, metodo_validacao, locais(nome), cupons(titulo)')
+          .eq('user_id', user.id)
+          .not('validado_em', 'is', null)
+          .is('cancelado_em', null)
+          .order('created_at', { ascending: false })
+          .limit(30),
       ]);
 
       setPendentes(((checkinsRes.data as any) || []) as CheckinPendente[]);
       setResgatados(((resgatadosRes.data as any) || []) as CupomResgatado[]);
+      setConfirmados(((confirmadosRes.data as any) || []) as CheckinConfirmado[]);
     } catch (err) {
       console.error('Erro ao carregar cupons:', err);
       setPendentes([]);
       setResgatados([]);
+      setConfirmados([]);
     } finally {
       setLoading(false);
     }
@@ -84,7 +107,7 @@ export default function CouponsScreen() {
     carregar();
   }, [carregar]);
 
-  const semNada = pendentes.length === 0 && resgatados.length === 0;
+  const semNada = pendentes.length === 0 && resgatados.length === 0 && confirmados.length === 0;
 
   return (
     <View style={styles.container}>
@@ -93,7 +116,7 @@ export default function CouponsScreen() {
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
             <Feather name="chevron-left" size={20} color="#FFF" />
           </TouchableOpacity>
-          <Text style={styles.title}>Meus Cupons & VIP</Text>
+          <Text style={styles.title}>Meus cupons e check-ins</Text>
         </View>
 
         {!session ? (
@@ -135,6 +158,29 @@ export default function CouponsScreen() {
                           {new Date(p.expira_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                         </Text>
                       </View>
+                    </View>
+                  </View>
+                ))}
+              </>
+            )}
+
+            {confirmados.length > 0 && (
+              <>
+                <Text style={styles.sectionLabel}>Meus check-ins</Text>
+                {confirmados.map((k) => (
+                  <View key={k.id} style={styles.couponCard}>
+                    <View style={[styles.badgeStrip, { backgroundColor: '#4CAF7D' }]}>
+                      <Text style={styles.discountText}>CONFIRMADO</Text>
+                    </View>
+                    <View style={styles.cardBody}>
+                      <Text style={styles.venueName}>{k.locais?.nome || 'Local'}</Text>
+                      <Text style={styles.couponTitle}>{k.cupons?.titulo || 'Visita'}</Text>
+                      <Text style={styles.expiraText}>
+                        {new Date(k.created_at).toLocaleDateString('pt-BR')} às{' '}
+                        {new Date(k.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        {' · '}
+                        {k.metodo_validacao === 'gps' ? 'pela localização' : k.metodo_validacao === 'automatico' ? 'confirmado no fim da noite' : 'confirmado pela casa'}
+                      </Text>
                     </View>
                   </View>
                 ))}

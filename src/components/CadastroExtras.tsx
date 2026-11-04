@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { GRUPOS_EVENTO } from '../lib/taxonomia';
-import { EXTRAS_VAZIO, ExtrasCadastro, IDENTIDADES, NAO_INFORMAR, ORIENTACOES, PRONOMES, STATUS_OPCOES } from '../lib/perfilOpcoes';
+import { EXTRAS_VAZIO, ExtrasCadastro, IDENTIDADES, NAO_INFORMAR, ORIENTACOES, PRONOMES, STATUS_OPCOES, statusLegado } from '../lib/perfilOpcoes';
 import { supabase } from '../lib/supabase';
 
 const COR = '#7E57C2';
@@ -45,7 +45,7 @@ function ChipsMulti({ opcoes, valores, onMudar }: { opcoes: string[]; valores: s
 type PassoProps = { valor: ExtrasCadastro; onMudar: (v: ExtrasCadastro) => void };
 
 export function PassoSobreVoce({ valor, onMudar }: PassoProps) {
-  const tocouSensivel = !!(valor.orientacao || valor.identidade || valor.status);
+  const tocouSensivel = !!(valor.orientacao || valor.identidade || (valor.status && valor.status.length > 0));
   return (
     <View>
       <Text style={s.titulo}>Sobre você</Text>
@@ -61,7 +61,15 @@ export function PassoSobreVoce({ valor, onMudar }: PassoProps) {
       <Chips opcoes={PRONOMES} valor={valor.pronomes} onEscolher={(v) => onMudar({ ...valor, pronomes: v })} />
 
       <Text style={s.rotulo}>Status de relacionamento</Text>
-      <Chips opcoes={STATUS_OPCOES.map((o) => o.rotulo)} valor={STATUS_OPCOES.find((o) => o.valor === valor.status)?.rotulo} onEscolher={(v) => onMudar({ ...valor, status: STATUS_OPCOES.find((o) => o.rotulo === v)?.valor })} />
+      <Text style={s.sub}>Pode marcar mais de uma opção.</Text>
+      <ChipsMulti
+        opcoes={STATUS_OPCOES.map((o) => o.rotulo)}
+        valores={(valor.status || []).map((v) => STATUS_OPCOES.find((o) => o.valor === v)?.rotulo).filter(Boolean) as string[]}
+        onMudar={(rotulos) => {
+          if (rotulos.includes(NAO_INFORMAR)) { onMudar({ ...valor, status: [] }); return; }
+          onMudar({ ...valor, status: rotulos.map((r) => STATUS_OPCOES.find((o) => o.rotulo === r)?.valor).filter(Boolean) as string[] });
+        }}
+      />
 
       {tocouSensivel && (
         <TouchableOpacity style={s.consent} activeOpacity={0.8} onPress={() => onMudar({ ...valor, consentimento: !valor.consentimento })} accessibilityRole="checkbox" accessibilityState={{ checked: valor.consentimento }}>
@@ -104,7 +112,7 @@ export async function salvarExtras(userId: string, extras: ExtrasCadastro): Prom
   const sens = extras.consentimento;
   const temGosto = extras.gostos.musica.length + extras.gostos.experiencia.length + extras.gostos.publico.length > 0;
   const limpa = (v?: string) => (v && v !== NAO_INFORMAR ? v : null);
-  const temAlgo = temGosto || !!limpa(extras.pronomes) || (sens && (!!limpa(extras.orientacao) || !!limpa(extras.identidade) || !!extras.status));
+  const temAlgo = temGosto || !!limpa(extras.pronomes) || (sens && (!!limpa(extras.orientacao) || !!limpa(extras.identidade) || (extras.status?.length ?? 0) > 0));
   if (!temAlgo) return true;
   let ok = true;
   const { error } = await supabase.from('perfil_privado').upsert({
@@ -117,8 +125,8 @@ export async function salvarExtras(userId: string, extras: ExtrasCadastro): Prom
     atualizado_em: new Date().toISOString(),
   });
   if (error) ok = false; // migration 058 ainda não rodou: o app segue normalmente
-  if (sens && extras.status) {
-    const { error: e2 } = await supabase.from('profiles').update({ status_relacionamento: extras.status, mostrar_status_relacionamento: false }).eq('id', userId);
+  if (sens && extras.status && extras.status.length > 0) {
+    const { error: e2 } = await supabase.from('profiles').update({ status_relacionamento: statusLegado(extras.status), status_relacionamento_lista: extras.status, mostrar_status_relacionamento: false }).eq('id', userId);
     if (e2) ok = false;
   }
   return ok;

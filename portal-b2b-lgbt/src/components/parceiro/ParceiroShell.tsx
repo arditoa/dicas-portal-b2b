@@ -14,6 +14,7 @@ import {
   BedDouble,
   CalendarDays,
   CircleHelp,
+  ClipboardCheck,
   CreditCard,
   Gift,
   House,
@@ -85,7 +86,13 @@ const GRUPOS: { titulo: string | null; itens: ItemMenu[] }[] = [
       { href: '/dashboard/hospedagem', rotulo: 'Cadastro da hospedagem', icone: BedDouble, visivel: (l) => l.categoria === 'turismo' },
     ],
   },
-  { titulo: 'Fidelizar', itens: [{ href: '/dashboard/fidelidade', rotulo: 'Fidelidade', icone: Gift }] },
+  {
+    titulo: 'Fidelizar',
+    itens: [
+      { href: '/dashboard/checkins', rotulo: 'Check-ins', icone: ClipboardCheck },
+      { href: '/dashboard/fidelidade', rotulo: 'Fidelidade', icone: Gift },
+    ],
+  },
   {
     titulo: 'Meu espaço',
     itens: [

@@ -19,6 +19,8 @@ type Programa = {
   janela: 'mes' | 'sempre';
   exibir_no_app: boolean;
   ativo: boolean;
+  visitas_vip: number | null;
+  beneficio_vip: string | null;
 };
 
 type ClienteFid = {
@@ -27,6 +29,9 @@ type ClienteFid = {
   visitas: number;
   ultima_visita: string;
   ja_ganhou: boolean;
+  visitas_periodo: number;
+  visitas_total: number;
+  vip: boolean;
 };
 
 type Resultado = { tipo: 'sucesso' | 'erro'; mensagem: string; userId?: string; nome?: string; visitas?: number } | null;
@@ -51,6 +56,8 @@ export default function FidelidadePage() {
   const [janela, setJanela] = useState<'mes' | 'sempre'>('mes');
   const [exibir, setExibir] = useState(true);
   const [ativo, setAtivo] = useState(true);
+  const [vipVisitas, setVipVisitas] = useState('');
+  const [vipBeneficio, setVipBeneficio] = useState('');
   const [salvando, setSalvando] = useState(false);
   const [salvo, setSalvo] = useState(false);
   const [erro, setErro] = useState('');
@@ -87,14 +94,16 @@ export default function FidelidadePage() {
       setLocalId(local.id);
       const { data: prog, error: erroProg } = await supabase
         .from('programas_fidelidade')
-        .select('id, nome, descricao, visitas_necessarias, recompensa, janela, exibir_no_app, ativo')
+        .select('id, nome, descricao, visitas_necessarias, recompensa, janela, exibir_no_app, ativo, visitas_vip, beneficio_vip')
         .eq('local_id', local.id)
         .order('created_at', { ascending: true })
         .limit(1)
         .maybeSingle();
       if (erroProg) {
         setErro(
-          erroProg.message.includes('janela') || erroProg.message.includes('exibir_no_app')
+          erroProg.message.includes('visitas_vip') || erroProg.message.includes('beneficio_vip')
+            ? 'O banco ainda não recebeu a atualização da fidelidade com nível VIP (migration 081). Avise o administrador.'
+            : erroProg.message.includes('janela') || erroProg.message.includes('exibir_no_app')
             ? 'O banco ainda não recebeu a atualização da fidelidade (migration 074). Avise o administrador.'
             : erroProg.message
         );
@@ -108,6 +117,8 @@ export default function FidelidadePage() {
         setJanela(p.janela);
         setExibir(p.exibir_no_app);
         setAtivo(p.ativo);
+        setVipVisitas(p.visitas_vip ? String(p.visitas_vip) : '');
+        setVipBeneficio(p.beneficio_vip || '');
         await carregarClientes(p.id);
       }
       setCarregando(false);
@@ -126,6 +137,15 @@ export default function FidelidadePage() {
       setErro('Escreva o que o cliente ganha (ex.: 1 drink grátis).');
       return;
     }
+    const vipN = parseInt(vipVisitas, 10) || 0;
+    if (vipVisitas.trim() && vipN < 2) {
+      setErro('O nível VIP precisa de pelo menos 2 visitas (ou deixe em branco para não usar).');
+      return;
+    }
+    if (vipN >= 2 && !vipBeneficio.trim()) {
+      setErro('Escreva o que o cliente VIP ganha (ex.: mesa reservada e drink de boas-vindas).');
+      return;
+    }
     setSalvando(true);
     const payload = {
       local_id: localId,
@@ -136,6 +156,8 @@ export default function FidelidadePage() {
       janela,
       exibir_no_app: exibir,
       ativo,
+      visitas_vip: vipN >= 2 ? vipN : null,
+      beneficio_vip: vipN >= 2 ? vipBeneficio.trim() : null,
     };
     if (programaId) {
       const { error } = await supabase.from('programas_fidelidade').update(payload).eq('id', programaId);
@@ -215,6 +237,7 @@ export default function FidelidadePage() {
 
   const prontos = clientes.filter((c) => c.visitas >= necessarias && !c.ja_ganhou && necessarias > 0);
   const ganharam = clientes.filter((c) => c.ja_ganhou).length;
+  const vips = clientes.filter((c) => c.vip).length;
 
   return (
     <div className="p-8 max-w-2xl mx-auto text-white">
@@ -232,7 +255,7 @@ export default function FidelidadePage() {
         <Info size={16} className="text-[#B39DDB] shrink-0 mt-0.5" />
         <div className="text-xs text-[#D0D0E0] space-y-1.5">
           <p><b>1.</b> Você define a regra abaixo (ex.: 7 visitas no mês = 1 drink grátis).</p>
-          <p><b>2.</b> O cliente faz check-in no app e mostra o código de 6 letras. Você digita o código em <b>Confirmar visita</b>: cada código confirmado vale uma visita.</p>
+          <p><b>2.</b> O cliente faz check-in no app. Perto do seu local, a visita é confirmada sozinha pela localização e você não precisa fazer nada. Sem localização, ele mostra um código de 6 letras e você digita em <b>Confirmar visita</b> (ou ela entra sozinha às 6h). O mesmo check-in também libera o cupom que ele escolher.</p>
           <p><b>3.</b> Quando ele bate a meta, aparece o botão <b>Entreguei o brinde</b>. Com a contagem por mês, ela recomeça todo dia 1º e cada cliente ganha no máximo 1 brinde por mês.</p>
           <p><b>Aparece no app?</b> Você escolhe. Com a opção ligada, o cliente vê o cartão com as visitas no perfil do seu local. Desligada, você continua contando as visitas, mas o cartão fica escondido.</p>
         </div>
@@ -281,6 +304,24 @@ export default function FidelidadePage() {
                 <span className="block text-[10px] text-[#A0A0B2] mt-0.5">{sub}</span>
               </button>
             ))}
+          </div>
+        </div>
+
+        <div className="bg-[#0B0B0E] border border-[#232230] rounded-xl p-3 space-y-2">
+          <p className="text-[11px] font-bold text-[#FFD54F] uppercase">Nível VIP (opcional)</p>
+          <p className="text-[10px] text-[#A0A0B2]">
+            As visitas continuam sendo contadas depois da meta do brinde. Defina a partir de quantas visitas o cliente é VIP e o que você oferece a ele.
+          </p>
+          <div className="grid grid-cols-3 gap-3">
+            <input type="number" min={2} max={200} value={vipVisitas} onChange={(e) => setVipVisitas(e.target.value)} placeholder="Visitas" className={campo} />
+            <input
+              type="text"
+              value={vipBeneficio}
+              maxLength={120}
+              onChange={(e) => setVipBeneficio(e.target.value)}
+              placeholder="Ex.: mesa reservada e drink de boas-vindas"
+              className={`${campo} col-span-2`}
+            />
           </div>
         </div>
 
@@ -398,7 +439,7 @@ export default function FidelidadePage() {
           <div className="flex items-center justify-between mb-1">
             <h2 className="text-sm font-bold">{janela === 'mes' ? 'Visitas deste mês' : 'Visitas em andamento'}</h2>
             <span className="text-[10px] text-[#A0A0B2] font-bold uppercase">
-              {clientes.length} cliente{clientes.length === 1 ? '' : 's'} · {prontos.length} com meta batida · {ganharam} brinde{ganharam === 1 ? '' : 's'} entregue{ganharam === 1 ? '' : 's'}
+              {clientes.length} cliente{clientes.length === 1 ? '' : 's'} · {prontos.length} com meta batida · {ganharam} brinde{ganharam === 1 ? '' : 's'} entregue{ganharam === 1 ? '' : 's'}{vips > 0 ? ` · ${vips} VIP` : ''}
             </span>
           </div>
           <p className="text-[#A0A0B2] text-xs mb-4">Quem já fez visita confirmada. Quem bateu a meta aparece com o botão para entregar.</p>
@@ -414,9 +455,12 @@ export default function FidelidadePage() {
                   <div key={c.user_id} className="bg-[#0B0B0E] border border-[#232230] rounded-xl p-3">
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="text-sm font-bold truncate">{c.nome}</p>
+                        <p className="text-sm font-bold truncate flex items-center gap-2">
+                          {c.nome}
+                          {c.vip && <span className="text-[9px] font-black bg-[#FFD54F] text-black px-1.5 py-0.5 rounded uppercase">VIP</span>}
+                        </p>
                         <p className="text-[10px] text-[#626274]">
-                          última visita {new Date(c.ultima_visita).toLocaleDateString('pt-BR')}
+                          {c.visitas_periodo} visita{c.visitas_periodo === 1 ? '' : 's'}{janela === 'mes' ? ' no mês' : ''} · {c.visitas_total} no total · última {new Date(c.ultima_visita).toLocaleDateString('pt-BR')}
                         </p>
                       </div>
                       <div className="text-right shrink-0">
