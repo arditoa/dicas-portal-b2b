@@ -117,7 +117,7 @@ const PLANO_PRECO: Record<string, string> = {
   // /planos e da página /parceiro-fundador do site institucional).
   // Atualização — "12x R$349" agora lidera (mais vendável), R$3.490 à
   // vista fica como opção entre parênteses.
-  fundador: 'R$349,90/mês × 12',
+  fundador: 'R$349/mês × 12 (ou R$3.490 à vista)',
 };
 
 type InteresseNoPlano = {

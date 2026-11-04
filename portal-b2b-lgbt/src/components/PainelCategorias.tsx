@@ -4,7 +4,7 @@
 //   1) Patrocínio Master  → a faixa grande do topo (1 vaga; tabela categoria_patrocinio)
 //   2) Banner Premium     → 12 vagas, 4 por hora (tabela vitrine_vaga, tipo premium; texto em destaque_chamada)
 //   3) Subcategorias      → os ícones redondos; liga/desliga (tabela subcategoria_config)
-//   4) Cupons             → 24 posições (1–10 Premium, 11–12 Fundador, 13–24 Intermediário), 6 por vez (3 + 3), avança a cada 20 min (vitrine_vaga, tipo intermediario)
+//   4) Cupons             → 24 posições (1–10 Premium, 11–12 Fundador, 13–24 Intermediário), 6 por vez (3 + 3), Premium/Fundador avançam a cada 10 min e Intermediário a cada 30 min (vitrine_vaga, tipo intermediario)
 // Vaga sem local escolhido = AUTOMÁTICA: o app preenche pelo plano do local. Escolher um local aqui manda nele.
 // Migrations: 059 (patrocínio), 060 (chamada), 065 (subcategorias), 071 (vagas).
 import { ArrowLeft, Check, ChevronRight, Loader2, Save, Trash2 } from 'lucide-react';
@@ -100,7 +100,7 @@ function VisaoCategorias({ onAbrir }: { onAbrir: (c: Cat) => void }) {
     <div>
       <div className="bg-[#161520] border border-[#232230] rounded-2xl p-4 mb-6 text-xs text-[#C9C9D6] leading-relaxed">
         <b className="text-white">Como funciona:</b> escolha uma categoria. Dentro dela você vê, na ordem em que aparecem no app, o <b>Patrocínio Master</b> (1 faixa grande), os
-        <b> 12 Banners Premium</b> (rodam 4 por hora), as <b>Subcategorias</b> (ícones redondos) e os <b>24 Cupons</b> (quadradinhos: 10 Premium + 2 Fundador + 12 Intermediário; cada tela mostra 6 = 3 Premium/Fundador + 3 Intermediário e muda a cada 20 min).
+        <b> 12 Banners Premium</b> (rodam 4 por hora), as <b>Subcategorias</b> (ícones redondos) e os <b>24 Cupons</b> (quadradinhos: 10 Premium + 2 Fundador + 12 Intermediário; cada tela mostra 6 = 3 Premium/Fundador + 3 Intermediário; Premium/Fundador mudam a cada 10 min e Intermediário a cada 30 min).
         Vaga sem local escolhido é <b>automática</b>: o app preenche sozinho pelo plano do local.
       </div>
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -325,7 +325,7 @@ function VagasCategoria({ cat, tipo, total, ok, falha }: Props & { tipo: 'premiu
   };
 
   const grupo = premium ? 4 : 6;
-  const quando = premium ? 'Rodam 4 por vez e a janela avança a cada hora (vagas 1–4, depois 5–8, depois 9–12).' : 'Aparecem 6 por vez (3 por linha): 3 do grupo Premium/Fundador (vagas 1–12) + 3 do grupo Intermediário (vagas 13–24). A tela muda a cada 20 minutos. Os 2 cupons de Fundador trocam entre todos os Fundadores; com mais de 12 Intermediários, metade aparece a cada hora.';
+  const quando = premium ? 'Rodam 4 por vez e a janela avança a cada hora (vagas 1–4, depois 5–8, depois 9–12).' : 'Aparecem 6 por vez (3 por linha): 3 do grupo Premium/Fundador (vagas 1–12) + 3 do grupo Intermediário (vagas 13–24). Premium/Fundador mudam a cada 10 minutos e Intermediário a cada 30 minutos. Os 2 cupons de Fundador trocam entre todos os Fundadores; com mais de 12 Intermediários, metade aparece a cada hora.';
   const regra = premium
     ? cat.fundadores ? 'Ocupadas pelos Membros Fundadores.' : 'Ocupadas por locais Premium (ou Fundador) da categoria. Quem você escolher aparece mesmo sem plano — mas o ideal é o plano estar ativo.'
     : 'Premium e Fundador publicam 1 cupom por semana; o Intermediário, 1 a cada 2 semanas. A vaga mostra o cupom mais recente do local. Vaga cinza = automática (o app preenche pelo plano).';

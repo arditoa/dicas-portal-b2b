@@ -24,7 +24,7 @@ const PLANO_TEXTO: Record<string, { nome: string; cor: string; itens: string[] }
   fundador: { nome: 'Membro Fundador', cor: '#FFD54F', itens: [
     'Seu banner roda nos Destaques e na Home do app, com o selo dourado de Membro Fundador.',
     'Nossa equipe de comunicação escreve a frase do seu banner para dar vontade de conhecer. Você pode ajustar quando quiser, aqui mesmo.',
-    'Você publica 1 cupom por semana na faixa de cupons da categoria (2 vagas de Fundador por categoria, trocando a cada 20 minutos).',
+    'Você publica 1 cupom por semana na faixa de cupons da categoria (2 vagas de Fundador por categoria, trocando a cada 10 minutos).',
   ] },
   premium: { nome: 'Plano Premium', cor: '#E1306C', itens: [
     'Seu banner roda no topo da sua categoria — são 12 vagas, 4 aparecem por hora, então você é visto o dia todo.',
@@ -32,7 +32,7 @@ const PLANO_TEXTO: Record<string, { nome: string; cor: string; itens: string[] }
     'Além do banner, você publica 1 cupom por semana na faixa de cupons da categoria (10 vagas Premium por categoria).',
   ] },
   intermediario: { nome: 'Plano Intermediário', cor: '#7E57C2', itens: [
-    'Você aparece nos quadradinhos de cupom da sua categoria: são 12 vagas para Intermediários, que se alternam (12 por hora), e a tela muda a cada 20 minutos.',
+    'Você aparece nos quadradinhos de cupom da sua categoria: são 12 vagas para Intermediários, que se alternam (12 por hora), e a tela muda a cada 30 minutos.',
     'Publique 1 cupom a cada 2 semanas em “Gerenciar ofertas”: é ele que aparece no quadradinho.',
     'Quer o banner grande no topo da categoria, com a sua frase? Isso é do Plano Premium.',
   ] },

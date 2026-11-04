@@ -140,9 +140,9 @@ export default function PainelRodizio() {
     const t = parseInt(mapa['rodizio_tamanho'] ?? '', 10);
     const i = parseInt(mapa['rodizio_intervalo_min'] ?? '', 10);
     if (Number.isFinite(t)) setTamanho(Math.min(12, Math.max(1, t)));
-    if (Number.isFinite(i)) setIntervalo(Math.min(240, Math.max(15, i)));
+    if (Number.isFinite(i)) setIntervalo(Math.min(240, Math.max(10, i)));
     const f = parseInt(mapa['fundadores_max_topo'] ?? '', 10);
-    if (Number.isFinite(f)) setFundMax(Math.min(20, Math.max(1, f)));
+    if (Number.isFinite(f)) setFundMax(Math.min(12, Math.max(1, f)));
     setCompletar(mapa['em_alta_completar'] !== '0');
     setCarregando(false);
   }, []);
@@ -276,8 +276,8 @@ export default function PainelRodizio() {
       <div className="bg-[#161520] border border-[#232230] rounded-2xl p-6 flex flex-col gap-4 h-fit">
         <h3 className="font-bold text-sm">Regras da Home</h3>
         <label className="text-xs text-[#A0A0B2] flex flex-col gap-1.5">
-          Vagas do bloco fixo de Fundadores (1 a 20)
-          <input type="number" min={1} max={20} className={campo} value={fundMax} onChange={(e) => setFundMax(Math.min(20, Math.max(1, Number(e.target.value) || 1)))} />
+          Vagas do bloco fixo de Fundadores (1 a 12)
+          <input type="number" min={1} max={12} className={campo} value={fundMax} onChange={(e) => setFundMax(Math.min(12, Math.max(1, Number(e.target.value) || 1)))} />
         </label>
         <label className="text-xs text-[#A0A0B2] flex flex-col gap-1.5">
           Locais por vez em Em Alta (1 a 12)
@@ -286,7 +286,7 @@ export default function PainelRodizio() {
         <label className="text-xs text-[#A0A0B2] flex flex-col gap-1.5">
           Trocar a cada
           <select className={campo} value={intervalo} onChange={(e) => setIntervalo(Number(e.target.value))}>
-            {[15, 30, 60, 120, 240].map((m) => <option key={m} value={m}>{m < 60 ? `${m} minutos` : `${m / 60} hora${m > 60 ? 's' : ''}`}</option>)}
+            {[10, 15, 30, 60, 120, 240].map((m) => <option key={m} value={m}>{m < 60 ? `${m} minutos` : `${m / 60} hora${m > 60 ? 's' : ''}`}</option>)}
           </select>
         </label>
         <label className="text-xs text-[#D0D0E0] flex items-start gap-2 cursor-pointer border-t border-[#232230] pt-3">

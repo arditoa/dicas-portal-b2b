@@ -43,7 +43,7 @@ const planos: readonly PlanoCard[] = [
     beneficios: [
       { text: 'Tudo do Freemium', ok: true },
       { text: '1 cupom a cada 2 semanas na faixa de cupons da categoria (24 posições por categoria: 12 delas para Intermediários, que se alternam)', ok: true },
-      { text: 'Seu cupom roda em telas de 6, que mudam a cada 20 minutos', ok: true },
+      { text: 'Seu cupom roda em telas de 6, que mudam a cada 30 minutos', ok: true },
       { text: 'Na busca da categoria, aparece logo depois dos Fundadores e Premiums', ok: true },
       { text: 'Roda nos banners de destaque inferiores da tela inicial, entre os 15 primeiros, a cada 4 horas', ok: true },
     ],
@@ -63,27 +63,28 @@ const planos: readonly PlanoCard[] = [
       { text: 'Sempre em primeiro na lista da categoria, por 12 meses', ok: true },
       { text: 'Roda nos banners de destaque inferiores da tela inicial, entre os 10 primeiros, a cada 3 horas', ok: true },
       { text: '3 tags — Top 5', ok: true },
-      { text: '1 push mensal', ok: true },
     ],
     cta: 'Assinar Premium',
     highlight: true,
     color: '#E1306C',
   },
   {
-    // Fundador: 12 vagas, R$349,90/mês por 12 meses (confirmado pela Andrea).
+    // Fundador: 12 vagas; R$3.490 à vista ou 12 x R$349 (definido pela Andrea).
     // Único plano com o ícone "Destaques" e o banner na tela inicial (4 por hora).
     slug: 'fundador',
     nome: 'Fundador',
     tag: '12 VAGAS NO TOTAL',
-    preco: 'R$349,90',
+    preco: 'R$349',
     sub: '/mês × 12 meses',
     beneficios: [
       { text: 'Tudo do Premium', ok: true },
+      { text: 'Pagamento: 12 parcelas de R$349 ou R$3.490 à vista', ok: true },
+      { text: '1 festa em destaque por mês incluída (destaques extras: R$89 cada)', ok: true },
       { text: 'Banner no topo da tela inicial por 12 meses (slots de 4, troca a cada 3 horas, texto de curiosidade trocado toda semana)', ok: true },
-      { text: '1 cupom por semana na faixa de cupons da categoria (2 vagas de Fundador, trocando a cada 20 minutos)', ok: true },
+      { text: '1 cupom por semana na faixa de cupons da categoria (2 vagas de Fundador, trocando a cada 10 minutos)', ok: true },
       { text: 'Categoria Destaques — exclusiva dos 12 Fundadores, por ordem de fechamento', ok: true },
       { text: 'Sempre em primeiro na lista da categoria; fixo na página principal', ok: true },
-      { text: 'Vagas travadas — exclusividade', ok: true },
+      { text: 'Vaga garantida por 12 meses (são só 12 no total)', ok: true },
     ],
     cta: 'Consultar vaga',
     highlight: false,

@@ -33,7 +33,7 @@ export const PLANO_INFO: Record<PlanoSlug, { nome: string; preco: string }> = {
   freemium: { nome: 'Freemium', preco: 'R$0' },
   intermediario: { nome: 'Intermediário', preco: 'R$359/mês' },
   premium: { nome: 'Premium', preco: 'R$499/mês' },
-  fundador: { nome: 'Fundador', preco: 'R$349,90/mês × 12' },
+  fundador: { nome: 'Fundador', preco: 'R$349/mês × 12 (ou R$3.490 à vista)' },
 };
 
 // Plano que vale de fato: plano pago só conta com o status "ativo"

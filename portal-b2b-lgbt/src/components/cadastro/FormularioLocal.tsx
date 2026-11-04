@@ -10,6 +10,7 @@ import { telefoneParecCurto } from '../../lib/parceiroAuth';
 import { erroFotoNaoSuportada, TAMANHO_MAXIMO_FOTO_MB } from '../../lib/validarFoto';
 import { CLASSIFICACOES_LGBT } from '../../lib/classificacaoLgbt';
 import { SUBCATEGORIAS_APP } from '../../lib/subcategoriasApp';
+import { formatarNome, formatarCidade } from '../../lib/texto';
 import { PREFIXO_SUGESTAO_CATEGORIA } from '../../lib/sugestaoCategoria';
 
 // Rodada 49 — pedido direto da Andrea: dar a opção de já subir a foto de
@@ -394,7 +395,7 @@ export default function FormularioLocal({ onSucesso }: { onSucesso: (nome: strin
       // de endereço só com traços e barras vazias.
       const temEndereco = Boolean(logradouro.trim() || numero.trim() || cidade.trim() || uf.trim());
       const endereco = temEndereco
-        ? `${logradouro}, ${numero}${complemento ? ' - ' + complemento : ''} - ${cidade}/${uf}`
+        ? `${formatarNome(logradouro)}, ${numero}${complemento ? ' - ' + complemento : ''} - ${cidade}/${uf}`
         : '';
 
       // Best-effort: tenta achar lat/lng pelo endereço completo antes de
@@ -418,16 +419,16 @@ export default function FormularioLocal({ onSucesso }: { onSucesso: (nome: strin
 
       const { error } = await supabase.from('locais').insert({
         id: novoId,
-        nome: nomeEspaco,
+        nome: formatarNome(nomeEspaco),
         categoria: categoria === '__outra__' ? 'servicos' : categoria,
         subcategoria: subcategoriaFinal,
         cnpj: cnpjLimpo,
-        bairro,
-        cidade,
+        bairro: formatarNome(bairro),
+        cidade: formatarCidade(cidade),
         endereco,
         lat: coordenadas?.lat ?? null,
         lng: coordenadas?.lng ?? null,
-        contato_nome: nomeResponsavel,
+        contato_nome: formatarNome(nomeResponsavel),
         contato_telefone: whatsapp,
         classificacao_lgbt: classificacaoLgbt || null,
         publico_tags: publicoTags.length > 0 ? publicoTags : ['todos'],
@@ -438,7 +439,15 @@ export default function FormularioLocal({ onSucesso }: { onSucesso: (nome: strin
         // trigger enforce_local_seguro_insert no banco — não mandamos aqui.
       });
 
-      if (error) throw error;
+      if (error) {
+        // O banco tem índice único de CNPJ/CPF; o aviso acima só enxerga locais aprovados,
+        // então um cadastro pendente repetido cai aqui — mostramos uma frase clara.
+        if ((error as any).code === '23505' || /duplicate key|idx_locais_cnpj_unico/i.test(error.message || '')) {
+          setErrorMsg('Já existe um cadastro com este CNPJ/CPF. Se ele é seu, fale com a nossa equipe pelo WhatsApp para vincular ao seu acesso.');
+          return;
+        }
+        throw error;
+      }
 
       // Foto é opcional e nunca deve travar o cadastro em si — se o
       // upload falhar por qualquer motivo, o local já foi criado

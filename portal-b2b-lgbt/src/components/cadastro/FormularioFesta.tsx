@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
+import { formatarNome } from '../../lib/texto';
 import { telefoneParecCurto } from '../../lib/parceiroAuth';
 import { erroFotoNaoSuportada, TAMANHO_MAXIMO_FOTO_MB } from '../../lib/validarFoto';
 import { CLASSIFICACOES_LGBT } from '../../lib/classificacaoLgbt';
@@ -213,7 +214,7 @@ export default function FormularioFesta({ onSucesso }: { onSucesso: (titulo: str
 
       const payload: Record<string, unknown> = {
         id: novoId,
-        titulo,
+        titulo: formatarNome(titulo),
         descricao: descricaoCompleta,
         data_inicio: new Date(dataInicio).toISOString(),
         data_fim: dataFim ? new Date(dataFim).toISOString() : null,
