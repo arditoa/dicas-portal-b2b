@@ -49,6 +49,11 @@ export const DESTINOS_PADRAO: Destino[] = [
     melhor_epoca: ['outono', 'inverno', 'festivais'] },
 ];
 
+// Cidades abertas no app (nov/2026): só São Paulo. As demais aparecem como "Em breve"
+// (toque registra o "avise-me"). Para abrir outra cidade, inclua o slug aqui.
+export const DESTINOS_ABERTOS = ['sao-paulo'];
+export const destinoAberto = (slug: string) => DESTINOS_ABERTOS.includes(slug);
+
 // Junta o que está na tabela com o padrão (tabela manda; tradução EN/ES do
 // padrão é mantida quando a cidade é a mesma).
 export async function carregarDestinos(): Promise<Destino[]> {

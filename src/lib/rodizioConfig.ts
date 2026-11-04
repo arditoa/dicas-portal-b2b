@@ -21,8 +21,8 @@ export async function lerConfigRodizio(): Promise<ConfigRodizio> {
     const f = parseInt(mapa['fundadores_max_topo'] ?? '', 10);
     return {
       tamanho: Number.isFinite(t) ? Math.min(12, Math.max(1, t)) : RODIZIO_TAMANHO_PADRAO,
-      intervaloMin: Number.isFinite(i) ? Math.min(240, Math.max(15, i)) : RODIZIO_INTERVALO_PADRAO_MIN,
-      fundadoresMax: Number.isFinite(f) ? Math.min(20, Math.max(1, f)) : FUNDADORES_MAX_PADRAO,
+      intervaloMin: Number.isFinite(i) ? Math.min(240, Math.max(10, i)) : RODIZIO_INTERVALO_PADRAO_MIN,
+      fundadoresMax: Number.isFinite(f) ? Math.min(12, Math.max(1, f)) : FUNDADORES_MAX_PADRAO,
       // Rodada 81 — ligado por padrão: completa as vagas de Em Alta com locais não pagos (com foto e nome válido).
       completarEmAlta: mapa['em_alta_completar'] !== '0',
     };

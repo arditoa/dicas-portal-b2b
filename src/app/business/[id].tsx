@@ -41,6 +41,80 @@ const BADGE_COLORS: Record<string, string> = {
   rosa: '#E1306C',
 };
 
+
+// Rodada 123 — "aberto agora" a partir do horário_funcionamento do local.
+// Aceita virada de noite (ex.: abre 22:00, fecha 04:00) e olha também o
+// expediente de ontem que ainda esteja em andamento depois da meia-noite.
+const CHAVES_POR_DIA_JS = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
+
+function minutosDe(hhmm?: string | null): number | null {
+  if (!hhmm) return null;
+  const m = /^(\d{1,2}):?(\d{2})?/.exec(hhmm.trim());
+  if (!m) return null;
+  return Number(m[1]) * 60 + Number(m[2] || 0);
+}
+
+function statusAgora(horario: any): { aberto: boolean; texto: string } | null {
+  if (!horario) return null;
+  const agora = new Date();
+  const hoje = CHAVES_POR_DIA_JS[agora.getDay()];
+  const ontem = CHAVES_POR_DIA_JS[(agora.getDay() + 6) % 7];
+  const min = agora.getHours() * 60 + agora.getMinutes();
+  const h = horario[hoje];
+  const o = horario[ontem];
+
+  // expediente de ontem que atravessa a meia-noite e ainda não acabou
+  if (o?.aberto) {
+    const ab = minutosDe(o.abre);
+    const fe = minutosDe(o.fecha);
+    if (ab !== null && fe !== null && fe < ab && min < fe) {
+      return { aberto: true, texto: `Aberto agora • fecha às ${o.fecha}` };
+    }
+  }
+  if (h?.aberto) {
+    const ab = minutosDe(h.abre);
+    const fe = minutosDe(h.fecha);
+    if (ab === null || fe === null) return { aberto: true, texto: 'Aberto hoje' };
+    const noite = fe < ab;
+    const dentro = noite ? min >= ab : min >= ab && min < fe;
+    if (dentro) return { aberto: true, texto: `Aberto agora • fecha às ${h.fecha}` };
+    if (min < ab) return { aberto: false, texto: `Fechado agora • abre às ${h.abre}` };
+  }
+  return { aberto: false, texto: 'Fechado agora' };
+}
+
+const DIAS_CURTOS = /^\s*(seg(unda)?|ter(ça|ca)?|qua(rta)?|qui(nta)?|sex(ta)?|s[áa]b(ado)?|dom(ingo)?)\b/i;
+
+function SecaoTitulo({ icone, titulo, direita }: { icone: any; titulo: string; direita?: React.ReactNode }) {
+  return (
+    <View style={styles.secaoHeader}>
+      <View style={styles.secaoIcone}>
+        <Feather name={icone} size={14} color="#E1306C" />
+      </View>
+      <Text style={styles.secaoTitulo}>{titulo}</Text>
+      <View style={{ flex: 1 }} />
+      {direita}
+    </View>
+  );
+}
+
+function LinhaProgramacao({ linha }: { linha: string }) {
+  const m = /^(.{2,22}?)\s*[:\-–—]\s*(.+)$/.exec(linha);
+  if (m && DIAS_CURTOS.test(m[1])) {
+    return (
+      <View style={styles.progLinha}>
+        <Text style={styles.progDia}>{m[1].trim()}</Text>
+        <Text style={styles.progTexto}>{m[2].trim()}</Text>
+      </View>
+    );
+  }
+  return (
+    <View style={styles.progLinha}>
+      <Text style={styles.progTexto}>{linha}</Text>
+    </View>
+  );
+}
+
 // Mesmas chaves/ordem do portal (src/lib/horarios.ts) — nunca renomear
 // sem migrar os dados já salvos em locais.horario_funcionamento.
 const DIAS_SEMANA: { chave: string; label: string }[] = [
@@ -87,31 +161,16 @@ interface LocalRow {
   horario_funcionamento: Record<string, { aberto: boolean; abre?: string; fecha?: string; musica_ao_vivo?: string }> | null;
   galeria_fotos: string[] | null;
   video_url: string | null;
+  programacao_texto: string | null;
+  programacao_imagem_url: string | null;
   tags: string[] | null;
   plano_comercial: string;
   plano_comercial_status: string;
   classificacao_lgbt: string | null;
 }
 
-// Rodada 41 — "agenda da semana" (pedido da Andrea, Rodada 39: "Vamos
-// criar a agenda da semana com fotos e links"). Uma linha por dia com
-// programação (public.agenda_semanal, migration 023) — dia sem linha
-// ativa simplesmente não aparece aqui. Mesma decisão de gating que
-// tags/galeria/vídeo acima: é conteúdo promocional rico (foto + link),
-// então segue publicaRecursosPremium — só Premium/Fundador ativo mostra
-// pro usuário final no app. Se a Andrea preferir deixar isso visível pra
-// todo mundo (mais parecido com horário de funcionamento do que com
-// galeria), é só tirar o `publicaRecursosPremium(local) &&` abaixo.
-interface AgendaDia {
-  id: string;
-  dia_semana: number;
-  titulo: string;
-  descricao: string | null;
-  foto_url: string | null;
-  link: string | null;
-}
-
-const DIAS_SEMANA_AGENDA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+// Rodada 126 — a programação da semana dos bares NÃO aparece mais no perfil:
+// ela vive só na aba Eventos > "Essa semana" (public.agenda_semanal, migration 073).
 
 interface LocalBadge {
   id: string;
@@ -142,6 +201,18 @@ interface CupomLocal {
   descricao: string | null;
 }
 
+// Rodada 127 — cartão fidelidade da casa (migration 074): "a cada N visitas no mês, ganhe X".
+interface ProgressoFidelidade {
+  programa_id: string;
+  nome: string | null;
+  descricao: string | null;
+  visitas_necessarias: number;
+  recompensa: string;
+  janela: 'mes' | 'sempre';
+  visitas: number;
+  ja_ganhou: boolean;
+}
+
 interface CheckinAtivo {
   id: string;
   codigo: string;
@@ -157,7 +228,6 @@ export default function BusinessDetailScreen() {
 
   const [loading, setLoading] = useState(true);
   const [local, setLocal] = useState<LocalRow | null>(null);
-  const [agendaSemana, setAgendaSemana] = useState<AgendaDia[]>([]);
   const [badges, setBadges] = useState<LocalBadge[]>([]);
   const [avaliacoes, setAvaliacoes] = useState<Avaliacao[]>([]);
   const [minhaAvaliacao, setMinhaAvaliacao] = useState<Avaliacao | null>(null);
@@ -172,17 +242,18 @@ export default function BusinessDetailScreen() {
   const [cupons, setCupons] = useState<CupomLocal[]>([]);
   const [meuCheckin, setMeuCheckin] = useState<CheckinAtivo | null>(null);
   const [fazendoCheckin, setFazendoCheckin] = useState(false);
+  const [fidelidade, setFidelidade] = useState<ProgressoFidelidade[]>([]);
 
   const carregarDados = useCallback(async () => {
     if (!id) return;
     setLoading(true);
     try {
       const agora = new Date().toISOString();
-      const [localRes, badgesRes, avaliacoesRes, agendaRes, cuponsRes] = await Promise.all([
+      const [localRes, badgesRes, avaliacoesRes, cuponsRes] = await Promise.all([
         supabase
           .from('locais')
           .select(
-            'id, nome, categoria, subcategoria, descricao, endereco, bairro, cidade, lat, lng, instagram, foto_capa_url, safe_space, plano_destaque, rating_media, rating_total, horario_funcionamento, galeria_fotos, video_url, tags, plano_comercial, plano_comercial_status, classificacao_lgbt'
+            'id, nome, categoria, subcategoria, descricao, endereco, bairro, cidade, lat, lng, instagram, foto_capa_url, safe_space, plano_destaque, rating_media, rating_total, horario_funcionamento, galeria_fotos, video_url, programacao_texto, programacao_imagem_url, tags, plano_comercial, plano_comercial_status, classificacao_lgbt'
           )
           .eq('id', id)
           .single(),
@@ -197,12 +268,6 @@ export default function BusinessDetailScreen() {
           .eq('local_id', id)
           .order('created_at', { ascending: false })
           .limit(5),
-        supabase
-          .from('agenda_semanal')
-          .select('id, dia_semana, titulo, descricao, foto_url, link')
-          .eq('local_id', id)
-          .eq('ativo', true)
-          .order('dia_semana', { ascending: true }),
         // Rodada 59 (parte 8) — cupons ativos deste local (ver interface
         // CupomLocal acima). valido_de/valido_ate são opcionais — só
         // filtra quando preenchidos.
@@ -222,8 +287,10 @@ export default function BusinessDetailScreen() {
       registrarVisualizacaoPerfil((localRes.data as unknown as LocalRow).id);
       setBadges((badgesRes.data as any) || []);
       setAvaliacoes((avaliacoesRes.data as any) || []);
-      setAgendaSemana((agendaRes.data as any) || []);
       setCupons((cuponsRes.data as any) || []);
+      // Cartão fidelidade (só vem se a casa ligou "mostrar no app"). Sem a migration 074, segue sem o cartão.
+      const fidRes = await supabase.rpc('progresso_fidelidade_local', { p_local_id: id });
+      setFidelidade(fidRes.error ? [] : ((fidRes.data as any) || []));
 
       if (user?.id) {
         const [favRes, minhaRes, checkinRes] = await Promise.all([
@@ -284,9 +351,9 @@ export default function BusinessDetailScreen() {
   // trigger enforce_checkin_seguro_insert no banco) pra resgatar o cupom.
   // A casa confirma esse código no portal (validar_checkin) — só isso
   // libera o cupom de verdade em cupons_resgatados.
-  const handleFazerCheckin = async (cupomId: string) => {
+  const handleFazerCheckin = async (cupomId: string | null) => {
     if (!user) {
-      exigirLogin('Crie sua conta ou entre para fazer check-in e resgatar este cupom.');
+      exigirLogin('Crie sua conta ou entre para fazer check-in neste local.');
       return;
     }
     setFazendoCheckin(true);
@@ -385,6 +452,9 @@ export default function BusinessDetailScreen() {
       { text: 'Cancelar', style: 'cancel' },
     ]);
   };
+
+  const [fotoZoom, setFotoZoom] = useState<string | null>(null);
+  const [sobreAberto, setSobreAberto] = useState(false);
 
   const handleAbrirReview = () => {
     if (!session || !user) {
@@ -550,7 +620,19 @@ export default function BusinessDetailScreen() {
               )}
             </View>
 
-            {local.descricao && <Text style={styles.description}>{local.descricao}</Text>}
+            {!!local.descricao?.trim() && (
+              <View style={styles.cardSecao}>
+                <SecaoTitulo icone="info" titulo="Sobre" />
+                <Text style={styles.sobreTexto} numberOfLines={sobreAberto ? undefined : 5}>
+                  {local.descricao.trim()}
+                </Text>
+                {local.descricao.trim().length > 220 && (
+                  <TouchableOpacity onPress={() => setSobreAberto((v) => !v)} activeOpacity={0.7}>
+                    <Text style={styles.verMais}>{sobreAberto ? 'Ver menos' : 'Ler mais'}</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
 
             <TouchableOpacity style={styles.actionBtn} onPress={handleAbrirInstagram}>
               <Feather name="instagram" size={18} color="#FFF" style={{ marginRight: 8 }} />
@@ -629,10 +711,86 @@ export default function BusinessDetailScreen() {
               );
             })()}
 
+            {fidelidade.slice(0, 1).map((f) => {
+              const n = f.visitas_necessarias;
+              const v = Math.min(f.visitas, n);
+              const meta = f.visitas >= n;
+              const noMes = f.janela === 'mes';
+              const checkinAberto = !!meuCheckin && new Date(meuCheckin.expira_em).getTime() >= Date.now();
+              return (
+                <View key={f.programa_id} style={styles.fidCard}>
+                  <View style={styles.cupomHeaderRow}>
+                    <Feather name="gift" size={14} color="#FFD54F" />
+                    <Text style={styles.cupomHeaderText}>{f.nome || 'Cartão fidelidade'}</Text>
+                  </View>
+                  <Text style={styles.fidRegra}>
+                    A cada {n} visita{n === 1 ? '' : 's'}{noMes ? ' no mês' : ''}, ganhe:{' '}
+                    <Text style={{ color: '#FFD54F' }}>{f.recompensa}</Text>
+                  </Text>
+                  {!!f.descricao && <Text style={styles.cupomDescricao}>{f.descricao}</Text>}
+
+                  {n <= 12 ? (
+                    <View style={styles.fidBolinhas}>
+                      {Array.from({ length: n }).map((_, i) => (
+                        <View key={i} style={[styles.fidBolinha, i < v && styles.fidBolinhaOn]}>
+                          {i < v && <Feather name="check" size={11} color="#0B0B0E" />}
+                        </View>
+                      ))}
+                    </View>
+                  ) : (
+                    <View style={styles.fidBarra}>
+                      <View style={[styles.fidBarraOn, { width: `${Math.round((v / n) * 100)}%` }]} />
+                    </View>
+                  )}
+
+                  <Text style={styles.fidProgresso}>
+                    {!user
+                      ? 'Entre no app para acompanhar suas visitas.'
+                      : f.ja_ganhou
+                        ? noMes
+                          ? 'Você já ganhou o brinde deste mês! A contagem recomeça no dia 1º.'
+                          : 'Brinde conquistado! Uma nova contagem começou.'
+                        : meta
+                          ? 'Meta batida! Mostre esta tela ao atendente para ganhar seu brinde.'
+                          : `Você tem ${f.visitas} de ${n} visitas${noMes ? ' neste mês' : ''}.`}
+                  </Text>
+
+                  {user && cupons.length === 0 && checkinAberto && meuCheckin && (
+                    <View style={styles.codigoBox}>
+                      <Text style={styles.codigoLabel}>Mostre este código no caixa para contar a visita</Text>
+                      <Text style={styles.codigoTexto}>{meuCheckin.codigo}</Text>
+                      <Text style={styles.codigoValidade}>
+                        Válido até {new Date(meuCheckin.expira_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                      </Text>
+                    </View>
+                  )}
+
+                  {cupons.length === 0 && !checkinAberto && !f.ja_ganhou && (
+                    <TouchableOpacity
+                      style={[styles.actionBtn, styles.cupomBtn, { marginTop: 10 }, fazendoCheckin && { opacity: 0.6 }]}
+                      onPress={() => handleFazerCheckin(null)}
+                      disabled={fazendoCheckin}
+                    >
+                      <Feather name="check-circle" size={18} color="#FFF" style={{ marginRight: 8 }} />
+                      <Text style={styles.actionBtnText}>{fazendoCheckin ? 'Fazendo check-in...' : 'Fazer check-in (conta 1 visita)'}</Text>
+                    </TouchableOpacity>
+                  )}
+                  {cupons.length > 0 && !f.ja_ganhou && (
+                    <Text style={styles.fidDica}>Cada check-in confirmado pela casa (use o cupom acima) conta 1 visita.</Text>
+                  )}
+                  {!!user && (
+                    <TouchableOpacity onPress={carregarDados} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <Text style={styles.fidAtualizar}>Atualizar minhas visitas</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              );
+            })}
+
             {publicaRecursosPremium(local) && local.tags && local.tags.length > 0 && (
-              <View style={{ marginTop: 16 }}>
-                <Text style={styles.sectionTitle}>Tags de experiência</Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+              <View style={styles.cardSecao}>
+                <SecaoTitulo icone="hash" titulo="O que você encontra aqui" />
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                   {local.tags.map((tag, idx) => (
                     <View key={idx} style={styles.tagExperienciaChip}>
                       <Text style={styles.tagExperienciaTexto}>{tag}</Text>
@@ -643,11 +801,13 @@ export default function BusinessDetailScreen() {
             )}
 
             {publicaRecursosPremium(local) && local.galeria_fotos && local.galeria_fotos.length > 0 && (
-              <View style={{ marginTop: 16 }}>
-                <Text style={styles.sectionTitle}>Fotos</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 8 }}>
+              <View style={styles.cardSecao}>
+                <SecaoTitulo icone="image" titulo="Fotos" direita={<Text style={styles.secaoContagem}>{local.galeria_fotos.length}</Text>} />
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
                   {local.galeria_fotos.map((url, idx) => (
-                    <Image key={idx} source={{ uri: url }} style={styles.galeriaFoto} resizeMode="cover" />
+                    <TouchableOpacity key={idx} activeOpacity={0.9} onPress={() => setFotoZoom(url)}>
+                      <Image source={{ uri: url }} style={styles.galeriaFoto} resizeMode="cover" />
+                    </TouchableOpacity>
                   ))}
                 </ScrollView>
               </View>
@@ -655,11 +815,18 @@ export default function BusinessDetailScreen() {
 
             {publicaRecursosPremium(local) && local.video_url && (
               <TouchableOpacity
-                style={[styles.actionBtn, styles.videoBtn]}
+                style={styles.videoCard}
+                activeOpacity={0.85}
                 onPress={() => Linking.openURL(local.video_url!)}
               >
-                <Feather name="play-circle" size={18} color="#FFF" style={{ marginRight: 8 }} />
-                <Text style={styles.actionBtnText}>Ver vídeo</Text>
+                <View style={styles.videoPlay}>
+                  <Feather name="play" size={18} color="#FFF" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.videoTitulo}>Assista ao vídeo</Text>
+                  <Text style={styles.videoSub}>Conheça o lugar por dentro</Text>
+                </View>
+                <Feather name="external-link" size={16} color="#A0A0B2" />
               </TouchableOpacity>
             )}
 
@@ -672,53 +839,65 @@ export default function BusinessDetailScreen() {
               premium={publicaRecursosPremium(local)}
             />
 
-            {publicaRecursosPremium(local) && agendaSemana.length > 0 && (
-              <View style={{ marginTop: 16 }}>
-                <Text style={styles.sectionTitle}>Agenda da semana</Text>
-                <View style={{ marginTop: 8, gap: 10 }}>
-                  {agendaSemana.map((dia) => (
-                    <View key={dia.id} style={styles.agendaDiaBox}>
-                      {dia.foto_url && (
-                        <Image source={{ uri: dia.foto_url }} style={styles.agendaDiaFoto} resizeMode="cover" />
-                      )}
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.agendaDiaSemana}>{DIAS_SEMANA_AGENDA[dia.dia_semana]}</Text>
-                        <Text style={styles.agendaDiaTitulo}>{dia.titulo}</Text>
-                        {dia.descricao && <Text style={styles.agendaDiaDescricao}>{dia.descricao}</Text>}
-                        {dia.link && (
-                          <TouchableOpacity onPress={() => Linking.openURL(dia.link!)}>
-                            <Text style={styles.agendaDiaLink}>Ver mais</Text>
-                          </TouchableOpacity>
+            {local.horario_funcionamento && DIAS_SEMANA.some((d) => local.horario_funcionamento?.[d.chave]?.aberto) && (() => {
+              const status = statusAgora(local.horario_funcionamento);
+              const chaveHoje = CHAVES_POR_DIA_JS[new Date().getDay()];
+              return (
+                <View style={styles.cardSecao}>
+                  <SecaoTitulo
+                    icone="clock"
+                    titulo="Horário de funcionamento"
+                  />
+                  {status && (
+                    <View style={[styles.statusPill, status.aberto ? styles.statusAberto : styles.statusFechado]}>
+                      <View style={[styles.statusPonto, { backgroundColor: status.aberto ? '#4CAF7D' : '#E5484D' }]} />
+                      <Text style={[styles.statusTxt, { color: status.aberto ? '#4CAF7D' : '#E5484D' }]}>{status.texto}</Text>
+                    </View>
+                  )}
+                  {DIAS_SEMANA.map((d, i) => {
+                    const dia = local.horario_funcionamento?.[d.chave];
+                    const hoje = d.chave === chaveHoje;
+                    const aberto = !!dia?.aberto;
+                    return (
+                      <View
+                        key={d.chave}
+                        style={[styles.horarioLinha, hoje && styles.horarioHoje, i === DIAS_SEMANA.length - 1 && { marginBottom: 0 }]}
+                      >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text style={[styles.horarioDia, !aberto && { color: '#626274' }, hoje && { color: '#FFF' }]}>{d.label}</Text>
+                          {hoje && <Text style={styles.horarioHojeTag}>HOJE</Text>}
+                        </View>
+                        {aberto ? (
+                          <View style={{ alignItems: 'flex-end', flexShrink: 1 }}>
+                            <Text style={[styles.horarioValor, hoje && { color: '#FFF', fontWeight: '700' }]}>
+                              {dia.abre && dia.fecha ? `${dia.abre} – ${dia.fecha}` : 'Aberto'}
+                            </Text>
+                            {!!dia.musica_ao_vivo && (
+                              <View style={styles.musicaPill}>
+                                <Feather name="music" size={10} color="#E1306C" />
+                                <Text style={styles.musicaTxt}>ao vivo {dia.musica_ao_vivo}</Text>
+                              </View>
+                            )}
+                          </View>
+                        ) : (
+                          <Text style={[styles.horarioValor, { color: '#626274' }]}>Fechado</Text>
                         )}
                       </View>
-                    </View>
-                  ))}
+                    );
+                  })}
                 </View>
-              </View>
-            )}
-
-            {local.horario_funcionamento && DIAS_SEMANA.some((d) => local.horario_funcionamento?.[d.chave]?.aberto) && (
-              <View style={styles.horarioBox}>
-                <Text style={styles.sectionTitle}>Horário de funcionamento</Text>
-                {DIAS_SEMANA.map((d) => {
-                  const dia = local.horario_funcionamento?.[d.chave];
-                  if (!dia?.aberto) return null;
-                  return (
-                    <View key={d.chave} style={styles.horarioLinha}>
-                      <Text style={styles.horarioDia}>{d.label}</Text>
-                      <Text style={styles.horarioValor}>
-                        {dia.abre && dia.fecha ? `${dia.abre} – ${dia.fecha}` : 'Aberto'}
-                        {dia.musica_ao_vivo ? `  •  música ao vivo ${dia.musica_ao_vivo}` : ''}
-                      </Text>
-                    </View>
-                  );
-                })}
-              </View>
-            )}
+              );
+            })()}
 
             {/* AVALIAÇÕES */}
             <View style={styles.reviewsHeader}>
-              <Text style={styles.sectionTitle}>Avaliações</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={styles.secaoIcone}>
+                  <Feather name="star" size={14} color="#E1306C" />
+                </View>
+                <Text style={styles.secaoTitulo}>Avaliações</Text>
+                {local.rating_total > 0 && <Text style={styles.secaoContagem}>{local.rating_total}</Text>}
+              </View>
               <TouchableOpacity onPress={handleAbrirReview} activeOpacity={0.8}>
                 <Text style={styles.reviewCta}>
                   {minhaAvaliacao ? 'Editar minha avaliação' : 'Avaliar este local'}
@@ -769,6 +948,16 @@ export default function BusinessDetailScreen() {
           </View>
         </ScrollView>
       </SafeAreaView>
+
+      {/* ZOOM DE FOTO / PROGRAMAÇÃO */}
+      <Modal visible={!!fotoZoom} transparent animationType="fade" onRequestClose={() => setFotoZoom(null)}>
+        <TouchableOpacity style={styles.zoomOverlay} activeOpacity={1} onPress={() => setFotoZoom(null)}>
+          {!!fotoZoom && <Image source={{ uri: fotoZoom }} style={styles.zoomImagem} resizeMode="contain" />}
+          <View style={styles.zoomFechar}>
+            <Feather name="x" size={20} color="#FFF" />
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* MODAL DE AVALIAÇÃO */}
       <Modal
@@ -883,22 +1072,58 @@ const styles = StyleSheet.create({
   videoBtn: { backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230' },
   actionBtnText: { color: '#FFF', fontSize: 13, fontWeight: '700' },
 
-  galeriaFoto: { width: 140, height: 100, borderRadius: 12, backgroundColor: '#161520' },
+  galeriaFoto: { width: 170, height: 124, borderRadius: 14, backgroundColor: '#161520' },
 
-  tagExperienciaChip: { backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
+  tagExperienciaChip: { backgroundColor: '#E1306C14', borderWidth: 1, borderColor: '#E1306C40', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
   tagExperienciaTexto: { color: '#D0D0E0', fontSize: 12, fontWeight: '700' },
 
-  agendaDiaBox: { flexDirection: 'row', gap: 12, backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230', borderRadius: 14, padding: 12, alignItems: 'center' },
-  agendaDiaFoto: { width: 64, height: 64, borderRadius: 10, backgroundColor: '#0B0B0E' },
-  agendaDiaSemana: { fontSize: 11, fontWeight: '800', color: '#E1306C', textTransform: 'uppercase' },
-  agendaDiaTitulo: { fontSize: 13, fontWeight: '700', color: '#FFF', marginTop: 2 },
-  agendaDiaDescricao: { fontSize: 12, color: '#A0A0B2', marginTop: 2 },
-  agendaDiaLink: { fontSize: 12, fontWeight: '700', color: '#E1306C', marginTop: 4, textDecorationLine: 'underline' },
 
-  horarioBox: { marginTop: 16, marginBottom: 8, padding: 14, borderRadius: 14, backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230' },
-  horarioLinha: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
-  horarioDia: { fontSize: 12, fontWeight: '700', color: '#FFF' },
-  horarioValor: { fontSize: 12, color: '#A0A0B2', flexShrink: 1, textAlign: 'right', marginLeft: 8 },
+  cardSecao: { marginTop: 16, backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230', borderRadius: 18, padding: 16 },
+  secaoHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  secaoIcone: { width: 26, height: 26, borderRadius: 13, backgroundColor: '#E1306C1A', alignItems: 'center', justifyContent: 'center' },
+  secaoTitulo: { fontSize: 15, fontWeight: '800', color: '#FFF' },
+  secaoContagem: { fontSize: 11, fontWeight: '800', color: '#A0A0B2', backgroundColor: '#0B0B0E', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, overflow: 'hidden' },
+  sobreTexto: { fontSize: 13, color: '#D0D0E0', lineHeight: 20 },
+  verMais: { marginTop: 8, fontSize: 12, fontWeight: '800', color: '#E1306C' },
+
+  progImagem: { width: '100%', height: 240, borderRadius: 14, backgroundColor: '#0B0B0E' },
+  progZoomDica: { position: 'absolute', right: 10, bottom: 10, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(0,0,0,0.65)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
+  progZoomTxt: { color: '#FFF', fontSize: 10, fontWeight: '700' },
+  progLinha: { flexDirection: 'row', gap: 10, paddingVertical: 7, borderBottomWidth: 1, borderBottomColor: '#232230' },
+  progDia: { width: 74, fontSize: 12, fontWeight: '800', color: '#E1306C', textTransform: 'uppercase' },
+  progTexto: { flex: 1, fontSize: 13, color: '#D0D0E0', lineHeight: 18 },
+  fidCard: { backgroundColor: '#161520', borderWidth: 1, borderColor: '#FFD54F30', borderRadius: 16, padding: 16, marginBottom: 18 },
+  fidRegra: { fontSize: 15, fontWeight: '800', color: '#FFF', lineHeight: 21, marginBottom: 4 },
+  fidBolinhas: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12, marginBottom: 4 },
+  fidBolinha: { width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, borderColor: '#3A3950', alignItems: 'center', justifyContent: 'center' },
+  fidBolinhaOn: { backgroundColor: '#FFD54F', borderColor: '#FFD54F' },
+  fidBarra: { height: 8, borderRadius: 4, backgroundColor: '#232230', overflow: 'hidden', marginTop: 12, marginBottom: 4 },
+  fidBarraOn: { height: 8, backgroundColor: '#FFD54F' },
+  fidProgresso: { fontSize: 13, color: '#D0D0E0', marginTop: 8 },
+  fidDica: { fontSize: 11, color: '#A0A0B2', marginTop: 8 },
+  fidAtualizar: { fontSize: 11, fontWeight: '700', color: '#E1306C', marginTop: 10, textDecorationLine: 'underline' },
+
+  videoCard: { marginTop: 16, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230', borderRadius: 18, padding: 14 },
+  videoPlay: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#E1306C', alignItems: 'center', justifyContent: 'center' },
+  videoTitulo: { fontSize: 14, fontWeight: '800', color: '#FFF' },
+  videoSub: { fontSize: 11, color: '#A0A0B2', marginTop: 2 },
+
+  statusPill: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, marginBottom: 10, borderWidth: 1 },
+  statusAberto: { backgroundColor: '#4CAF7D18', borderColor: '#4CAF7D50' },
+  statusFechado: { backgroundColor: '#E5484D14', borderColor: '#E5484D40' },
+  statusPonto: { width: 8, height: 8, borderRadius: 4 },
+  statusTxt: { fontSize: 12, fontWeight: '800' },
+  horarioLinha: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 10, borderRadius: 10, marginBottom: 2 },
+  horarioHoje: { backgroundColor: '#E1306C14', borderWidth: 1, borderColor: '#E1306C40' },
+  horarioHojeTag: { fontSize: 9, fontWeight: '900', color: '#E1306C', letterSpacing: 0.5 },
+  horarioDia: { fontSize: 13, fontWeight: '700', color: '#D0D0E0' },
+  horarioValor: { fontSize: 13, color: '#A0A0B2' },
+  musicaPill: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3, backgroundColor: '#E1306C14', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
+  musicaTxt: { fontSize: 10, fontWeight: '700', color: '#E1306C' },
+
+  zoomOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', justifyContent: 'center', alignItems: 'center' },
+  zoomImagem: { width: '100%', height: '85%' },
+  zoomFechar: { position: 'absolute', top: 54, right: 20, width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
 
   reviewsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, marginBottom: 12 },
   sectionTitle: { fontSize: 15, fontWeight: '800', color: '#FFF' },

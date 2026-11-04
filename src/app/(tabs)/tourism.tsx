@@ -27,7 +27,7 @@ import { registrarAviso } from '../../lib/avisos';
 import { CATEGORIAS } from '../../lib/categorias';
 import { IDIOMAS, useI18n } from '../../lib/i18n';
 import { supabase } from '../../lib/supabase';
-import { carregarDestinos, Destino, DESTINOS_PADRAO } from '../../lib/destinos';
+import { carregarDestinos, Destino, DESTINOS_PADRAO, destinoAberto } from '../../lib/destinos';
 import { useRastrearTela } from '../../lib/usoTelas';
 
 const C = {
@@ -51,13 +51,13 @@ const CIDADES_SEDE = ['Rio de Janeiro', 'São Paulo', 'Belo Horizonte', 'Brasíl
 
 // Atalhos → listagem real de turismo filtrada pela subcategoria (texto livre
 // cadastrado pelo parceiro), via parâmetro `tipo` de /category/[id].
-const SERVICOS: readonly { chave: string; icone: string; tipo: string; degrade: [string, string] }[] = [
+// Ordem (nov/2026): Roteiros e Agências abertos; depois, em breve: Passeios, Pacotes e Hospedagem. `breve` = ainda não abriu (toque = "avise-me").
+const SERVICOS: readonly { chave: string; icone: string; tipo: string; degrade: [string, string]; breve?: boolean }[] = [
   { chave: 'trip.roteiros', icone: 'map', tipo: 'roteiro|tour|guia', degrade: ['#E1306C', '#9B3CFF'] },
-  { chave: 'trip.hospedagem', icone: 'home', tipo: 'hotel|pousada|hostel|hosped', degrade: ['#7E57C2', '#3B82F6'] },
-  { chave: 'trip.pacotes', icone: 'package', tipo: 'pacote|agência|agencia', degrade: ['#FF8A3D', '#E1306C'] },
-  { chave: 'trip.passeios', icone: 'compass', tipo: 'passeio|ponto|atração|atracao|museu', degrade: ['#10B981', '#0E7490'] },
   { chave: 'trip.agencias', icone: 'briefcase', tipo: 'agência|agencia|operadora', degrade: ['#E8A317', '#B45309'] },
-  { chave: 'trip.eventos', icone: 'calendar', tipo: '', degrade: ['#C026A3', '#6D3FD1'] },
+  { chave: 'trip.passeios', icone: 'compass', tipo: 'passeio|ponto|atração|atracao|museu', degrade: ['#10B981', '#0E7490'], breve: true },
+  { chave: 'trip.pacotes', icone: 'package', tipo: 'pacote|agência|agencia', degrade: ['#FF8A3D', '#E1306C'], breve: true },
+  { chave: 'trip.hospedagem', icone: 'home', tipo: 'hotel|pousada|hostel|hosped', degrade: ['#7E57C2', '#3B82F6'], breve: true },
 ];
 
 const DEGRADES_DESTINO: [string, string][] = [
@@ -113,10 +113,20 @@ export default function TripScreen() {
   // Janela de até 6 destinos; avança de 6 em 6 a cada 6 horas.
   const destinosHora = useMemo(() => {
     if (destinos.length === 0) return [];
-    const ord = destinos.slice().sort((a, b) => a.slug.localeCompare(b.slug));
+    const ord = destinos.slice().sort((a, b) => Number(destinoAberto(b.slug)) - Number(destinoAberto(a.slug)) || a.slug.localeCompare(b.slug));
     const inicio = (((slotDestino * 6) % ord.length) + ord.length) % ord.length;
     return [...ord.slice(inicio), ...ord.slice(0, inicio)].slice(0, 6);
   }, [destinos, slotDestino]);
+
+  // "Em breve": em vez de um toque que não faz nada, registra o "avise-me" de verdade.
+  const avisarBreve = (alvo: string, alvoLabel: string) =>
+    registrarAviso({ userId: user?.id, alvo, alvoLabel, t, irParaLogin: () => router.push('/(tabs)/profile') });
+
+  const abrirServico = (s: (typeof SERVICOS)[number]) => {
+    if (s.breve) return avisarBreve(s.chave.replace('.', '-'), t(s.chave));
+    if (s.chave === 'trip.roteiros') router.push('/roteiros' as any);
+    else abrirTurismo({ title: t(s.chave), tipo: s.tipo });
+  };
 
   const abrirTurismo = (params: { title: string; search?: string; tipo?: string }) => {
     router.push({
@@ -197,11 +207,7 @@ export default function TripScreen() {
             opcoes={SERVICOS.map((s) => ({ id: s.chave, label: t(s.chave), icone: s.icone }))}
             onEscolher={(id) => {
               const s = SERVICOS.find((x) => x.chave === id);
-              if (!s) return;
-              if (s.chave === 'trip.eventos') router.push('/(tabs)/events');
-              else if (s.chave === 'trip.roteiros') router.push('/roteiros' as any);
-              else if (s.chave === 'trip.pacotes') router.push('/pacotes' as any);
-              else abrirTurismo({ title: t(s.chave), tipo: s.tipo });
+              if (s) abrirServico(s);
             }}
           />
         </View>
@@ -246,22 +252,19 @@ export default function TripScreen() {
               key={s.chave}
               style={styles.iconeItem}
               activeOpacity={0.75}
-              onPress={() =>
-                s.chave === 'trip.eventos'
-                  ? router.push('/(tabs)/events')
-                  : s.chave === 'trip.roteiros'
-                  ? router.push('/roteiros' as any)
-                  : s.chave === 'trip.pacotes'
-                  ? router.push('/pacotes' as any)
-                  : abrirTurismo({ title: t(s.chave), tipo: s.tipo })
-              }
+              onPress={() => abrirServico(s)}
               accessibilityRole="button"
-              accessibilityLabel={t(s.chave)}
+              accessibilityLabel={s.breve ? `${t(s.chave)}, ${t('home.emBreve')}` : t(s.chave)}
             >
               <View style={styles.iconeCirculo}>
-                <Feather name={s.icone as any} size={20} color={CATEGORIAS.turismo.color} />
+                <Feather name={s.icone as any} size={20} color={s.breve ? C.purple : CATEGORIAS.turismo.color} />
+                {s.breve && (
+                  <View style={styles.emBreveBadge}>
+                    <Text style={styles.emBreveTexto}>{t('home.emBreve')}</Text>
+                  </View>
+                )}
               </View>
-              <Text style={styles.iconeTxt} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} maxFontSizeMultiplier={1}>{t(s.chave)}</Text>
+              <Text style={[styles.iconeTxt, s.breve && { color: C.dim }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} maxFontSizeMultiplier={1}>{t(s.chave)}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -269,14 +272,16 @@ export default function TripScreen() {
         {/* Destinos em destaque: até 6 por vez, no mesmo formato das ofertas, trocando a cada 6 horas. */}
         {destinosHora.length > 0 && (
           <View style={styles.gradeDestinos}>
-            {destinosHora.map((d, idx) => (
+            {destinosHora.map((d, idx) => {
+              const aberto = destinoAberto(d.slug);
+              return (
               <TouchableOpacity
                 key={d.slug}
                 style={styles.destinoTile}
                 activeOpacity={0.9}
-                onPress={() => router.push(`/destino/${d.slug}` as any)}
+                onPress={() => (aberto ? router.push(`/destino/${d.slug}` as any) : avisarBreve(`destino-${d.slug}`, d.cidade))}
                 accessibilityRole="button"
-                accessibilityLabel={`${d.cidade}, ${d.uf}`}
+                accessibilityLabel={aberto ? `${d.cidade}, ${d.uf}` : `${d.cidade}, ${d.uf}, ${t('home.emBreve')}`}
               >
                 <FundoCaixaDegrade id={`dst-${d.slug}`} cores={DEGRADES_DESTINO[(idx + slotDestino) % DEGRADES_DESTINO.length]} />
                 {!!d.foto_url && <Image source={{ uri: d.foto_url }} style={StyleSheet.absoluteFill} resizeMode="cover" />}
@@ -284,8 +289,15 @@ export default function TripScreen() {
                 <Feather name="map-pin" size={22} color="#FFFFFF" />
                 <Text style={styles.destinoTileTxt} numberOfLines={2}>{d.cidade}</Text>
                 <Text style={styles.destinoTileUf}>{d.uf}</Text>
+                {!aberto && <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(8,6,16,0.55)' }]} pointerEvents="none" />}
+                {!aberto && (
+                  <View style={styles.destinoBreve}>
+                    <Text style={styles.emBreveTexto}>{t('home.emBreve')}</Text>
+                  </View>
+                )}
               </TouchableOpacity>
-            ))}
+              );
+            })}
           </View>
         )}
 
@@ -351,6 +363,9 @@ const styles = StyleSheet.create({
   destinoTileUf: { fontSize: 10, fontWeight: '800', color: 'rgba(255,255,255,0.8)' },
   iconesLinha: { flexDirection: 'row', paddingHorizontal: 16, gap: 4 },
   iconeItem: { flex: 1, alignItems: 'center', gap: 5 },
+  emBreveBadge: { position: 'absolute', bottom: -4, backgroundColor: C.purple, paddingHorizontal: 4, paddingVertical: 1, borderRadius: 4 },
+  emBreveTexto: { fontSize: 7, fontWeight: '800', color: '#FFF' },
+  destinoBreve: { position: 'absolute', bottom: 6, backgroundColor: C.purple, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
   iconeCirculo: { width: 46, height: 46, borderRadius: 23, borderWidth: 1, borderColor: C.border, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
   iconeTxt: { fontSize: 10, lineHeight: 12, fontWeight: '600', color: '#FFFFFF', textAlign: 'center', alignSelf: 'stretch' },
   tileTxt: { fontSize: 12, fontWeight: '700', color: '#FFFFFF' },

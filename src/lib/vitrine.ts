@@ -28,6 +28,7 @@ export type OfertaVitrine = {
   foto_local: string | null;
   plano_comercial: string | null;
   plano_comercial_status: string | null;
+  criado_em?: string | null;
 };
 
 export type Comunicacao = {
@@ -40,17 +41,43 @@ export type Comunicacao = {
   imagem_url: string | null;
 };
 
+// Exemplo "Bares by Ambev" usado SÓ em desenvolvimento (Expo Go / __DEV__), quando o banco não devolve patrocínio de
+// Bares — assim dá para ver o layout sem depender das migrations. Em produção (app publicado) nunca aparece.
+const PATROCINIO_EXEMPLO_DEV: Patrocinio = {
+  categoria: 'bares',
+  local_id: null,
+  tag: 'PATROCÍNIO · EXEMPLO (teste local)',
+  titulo: 'Bares by Ambev',
+  subtitulo:
+    'A Ambev é a maior cervejaria do Brasil, com marcas como Skol, Brahma e Antarctica, presente em milhares de bares do país. Aqui, ela apoia a vida noturna que acolhe todo mundo.',
+  cta: 'Saiba mais',
+  destino: 'https://www.ambev.com.br',
+  imagem_url: null,
+  cor1: '#F59E0B',
+  cor2: '#B45309',
+};
+
 export async function buscarPatrocinio(slug: string): Promise<Patrocinio | null> {
+  // O exemplo "Bares by Ambev" saiu: sem patrocinador cadastrado, a vitrine mostra o espaço "Patrocínio Master" (lib/demo.ts).
+  const exemploDev: Patrocinio | null = null;
   try {
     const { data, error } = await supabase
       .from('categoria_patrocinio')
       .select('categoria, local_id, tag, titulo, subtitulo, cta, destino, imagem_url, cor1, cor2')
       .eq('categoria', slug)
       .maybeSingle();
-    if (error || !data) return null;
+    if (error) {
+      if (__DEV__) console.warn('[patrocinio] erro ao ler categoria_patrocinio:', error.message);
+      return exemploDev;
+    }
+    if (!data) {
+      if (__DEV__) console.warn(`[patrocinio] nenhuma linha ativa para "${slug}" (rode a 064 no Supabase; o banco só devolve linhas ativas e dentro do período).`);
+      return exemploDev;
+    }
     return data as Patrocinio;
-  } catch {
-    return null;
+  } catch (e: any) {
+    if (__DEV__) console.warn('[patrocinio] falha:', e?.message);
+    return exemploDev;
   }
 }
 
@@ -69,8 +96,8 @@ export async function buscarOfertas(opts: { categoriaReal?: string | string[] | 
       if (opts.idsLocais) q = q.in('local_id', opts.idsLocais.length ? opts.idsLocais : ['00000000-0000-0000-0000-000000000000']);
       return q;
     };
-    let r = await montar('id, local_id, titulo, descricao, valido_de, valido_ate, imagem_url, criado_pela_equipe');
-    if (r.error) r = await montar('id, local_id, titulo, descricao, valido_de, valido_ate');
+    let r = await montar('id, local_id, titulo, descricao, valido_de, valido_ate, imagem_url, criado_pela_equipe, created_at');
+    if (r.error) r = await montar('id, local_id, titulo, descricao, valido_de, valido_ate, created_at');
     if (r.error || !r.data) return [];
     const agora = Date.now();
     return (r.data as any[])
@@ -83,6 +110,7 @@ export async function buscarOfertas(opts: { categoriaReal?: string | string[] | 
         valido_ate: c.valido_ate ?? null,
         imagem_url: c.imagem_url ?? null,
         equipe: !!c.criado_pela_equipe,
+        criado_em: c.created_at ?? null,
         nome_local: c.locais?.nome ?? '',
         foto_local: c.locais?.logo_url || c.locais?.foto_capa_url || null,
         plano_comercial: c.locais?.plano_comercial ?? null,
@@ -181,4 +209,33 @@ export function ateData(iso: string | null): string | null {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
   return `até ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+// Vários patrocínios de uma vez (ex.: as 6 vagas "em-alta-1" … "em-alta-6" das páginas da Home). Chave ausente = vaga livre.
+export async function buscarPatrociniosLote(chaves: string[]): Promise<Record<string, Patrocinio>> {
+  try {
+    const { data, error } = await supabase
+      .from('categoria_patrocinio')
+      .select('categoria, local_id, tag, titulo, subtitulo, cta, destino, imagem_url, cor1, cor2')
+      .in('categoria', chaves);
+    if (error || !data) return {};
+    return Object.fromEntries((data as Patrocinio[]).map((p) => [p.categoria, p]));
+  } catch {
+    return {};
+  }
+}
+
+// Vagas manuais do admin (migration 071): quem ocupa cada vaga Premium (1..12) e Intermediária (1..24) da categoria.
+// Sem linha = vaga automática (o app preenche pelo plano). Em erro (migration ainda não rodou) devolve vazio.
+export type VagasCategoria = { premium: Record<number, string>; intermediario: Record<number, string> };
+export async function buscarVagas(slug: string): Promise<VagasCategoria> {
+  const vazio: VagasCategoria = { premium: {}, intermediario: {} };
+  try {
+    const { data, error } = await supabase.from('vitrine_vaga').select('tipo, posicao, local_id').eq('categoria', slug);
+    if (error || !data) return vazio;
+    for (const r of data as any[]) (r.tipo === 'premium' ? vazio.premium : vazio.intermediario)[Number(r.posicao)] = r.local_id as string;
+    return vazio;
+  } catch {
+    return vazio;
+  }
 }

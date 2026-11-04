@@ -82,16 +82,22 @@ const GAP_GRADE = 8;
 // sai da Home; Serviços logo depois de Comer, e Beleza em seguida.
 // Mesma ordem oficial de lib/categorias.ts (12 categorias, out/2026).
 // Categorias ativas primeiro; as "em breve" vão para o fim da fila (ordem oficial mantida dentro de cada grupo).
+// Ordem fixa da Home (nov/2026): Destaques, Bares & Noite, Festas, Serviços, Dicas Trip, Artistas, Beleza e 18+;
+// as demais categorias vêm depois, na ordem oficial. Só as ABERTAS_HOME abrem; as outras aparecem "Em breve" na Home.
+const ORDEM_FIXA_HOME = ['destaques', 'bares', 'festas', 'servicos', 'turismo', 'artistas', 'beleza', 'mais18'] as (typeof CATEGORIA_ORDER)[number][];
+const ABERTAS_HOME: string[] = ['destaques', 'bares', 'festas', 'servicos', 'turismo', 'artistas', 'beleza', 'mais18'];
+// 18+: confirmação de idade antes de abrir (vale até fechar o app).
+let idadeConfirmada = false;
+const emBreveHome = (cat: { slug: string; emBreve?: boolean }) => !!cat.emBreve || !ABERTAS_HOME.includes(cat.slug);
 const ORDEM_GRADE = [
-  'destaques' as (typeof CATEGORIA_ORDER)[number],
-  ...CATEGORIA_ORDER.filter((slug) => !CATEGORIAS[slug].emBreve),
-  ...CATEGORIA_ORDER.filter((slug) => CATEGORIAS[slug].emBreve),
+  ...ORDEM_FIXA_HOME,
+  ...CATEGORIA_ORDER.filter((slug) => !ORDEM_FIXA_HOME.includes(slug)),
 ];
 const LARGURA_TILE = 84;
 // Rótulos curtos da barra de categorias (cabem 6 por linha); o nome completo continua no leitor de tela e na página.
 const ROTULO_CURTO: Record<string, string> = {
   destaques: 'Destaques', turismo: 'Dicas Trip', bares: 'Bares & Noite', festas: 'Festas', gastronomia: 'Gastronomia',
-  lazer: 'Lazer', cultura: 'Cultura', saude: 'Saúde', beleza: 'Beleza', servicos: 'Serviços', educacao: 'Educação',
+  lazer: 'Lazer', cultura: 'Cultura', saude: 'Saúde', beleza: 'Beleza', servicos: 'Serviços', educacao: 'Educação', artistas: 'Artistas',
   produtos: 'Produtos', comunidade: 'Comunidade', mais18: '18+', lojas: 'Lojas',
 };
 
@@ -345,6 +351,7 @@ export default function HomeScreen() {
   const [emAltaPool, setEmAltaPool] = useState<LocalCard[]>([]);
   const [aprovadosHome, setAprovadosHome] = useState<LocalCard[]>([]);
   const [servicosPool, setServicosPool] = useState<LocalCard[]>([]);
+  const [emAltaPoolTodos, setEmAltaPoolTodos] = useState<LocalCard[]>([]);
   const [cfgRodizio, setCfgRodizio] = useState<ConfigRodizio>(CONFIG_RODIZIO_PADRAO);
   // Rodada 47 — criado como "Selo Dicas LGBT+", seção própria com
   // curadoria editorial da Andrea. Rodada 56 (3ª rodada de ajuste) —
@@ -467,8 +474,8 @@ export default function HomeScreen() {
     return lista.filter((i) => (vistos.has(i.chave) ? false : (vistos.add(i.chave), true))).slice(0, 6);
   }, [agendaHoje, locaisHoje, abertosAgora, t]);
   const emAlta = useMemo(
-    () => rodizioHorario(emAltaPool, 'em_alta', slotRodizio, cfgRodizio.tamanho),
-    [emAltaPool, slotRodizio, cfgRodizio.tamanho]
+    () => rodizioHorario(cfgRodizio.completarEmAlta ? emAltaPoolTodos : emAltaPool, 'em_alta', slotRodizio, cfgRodizio.tamanho),
+    [emAltaPool, emAltaPoolTodos, slotRodizio, cfgRodizio.tamanho, cfgRodizio.completarEmAlta]
   );
   // Serviços em destaque: mesmo rodízio por horário, só entre serviços/beleza/lojas.
   const servicosHora = useMemo(
@@ -719,6 +726,9 @@ export default function HomeScreen() {
       const soLugares = todosAprovados.filter((i) => !ehServico(i));
       const poolSemDestaque = soLugares.filter((i) => !idsDestaque.has(i.id));
       setEmAltaPool(poolSemDestaque.length > 0 ? poolSemDestaque : soLugares);
+      // Com "completar" ligado no /admin, o Em Alta usa todas as categorias (inclusive serviços e lojas).
+      const todosSemDestaque = todosAprovados.filter((i) => !idsDestaque.has(i.id));
+      setEmAltaPoolTodos(todosSemDestaque.length > 0 ? todosSemDestaque : todosAprovados);
       setServicosPool(todosAprovados.filter((i) => ehServico(i)));
       setAprovadosHome(todosAprovados);
       lerConfigRodizio().then(setCfgRodizio);
@@ -824,7 +834,7 @@ export default function HomeScreen() {
   const handleCategoryPress = (cat: CategoriaConfig) => {
     // Em breve: em vez de um toque que não faz nada (App Store 2.1), registra
     // o "avise-me" de verdade.
-    if (cat.emBreve) {
+    if (emBreveHome(cat)) {
       registrarAviso({
         userId: user?.id,
         alvo: cat.slug,
@@ -840,10 +850,20 @@ export default function HomeScreen() {
       return;
     }
 
-    router.push({
-      pathname: `/category/${cat.slug}` as any,
-      params: { title: encodeURIComponent(cat.label) },
-    });
+    const abrirCategoria = () =>
+      router.push({
+        pathname: `/category/${cat.slug}` as any,
+        params: { title: encodeURIComponent(cat.label) },
+      });
+
+    if (cat.slug === 'mais18' && !idadeConfirmada) {
+      Alert.alert('Conteúdo para maiores de 18 anos', 'Esta categoria reúne espaços adultos. Você confirma que tem 18 anos ou mais?', [
+        { text: 'Voltar', style: 'cancel' },
+        { text: 'Tenho 18 anos ou mais', onPress: () => { idadeConfirmada = true; abrirCategoria(); } },
+      ]);
+      return;
+    }
+    abrirCategoria();
   };
 
   // Rodada 44 — antes esses chips eram decorativos: só mandavam um
@@ -986,18 +1006,18 @@ export default function HomeScreen() {
                   onPress={() => (slug === 'turismo' ? router.push('/(tabs)/tourism') : handleCategoryPress(cat))}
                   activeOpacity={0.7}
                   accessibilityRole="button"
-                  accessibilityLabel={cat.emBreve ? `${completo}, ${t('home.emBreve')}` : completo}
+                  accessibilityLabel={emBreveHome(cat) ? `${completo}, ${t('home.emBreve')}` : completo}
                 >
-                  <View style={[styles.categoriaCircle, cat.emBreve && styles.categoriaDisabled, slug === 'destaques' && styles.categoriaCircleDestaque]}>
-                    <Feather name={cat.icon as any} size={20} color={cat.emBreve ? COLORS.purple : cat.color} />
-                    {cat.emBreve && (
+                  <View style={[styles.categoriaCircle, emBreveHome(cat) && styles.categoriaDisabled, slug === 'destaques' && styles.categoriaCircleDestaque]}>
+                    <Feather name={cat.icon as any} size={20} color={emBreveHome(cat) ? COLORS.purple : cat.color} />
+                    {emBreveHome(cat) && (
                       <View style={styles.emBreveBadge}>
                         <Text style={styles.emBreveTexto}>{t('home.emBreve')}</Text>
                       </View>
                     )}
                   </View>
                   <View style={styles.categoriaLabelBox}>
-                    <Text style={[styles.categoriaLabel, cat.emBreve && { color: COLORS.textMuted }]} numberOfLines={label.includes(' ') ? 2 : 1} adjustsFontSizeToFit minimumFontScale={0.75} maxFontSizeMultiplier={1}>
+                    <Text style={[styles.categoriaLabel, emBreveHome(cat) && { color: COLORS.textMuted }]} numberOfLines={label.includes(' ') ? 2 : 1} adjustsFontSizeToFit minimumFontScale={0.75} maxFontSizeMultiplier={1}>
                       {label}
                     </Text>
                   </View>

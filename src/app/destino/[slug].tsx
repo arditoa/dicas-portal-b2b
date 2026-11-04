@@ -20,6 +20,8 @@ import VitrineCategoria, { LocalVitrine } from '../../components/VitrineCategori
 import { SubDef } from '../../lib/subcategorias';
 import { CATEGORIAS, CATEGORIA_REAL_LABEL, SELO_FESTA, SeloCategoria, seloDaCategoria } from '../../lib/categorias';
 import { carregarDestinos, Destino, DESTINOS_PADRAO } from '../../lib/destinos';
+import { useAuth } from '../../lib/authContext';
+import { registrarAviso } from '../../lib/avisos';
 import { useI18n } from '../../lib/i18n';
 import { supabase } from '../../lib/supabase';
 import { GRUPOS_DESTINO, rotuloTag, slugTag } from '../../lib/taxonomia';
@@ -46,8 +48,8 @@ const CORES_PILULA = ['#9B3CFF', '#E1306C', '#0EA5E9', '#10B981', '#F2692A', '#7
 const TILES: { id: Aba; titulo: string; sub: string; icone: string; cor: string; degrade: [string, string] }[] = [
   { id: 'onde_ficar', titulo: 'Onde ficar', sub: 'Hotéis, pousadas e regiões LGBT+ friendly', icone: 'home', cor: C.lilas, degrade: ['#7E57C2', '#3B82F6'] },
   { id: 'praias_passeios', titulo: 'Passeios', sub: 'Atrações, trilhas e roteiros', icone: 'compass', cor: '#FFD54F', degrade: ['#F2A900', '#E8590C'] },
-  { id: 'experiencias', titulo: 'Experiências LGBT+', sub: 'Bares, festas, saunas, arte e cultura', icone: 'heart', cor: C.pink, degrade: ['#E1306C', '#9B3CFF'] },
-  { id: 'eventos_paradas', titulo: 'Eventos e Paradas', sub: 'Datas, festas e Parada LGBT+', icone: 'calendar', cor: '#4FC3F7', degrade: ['#0EA5E9', '#4338CA'] },
+  { id: 'experiencias', titulo: 'Experiências', sub: 'Bares, festas, saunas, arte e cultura', icone: 'heart', cor: C.pink, degrade: ['#E1306C', '#9B3CFF'] },
+  { id: 'eventos_paradas', titulo: 'Eventos', sub: 'Datas, festas e Parada LGBT+', icone: 'calendar', cor: '#4FC3F7', degrade: ['#0EA5E9', '#4338CA'] },
 ];
 
 type Item = {
@@ -58,6 +60,7 @@ type Item = {
   foto: string | null;
   rota?: string;
   slugs: string[]; // tudo que serve pra filtrar por tag
+  exps?: string[]; // experiências do local (locais.experiencias)
   rank?: number; // 0 = Premium/Fundador, 1 = Intermediário, 2 = demais (aparecem primeiro nas caixas)
   selo?: SeloCategoria;
 };
@@ -95,7 +98,7 @@ const ALIAS_ONDE_FICAR: Record<string, string[]> = {
 // se o banco ainda não tiver essas colunas, cai pro básico.
 async function buscarLocais(cidade: string, nivel = 2): Promise<any[]> {
   const campos =
-    nivel === 2 ? `${BASE_LOCAL}, tipo_hospedagem, atributos, hospedagem_perfil(completude)` : nivel === 1 ? `${BASE_LOCAL}, tipo_hospedagem, atributos` : BASE_LOCAL;
+    nivel === 2 ? `${BASE_LOCAL}, tipo_hospedagem, atributos, experiencias, hospedagem_perfil(completude)` : nivel === 1 ? `${BASE_LOCAL}, tipo_hospedagem, atributos, experiencias` : BASE_LOCAL;
   const r = await supabase.from('locais').select(campos).eq('status', 'aprovado').eq('cidade', cidade).limit(300);
   if (r.error && nivel > 0) return buscarLocais(cidade, nivel - 1);
   return ((r.data as any[]) || []) as any[];
@@ -108,20 +111,37 @@ function rankPlano(l: any): number {
   return 2;
 }
 
+const SECOES_ICONE: SubDef[] = [
+  { chave: 'onde_ficar', rotulo: 'Onde ficar', curto: 'Onde ficar', icone: 'home', palavras: [] },
+  { chave: 'praias_passeios', rotulo: 'Passeios', curto: 'Passeios', icone: 'compass', palavras: [] },
+  { chave: 'experiencias', rotulo: 'Experiências', curto: 'Experiências', icone: 'heart', palavras: [] },
+  { chave: 'eventos_paradas', rotulo: 'Eventos', curto: 'Eventos', icone: 'calendar', palavras: [] },
+];
+
+// Seções ainda "Em breve" na cidade (nov/2026): toque registra o "avise-me". Eventos abre a aba Eventos do app.
+const SECOES_BREVE = ['onde_ficar', 'experiencias'];
+
+// Experiências (as mesmas da página Experiências): filtram os locais da cidade que têm aquela experiência.
+const EXPERIENCIAS_ICONE: SubDef[] = [
+  { chave: 'aniversario', rotulo: 'Aniversário', curto: 'Aniversário', icone: 'gift', palavras: [] },
+  { chave: 'dates', rotulo: 'Dates', curto: 'Dates', icone: 'heart', palavras: [] },
+  { chave: 'dancar', rotulo: 'Dançar', curto: 'Dançar', icone: 'music', palavras: [] },
+  { chave: 'musica_ao_vivo', rotulo: 'Música ao vivo', curto: 'Música\nao vivo', icone: 'mic', palavras: [] },
+  { chave: 'drag_show', rotulo: 'Drag show', curto: 'Drag show', icone: 'star', palavras: [] },
+  { chave: 'karaoke', rotulo: 'Karaokê', curto: 'Karaokê', icone: 'radio', palavras: [] },
+];
+const rotuloTema = (chave: string) => [...EXPERIENCIAS_ICONE, ...TEMAS].find((x) => x.chave === chave)?.rotulo || rotuloTag(chave);
+
 // Temas do destino em ícones (tags gerais do destino): aparecem os que a cidade tem cadastrados em `destinos.tags`.
 const TEMAS: SubDef[] = [
   { chave: 'romance', rotulo: 'Romance', curto: 'Romance', icone: 'heart', palavras: [] },
   { chave: 'natureza', rotulo: 'Natureza', curto: 'Natureza', icone: 'sun', palavras: [] },
   { chave: 'gastronomia', rotulo: 'Gastronomia', curto: 'Gastronomia', icone: 'coffee', palavras: [] },
-  { chave: 'bem_estar', rotulo: 'Bem-estar', curto: 'Bem-estar', icone: 'smile', palavras: [] },
   { chave: 'vida_noturna', rotulo: 'Vida noturna', curto: 'Vida noturna', icone: 'moon', palavras: [] },
   { chave: 'cultura', rotulo: 'Cultura', curto: 'Cultura', icone: 'book-open', palavras: [] },
-  { chave: 'praia', rotulo: 'Praia', curto: 'Praia', icone: 'umbrella', palavras: [] },
   { chave: 'aventura', rotulo: 'Aventura', curto: 'Aventura', icone: 'compass', palavras: [] },
   { chave: 'compras', rotulo: 'Compras', curto: 'Compras', icone: 'shopping-bag', palavras: [] },
   { chave: 'historia', rotulo: 'História', curto: 'História', icone: 'clock', palavras: [] },
-  { chave: 'amigos', rotulo: 'Amigos', curto: 'Amigos', icone: 'users', palavras: [] },
-  { chave: 'familia', rotulo: 'Família', curto: 'Família', icone: 'home', palavras: [] },
 ];
 
 function completudeDe(l: any): number {
@@ -134,6 +154,7 @@ export default function DestinoScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { idioma, t } = useI18n();
+  const { user } = useAuth();
   const { slug } = useLocalSearchParams<{ slug: string }>();
 
   const [destino, setDestino] = useState<Destino | null>(DESTINOS_PADRAO.find((d) => d.slug === slug) || null);
@@ -207,6 +228,7 @@ export default function DestinoScreen() {
         rota: `/business/${l.id}`,
         selo: seloDaCategoria(l),
         rank: rankPlano(l),
+        exps: Array.isArray(l.experiencias) ? l.experiencias : [],
         slugs: [...atr, ...(l.tipo_hospedagem ? [l.tipo_hospedagem] : []), ...slugsDoTexto(l.subcategoria, l.categoria, ...(l.tags || []))],
       };
     };
@@ -268,12 +290,15 @@ export default function DestinoScreen() {
 
   const idsLocaisCidade = locais.map((l) => l.id as string);
   const temasDoDestino = TEMAS.filter((tm) => destino.tags.includes(tm.chave));
-  const gruposTema: GrupoSub[] = temasDoDestino.map((tm) => ({ chave: tm.chave, rotulo: tm.rotulo, qtd: 1, foto: null }));
+  // Ícones do destino: só as 4 seções (Onde ficar, Passeios, Experiências, Eventos).
+  const gruposTema: GrupoSub[] = [
+    ...SECOES_ICONE.map((sc) => ({ chave: sc.chave, rotulo: sc.rotulo, qtd: SECOES_BREVE.includes(sc.chave) ? 0 : carregando ? 1 : itensPorAba[sc.chave as Aba].length, foto: null })),
+  ];
   // Lista do tema escolhido: tudo da cidade (hospedagem, passeios, experiências, eventos) que combina com a tag.
   const itensTema = tema
     ? (() => {
         const vistos = new Set<string>();
-        return Object.values(itensPorAba).flat().filter((i) => combina(i, tema) && !vistos.has(i.chave) && !!vistos.add(i.chave));
+        return Object.values(itensPorAba).flat().filter((i) => (EXPERIENCIAS_ICONE.some((x) => x.chave === tema) ? !!i.exps?.includes(tema) : combina(i, tema)) && !vistos.has(i.chave) && !!vistos.add(i.chave));
       })()
     : [];
   const grupoAba = aba ? GRUPOS_DESTINO.find((g) => g.id === aba) : null;
@@ -324,10 +349,21 @@ export default function DestinoScreen() {
               gruposTema.length > 0 ? (
                 <SubcategoriaBanners
                   grupos={gruposTema}
-                  defs={TEMAS}
-                  selecionada={tema}
+                  defs={[...SECOES_ICONE, ...TEMAS, ...EXPERIENCIAS_ICONE]}
+                  selecionada={aba ?? tema}
                   cor={CATEGORIAS.turismo.color}
-                  onAbrir={(chave) => { setAba(null); setTema((atual) => (atual === chave ? null : chave)); }}
+                  compacto
+                  onAbrir={(chave) => {
+                    if (SECOES_BREVE.includes(chave)) {
+                      const sc = SECOES_ICONE.find((x) => x.chave === chave);
+                      registrarAviso({ userId: user?.id, alvo: `destino-${destino.slug}-${chave}`, alvoLabel: `${sc?.rotulo} em ${destino.cidade}`, t, irParaLogin: () => router.push('/(tabs)/profile') });
+                      return;
+                    }
+                    if (chave === 'eventos_paradas') { router.push('/(tabs)/events'); return; }
+                    setFiltro(null);
+                    if (SECOES_ICONE.some((sc) => sc.chave === chave)) { setTema(null); setAba((atual) => (atual === chave ? null : (chave as Aba))); }
+                    else { setAba(null); setTema((atual) => (atual === chave ? null : chave)); }
+                  }}
                 />
               ) : undefined
             }
@@ -336,14 +372,14 @@ export default function DestinoScreen() {
 
         {tema && (
           <View style={{ marginTop: 6 }}>
-            <Text style={styles.secao}>{`${rotuloTag(tema)} em ${destino.cidade}`}</Text>
+            <Text style={styles.secao}>{`${rotuloTema(tema)} em ${destino.cidade}`}</Text>
             <View style={{ paddingHorizontal: 16, gap: 10 }}>
               {carregando ? (
                 <ActivityIndicator color={C.pink} style={{ marginTop: 20 }} />
               ) : itensTema.length === 0 ? (
                 <View style={styles.vazio}>
                   <Feather name="compass" size={20} color={C.dim} />
-                  <Text style={styles.vazioTxt}>Ainda estamos catalogando {rotuloTag(tema).toLowerCase()} em {destino.cidade}. Em breve novas opções por aqui.</Text>
+                  <Text style={styles.vazioTxt}>Ainda estamos catalogando {rotuloTema(tema).toLowerCase()} em {destino.cidade}. Em breve novas opções por aqui.</Text>
                 </View>
               ) : (
                 itensTema.map((it) => (
@@ -367,38 +403,6 @@ export default function DestinoScreen() {
             </View>
           </View>
         )}
-
-        {!!destino.descricao && <Text style={styles.descricao}>{destino.descricao}</Text>}
-
-        {/* Caixas do destino */}
-        <View style={[styles.grade, { marginTop: 14 }]}>
-          {TILES.map((tile) => {
-            const ativo = aba === tile.id;
-            const qtd = itensPorAba[tile.id].length;
-            return (
-              <TouchableOpacity
-                key={tile.id}
-                style={[styles.tile, ativo && styles.tileAtivo]}
-                activeOpacity={0.85}
-                onPress={() => {
-                  setFiltro(null);
-                  setTema(null);
-                  setAba(ativo ? null : tile.id);
-                }}
-                accessibilityRole="button"
-              >
-                <FundoCaixaDegrade id={`dest-${tile.id}`} cores={tile.degrade} />
-                <Feather name={tile.icone as any} size={22} color="#FFFFFF" />
-                <Text style={styles.tileTitulo}>{tile.titulo}</Text>
-                <Text style={styles.tileSub} numberOfLines={2}>{tile.sub}</Text>
-                <View style={styles.tileRodape}>
-                  <Text style={styles.tileQtd}>{carregando ? '…' : qtd === 0 ? 'Em breve' : qtd === 1 ? '1 opção' : `${qtd} opções`}</Text>
-                  <Feather name={ativo ? 'chevron-up' : 'chevron-right'} size={16} color="#FFFFFF" />
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
 
         {aba && (
           <View style={{ marginTop: 6 }}>
@@ -448,6 +452,8 @@ export default function DestinoScreen() {
             </View>
           </View>
         )}
+
+        {!!destino.descricao && <Text style={styles.descricao}>{destino.descricao}</Text>}
 
         {/* Rodada 69 — Experiências e roteiros da cidade */}
         {roteirosCidade.length > 0 && (

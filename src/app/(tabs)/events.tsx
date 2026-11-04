@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Linking,
   Modal,
   ScrollView,
   StyleSheet,
@@ -67,6 +68,7 @@ function eventoTem(ev: { tags?: string[] | null; estilos_musicais?: string[] | n
 const CALENDAR_DATES = [
   { id: 'hoje', label: 'Hoje', sub: 'Eventos acontecendo agora' },
   { id: 'amanha', label: 'Amanhã', sub: 'Agenda de amanhã' },
+  { id: 'semana', label: 'Essa semana', sub: 'Eventos e agenda dos bares até domingo' },
   { id: 'fds', label: 'Este Fim de Semana', sub: 'Sábado & Domingo' },
   { id: 'proximo_fds', label: 'Próximo Fim de Semana', sub: 'Destaques futuros' },
   { id: 'outro', label: 'Mais pra Frente', sub: 'Depois do próximo fim de semana' },
@@ -91,6 +93,59 @@ const DIAS_SEMANA = [
 ];
 
 type DateTag = 'hoje' | 'amanha' | 'fds' | 'proximo_fds' | 'outro';
+// Rodada 126 — "Essa semana": de hoje até domingo. Junta os eventos da semana com a
+// agenda que os bares sobem no portal B2B (public.agenda_semanal, migration 073).
+// A agenda NÃO aparece no perfil do local — só aqui.
+type FiltroData = DateTag | 'semana';
+
+interface AgendaBar {
+  id: string;
+  local_id: string;
+  dia_semana: number;
+  data?: string | null; // YYYY-MM-DD; null = repete toda semana
+  tipo?: string | null; // 'dia' | 'semana' (cartaz da semana inteira)
+  titulo: string;
+  descricao: string | null;
+  horario?: string | null;
+  foto_url: string | null;
+  link: string | null;
+  locais: { nome: string; bairro: string | null; cidade: string; plano_comercial?: string | null; plano_comercial_status?: string | null } | null;
+}
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+const chaveDia = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+
+/** Hoje até o domingo desta semana (se hoje é domingo, só hoje). */
+function diasDaSemanaAteDomingo(): Date[] {
+  const h = new Date();
+  const base = new Date(h.getFullYear(), h.getMonth(), h.getDate());
+  const ate = (7 - base.getDay()) % 7;
+  return Array.from({ length: ate + 1 }, (_, i) => new Date(base.getFullYear(), base.getMonth(), base.getDate() + i));
+}
+
+function segundaDestaSemana(): Date {
+  const h = new Date();
+  const base = new Date(h.getFullYear(), h.getMonth(), h.getDate());
+  base.setDate(base.getDate() - ((base.getDay() + 6) % 7));
+  return base;
+}
+
+// Fundador e Premium (ativos) aparecem primeiro dentro do dia.
+function rankPlanoAgenda(a: AgendaBar): number {
+  if (a.locais?.plano_comercial_status !== 'ativo') return 2;
+  if (a.locais?.plano_comercial === 'fundador') return 0;
+  if (a.locais?.plano_comercial === 'premium') return 1;
+  return 2;
+}
+
+function rotuloDiaSemana(d: Date, indice: number): string {
+  const dm = `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}`;
+  if (indice === 0) return `Hoje · ${DIAS_SEMANA[d.getDay()]}, ${dm}`;
+  if (indice === 1) return `Amanhã · ${DIAS_SEMANA[d.getDay()]}, ${dm}`;
+  return `${DIAS_SEMANA[d.getDay()]}, ${dm}`;
+}
+
+const urlSegura = (l: string) => (/^https?:\/\//i.test(l) ? l : `https://${l}`);
 
 interface ListaVip {
   id: string;
@@ -161,7 +216,7 @@ export default function EventsScreen() {
   const { user, session } = useAuth();
   const isUserLogged = !!session;
 
-  const [dateFilter, setDateFilter] = useState<DateTag>('hoje');
+  const [dateFilter, setDateFilter] = useState<FiltroData>('hoje');
   const [selectedTipo, setSelectedTipo] = useState<string | null>(null);
   const [selectedMusic, setSelectedMusic] = useState<string | null>(null);
   const [selectedPublic, setSelectedPublic] = useState<string | null>(null);
@@ -184,6 +239,28 @@ export default function EventsScreen() {
     return () => { vivo = false; };
   }, []);
   const [showFiltrosModal, setShowFiltrosModal] = useState(false);
+
+  // Agenda dos bares (portal B2B) — só alimenta o filtro "Essa semana".
+  const [agendaBares, setAgendaBares] = useState<AgendaBar[]>([]);
+  const [cartazAberto, setCartazAberto] = useState<AgendaBar | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      const seg = segundaDestaSemana();
+      const dom = new Date(seg.getFullYear(), seg.getMonth(), seg.getDate() + 6);
+      const BASE = 'id, local_id, dia_semana, titulo, descricao, foto_url, link, locais(nome, bairro, cidade, plano_comercial, plano_comercial_status)';
+      const tabela = () => supabase.from('agenda_semanal') as any;
+      let { data, error } = await tabela()
+        .select(`${BASE}, data, tipo, horario`)
+        .eq('ativo', true)
+        .or(`data.is.null,and(data.gte.${chaveDia(seg)},data.lte.${chaveDia(dom)})`)
+        .limit(400);
+      // Sem a migration 073, cai nas colunas antigas (tudo vira "toda semana").
+      if (error) ({ data, error } = await tabela().select(BASE).eq('ativo', true).limit(400));
+      if (vivo && !error && data) setAgendaBares(data as AgendaBar[]);
+    })();
+    return () => { vivo = false; };
+  }, []);
 
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
@@ -267,9 +344,13 @@ export default function EventsScreen() {
   // de data já selecionado — o resto continua ordenado por data/hora
   // como sempre foi (.filter preserva a ordem, e o sort abaixo é
   // estável: só separa fixados do resto, sem embaralhar o restante).
+  const diasSemana = diasDaSemanaAteDomingo();
+  const chavesSemana = diasSemana.map(chaveDia);
   const filteredEvents = events
     .filter((ev) => {
-      if (ev.dateTag !== dateFilter) return false;
+      if (dateFilter === 'semana') {
+        if (!chavesSemana.includes(chaveDia(new Date(ev.data_inicio)))) return false;
+      } else if (ev.dateTag !== dateFilter) return false;
       if (selectedTipo && !eventoTem(ev, selectedTipo)) return false;
       if (selectedMusic && !eventoTem(ev, selectedMusic)) return false;
       if (selectedPublic && !eventoTem(ev, selectedPublic)) return false;
@@ -440,131 +521,7 @@ export default function EventsScreen() {
     }
   };
 
-  return (
-    <View style={styles.container}>
-      {/* HEADER */}
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <BotaoVoltar />
-          <View style={styles.headerEsquerda}>
-            <MarcaApp />
-          </View>
-        </View>
-        <TouchableOpacity
-          style={styles.profileBtn}
-          onPress={() => router.push('/(tabs)/profile')}
-          activeOpacity={0.8}
-        >
-          <Feather name="user" size={18} color="#D0D0E0" />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-
-        {/* TÍTULO + FRASE (mesmo modelo das categorias) */}
-        <View style={styles.titleArea}>
-          <TituloTela
-            semMargem
-            titulo="Eventos"
-            subtitulo={SUBTITULO_CATEGORIA.festas}
-            tituloMenu="Quando?"
-            opcoes={CALENDAR_DATES.map((d) => ({ id: d.id, label: d.label }))}
-            valor={dateFilter}
-            onEscolher={(id) => setDateFilter(id as DateTag)}
-          />
-        </View>
-
-        {/* BUSCA — pílula igual à da Home */}
-        <View style={styles.searchContainer}>
-          <Feather name="search" size={20} color={COLORS.textPrimary} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Buscar em Eventos..."
-            placeholderTextColor={COLORS.textSecondary}
-            value={busca}
-            onChangeText={setBusca}
-          />
-        </View>
-
-        {/* QUANDO: Hoje / Fim de semana / calendário + Mais filtros */}
-        <View style={styles.dateSelectorRow}>
-          <TouchableOpacity
-            style={[styles.dateBtn, dateFilter === 'hoje' && styles.dateBtnActive]}
-            onPress={() => setDateFilter('hoje')}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.dateBtnText, dateFilter === 'hoje' && styles.dateBtnTextActive]}>Hoje</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.calendarIconBtn} onPress={() => setShowCalendarModal(true)} activeOpacity={0.8} accessibilityLabel="Escolher data">
-            <Feather name="calendar" size={16} color={COLORS.pink} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Filtros em pílulas: Bairro, Tipo, Estilo e Público (tags oficiais; só aparecem as que têm evento). */}
-        <View style={{ marginBottom: 12 }}>
-          <FiltrosPilulas
-            compacto
-            filtros={filtrosPilulas}
-            onSelecionar={(id, valor) => {
-              const slug = valor ? slugTag(valor) : null;
-              if (id === 'bairro') setSelectedBairro(valor || null);
-              else if (id === 'tipo') setSelectedTipo(slug);
-              else if (id === 'musica') setSelectedMusic(slug);
-              else if (id === 'publico') setSelectedPublic(slug);
-            }}
-            onLimpar={() => { setSelectedSub(null); setSelectedBairro(null); setSelectedTipo(null); setSelectedMusic(null); setSelectedPublic(null); }}
-          />
-        </View>
-
-        {/* VITRINE (mesma lógica das categorias): patrocinador master, banner Premium rotativo, subcategorias em ícones e até 6 ofertas. */}
-        {!busca.trim() && (
-          <View style={{ paddingHorizontal: 16 }}>
-            <VitrineCategoria
-              slug="festas"
-              titulo="Eventos"
-              categoriaReal={['eventos', 'lugares']}
-              locais={locaisVitrine}
-              tituloLista={null}
-              aposOfertas={
-                gruposSub.length > 0 ? (
-                  <SubcategoriaBanners
-                    grupos={gruposSub}
-                    defs={defsFestas}
-                    selecionada={selectedSub}
-                    compacto
-                    cor={CATEGORIAS.festas.color}
-                    onAbrir={(chave) => setSelectedSub((atual) => (atual === chave ? null : chave))}
-                  />
-                ) : undefined
-              }
-            />
-          </View>
-        )}
-
-        {/* LISTA DE EVENTOS */}
-        <View style={styles.listArea}>
-          <View style={styles.listHeaderRow}>
-            <Text style={styles.sectionTitle}>
-              {(CALENDAR_DATES.find((d) => d.id === dateFilter)?.label) || 'Próximos Eventos'}
-            </Text>
-            <Text style={styles.eventCount}>{filteredEvents.length} eventos</Text>
-          </View>
-
-          {loadingEvents ? (
-            <View style={styles.emptyBox}>
-              <ActivityIndicator color={COLORS.pink} />
-            </View>
-          ) : filteredEvents.length === 0 ? (
-            <View style={styles.emptyBox}>
-              <Feather name="calendar" size={32} color={COLORS.textMuted} />
-              <Text style={styles.emptyText}>
-                Nenhum evento aprovado encontrado para esse filtro ainda. Novos eventos aparecem
-                aqui assim que forem aprovados.
-              </Text>
-            </View>
-          ) : (
-            filteredEvents.map((item) => (
+  const renderEventCard = (item: EventItem) => (
               <TouchableOpacity
                 key={item.id}
                 style={styles.eventCard}
@@ -631,11 +588,295 @@ export default function EventsScreen() {
                   color={item.listaVipAtiva ? COLORS.pink : '#606070'}
                 />
               </TouchableOpacity>
-            ))
+  );
+
+  // ---- "Essa semana" ----
+  const filtroSoDeEvento = !!(selectedTipo || selectedMusic || selectedPublic || selectedSub || filtrosExtras.length);
+  const passaFiltroAgenda = (a: AgendaBar) => {
+    if (selectedBairro && a.locais?.bairro !== selectedBairro) return false;
+    const q = busca.trim().toLowerCase();
+    if (q && ![a.titulo, a.locais?.nome, a.locais?.bairro].some((t) => (t || '').toLowerCase().includes(q))) return false;
+    return true;
+  };
+  const agendaDoDia = (d: Date): AgendaBar[] => {
+    if (filtroSoDeEvento) return [];
+    const chave = chaveDia(d);
+    const dow = d.getDay();
+    const doDia = agendaBares.filter((a) => a.tipo !== 'semana');
+    const datados = doDia.filter((a) => a.data === chave);
+    const fixos = doDia.filter((a) => !a.data && a.dia_semana === dow && !datados.some((x) => x.local_id === a.local_id));
+    return [...datados, ...fixos].filter(passaFiltroAgenda).sort((a, b) => rankPlanoAgenda(a) - rankPlanoAgenda(b));
+  };
+  const cartazesSemana: AgendaBar[] = filtroSoDeEvento
+    ? []
+    : agendaBares
+        .filter((a) => a.tipo === 'semana' && a.data === chaveDia(segundaDestaSemana()))
+        .filter(passaFiltroAgenda)
+        .sort((a, b) => rankPlanoAgenda(a) - rankPlanoAgenda(b));
+  const blocosSemana = diasSemana
+    .map((d, i) => ({
+      d,
+      i,
+      evs: filteredEvents.filter((ev) => chaveDia(new Date(ev.data_inicio)) === chaveDia(d)),
+      ag: agendaDoDia(d),
+    }))
+    .filter((b) => b.evs.length + b.ag.length > 0);
+  const totalSemana = blocosSemana.reduce((n, b) => n + b.evs.length + b.ag.length, 0) + cartazesSemana.length;
+
+  const renderAgendaBar = (a: AgendaBar) => (
+    <TouchableOpacity
+      key={a.id}
+      style={styles.eventCard}
+      onPress={() => router.push(`/business/${a.local_id}` as any)}
+      activeOpacity={0.85}
+    >
+      <View style={styles.eventThumb}>
+        {a.foto_url ? (
+          <Image source={{ uri: a.foto_url }} style={styles.eventThumbImg} />
+        ) : (
+          <Feather name="music" size={20} color={COLORS.purple} />
+        )}
+      </View>
+      <View style={{ flex: 1 }}>
+        <View style={styles.eventHeaderRow}>
+          <Text style={styles.eventDate}>{a.horario || 'Programação do dia'}</Text>
+          <View style={styles.agendaBadge}>
+            <Text style={styles.agendaBadgeText}>AGENDA DO BAR</Text>
+          </View>
+        </View>
+        <Text style={styles.eventTitle}>{a.titulo}</Text>
+        <Text style={styles.eventLocation}>
+          {a.locais ? `${a.locais.nome} • ${a.locais.bairro || a.locais.cidade}` : 'Local a confirmar'}
+        </Text>
+        {!!a.descricao && <Text style={styles.agendaDesc} numberOfLines={2}>{a.descricao}</Text>}
+        {!!a.link && (
+          <TouchableOpacity onPress={() => Linking.openURL(urlSegura(a.link!))} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+            <Text style={styles.agendaLink}>Ver mais</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+      <Feather name="chevron-right" size={18} color="#606070" />
+    </TouchableOpacity>
+  );
+
+  const renderCartaz = (c: AgendaBar) => (
+    <TouchableOpacity key={c.id} style={styles.cartazCard} onPress={() => setCartazAberto(c)} activeOpacity={0.9}>
+      {!!c.foto_url && <Image source={{ uri: c.foto_url }} style={styles.cartazImg} resizeMode="cover" />}
+      <View style={{ padding: 12 }}>
+        <View style={styles.eventHeaderRow}>
+          <Text style={styles.eventDate}>PROGRAMAÇÃO DA SEMANA</Text>
+          <View style={styles.agendaBadge}>
+            <Text style={styles.agendaBadgeText}>AGENDA DO BAR</Text>
+          </View>
+        </View>
+        <Text style={styles.eventTitle}>{c.locais?.nome || 'Bar'}</Text>
+        <Text style={styles.eventLocation}>{c.locais ? c.locais.bairro || c.locais.cidade : ''}</Text>
+        {!!c.descricao && !c.foto_url && <Text style={styles.agendaDesc} numberOfLines={4}>{c.descricao}</Text>}
+        <Text style={styles.agendaLink}>Toque para ver a programação completa</Text>
+      </View>
+    </TouchableOpacity>
+  );
+
+  const renderSemana = () => {
+    if (totalSemana === 0) {
+      return (
+        <View style={styles.emptyBox}>
+          <Feather name="calendar" size={32} color={COLORS.textMuted} />
+          <Text style={styles.emptyText}>
+            Ainda não há programação para o restante desta semana. Os bares publicam a agenda aqui
+            durante a semana — volte em breve.
+          </Text>
+        </View>
+      );
+    }
+    return (
+      <>
+        {cartazesSemana.map(renderCartaz)}
+        {blocosSemana.map((b) => (
+          <View key={chaveDia(b.d)} style={{ marginBottom: 6 }}>
+            <Text style={styles.diaSemanaTitulo}>{rotuloDiaSemana(b.d, b.i)}</Text>
+            {b.evs.map(renderEventCard)}
+            {b.ag.map(renderAgendaBar)}
+          </View>
+        ))}
+      </>
+    );
+  };
+
+  return (
+    <View style={styles.container}>
+      {/* HEADER */}
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <BotaoVoltar />
+          <View style={styles.headerEsquerda}>
+            <MarcaApp />
+          </View>
+        </View>
+        <TouchableOpacity
+          style={styles.profileBtn}
+          onPress={() => router.push('/(tabs)/profile')}
+          activeOpacity={0.8}
+        >
+          <Feather name="user" size={18} color="#D0D0E0" />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+
+        {/* TÍTULO + FRASE (mesmo modelo das categorias) */}
+        <View style={styles.titleArea}>
+          <TituloTela
+            semMargem
+            titulo="Eventos"
+            subtitulo={SUBTITULO_CATEGORIA.festas}
+            tituloMenu="Quando?"
+            opcoes={CALENDAR_DATES.map((d) => ({ id: d.id, label: d.label }))}
+            valor={dateFilter}
+            onEscolher={(id) => setDateFilter(id as FiltroData)}
+          />
+        </View>
+
+        {/* BUSCA — pílula igual à da Home */}
+        <View style={styles.searchContainer}>
+          <Feather name="search" size={20} color={COLORS.textPrimary} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Buscar em Eventos..."
+            placeholderTextColor={COLORS.textSecondary}
+            value={busca}
+            onChangeText={setBusca}
+          />
+        </View>
+
+        {/* QUANDO: Hoje / Fim de semana / calendário + Mais filtros */}
+        <View style={styles.dateSelectorRow}>
+          <TouchableOpacity
+            style={[styles.dateBtn, dateFilter === 'hoje' && styles.dateBtnActive]}
+            onPress={() => setDateFilter('hoje')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.dateBtnText, dateFilter === 'hoje' && styles.dateBtnTextActive]}>Hoje</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.dateBtn, dateFilter === 'semana' && styles.dateBtnActive]}
+            onPress={() => setDateFilter('semana')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.dateBtnText, dateFilter === 'semana' && styles.dateBtnTextActive]}>Essa semana</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.calendarIconBtn} onPress={() => setShowCalendarModal(true)} activeOpacity={0.8} accessibilityLabel="Escolher data">
+            <Feather name="calendar" size={16} color={COLORS.pink} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Filtros em pílulas: Bairro, Tipo, Estilo e Público (tags oficiais; só aparecem as que têm evento). */}
+        <View style={{ marginBottom: 12 }}>
+          <FiltrosPilulas
+            compacto
+            filtros={filtrosPilulas}
+            onSelecionar={(id, valor) => {
+              const slug = valor ? slugTag(valor) : null;
+              if (id === 'bairro') setSelectedBairro(valor || null);
+              else if (id === 'tipo') setSelectedTipo(slug);
+              else if (id === 'musica') setSelectedMusic(slug);
+              else if (id === 'publico') setSelectedPublic(slug);
+            }}
+            onLimpar={() => { setSelectedSub(null); setSelectedBairro(null); setSelectedTipo(null); setSelectedMusic(null); setSelectedPublic(null); }}
+          />
+        </View>
+
+        {/* VITRINE (mesma lógica das categorias): patrocinador master, banner Premium rotativo, subcategorias em ícones e até 6 ofertas. */}
+        {!busca.trim() && (
+          <View style={{ paddingHorizontal: 16 }}>
+            <VitrineCategoria
+              slug="festas"
+              titulo="Eventos"
+              categoriaReal={['eventos', 'lugares']}
+              locais={locaisVitrine}
+              tituloLista={null}
+              aposOfertas={
+                gruposSub.length > 0 ? (
+                  <SubcategoriaBanners
+                    grupos={gruposSub}
+                    defs={defsFestas}
+                    selecionada={selectedSub}
+                    compacto
+                    cor={CATEGORIAS.festas.color}
+                    onAbrir={(chave) => setSelectedSub((atual) => (atual === chave ? null : chave))}
+                  />
+                ) : undefined
+              }
+            />
+          </View>
+        )}
+
+        {/* LISTA DE EVENTOS */}
+        <View style={styles.listArea}>
+          <View style={styles.listHeaderRow}>
+            <Text style={styles.sectionTitle}>
+              {(CALENDAR_DATES.find((d) => d.id === dateFilter)?.label) || 'Próximos Eventos'}
+            </Text>
+            <Text style={styles.eventCount}>{dateFilter === 'semana' ? `${totalSemana} programações` : `${filteredEvents.length} eventos`}</Text>
+          </View>
+
+          {loadingEvents ? (
+            <View style={styles.emptyBox}>
+              <ActivityIndicator color={COLORS.pink} />
+            </View>
+          ) : dateFilter === 'semana' ? (
+            renderSemana()
+          ) : filteredEvents.length === 0 ? (
+            <View style={styles.emptyBox}>
+              <Feather name="calendar" size={32} color={COLORS.textMuted} />
+              <Text style={styles.emptyText}>
+                Nenhum evento aprovado encontrado para esse filtro ainda. Novos eventos aparecem
+                aqui assim que forem aprovados.
+              </Text>
+            </View>
+          ) : (
+            filteredEvents.map(renderEventCard)
           )}
         </View>
 
       </ScrollView>
+
+      {/* MODAL: CARTAZ DA SEMANA (agenda do bar) */}
+      <Modal visible={!!cartazAberto} transparent animationType="fade" onRequestClose={() => setCartazAberto(null)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setCartazAberto(null)}>
+          <TouchableOpacity activeOpacity={1} style={styles.cartazModal}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {!!cartazAberto?.foto_url && (
+                <Image source={{ uri: cartazAberto.foto_url }} style={styles.cartazModalImg} resizeMode="contain" />
+              )}
+              <Text style={styles.eventTitle}>{cartazAberto?.locais?.nome}</Text>
+              {!!cartazAberto?.descricao && <Text style={[styles.agendaDesc, { marginTop: 8 }]}>{cartazAberto.descricao}</Text>}
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+                <TouchableOpacity
+                  style={styles.cartazBtn}
+                  onPress={() => {
+                    const id = cartazAberto?.local_id;
+                    setCartazAberto(null);
+                    if (id) router.push(`/business/${id}` as any);
+                  }}
+                >
+                  <Text style={styles.cartazBtnTxt}>Ver o local</Text>
+                </TouchableOpacity>
+                {!!cartazAberto?.link && (
+                  <TouchableOpacity style={styles.cartazBtn} onPress={() => Linking.openURL(urlSegura(cartazAberto.link!))}>
+                    <Text style={styles.cartazBtnTxt}>Ver mais</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity style={[styles.cartazBtn, { backgroundColor: COLORS.card }]} onPress={() => setCartazAberto(null)}>
+                  <Text style={[styles.cartazBtnTxt, { color: COLORS.textSecondary }]}>Fechar</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
 
       {/* MODAL: CALENDÁRIO */}
       <Modal
@@ -669,7 +910,7 @@ export default function EventsScreen() {
                     dateFilter === opt.id && styles.modalOptionActive,
                   ]}
                   onPress={() => {
-                    setDateFilter(opt.id as DateTag);
+                    setDateFilter(opt.id as FiltroData);
                     setShowCalendarModal(false);
                   }}
                   activeOpacity={0.8}
@@ -840,6 +1081,17 @@ const styles = StyleSheet.create({
   dateBtnActive: { backgroundColor: COLORS.pink, borderColor: COLORS.pink },
   dateBtnText: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary },
   dateBtnTextActive: { color: '#FFF', fontWeight: '700' },
+  diaSemanaTitulo: { fontSize: 13, fontWeight: '800', color: COLORS.pink, textTransform: 'uppercase', letterSpacing: 0.6, marginTop: 10, marginBottom: 8 },
+  agendaBadge: { backgroundColor: 'rgba(126,87,194,0.22)', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  agendaBadgeText: { fontSize: 8, fontWeight: '800', color: '#B39DDB', letterSpacing: 0.5 },
+  agendaDesc: { fontSize: 12, color: COLORS.textSecondary, marginTop: 4 },
+  agendaLink: { fontSize: 12, fontWeight: '700', color: COLORS.pink, marginTop: 6 },
+  cartazCard: { backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border, borderRadius: 16, overflow: 'hidden', marginBottom: 12 },
+  cartazImg: { width: '100%', height: 190, backgroundColor: '#0B0B0E' },
+  cartazModal: { width: '92%', maxHeight: '86%', backgroundColor: COLORS.card, borderRadius: 18, padding: 14, borderWidth: 1, borderColor: COLORS.border },
+  cartazModalImg: { width: '100%', height: 420, backgroundColor: '#0B0B0E', borderRadius: 12, marginBottom: 10 },
+  cartazBtn: { flex: 1, backgroundColor: COLORS.pink, borderRadius: 12, paddingVertical: 10, alignItems: 'center' },
+  cartazBtnTxt: { color: '#FFF', fontWeight: '700', fontSize: 12 },
   calendarIconBtn: { width: 32, height: 32, borderRadius: 10, backgroundColor: COLORS.card, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
 
   filterSection: { marginBottom: 12 },

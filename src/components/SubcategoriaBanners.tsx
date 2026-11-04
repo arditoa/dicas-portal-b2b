@@ -3,12 +3,16 @@
 // Tocar abre a lista só daquela subcategoria. As subcategorias vêm dos próprios locais (texto livre do
 // cadastro), agrupadas sem diferenciar maiúscula/minúscula; quem não informou cai em "Outros".
 import { Feather } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 
+import { useAuth } from '../lib/authContext';
+import { registrarAviso } from '../lib/avisos';
+import { useI18n } from '../lib/i18n';
 import { SubDef, subcategoriaFixa } from '../lib/subcategorias';
 
-const C = { card: '#161520', border: '#232230', text: '#FFFFFF', dim: '#A0A0B2', pink: '#E1306C' };
+const C = { card: '#161520', border: '#232230', text: '#FFFFFF', dim: '#A0A0B2', pink: '#E1306C', purple: '#7E57C2' };
 
 export const chaveSubcategoria = (s?: string | null) => (s || '').trim().toLowerCase();
 
@@ -37,20 +41,31 @@ export function agruparSubcategorias(
     m.set(chave, g);
   }
   const lista = Array.from(m.values());
-  if (defs) return lista; // ordem definida; "Outros" já entra por último (inserido depois das fixas)
+  if (defs) {
+    // Ordem definida: abertas, depois as "em breve"; "Outros" por último.
+    const breve = (g: GrupoSub) => !!defs.find((d) => d.chave === g.chave)?.breve;
+    return [
+      ...lista.filter((g) => g.chave !== '' && !breve(g)),
+      ...lista.filter((g) => g.chave !== '' && breve(g)),
+      ...lista.filter((g) => g.chave === ''),
+    ];
+  }
   // Sem lista fixa: maiores primeiro; "Outros" sempre por último.
   return lista.sort((a, b) => (a.chave === '' ? 1 : b.chave === '' ? -1 : b.qtd - a.qtd || a.rotulo.localeCompare(b.rotulo, 'pt-BR')));
 }
 
-type Props = { grupos: GrupoSub[]; onAbrir: (chave: string) => void; defs?: SubDef[]; selecionada?: string | null; compacto?: boolean; cor?: string }; // cor = a do ícone da categoria na Home
+type Props = { grupos: GrupoSub[]; onAbrir: (chave: string) => void; defs?: SubDef[]; selecionada?: string | null; compacto?: boolean; cor?: string; largura?: number; categoriaAviso?: string }; // categoriaAviso = prefixo do "avise-me" das subcategorias em breve; cor = a do ícone da categoria na Home
 
 // Ícones redondos no mesmo desenho das categorias da Home (círculo 46, legenda de até 2 linhas, rolagem lateral).
-export default function SubcategoriaBanners({ grupos, onAbrir, defs, selecionada, compacto, cor }: Props) {
+export default function SubcategoriaBanners({ grupos, onAbrir, defs, selecionada, compacto, cor, largura, categoriaAviso }: Props) {
+  const router = useRouter();
+  const { user } = useAuth();
+  const { t } = useI18n();
   const { width } = useWindowDimensions();
   // Largura fixa por ícone: cabe a palavra mais longa (ex.: "Coquetelaria") sem quebrar no meio.
   // Compacto (Eventos): os ícones se dividem na largura da tela, bem juntos, sem precisar rolar.
   const corIcone = cor || C.pink;
-  const larg = compacto ? Math.max(56, Math.floor((width - 32) / Math.max(grupos.length, 1))) : width < 360 ? 62 : 68;
+  const larg = largura ? largura : compacto ? Math.max(56, Math.floor((width - 32) / Math.max(grupos.length, 1))) : width < 360 ? 62 : 68;
   const refRolagem = useRef<ScrollView>(null);
   const [rol, setRol] = useState({ x: 0, conteudo: 0, visivel: 0 });
   const temMais = rol.conteudo > rol.visivel + 8 && rol.x + rol.visivel < rol.conteudo - 8;
@@ -72,22 +87,31 @@ export default function SubcategoriaBanners({ grupos, onAbrir, defs, selecionada
           const def = defs?.find((d) => d.chave === g.chave);
           const icone = def?.icone || 'more-horizontal';
           const nomeCurto = def?.curto || g.rotulo;
+          const breve = !!def?.breve || g.qtd === 0;
           return (
             <TouchableOpacity
               key={g.chave || 'outros'}
               activeOpacity={0.8}
               style={[s.item, { width: larg }]}
-              onPress={() => onAbrir(g.chave)}
+              onPress={() =>
+                def?.breve
+                  ? registrarAviso({ userId: user?.id, alvo: `sub-${categoriaAviso || 'cat'}-${g.chave}`, alvoLabel: g.rotulo, t, irParaLogin: () => router.push('/(tabs)/profile') })
+                  : onAbrir(g.chave)
+              }
               accessibilityRole="button"
-              accessibilityLabel={`${g.rotulo}, ${g.qtd === 0 ? 'em breve' : `${g.qtd} ${g.qtd === 1 ? 'local' : 'locais'}`}`}
+              accessibilityLabel={`${g.rotulo}, ${breve ? 'em breve' : `${g.qtd} ${g.qtd === 1 ? 'local' : 'locais'}`}`}
             >
-              <View style={[s.circulo, g.qtd === 0 && { opacity: 0.55 }, selecionada === g.chave && { backgroundColor: corIcone, borderColor: corIcone }]}>
-                <Feather name={icone as any} size={20} color={selecionada === g.chave ? '#0B0B0E' : corIcone} />
+              <View style={[s.circulo, selecionada === g.chave && { backgroundColor: corIcone, borderColor: corIcone }]}>
+                <Feather name={icone as any} size={20} color={breve ? C.purple : selecionada === g.chave ? '#0B0B0E' : corIcone} />
+                {breve && (
+                  <View style={s.emBreveBadge}>
+                    <Text style={s.emBreveTexto}>{t('home.emBreve')}</Text>
+                  </View>
+                )}
               </View>
               <View style={[s.rotuloBox, compacto && { marginTop: 4 }]}>
-                <Text style={s.rotulo} numberOfLines={/[ \n]/.test(nomeCurto) ? 2 : 1} adjustsFontSizeToFit minimumFontScale={0.75} maxFontSizeMultiplier={1}>{nomeCurto}</Text>
+                <Text style={[s.rotulo, breve && { color: C.dim }]} numberOfLines={/[ \n]/.test(nomeCurto) ? 2 : 1} adjustsFontSizeToFit minimumFontScale={0.75} maxFontSizeMultiplier={1}>{nomeCurto}</Text>
               </View>
-              {g.qtd === 0 && <Text style={s.breve}>em breve</Text>}
             </TouchableOpacity>
           );
         })}
@@ -117,5 +141,7 @@ const s = StyleSheet.create({
   circulo: { width: 46, height: 46, borderRadius: 23, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, justifyContent: 'center', alignItems: 'center' },
   rotuloBox: { height: 30, marginTop: 8, alignSelf: 'stretch', paddingHorizontal: 2, justifyContent: 'center', alignItems: 'center' },
   rotulo: { fontSize: 10, lineHeight: 12, fontWeight: '600', color: C.text, textAlign: 'center' },
-  breve: { fontSize: 8, color: C.dim, marginTop: 1 },
+  // Selo "EM BREVE" igual ao da Home e da Dicas Trip.
+  emBreveBadge: { position: 'absolute', bottom: -4, backgroundColor: C.purple, paddingHorizontal: 4, paddingVertical: 1, borderRadius: 4 },
+  emBreveTexto: { fontSize: 7, fontWeight: '800', color: '#FFF' },
 });

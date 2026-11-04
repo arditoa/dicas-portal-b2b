@@ -6,7 +6,7 @@
 // Chave = categoria REAL do banco (categoria_tipo): Bares & Vida Noturna = 'lugares'. As categorias ainda "Em breve"
 // (festas, saude, beleza, mais18) já têm a lista pronta e passam a aparecer quando ganharem categoriaReal.
 // `curto` = nome enxuto que cabe sob o ícone redondo; `rotulo` = nome completo (cadastro, portal, acessibilidade).
-export type SubDef = { chave: string; rotulo: string; curto: string; icone: string; palavras: string[] };
+export type SubDef = { chave: string; rotulo: string; curto: string; icone: string; palavras: string[]; breve?: boolean }; // breve = ainda não abriu (ícone "em breve")
 
 export const normTxt = (s?: string | null) =>
   (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
@@ -33,6 +33,15 @@ export const SUBCATEGORIAS: Record<string, SubDef[]> = {
     def('Open Bar', 'Open Bar', 'droplet', ['open bar', 'openbar', 'open bar gay', 'festa open bar']),
     def('Sunset Parties', 'Sunset Parties', 'sunset', ['sunset', 'sunset party', 'sunset parties', 'por do sol', 'day party', 'day parties', 'pool party', 'pool parties', 'piscina']),
     def('Festa Temática', 'Festa Temática', 'gift', ['festa tematica', 'festas tematicas', 'tematica', 'tematicas', 'festa pop', 'festas pop', 'pop', 'pop party', 'anos 2000', 'flashback', 'hits', 'diva', 'itinerante']),
+  ],
+  // Artistas (nov/2026): Banda e Solo pedidos pela Andrea; as demais são sugestão. Todas abertas.
+  artistas: [
+    def('Banda', 'Banda', 'music', ['banda', 'bandas', 'grupo', 'grupo musical', 'conjunto', 'duo', 'dupla', 'trio', 'quarteto', 'coletivo musical', 'cover', 'banda cover', 'orquestra']),
+    def('Solo', 'Solo', 'mic', ['solo', 'artista solo', 'cantor', 'cantora', 'cantores', 'cantoras', 'voz e violao', 'cantautor', 'musico', 'musica', 'instrumentista', 'mpb']),
+    def('Drag Queens & Kings', 'Drag', 'star', ['drag', 'drags', 'drag queen', 'drag queens', 'drag king', 'drag kings', 'drag show', 'transformista', 'performer drag']),
+    def('DJs', 'DJs', 'disc', ['dj', 'djs', 'dj set', 'set', 'produtor musical', 'selecao musical']),
+    def('Humor & Stand-up', 'Humor', 'smile', ['humor', 'stand up', 'standup', 'stand-up', 'comediante', 'comedia', 'humorista']),
+    def('Dança & Performance', 'Dança e Performance', 'activity', ['danca', 'bailarino', 'bailarina', 'performance', 'performer', 'cabare', 'cabaret', 'circo', 'acrobata', 'teatro']),
   ],
   // Gastronomia
   gastronomia: [
@@ -120,6 +129,16 @@ export const SUBCATEGORIAS: Record<string, SubDef[]> = {
     def('Tattoo & Body Piercing Sensual / BDSM', 'Tattoo, Piercing e BDSM', 'pen-tool', ['tattoo', 'tatuagem', 'tatuador', 'piercing', 'body piercing', 'bdsm', 'fetiche', 'sensual']),
   ],
 };
+
+// Subcategorias ABERTAS por enquanto (nov/2026); as demais da categoria aparecem "em breve" (depois das abertas).
+// Categoria que não está aqui mantém todas abertas. Para abrir uma, inclua o nome (rótulo completo) na lista.
+const ABERTAS: Record<string, string[]> = {
+  lugares: ['Botecos & Bares Tradicionais', 'Casas Noturnas & Boates'],
+};
+for (const [cat, nomes] of Object.entries(ABERTAS)) {
+  const abertas = nomes.map(normTxt);
+  for (const d of SUBCATEGORIAS[cat] || []) if (!abertas.includes(d.chave)) d.breve = true;
+}
 
 // Subcategoria fixa em que o texto livre do local se encaixa (por igualdade ou por palavra inteira); null = Outros.
 export function subcategoriaFixa(defs: SubDef[], texto?: string | null): SubDef | null {

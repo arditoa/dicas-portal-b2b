@@ -25,11 +25,16 @@ export type Anuncio = {
 };
 
 const INTERVALO_MS = 5000;
-const COR_TILE = '#E8E0F6';
-const COR_TEXTO = '#0B0B0E';
+// Cartões de anúncio (futebol feminino, comércio LGBT, Câmara, Embratur): roxo escuro, texto claro.
+const COR_TILE = '#2B1259';
+const COR_TEXTO = '#FFFFFF';
 const FAIXA = 72;
+// Altura única dos cartões em degradê (Museu, Viaje pelo Brasil, fundadores…): todos do mesmo tamanho,
+// não importa se a chamada tem 1 ou 2 linhas.
+const ALTURA_DEGRADE = 128;
 
-export default function CarrosselAnuncios({ anuncios, onExibir }: { anuncios: Anuncio[]; onExibir?: (id: string) => void }) {
+// `compacto`: cartão baixo (páginas de categoria) — etiqueta + chamada e uma setinha, sem botão, para a lista de locais subir na tela.
+export default function CarrosselAnuncios({ anuncios, onExibir, compacto = false, altura }: { anuncios: Anuncio[]; onExibir?: (id: string) => void; compacto?: boolean; altura?: number }) {
   const reduzir = useReduzirMovimento();
   const ref = useRef<any>(null); // RN 0.88: ScrollView deixou de ser classe
   const [largura, setLargura] = useState(0);
@@ -63,7 +68,7 @@ export default function CarrosselAnuncios({ anuncios, onExibir }: { anuncios: An
   };
 
   return (
-    <View style={styles.wrap} onLayout={(e) => setLargura(Math.round(e.nativeEvent.layout.width))}>
+    <View style={[styles.wrap, compacto && styles.wrapCompacto]} onLayout={(e) => setLargura(Math.round(e.nativeEvent.layout.width))}>
       {largura > 0 && (
       <ScrollView
         ref={ref}
@@ -78,10 +83,25 @@ export default function CarrosselAnuncios({ anuncios, onExibir }: { anuncios: An
           <View key={a.id} style={{ width: largura }}>{a.custom}</View>
         ) : a.degrade ? (
           <TouchableOpacity key={a.id} activeOpacity={0.9} onPress={a.onPress} style={{ width: largura }} accessibilityRole="button" accessibilityLabel={`${a.cta}: ${a.titulo}`}>
-            <View style={styles.cardDegrade}>
+            {compacto ? (
+              <View style={styles.cardCompacto}>
+                <FundoCaixaDegrade id={`anc-${a.id}`} cores={a.degrade} />
+                <View style={styles.corpoCompacto}>
+                  <View style={styles.pilulaDegrade}>
+                    <Feather name={a.icone} size={10} color="#FFFFFF" />
+                    <Text style={styles.pilulaDegradeTxt} numberOfLines={1}>{a.tag}</Text>
+                  </View>
+                  <Text style={styles.tituloCompacto} numberOfLines={2}>{a.titulo}</Text>
+                </View>
+                <View style={styles.setaCompacto}>
+                  <Feather name="arrow-right" size={16} color="#1A1020" />
+                </View>
+              </View>
+            ) : (
+            <View style={[styles.cardDegrade, altura ? { height: altura } : null]}>
               <FundoCaixaDegrade id={`anc-${a.id}`} cores={a.degrade} />
               <Feather name={a.icone} size={132} color="rgba(255,255,255,0.16)" style={styles.marcaDagua} />
-              <View style={styles.corpoDegrade}>
+              <View style={[styles.corpoDegrade, altura ? { paddingVertical: 10, gap: 4 } : null]}>
                 <View style={styles.pilulaDegrade}>
                   <Feather name={a.icone} size={11} color="#FFFFFF" />
                   <Text style={styles.pilulaDegradeTxt} numberOfLines={1}>{a.tag}</Text>
@@ -93,6 +113,7 @@ export default function CarrosselAnuncios({ anuncios, onExibir }: { anuncios: An
                 </View>
               </View>
             </View>
+            )}
           </TouchableOpacity>
         ) : (
           <View key={a.id} style={[styles.card, { width: largura }]}>
@@ -131,22 +152,27 @@ export default function CarrosselAnuncios({ anuncios, onExibir }: { anuncios: An
 const styles = StyleSheet.create({
   wrap: { marginHorizontal: 16, marginBottom: 18, minHeight: 112 },
   card: { flexDirection: 'row', borderRadius: 14, overflow: 'hidden', backgroundColor: COR_TILE, minHeight: 112 },
-  cardDegrade: { borderRadius: 14, overflow: 'hidden', minHeight: 112, backgroundColor: '#2A1B4A', justifyContent: 'center' },
+  cardDegrade: { borderRadius: 14, overflow: 'hidden', height: ALTURA_DEGRADE, backgroundColor: '#2A1B4A', justifyContent: 'center' },
+  wrapCompacto: { marginBottom: 8, minHeight: 0 },
+  cardCompacto: { height: 80, borderRadius: 14, overflow: 'hidden', backgroundColor: '#1C1B26', flexDirection: 'row', alignItems: 'center', paddingLeft: 14, paddingRight: 12, gap: 10 },
+  corpoCompacto: { flex: 1, gap: 5 },
+  tituloCompacto: { fontSize: 14, fontWeight: '800', color: '#FFFFFF', lineHeight: 17 },
+  setaCompacto: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
   marcaDagua: { position: 'absolute', right: -14, bottom: -18 },
   corpoDegrade: { padding: 14, gap: 6, paddingRight: 96 },
-  pilulaDegrade: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.22)', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 },
+  pilulaDegrade: { alignSelf: 'flex-start', maxWidth: '100%', flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.22)', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 },
   pilulaDegradeTxt: { fontSize: 10, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.6 },
   tituloDegrade: { fontSize: 15, fontWeight: '900', color: '#FFFFFF', lineHeight: 19 },
   btnDegrade: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FFFFFF', borderRadius: 18, paddingHorizontal: 13, minHeight: 30 },
   btnDegradeTxt: { fontSize: 12, fontWeight: '800', color: '#1A1020' },
   corpo: { padding: 14, gap: 4, justifyContent: 'center' },
-  tag: { fontSize: 11, fontWeight: '800', color: '#7E57C2', letterSpacing: 0.6 },
+  tag: { fontSize: 11, fontWeight: '800', color: '#C4B5FD', letterSpacing: 0.6 },
   titulo: { fontSize: 14, fontWeight: '800', color: COR_TEXTO, lineHeight: 18, flexShrink: 1 },
-  rotulo: { fontSize: 9, fontWeight: '800', color: '#6B6A80', letterSpacing: 0.5 },
+  rotulo: { fontSize: 9, fontWeight: '800', color: '#A99BD0', letterSpacing: 0.5 },
   logoBox: { width: 56, height: 56, borderRadius: 14, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', padding: 4 },
   logoImg: { width: '100%', height: '100%' },
-  btn: { alignSelf: 'flex-start', marginTop: 6, backgroundColor: COR_TEXTO, borderRadius: 18, paddingHorizontal: 14, minHeight: 32, justifyContent: 'center' },
-  btnTexto: { fontSize: 12, fontWeight: '800', color: '#FFFFFF' },
+  btn: { alignSelf: 'flex-start', marginTop: 6, backgroundColor: '#FFFFFF', borderRadius: 18, paddingHorizontal: 14, minHeight: 32, justifyContent: 'center' },
+  btnTexto: { fontSize: 12, fontWeight: '800', color: '#1A1020' },
   faixa: { width: FAIXA, alignItems: 'center', justifyContent: 'center' },
   pontos: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 8 },
   ponto: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.25)' },

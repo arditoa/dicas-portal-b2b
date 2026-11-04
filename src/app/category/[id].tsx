@@ -222,6 +222,23 @@ export default function CategoryListScreen() {
       if (error) throw error;
 
       const itens = ((data as any) || []) as LocalItem[];
+      // Locais cuja categoria PRINCIPAL é outra mas que também aparecem aqui (migration 072). Entram com a subcategoria desta categoria.
+      if (categoriaReal && !experienciaSlug && slug !== 'destaques') {
+        try {
+          const { data: extras } = await supabase.from('local_categorias_extra').select('local_id, subcategoria').eq('categoria', categoriaReal);
+          const jaTem = new Set(itens.map((i) => i.id));
+          const novos = ((extras as any[]) || []).filter((x) => !jaTem.has(x.local_id));
+          if (novos.length > 0) {
+            const { data: ls } = await supabase
+              .from('locais')
+              .select('id, nome, categoria, subcategoria, bairro, bairro_exibicao, cidade, foto_capa_url, safe_space, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status, experiencias, rating_media, rating_total, lat, lng, logo_url, galeria_fotos, atributos, tipo_hospedagem, horario_funcionamento, publico_tags')
+              .eq('status', 'aprovado')
+              .in('id', novos.map((x) => x.local_id));
+            const subDe = new Map(novos.map((x) => [x.local_id as string, x.subcategoria as string | null]));
+            for (const l of ((ls as any[]) || [])) itens.push({ ...l, subcategoria: subDe.get(l.id) ?? null } as LocalItem);
+          }
+        } catch { /* migration 072 ainda não rodou: segue só com a categoria principal */ }
+      }
       const secaoDestaque = categoriaReal ? SECAO_POR_CATEGORIA_REAL[categoriaReal] || 'nenhuma' : 'nenhuma';
       // Quem paga (selo DESTAQUE) ou foi fixado vem primeiro; depois a ordem de sempre.
       const cmp = compararDestaque<LocalItem>(secaoDestaque);
@@ -436,6 +453,7 @@ export default function CategoryListScreen() {
       defs={defsSub}
       selecionada={selectedSubcat}
       cor={categoriaConfig?.color}
+      categoriaAviso={slug}
       onAbrir={(chave) => setSelectedSubcat((atual) => (atual === chave ? null : chave))}
     />
   ) : undefined;

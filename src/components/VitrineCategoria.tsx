@@ -16,8 +16,10 @@ import {
   Comunicacao,
   OfertaVitrine,
   Patrocinio,
+  VagasCategoria,
   ateData,
   buscarComunicacao,
+  buscarVagas,
   buscarOfertas,
   buscarPatrocinio,
   registrarVitrine,
@@ -34,7 +36,12 @@ const DEGRADES_DESTAQUE: [string, string][] = [
   ['#F59E0B', '#E1306C'],
   ['#6366F1', '#EC4899'],
 ];
-// Faixa de ofertas: só o plano Intermediário (e ofertas criadas pela equipe). Na categoria Destaques entram as dos Fundadores.
+// Faixa de cupons (regra out/2026): 24 posições por categoria.
+//   10 Premium + 2 Fundador (12 posições)  e  12 Intermediário (os 24 Intermediários se alternam, 12 por hora).
+//   Cada tela mostra 6 quadradinhos = 3 do grupo Premium/Fundador + 3 do grupo Intermediário, o grupo Premium/Fundador avança a cada 10 min e o Intermediário a cada 30 min.
+//   Os 2 cupons de Fundador trocam a cada 10 min entre todos os Fundadores da categoria.
+//   Vagas do admin (vitrine_vaga, tipo intermediario): 1–10 = cupom Premium, 11–12 = cupom Fundador, 13–24 = cupom Intermediário.
+// Na categoria Destaques (fundadores) continua: Intermediário, Fundador e ofertas da equipe.
 const planoComOferta = (o: OfertaVitrine, fundadores = false) =>
   o.equipe || (!!o.plano_comercial && (o.plano_comercial === 'intermediario' || (fundadores && o.plano_comercial === 'fundador')) && (o.plano_comercial_status ?? 'ativo') === 'ativo');
 const DEGRADES_OFERTA: [string, string][] = [
@@ -46,6 +53,30 @@ const DEGRADES_OFERTA: [string, string][] = [
 ];
 // Ofertas no formato das caixas da Home (3 por linha, 92 de altura): até 6 por vez, a janela avança a cada 6 horas.
 const OFERTAS_POR_VEZ = 6;
+const COM_GRUPO = 3; // por vez: 3 do grupo Premium/Fundador + 3 do grupo Intermediário
+const SLOTS_PREMIUM = 10;
+const SLOTS_FUNDADOR = 2;
+const SLOTS_INTERMEDIARIO = 12;
+type SlotOferta = { oferta?: OfertaVitrine; rotulo: string };
+const ativoPlano = (o: OfertaVitrine) => (o.plano_comercial_status ?? 'ativo') === 'ativo';
+// Um cupom por local (o mais recente); cupons da equipe ficam todos.
+function umPorLocal(lista: OfertaVitrine[]): OfertaVitrine[] {
+  const vistos = new Set<string>();
+  const out: OfertaVitrine[] = [];
+  for (const o of lista.slice().sort((a, b) => (b.criado_em || '').localeCompare(a.criado_em || ''))) {
+    if (o.equipe) { out.push(o); continue; }
+    if (vistos.has(o.local_id)) continue;
+    vistos.add(o.local_id);
+    out.push(o);
+  }
+  return out;
+}
+// Janela circular de `qtd` itens começando em `inicio` (sem repetir).
+function janela<T>(lista: T[], inicio: number, qtd: number): T[] {
+  if (lista.length <= qtd) return lista.slice();
+  const ini = ((inicio % lista.length) + lista.length) % lista.length;
+  return Array.from({ length: qtd }, (_, k) => lista[(ini + k) % lista.length]);
+}
 const PATROCINIO_VEZPA: Patrocinio = {
   categoria: 'destaques',
   local_id: null,
@@ -108,7 +139,9 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
   const router = useRouter();
   const { width } = useWindowDimensions();
   const slot = useSlotHora(60);
-  const slotOferta = useSlotHora(360); // faixa de ofertas troca a cada 6 horas
+  const slotOferta = useSlotHora(360); // Destaques (Fundadores): a faixa troca a cada 6 horas
+  const slot10 = useSlotHora(10); // cupons Premium/Fundador: a faixa avança a cada 10 minutos
+  const slot30 = useSlotHora(30); // cupons Intermediário: a faixa avança a cada 30 minutos
   const slotPremium = useSlotHora(60); // banner rotativo Premium: 4 por vez, troca a cada hora (até 12 no total)
   const [patrocinioDb, setPatrocinio] = useState<Patrocinio | null>(null);
   const [patrocinioLido, setPatrocinioLido] = useState(false);
@@ -121,14 +154,32 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
   const [comunicacao, setComunicacao] = useState<Record<string, Comunicacao>>({});
 
   // 1) pool de destaques: pagos (selo DESTAQUE / plano premium-fundador) com imagem, girando por hora.
+  // Vagas manuais do admin (vitrine_vaga): o local escolhido ocupa a posição escolhida; o resto é preenchido pelo plano.
+  const [vagas, setVagas] = useState<VagasCategoria>({ premium: {}, intermediario: {} });
+  useEffect(() => {
+    let vivo = true;
+    buscarVagas(slug).then((v) => { if (vivo) setVagas(v); });
+    return () => { vivo = false; };
+  }, [slug]);
   const pool = useMemo(() => {
     const base = fundadores ? locais : locais.filter((l) => deveExibirGlow(l as any) || pagaPlanoComDireitoADestaque(l as any));
     // Banner em degradê, sem foto: não exige imagem do local.
-    return base.slice().sort((a, b) => a.id.localeCompare(b.id)).slice(0, 12); // até 12 vagas
-  }, [locais, fundadores]);
+    const auto = base.slice().sort((a, b) => a.id.localeCompare(b.id));
+    const marcados = new Set(Object.values(vagas.premium));
+    const livres = auto.filter((l) => !marcados.has(l.id));
+    const slots: (LocalVitrine | undefined)[] = [];
+    for (let n = 1; n <= 12; n++) {
+      const idMarcado = vagas.premium[n];
+      const doAdmin = idMarcado ? locais.find((l) => l.id === idMarcado) : undefined;
+      slots.push(doAdmin ?? (idMarcado ? undefined : livres.shift()));
+    }
+    // Sem demonstração, vagas vazias saem da fila (o banner roda só com quem existe).
+    return MODO_DEMONSTRACAO ? slots : (slots.filter(Boolean) as LocalVitrine[]);
+  }, [locais, fundadores, vagas]);
   // 12 vagas de banner rotativo (Premium na categoria; Fundador em Destaques): 4 por vez, a janela avança a cada hora.
   // Em demonstração as vagas sem anunciante aparecem escritas ("Banner Premium Destaque 5 …") como se estivesse tudo cheio.
   const totalVagas = MODO_DEMONSTRACAO ? 12 : pool.length;
+  // (em demonstração `pool` tem 12 posições; as sem anunciante ficam escritas)
   const posicoes = useMemo(() => {
     if (totalVagas === 0) return [] as number[];
     const ini = ((((fundadores ? slot : slotPremium) * 4) % totalVagas) + totalVagas) % totalVagas;
@@ -164,13 +215,68 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoriaReal, fundadores, idsLocais, chaveIdsOfertas, semOfertas]);
 
-  const ofertasHora = useMemo(() => {
-    const ord = ofertas.filter((o) => planoComOferta(o, fundadores)).sort((a, b) => (a.equipe ? 0 : 1) - (b.equipe ? 0 : 1) || a.id.localeCompare(b.id));
-    if (ord.length === 0) return [];
-    // OFERTAS_POR_VEZ por vez; a janela avança esse tanto a cada 6 horas (até 24 ofertas por categoria).
-    const inicio = (((slotOferta * OFERTAS_POR_VEZ) % ord.length) + ord.length) % ord.length;
-    return [...ord.slice(inicio), ...ord.slice(0, inicio)].slice(0, OFERTAS_POR_VEZ);
-  }, [ofertas, slotOferta, fundadores]);
+  const slotsOferta = useMemo<SlotOferta[]>(() => {
+    if (fundadores) {
+      // Destaques: Intermediário + Fundador + equipe, 6 por vez a cada 6 horas (regra anterior).
+      const posVaga = (o: OfertaVitrine) => { const e = Object.entries(vagas.intermediario).find(([, id]) => id === o.local_id); return e ? Number(e[0]) : 99; };
+      const ord = ofertas.filter((o) => planoComOferta(o, true) || posVaga(o) < 99).sort((a, b) => posVaga(a) - posVaga(b) || (a.equipe ? 0 : 1) - (b.equipe ? 0 : 1) || a.id.localeCompare(b.id));
+      const vis = ord.length === 0 ? [] : janela(ord, slotOferta * OFERTAS_POR_VEZ, OFERTAS_POR_VEZ);
+      const out: SlotOferta[] = vis.map((o, i) => ({ oferta: o, rotulo: `Banner ${i + 1} Intermediário ${titulo}` }));
+      if (MODO_DEMONSTRACAO) for (let n = out.length + 1; n <= OFERTAS_POR_VEZ; n++) out.push({ rotulo: `Banner ${n} Intermediário ${titulo}` });
+      return out;
+    }
+
+    // Categorias: cupom por plano. Um cupom por local (o mais recente).
+    const vagaLocal = (n: number) => vagas.intermediario[n];
+    const todas = umPorLocal(ofertas.filter(ativoPlano));
+    const doLocal = (id?: string) => (id ? todas.find((o) => o.local_id === id) : undefined);
+    const fixos = new Set(Object.values(vagas.intermediario));
+    const livres = (plano: string) => todas.filter((o) => !o.equipe && o.plano_comercial === plano && !fixos.has(o.local_id)).sort((a, b) => a.local_id.localeCompare(b.local_id));
+
+    // Premium: 10 posições (vagas 1–10), fixas do admin primeiro, o resto pela ordem do plano.
+    const premLivres = livres('premium');
+    const premium: SlotOferta[] = [];
+    for (let n = 1; n <= SLOTS_PREMIUM; n++) {
+      const fx = vagaLocal(n);
+      premium.push({ oferta: fx ? doLocal(fx) : premLivres.shift(), rotulo: `Cupom Premium ${n} ${titulo}` });
+    }
+    // Fundador: 2 posições (vagas 11–12); as livres trocam a cada 10 min entre todos os Fundadores.
+    const fundLivres = livres('fundador');
+    const fundador: SlotOferta[] = [];
+    let k = 0;
+    for (let n = 1; n <= SLOTS_FUNDADOR; n++) {
+      const fx = vagaLocal(SLOTS_PREMIUM + n);
+      let o = fx ? doLocal(fx) : undefined;
+      if (!fx && fundLivres.length > 0) { o = fundLivres[(slot10 * SLOTS_FUNDADOR + k) % fundLivres.length]; k++; }
+      fundador.push({ oferta: o, rotulo: `Cupom Fundador ${n} ${titulo}` });
+    }
+    // Intermediário: 12 posições (vagas 13–24); com mais de 12 Intermediários, metade a cada hora.
+    const equipe = todas.filter((o) => o.equipe).sort((a, b) => a.id.localeCompare(b.id));
+    const intLivres = [...equipe, ...livres('intermediario')];
+    const fixosInt: (OfertaVitrine | undefined)[] = [];
+    for (let n = 1; n <= SLOTS_INTERMEDIARIO; n++) { const fx = vagaLocal(SLOTS_PREMIUM + SLOTS_FUNDADOR + n); fixosInt.push(fx ? doLocal(fx) : undefined); }
+    const vagasLivresInt = fixosInt.filter((x, i) => !vagaLocal(SLOTS_PREMIUM + SLOTS_FUNDADOR + i + 1)).length;
+    const doRodizio = janela(intLivres, slot * vagasLivresInt, vagasLivresInt);
+    const intermediario: SlotOferta[] = fixosInt.map((x, i) => {
+      const fixa = !!vagaLocal(SLOTS_PREMIUM + SLOTS_FUNDADOR + i + 1);
+      return { oferta: fixa ? x : doRodizio.shift(), rotulo: `Cupom Intermediário ${i + 1} ${titulo}` };
+    });
+
+    // Grupo A = Fundador + Premium (12); grupo B = Intermediário (12).
+    const A = [...fundador, ...premium];
+    const B = intermediario;
+    const compacta = (l: SlotOferta[]) => (MODO_DEMONSTRACAO ? l : l.filter((x) => !!x.oferta));
+    const a = compacta(A);
+    const b = compacta(B);
+    // Premium/Fundador giram a cada 10 min; Intermediário a cada 30 min (hierarquia preservada).
+    let va = janela(a, slot10 * COM_GRUPO, COM_GRUPO);
+    let vb = janela(b, slot30 * COM_GRUPO, COM_GRUPO);
+    // Se um grupo tem menos de 3, o outro completa até 6.
+    if (va.length < COM_GRUPO) vb = janela(b, slot30 * COM_GRUPO, OFERTAS_POR_VEZ - va.length);
+    else if (vb.length < COM_GRUPO) va = janela(a, slot10 * COM_GRUPO, OFERTAS_POR_VEZ - vb.length);
+    return [...va, ...vb];
+  }, [ofertas, slotOferta, slot10, slot30, slot, fundadores, vagas, titulo]);
+  const ofertasHora = useMemo(() => slotsOferta.map((x) => x.oferta).filter(Boolean) as OfertaVitrine[], [slotsOferta]);
 
   // Medição: exibição dos 3 primeiros destaques e das 3 primeiras ofertas (1x por sessão e seção).
   useEffect(() => {
@@ -317,35 +423,38 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
           Quadradinhos pequenos que passam de lado; não mostram o local (só ao tocar), como no Mercado Livre. */}
       {!semOfertas && (
       <View style={{ marginTop: 10 }}>
-        {ofertasHora.length > 0 || MODO_DEMONSTRACAO ? (
+        {slotsOferta.length > 0 || MODO_DEMONSTRACAO ? (
           <View style={s.linhaOfertas}>
-            {ofertasHora.map((o, idx) => (
-              <TouchableOpacity
-                key={o.id}
-                activeOpacity={0.9}
-                style={s.cardOferta}
-                onPress={() => {
-                  registrarVitrine(o.local_id, `oferta:${slug}`, 'clique');
-                  router.push(`/business/${o.local_id}` as any);
-                }}
-                accessibilityRole="button"
-                accessibilityLabel={o.titulo}
-              >
-                <FundoCaixaDegrade id={`of-${o.id}`} cores={DEGRADES_OFERTA[(idx + slot) % DEGRADES_OFERTA.length]} />
-                {!!o.imagem_url && <Image source={{ uri: o.imagem_url }} style={StyleSheet.absoluteFill} resizeMode="cover" />}
-                {!!o.imagem_url && <View style={s.ofertaVeu} />}
-                <Feather name="tag" size={22} color="#FFFFFF" />
-                <Text style={s.ofertaTitulo} numberOfLines={2}>{o.titulo}</Text>
-              </TouchableOpacity>
-            ))}
-            {MODO_DEMONSTRACAO && Array.from({ length: Math.max(0, OFERTAS_POR_VEZ - ofertasHora.length) }).map((_, k) => {
-              const n = ofertasHora.length + k + 1;
+            {slotsOferta.map((sl, idx) => {
+              const o = sl.oferta;
+              if (!o) {
+                if (!MODO_DEMONSTRACAO) return null;
+                return (
+                  <View key={`demo-${idx}`} style={s.cardOferta} accessibilityLabel={sl.rotulo}>
+                    <FundoCaixaDegrade id={`ofd-${slug}-${idx}`} cores={DEGRADES_OFERTA[(idx + 1) % DEGRADES_OFERTA.length]} />
+                    <Feather name="tag" size={20} color="#FFFFFF" />
+                    <Text style={[s.ofertaTitulo, { fontSize: 11 }]} numberOfLines={3}>{sl.rotulo}</Text>
+                  </View>
+                );
+              }
               return (
-                <View key={`demo-${n}`} style={s.cardOferta} accessibilityLabel={`Banner ${n} Intermediário ${titulo}`}>
-                  <FundoCaixaDegrade id={`ofd-${slug}-${n}`} cores={DEGRADES_OFERTA[n % DEGRADES_OFERTA.length]} />
-                  <Feather name="tag" size={20} color="#FFFFFF" />
-                  <Text style={[s.ofertaTitulo, { fontSize: 11 }]} numberOfLines={3}>{`Banner ${n} Intermediário ${titulo}`}</Text>
-                </View>
+                <TouchableOpacity
+                  key={o.id}
+                  activeOpacity={0.9}
+                  style={s.cardOferta}
+                  onPress={() => {
+                    registrarVitrine(o.local_id, `oferta:${slug}`, 'clique');
+                    router.push(`/business/${o.local_id}` as any);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={o.titulo}
+                >
+                  <FundoCaixaDegrade id={`of-${o.id}`} cores={DEGRADES_OFERTA[(idx + slot) % DEGRADES_OFERTA.length]} />
+                  {!!o.imagem_url && <Image source={{ uri: o.imagem_url }} style={StyleSheet.absoluteFill} resizeMode="cover" />}
+                  {!!o.imagem_url && <View style={s.ofertaVeu} />}
+                  <Feather name="tag" size={22} color="#FFFFFF" />
+                  <Text style={s.ofertaTitulo} numberOfLines={2}>{o.titulo}</Text>
+                </TouchableOpacity>
               );
             })}
           </View>

@@ -15,7 +15,7 @@
 //    Com 72 locais no rodízio, cada um aparece 2x por dia (24 slots × 6 ÷ 72).
 
 export const RODIZIO_TAMANHO_PADRAO = 6;
-export const RODIZIO_INTERVALO_PADRAO_MIN = 60;
+export const RODIZIO_INTERVALO_PADRAO_MIN = 10;
 const BRASILIA_MS = 3 * 3600 * 1000; // UTC-3 (sem horário de verão)
 
 function fnv1a(texto: string): number {
@@ -86,7 +86,7 @@ export function aparicoesPorDia(tamLista: number, tamanho: number, intervaloMin:
 // Brasília). Se houver mais fundadores que o limite do bloco, o grupo que
 // aparece avança a cada dia, até todos passarem pelo topo.
 // ---------------------------------------------------------------------------
-export const FUNDADORES_MAX_PADRAO = 8;
+export const FUNDADORES_MAX_PADRAO = 12;
 
 /** Número do dia (hora de Brasília): muda à meia-noite daqui. */
 export function diaNumero(agora: number = Date.now()): number {

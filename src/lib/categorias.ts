@@ -18,6 +18,7 @@ export type CategoriaSlugUI =
   | 'bares'
   | 'gastronomia'
   | 'festas'
+  | 'artistas'
   | 'cultura'
   | 'turismo'
   | 'beleza'
@@ -74,6 +75,15 @@ export const CATEGORIAS: Record<CategoriaSlugUI, CategoriaConfig> = {
     // eventos/roteiros), então não precisa de categoriaReal aqui.
     categoriaReal: null,
   },
+  // Nov/2026 — categoria nova pedida pela Andrea (migration 069): bandas, artistas solo, drags, DJs, humor e dança.
+  // Quem se apresenta (pessoa ou grupo), não o lugar; o show em si continua em Festas & Eventos.
+  artistas: {
+    slug: 'artistas',
+    label: 'Artistas',
+    icon: 'mic',
+    color: '#BA68C8',
+    categoriaReal: 'artistas',
+  },
   cultura: {
     slug: 'cultura',
     label: 'Cultura',
@@ -93,16 +103,14 @@ export const CATEGORIAS: Record<CategoriaSlugUI, CategoriaConfig> = {
     label: 'Beleza & Estética',
     icon: 'scissors',
     color: '#E1306C',
-    categoriaReal: null,
-    emBreve: true,
+    categoriaReal: 'beleza', // enum já existia (migration 026); aberta na Home em nov/2026
   },
   mais18: {
     slug: 'mais18',
     label: 'Espaços 18+',
     icon: 'lock',
     color: '#7E57C2',
-    categoriaReal: null,
-    emBreve: true,
+    categoriaReal: 'mais18', // valor novo do enum (migration 070); aberta na Home em nov/2026
   },
   lojas: {
     slug: 'lojas',
@@ -175,6 +183,7 @@ export const CATEGORIA_ORDER: CategoriaSlugUI[] = [
   'turismo',
   'bares',
   'festas',
+  'artistas',
   'gastronomia',
   'lazer',
   'cultura',
@@ -198,6 +207,9 @@ export const CATEGORIA_REAL_LABEL: Record<string, string> = {
   servicos: 'Serviços Inclusivos',
   produtos: 'Produtos',
   educacao: 'Educação',
+  artistas: 'Artistas',
+  beleza: 'Beleza & Estética',
+  mais18: 'Espaços 18+',
 };
 
 // Rodada 66 — selo colorido de categoria nos cards (pedido da Andrea a
@@ -219,6 +231,8 @@ const SELOS_POR_CATEGORIA_REAL: Record<string, SeloCategoria> = {
   beleza: { texto: 'BELEZA', cor: '#F48FB1', textoCor: '#2A0A16' },
   lazer: { texto: 'LAZER', cor: '#26C6DA', textoCor: '#03252A' },
   educacao: { texto: 'EDUCAÇÃO', cor: '#FF8A65', textoCor: '#2A0E05' },
+  artistas: { texto: 'ARTISTA', cor: '#BA68C8', textoCor: '#1F0A26' },
+  mais18: { texto: '18+', cor: '#8E24AA', textoCor: '#FFF' },
 };
 
 // Selo de um local já carregado do banco. Hospedagem (tipo_hospedagem,
@@ -229,3 +243,23 @@ export function seloDaCategoria(local: { categoria?: string | null; subcategoria
   if (local.categoria === 'lugares' && (sub.includes('18') || sub.includes('sauna'))) return { texto: '18+', cor: '#8E24AA', textoCor: '#FFF' };
   return local.categoria ? SELOS_POR_CATEGORIA_REAL[local.categoria] : undefined;
 }
+
+// Frase curta abaixo do título de cada categoria (mesmo estilo do "Viaje pelo Brasil com quem entende a comunidade", da Dicas Trip).
+export const SUBTITULO_CATEGORIA: Partial<Record<CategoriaSlugUI, string>> = {
+  destaques: 'Os negócios que acreditaram na comunidade desde o começo',
+  bares: 'Bares, baladas e a noite que acolhe você',
+  gastronomia: 'Sabores e mesas onde você pode ser quem é',
+  festas: 'As festas e eventos da cena LGBT+',
+  artistas: 'Bandas, drags, DJs e artistas que fazem a nossa cena',
+  cultura: 'Museus, arte e histórias da nossa comunidade',
+  turismo: 'Viaje pelo Brasil com quem entende a comunidade',
+  beleza: 'Cuidado e estética com respeito à sua identidade',
+  mais18: 'Espaços adultos, com discrição e respeito',
+  lojas: 'Lojas que apoiam a causa e recebem todo mundo',
+  servicos: 'Profissionais que entendem e apoiam a comunidade',
+  produtos: 'Marcas e produtos de quem está do nosso lado',
+  lazer: 'Passeios e experiências para curtir sem medo',
+  saude: 'Cuidado com a saúde, com acolhimento e respeito',
+  educacao: 'Cursos e escolas que acolhem a diversidade',
+  comunidade: 'Apoio, acolhimento e conexão entre pessoas',
+};

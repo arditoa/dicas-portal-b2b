@@ -188,7 +188,7 @@ export default function SecaoScreen() {
         } else if (tipo === 'em-alta' || tipo === 'semana') {
           const { data } = await supabase.from('locais').select(CAMPOS_LOCAL).eq('status', 'aprovado').limit(1000);
           // Serviços (fotógrafo, beleza, lojas) têm página própria; o Em Alta fica só com lugares.
-          let todos = ((data as any[]) || []).filter((i) => tipo === 'semana' || !ehServico(i));
+          let todos = ((data as any[]) || []).filter((i) => tipo === 'semana' || cfgRodizio.completarEmAlta || !ehServico(i));
           // Em Alta: o patrocínio agora é o banner master da página (BannerMaster); locais VIP entram na lista com o selo.
           const destaque = todos.filter((i) => deveExibirGlow(i)).sort(compararDestaque('destaque'));
           if (tipo === 'semana') {
@@ -307,7 +307,7 @@ export default function SecaoScreen() {
     return () => {
       ativo = false;
     };
-  }, [tipo, slotRodizio, cfgRodizio.tamanho, periodo]);
+  }, [tipo, slotRodizio, cfgRodizio.tamanho, cfgRodizio.completarEmAlta, periodo]);
 
   // Filtros do "O que fazer hoje": só aparecem as opções que existem de verdade na lista de hoje.
   const filtrosHoje = useMemo<FiltroDef[]>(() => {

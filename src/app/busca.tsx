@@ -15,6 +15,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CATEGORIA_REAL_LABEL, SELO_FESTA, seloDaCategoria } from '../lib/categorias';
 import { carregarDestinos } from '../lib/destinos';
+import { pesoRotacaoSemanal } from '../lib/destaque';
+import { formatarNome } from '../lib/texto';
 import { abertoAgora, fechaAs } from '../lib/horario';
 import { listarRoteiros, Roteiro, todasTags } from '../lib/roteiros';
 import { supabase } from '../lib/supabase';
@@ -51,6 +53,47 @@ const norm = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCa
 function combina(q: string, ...campos: (string | null | undefined)[]) {
   const alvo = norm(campos.filter(Boolean).join(' '));
   return norm(q).split(/\s+/).filter(Boolean).every((p) => alvo.includes(p.replace(/s$/, '')));
+}
+
+// Regra comercial da ordem dos LUGARES na busca (mesma lógica das listas de categoria):
+//  1) nome igual ao que foi digitado (ou começando por ele, com 4+ letras): quem procura um lugar pelo nome o encontra primeiro;
+//  2) até 5 Premium/Fundador ativos cujas 3 tags (plano "Top 5") casam com a busca, sorteados por semana;
+//  3) Premium/Fundador, depois Intermediário, depois os demais (só plano com status ativo conta);
+//  4) dentro de cada grupo, rodízio semanal, para não ser sempre o mesmo no topo.
+function grupoPlanoBusca(l: { plano_comercial?: string | null; plano_comercial_status?: string | null }): number {
+  if ((l.plano_comercial_status ?? 'ativo') !== 'ativo') return 3;
+  switch (l.plano_comercial) {
+    case 'fundador':
+    case 'premium':
+      return 0;
+    case 'intermediario':
+      return 1;
+    case 'starter':
+      return 2;
+    default:
+      return 3;
+  }
+}
+function ordenarLugaresBusca<T extends { id: string; nome?: string | null; tags?: string[] | null; plano_comercial?: string | null; plano_comercial_status?: string | null }>(q: string, lista: T[]): T[] {
+  const alvo = norm(q).trim();
+  const nomeForte = (l: T) => {
+    const n = norm(l.nome || '').trim();
+    return n === alvo || (alvo.length >= 4 && n.startsWith(alvo));
+  };
+  const top5 = new Set(
+    lista
+      .filter((l) => grupoPlanoBusca(l) === 0 && (l.tags || []).some((t) => combina(q, t)))
+      .sort((a, b) => pesoRotacaoSemanal(a.id) - pesoRotacaoSemanal(b.id))
+      .slice(0, 5)
+      .map((l) => l.id)
+  );
+  return lista.slice().sort(
+    (a, b) =>
+      Number(nomeForte(b)) - Number(nomeForte(a)) ||
+      Number(top5.has(b.id)) - Number(top5.has(a.id)) ||
+      grupoPlanoBusca(a) - grupoPlanoBusca(b) ||
+      pesoRotacaoSemanal(a.id) - pesoRotacaoSemanal(b.id)
+  );
 }
 
 export default function BuscaScreen() {
@@ -95,7 +138,7 @@ export default function BuscaScreen() {
       const hoje = new Date();
       hoje.setHours(0, 0, 0, 0);
       const campos =
-        'id, nome, categoria, subcategoria, descricao, bairro, bairro_exibicao, cidade, foto_capa_url, galeria_fotos, rating_media, rating_total, horario_funcionamento, tags';
+        'id, nome, categoria, subcategoria, descricao, bairro, bairro_exibicao, cidade, foto_capa_url, galeria_fotos, rating_media, rating_total, horario_funcionamento, tags, plano_comercial, plano_comercial_status';
       const [ls, ev, rt] = await Promise.all([
         supabase.from('locais').select(campos).eq('status', 'aprovado').eq('cidade', c).limit(400),
         (async () => {
@@ -136,8 +179,11 @@ export default function BuscaScreen() {
   const resultados = useMemo(() => {
     if (!buscado) return { lugares: [], eventos: [], roteiros: [] };
     return {
-      lugares: locais.filter((l) =>
-        combina(buscado, l.nome, l.subcategoria, CATEGORIA_REAL_LABEL[l.categoria], l.bairro, l.bairro_exibicao, l.descricao, ...(l.tags || []))
+      lugares: ordenarLugaresBusca(
+        buscado,
+        locais.filter((l) =>
+          combina(buscado, l.nome, l.subcategoria, CATEGORIA_REAL_LABEL[l.categoria], l.bairro, l.bairro_exibicao, l.descricao, ...(l.tags || []))
+        )
       ),
       eventos: eventos.filter((e) =>
         combina(buscado, e.titulo, e.descricao, e.locais?.nome, ...(e.tags || []).map(rotuloTag), ...(e.estilos_musicais || []))
@@ -295,7 +341,7 @@ export default function BuscaScreen() {
                             {selo && (
                               <View style={[styles.selo, { backgroundColor: selo.cor }]}><Text style={[styles.seloTxt, { color: selo.textoCor }]}>{selo.texto}</Text></View>
                             )}
-                            <Text style={styles.cardTitulo} numberOfLines={1}>{l.nome}</Text>
+                            <Text style={styles.cardTitulo} numberOfLines={1}>{formatarNome(l.nome)}</Text>
                             {l.rating_total > 0 && (
                               <Text style={styles.cardMeta}><Text style={{ color: C.gold }}>★</Text> {Number(l.rating_media).toFixed(1)} ({l.rating_total})</Text>
                             )}
