@@ -467,9 +467,6 @@ export default function HospedagemPage() {
 
   return (
     <div className="p-6 md:p-8 max-w-6xl mx-auto text-white">
-      <Link href="/dashboard" className="inline-flex items-center gap-2 text-[#A0A0B2] text-xs hover:text-white transition mb-4">
-        <ArrowLeft size={14} /> Voltar
-      </Link>
 
       {/* Cabeçalho com progresso */}
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">

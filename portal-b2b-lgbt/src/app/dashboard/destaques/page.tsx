@@ -3,7 +3,7 @@
 // exposições/toques dos últimos 30 dias, uso das ofertas do mês e (para Fundadores) a comunicação
 // escrita pela equipe, que ele pode ajustar. Quem ainda não paga vê o que está perdendo + CTA de upgrade.
 // Tabelas/funções: migration 059 (uso_ofertas_mes, resumo_vitrine_local, fundador_comunicacao, categoria_patrocinio).
-import { ArrowLeft, Check, Loader2, Lock, Save, Sparkles, TrendingUp } from 'lucide-react';
+import { Check, Loader2, Lock, Save, Sparkles, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -135,7 +135,6 @@ export default function DestaquesPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-5 py-8 text-white">
-      <Link href="/dashboard" className="inline-flex items-center gap-2 text-[#A0A0B2] text-xs hover:text-white transition mb-6"><ArrowLeft size={14} /> Voltar</Link>
       <h1 className="text-2xl font-black">Destaques e resultados</h1>
       <p className="text-[#A0A0B2] text-xs mt-1 mb-6">Quantas pessoas viram e tocaram no {local.nome} nas áreas de destaque do app, nos últimos 30 dias.</p>
 

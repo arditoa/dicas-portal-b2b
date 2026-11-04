@@ -1,5 +1,5 @@
 'use client';
-import { ArrowLeft, CalendarDays, Info, Link as LinkIcon, Loader2, Save, Upload } from 'lucide-react';
+import { CalendarDays, Info, Link as LinkIcon, Loader2, Save, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -339,9 +339,6 @@ export default function DashboardAgendaPage() {
 
   return (
     <div className="p-8 max-w-2xl mx-auto text-white">
-      <Link href="/dashboard" className="inline-flex items-center gap-2 text-[#A0A0B2] text-xs hover:text-white transition mb-6">
-        <ArrowLeft size={14} /> Voltar
-      </Link>
 
       <div className="mb-6">
         <h1 className="text-2xl font-black">Agenda da semana</h1>

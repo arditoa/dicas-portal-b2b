@@ -1,5 +1,5 @@
 'use client';
-import { AlertTriangle, ArrowLeft, Calendar, Check, ChevronDown, ChevronUp, Loader2, LogIn, Plus, Save, Upload, Users, X, XCircle } from 'lucide-react';
+import { AlertTriangle, Calendar, Check, ChevronDown, ChevronUp, Loader2, LogIn, Plus, Save, Upload, Users, X, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -306,9 +306,6 @@ export default function DashboardEventosPage() {
 
   return (
     <div className="p-8 max-w-2xl mx-auto text-white">
-      <Link href="/dashboard" className="inline-flex items-center gap-2 text-[#A0A0B2] text-xs hover:text-white transition mb-6">
-        <ArrowLeft size={14} /> Voltar
-      </Link>
 
       <div className="mb-8">
         <h1 className="text-2xl font-black">Meus eventos</h1>

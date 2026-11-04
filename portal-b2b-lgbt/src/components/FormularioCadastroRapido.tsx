@@ -16,6 +16,7 @@ import { supabase } from '../lib/supabase';
 import { buscarCoordenadas } from '../lib/geocodificar';
 import { telefoneParecCurto } from '../lib/parceiroAuth';
 import { erroFotoNaoSuportada } from '../lib/validarFoto';
+import { SUBCATEGORIAS_APP } from '../lib/subcategoriasApp';
 
 // Mesma taxonomia reduzida de /cadastro/local — ver src/lib/categorias.ts
 // (app) pra explicação completa de por que só essas 4 estão habilitadas.
@@ -275,6 +276,10 @@ export default function FormularioCadastroRapido({ tipo, onSucesso }: Props) {
   const [cnpjEncontrado, setCnpjEncontrado] = useState(false);
   const [nomeVeioDaRazaoSocial, setNomeVeioDaRazaoSocial] = useState(false);
   const [categoria, setCategoria] = useState('');
+  // Rodada 129 — subcategoria: da lista do app ou, se não existir ainda, o
+  // próprio parceiro escreve ('__outros__' = campo livre).
+  const [subcategoria, setSubcategoria] = useState('');
+  const [subcategoriaLivre, setSubcategoriaLivre] = useState('');
   const [instagram, setInstagram] = useState('');
   const [bairro, setBairro] = useState('');
   const [cidade, setCidade] = useState('');
@@ -321,6 +326,14 @@ export default function FormularioCadastroRapido({ tipo, onSucesso }: Props) {
       const documentoLimpo = documento.replace(/\D/g, '');
       if (!nomeEspaco.trim() || !categoria) {
         setErrorMsg('Preencha o nome do espaço e a categoria.');
+        return;
+      }
+      if (SUBCATEGORIAS_APP[categoria] && !subcategoria) {
+        setErrorMsg('Escolha a subcategoria (ou "Outra" para escrever a sua).');
+        return;
+      }
+      if (subcategoria === '__outros__' && !subcategoriaLivre.trim()) {
+        setErrorMsg('Escreva o nome da sua subcategoria.');
         return;
       }
       if (documentoLimpo.length !== 11 && documentoLimpo.length !== 14) {
@@ -384,6 +397,18 @@ export default function FormularioCadastroRapido({ tipo, onSucesso }: Props) {
         });
 
         if (error) throw error;
+
+        // Subcategoria (Rodada 129): RPC à parte — mesma janela segura da foto
+        // (local pendente, sem dono). Se a migration 076 ainda não foi aplicada,
+        // o cadastro segue normalmente; só a subcategoria deixa de ser gravada.
+        const subcategoriaFinal = (subcategoria === '__outros__' ? subcategoriaLivre : subcategoria || subcategoriaLivre).trim();
+        if (subcategoriaFinal && novoLocalId) {
+          const { error: erroSub } = await supabase.rpc('cadastro_rapido_definir_subcategoria_local', {
+            p_id: novoLocalId,
+            p_subcategoria: subcategoriaFinal,
+          });
+          if (erroSub) console.warn('Subcategoria não gravada (migration 076 aplicada?):', erroSub.message);
+        }
 
         if (fotoLocal && novoLocalId) {
           const url = await enviarFoto('fotos-locais', novoLocalId, fotoLocal);
@@ -518,7 +543,7 @@ export default function FormularioCadastroRapido({ tipo, onSucesso }: Props) {
               <select
                 required
                 value={categoria}
-                onChange={(e) => setCategoria(e.target.value)}
+                onChange={(e) => { setCategoria(e.target.value); setSubcategoria(''); setSubcategoriaLivre(''); }}
                 className={inputClass}
                 disabled={loading}
               >
@@ -533,6 +558,63 @@ export default function FormularioCadastroRapido({ tipo, onSucesso }: Props) {
                 ))}
               </select>
             </div>
+
+            {categoria && (
+              <div>
+                <label className={labelClass}>Subcategoria</label>
+                {SUBCATEGORIAS_APP[categoria] ? (
+                  <>
+                    <select
+                      required
+                      value={subcategoria}
+                      onChange={(e) => setSubcategoria(e.target.value)}
+                      className={inputClass}
+                      disabled={loading}
+                    >
+                      <option value="" disabled>
+                        Escolha a que mais combina com você
+                      </option>
+                      {SUBCATEGORIAS_APP[categoria].itens.map((i) => (
+                        <option key={i.chave} value={i.rotulo}>
+                          {i.rotulo}
+                        </option>
+                      ))}
+                      <option value="__outros__">Outra — não está na lista (escrever)</option>
+                    </select>
+                    {subcategoria === '__outros__' && (
+                      <input
+                        type="text"
+                        required
+                        maxLength={60}
+                        value={subcategoriaLivre}
+                        onChange={(e) => setSubcategoriaLivre(e.target.value)}
+                        placeholder="Escreva a sua subcategoria (ex.: Bar de karaokê)"
+                        className={`${inputClass} mt-2`}
+                        disabled={loading}
+                      />
+                    )}
+                    <p className="text-xs text-[#8888A0] mt-1.5">
+                      Não achou a sua? Escolha &quot;Outra&quot; e escreva. Nossa equipe avalia criar a subcategoria no app.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <input
+                      type="text"
+                      maxLength={60}
+                      value={subcategoriaLivre}
+                      onChange={(e) => setSubcategoriaLivre(e.target.value)}
+                      placeholder="Escreva a sua subcategoria (opcional)"
+                      className={inputClass}
+                      disabled={loading}
+                    />
+                    <p className="text-xs text-[#8888A0] mt-1.5">
+                      Esta categoria ainda não tem subcategorias prontas — escreva o seu tipo de negócio.
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>

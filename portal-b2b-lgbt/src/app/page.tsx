@@ -1,12 +1,15 @@
 import { ArrowRight, Building2, Calendar, ShieldCheck } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import FundoAnimado from '../components/FundoAnimado';
 
 export const dynamic = 'force-dynamic';
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen bg-[#111217] text-white flex flex-col justify-between p-4 md:p-8">
+    <>
+    <FundoAnimado />
+    <main className="relative z-10 min-h-screen text-white flex flex-col justify-between p-4 md:p-8">
       {/* Header com Logo Oficial */}
       <header className="w-full max-w-5xl mx-auto flex justify-between items-center py-4">
         <div className="flex items-center gap-3">
@@ -110,5 +113,6 @@ export default function HomePage() {
         © {new Date().getFullYear()} Guia & Portal B2B LGBT+. Todos os direitos reservados.
       </footer>
     </main>
+    </>
   );
 }

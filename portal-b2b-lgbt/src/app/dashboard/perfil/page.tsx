@@ -1,6 +1,6 @@
 'use client';
 import { SUBCATEGORIAS_APP } from '../../../lib/subcategoriasApp';
-import { ArrowLeft, Check, KeyRound, Loader2, MapPin, Save, Upload } from 'lucide-react';
+import { Check, KeyRound, Loader2, MapPin, Save, Upload } from 'lucide-react';
 import { TIPOS_SERVICO } from '../../../lib/servicosTipos';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -439,9 +439,6 @@ export default function MinhaPaginaPage() {
 
   return (
     <div className="p-8 max-w-2xl mx-auto text-white">
-      <Link href="/dashboard" className="inline-flex items-center gap-2 text-[#A0A0B2] text-xs hover:text-white transition mb-6">
-        <ArrowLeft size={14} /> Voltar
-      </Link>
 
       <h1 className="text-2xl font-black mb-1">Minha Página</h1>
       <p className="text-[#A0A0B2] text-xs mb-2">
@@ -479,7 +476,7 @@ export default function MinhaPaginaPage() {
               return;
             }
             setTrocandoSenha(true);
-            const { error } = await supabase.auth.updateUser({ password: novaSenha });
+            const { error } = await supabase.auth.updateUser({ password: novaSenha, data: { senha_trocada: true } });
             setTrocandoSenha(false);
             if (error) {
               setErroSenha(error.message);

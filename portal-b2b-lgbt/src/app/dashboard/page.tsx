@@ -1,195 +1,75 @@
 'use client';
-import { AlertCircle, Loader2, LogOut, Plus, ShieldCheck } from 'lucide-react';
+
+// Rodada 129 — Início do painel do parceiro, refeito: saudação, status do
+// cadastro, "O que fazer esta semana" (lembretes), primeiros passos,
+// números do espaço e plano. O menu e o cabeçalho vêm do layout (ParceiroShell).
+import { AlertCircle, CheckCircle2, Circle, Eye, Instagram, Star, Ticket } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { ListaLembretes } from '../../components/parceiro/ParceiroShell';
+import { useParceiro } from '../../components/parceiro/ParceiroContext';
+import { PLANO_INFO } from '../../lib/parceiro';
 import { supabase } from '../../lib/supabase';
 
-// Nomes/preços comerciais em um só lugar — precisam bater com o enum
-// public.plano_comercial (005_planos_comerciais_e_vinculo_local.sql) e com
-// os cards mostrados em /planos.
-const PLANO_INFO: Record<string, { nome: string; preco: string }> = {
-  freemium: { nome: 'Freemium', preco: 'R$0' },
-  intermediario: { nome: 'Intermediário', preco: 'R$359/mês' },
-  premium: { nome: 'Premium', preco: 'R$499/mês' },
-  // Rodada 59 — Andrea corrigiu: "esse 3500 esta equivocado". Fundador
-  // não é mensalidade, é pacote único de 12 meses.
-  // Atualização — "12x R$349" agora lidera (mais vendável).
-  fundador: { nome: 'Fundador', preco: 'R$349,90/mês × 12' },
+type Evento = { id: string; titulo: string; data_inicio: string; listas_vip: { vagas_limite: number | null; vagas_ocupadas: number }[] };
+
+const STATUS_PLANO: Record<string, string> = {
+  ativo: 'Ativo',
+  interesse: 'Interesse registrado — aguardando nosso contato',
+  aguardando_pagamento: 'Aguardando confirmação do pagamento',
+  cancelado: 'Cancelado',
 };
 
-const STATUS_PLANO_INFO: Record<string, { label: string; cor: string }> = {
-  ativo: { label: 'Ativo', cor: 'text-[#4CAF7D]' },
-  interesse: { label: 'Interesse registrado — aguardando contato', cor: '#E1A93A' as any },
-  aguardando_pagamento: { label: 'Aguardando confirmação de pagamento', cor: '#E1A93A' as any },
-  cancelado: { label: 'Cancelado', cor: 'text-[#A0A0B2]' },
-};
-
-type ListaVip = { vagas_limite: number | null; vagas_ocupadas: number };
-type Evento = {
-  id: string;
-  titulo: string;
-  data_inicio: string;
-  listas_vip: ListaVip[];
-};
-
-type Local = {
-  id: string;
-  nome: string;
-  categoria: string;
-  status: 'pendente' | 'aprovado' | 'rejeitado';
-  plano_comercial: string;
-  plano_comercial_status: string;
-  rating_media: number;
-  rating_total: number;
-  safe_space: boolean;
-};
-
-export default function DashboardPage() {
+export default function InicioPage() {
+  const p = useParceiro();
   const router = useRouter();
-  const [carregando, setCarregando] = useState(true);
-  const [local, setLocal] = useState<Local | null>(null);
-  // Liberação para subir pacotes (locais.pode_subir_pacotes, migration 052). null = coluna ainda não existe.
-  const [podePacotes, setPodePacotes] = useState<boolean | null>(null);
+  const [analytics, setAnalytics] = useState<{ visualizacao_perfil: number; clique_instagram: number; clique_cupom: number } | null>(null);
   const [eventos, setEventos] = useState<Evento[]>([]);
-  const [semLocalVinculado, setSemLocalVinculado] = useState(false);
-  const [ehAdmin, setEhAdmin] = useState(false);
-  const [analytics, setAnalytics] = useState<{
-    visualizacao_perfil: number;
-    clique_instagram: number;
-    clique_cupom: number;
-  } | null>(null);
-  // true só quando a chamada falha de verdade (RPC ausente/negada) — nesse
-  // caso mantém o texto antigo "Em breve" pra não sugerir que quebrou;
-  // se a chamada funciona mas dá tudo zero, mostra zero mesmo (é a
-  // realidade: o local ainda não teve visualização nenhuma).
-  const [analyticsIndisponivel, setAnalyticsIndisponivel] = useState(false);
 
+  const localId = p?.local.id;
   useEffect(() => {
+    if (!localId) return;
     (async () => {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData?.user) {
-        router.push('/login');
-        return;
+      const { data, error } = await supabase.rpc('resumo_analytics_local', { p_local_id: localId });
+      if (!error) {
+        const t = { visualizacao_perfil: 0, clique_instagram: 0, clique_cupom: 0 };
+        for (const l of (data as { tipo: string; total: number }[]) || []) if (l.tipo in t) t[l.tipo as keyof typeof t] = Number(l.total);
+        setAnalytics(t);
       }
-
-      const { data: perfil } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', userData.user.id)
-        .maybeSingle();
-      const admin = perfil?.role === 'admin';
-      setEhAdmin(admin);
-
-      // A conta admin da Andrea não é dona de nenhum local — pra ela, o
-      // painel útil é o de moderação, não o de "meu espaço".
-      if (admin) {
-        router.push('/admin');
-        return;
-      }
-
-      const { data: localData, error } = await supabase
-        .from('locais')
-        .select(
-          'id, nome, categoria, status, plano_comercial, plano_comercial_status, rating_media, rating_total, safe_space'
-        )
-        .eq('owner_id', userData.user.id)
-        .maybeSingle();
-
-      if (error || !localData) {
-        // Rodada 36 — organizador de evento independente (aprovado com
-        // login automático via /api/aprovar-evento) não tem `locais`
-        // nenhum pra achar aqui -- mas gerencia pelo menos um evento via
-        // meus_eventos_gerenciaveis() (020). Pra essa conta, a tela certa
-        // é /dashboard/eventos, não o aviso de "cadastre/vincule um
-        // local" que só faz sentido pra quem é dono de espaço físico.
-        const { data: eventosGerenciaveis } = await supabase.rpc('meus_eventos_gerenciaveis');
-        if ((eventosGerenciaveis || []).length > 0) {
-          router.push('/dashboard/eventos');
-          return;
-        }
-        setSemLocalVinculado(true);
-        setCarregando(false);
-        return;
-      }
-
-      setLocal(localData as Local);
-      {
-        const { data: pp, error: ePP } = await supabase.from('locais').select('pode_subir_pacotes').eq('id', localData.id).maybeSingle();
-        if (!ePP && pp) setPodePacotes(!!(pp as { pode_subir_pacotes: boolean }).pode_subir_pacotes);
-      }
-
-      // Analytics real (Rodada 17) — RPC criada em
-      // 006_analytics_cliques_visualizacoes.sql. `security definer` na
-      // função já garante que só o dono do local (ou admin) recebe algo;
-      // se a migration ainda não tiver sido aplicada em produção, a RPC
-      // não existe e cai no catch — mantém o "Em breve" antigo em vez de
-      // quebrar a tela.
-      try {
-        const { data: analyticsData, error: analyticsError } = await supabase.rpc(
-          'resumo_analytics_local',
-          { p_local_id: localData.id }
-        );
-        if (analyticsError) throw analyticsError;
-        const totais = { visualizacao_perfil: 0, clique_instagram: 0, clique_cupom: 0 };
-        for (const linha of (analyticsData as { tipo: string; total: number }[]) || []) {
-          if (linha.tipo in totais) totais[linha.tipo as keyof typeof totais] = Number(linha.total);
-        }
-        setAnalytics(totais);
-      } catch {
-        setAnalyticsIndisponivel(true);
-      }
-
-      const { data: eventosData } = await supabase
+      const { data: ev } = await supabase
         .from('eventos')
         .select('id, titulo, data_inicio, listas_vip(vagas_limite, vagas_ocupadas)')
-        .eq('local_id', localData.id)
+        .eq('local_id', localId)
         .eq('status', 'aprovado')
         .gte('data_inicio', new Date().toISOString())
         .order('data_inicio', { ascending: true })
         .limit(3);
-
-      setEventos((eventosData as unknown as Evento[]) || []);
-      setCarregando(false);
+      setEventos((ev as unknown as Evento[]) || []);
     })();
-  }, [router]);
+  }, [localId]);
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push('/login');
-  };
-
-  if (carregando) {
+  // Sem espaço vinculado (o layout já tratou admin e organizador de evento).
+  if (!p) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="animate-spin text-[#E1306C]" size={28} />
-      </div>
-    );
-  }
-
-  if (semLocalVinculado) {
-    return (
-      <div className="p-8 max-w-lg mx-auto text-center mt-16">
-        <AlertCircle className="mx-auto text-[#E1306C] mb-4" size={32} />
-        <h1 className="text-xl font-black text-white mb-2">Nenhum local vinculado a essa conta ainda</h1>
-        <p className="text-[#A0A0B2] text-sm mb-6">
-          Se você já cadastrou seu espaço pelo formulário público (sem login), ele já pode estar
-          aprovado — só falta vincular essa conta a ele. Se ainda não cadastrou, comece por aí.
+      <div className="mx-auto mt-16 max-w-lg p-8 text-center">
+        <AlertCircle className="mx-auto mb-4 text-[#E1306C]" size={32} />
+        <h1 className="mb-2 text-xl font-black text-white">Nenhum espaço vinculado a esta conta ainda</h1>
+        <p className="mb-6 text-sm text-[#A0A0B2]">
+          Se você já fez o cadastro do seu espaço, ele pode estar aprovado — só falta vincular esta conta a ele. Se ainda não
+          cadastrou, comece pelo cadastro rápido.
         </p>
         <div className="flex flex-col gap-3">
-          <Link
-            href="/vincular"
-            className="bg-[#E1306C] hover:bg-[#C2285C] text-white text-sm font-bold py-3 rounded-xl transition"
-          >
-            Já cadastrei meu local — vincular agora
+          <Link href="/vincular" className="rounded-xl bg-[#E1306C] py-3 text-sm font-bold text-white transition hover:bg-[#C2285C]">
+            Já cadastrei meu espaço — vincular agora
           </Link>
-          <Link
-            href="/cadastro/local"
-            className="bg-[#161520] border border-[#232230] hover:bg-[#1D1C29] text-white text-sm font-bold py-3 rounded-xl transition"
-          >
-            Ainda não cadastrei meu local
+          <Link href="/onboarding" className="rounded-xl border border-[#232230] bg-[#161520] py-3 text-sm font-bold text-white transition hover:bg-[#1D1C29]">
+            Ainda não cadastrei meu espaço
           </Link>
-          <button onClick={handleLogout} className="text-xs text-[#626274] hover:text-white mt-2">
+          <button
+            onClick={async () => { await supabase.auth.signOut(); router.push('/login'); }}
+            className="mt-2 text-xs text-[#626274] hover:text-white"
+          >
             Sair
           </button>
         </div>
@@ -197,242 +77,135 @@ export default function DashboardPage() {
     );
   }
 
-  if (!local) return null;
-
-  const planoInfo = PLANO_INFO[local.plano_comercial] ?? PLANO_INFO.freemium;
-  const statusInfo = STATUS_PLANO_INFO[local.plano_comercial_status] ?? STATUS_PLANO_INFO.ativo;
+  const { local, plano, lembretes, checklist, adiar, abrirTrocaSenha } = p;
+  const feitos = checklist.filter((c) => c.feito).length;
+  const pct = checklist.length ? Math.round((feitos / checklist.length) * 100) : 100;
+  const info = PLANO_INFO[plano];
+  const statusPlano = STATUS_PLANO[local.plano_comercial_status] ?? 'Ativo';
+  const hora = new Date().getHours();
+  const saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
+  const paraFazer = lembretes.filter((l) => l.nivel !== 'dica');
+  const dicas = lembretes.filter((l) => l.nivel === 'dica');
 
   return (
-    <div className="p-8">
-      {local.status !== 'aprovado' && (
-        <div
-          className={`mb-6 p-4 rounded-xl border text-sm ${
-            local.status === 'pendente'
-              ? 'bg-[#E1A93A]/10 border-[#E1A93A]/30 text-[#E1A93A]'
-              : 'bg-red-500/10 border-red-500/30 text-red-400'
-          }`}
-        >
-          {local.status === 'pendente'
-            ? 'Seu cadastro está em análise pela nossa equipe. Assim que for aprovado, seu local aparece no mapa e nas categorias do app — normalmente em até 48h.'
-            : 'Seu cadastro não foi aprovado. Fale com a gente para entender o motivo.'}
-        </div>
-      )}
-
-      <div className="flex flex-wrap justify-between items-center gap-4 mb-8">
-        <div>
-          <h1 className="text-2xl font-black text-white">Olá, {local.nome}</h1>
-          <p className="text-[#A0A0B2] text-xs mt-1">Aqui está o resumo do seu espaço.</p>
-        </div>
-        <div className="flex items-center gap-3">
-          {local.safe_space && (
-            <span className="bg-[#4CAF7D]/10 text-[#4CAF7D] border border-[#4CAF7D]/30 text-xs px-3 py-1.5 rounded-full font-bold flex items-center gap-1.5">
-              <ShieldCheck size={13} /> Espaço Seguro
-            </span>
-          )}
-          {/* Rodada 61 (fazer direito) — Lista VIP, Meus eventos e Agenda
-              da semana são conceitos de bar/festa (check-in físico, agenda
-              semanal recorrente) que não fazem sentido pra Serviços/
-              Turismo/Produtos, então ficam escondidos pra essas categorias.
-              Cupons e o link de perfil continuam pra todo mundo — são a
-              base que a Andrea pediu pra manter (cupom + acesso ao
-              dashboard + descrição do local). */}
-          {!['servicos', 'turismo', 'produtos'].includes(local.categoria) && (
-            <Link
-              href="/dashboard/lista-vip"
-              className="bg-[#232230] hover:bg-[#2D2B3D] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"
-            >
-              Lista VIP
-            </Link>
-          )}
-          <Link
-            href="/dashboard/cupons"
-            className="bg-[#232230] hover:bg-[#2D2B3D] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"
-          >
-            Cupons
-          </Link>
-          <Link
-            href="/dashboard/fidelidade"
-            className="bg-[#232230] hover:bg-[#2D2B3D] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"
-          >
-            Fidelidade
-          </Link>
-          <Link
-            href="/dashboard/destaques"
-            className="bg-[#E1306C]/15 hover:bg-[#E1306C]/25 text-[#FF6FA0] text-xs font-bold px-4 py-2.5 rounded-xl transition"
-          >
-            Destaques e resultados
-          </Link>
-          {local.categoria === 'produtos' && (
-            <Link
-              href="/dashboard/produtos"
-              className="bg-[#232230] hover:bg-[#2D2B3D] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"
-            >
-              Catálogo de produtos
-            </Link>
-          )}
-          {(podePacotes ?? local.categoria === 'turismo') && (
-            <Link
-              href="/dashboard/pacotes"
-              className="bg-[#232230] hover:bg-[#2D2B3D] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"
-            >
-              Pacotes e roteiros
-            </Link>
-          )}
-          {local.categoria === 'turismo' && (
-            <Link
-              href="/dashboard/hospedagem"
-              className="bg-[#232230] hover:bg-[#2D2B3D] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"
-            >
-              Cadastro da hospedagem
-            </Link>
-          )}
-          {!['servicos', 'turismo', 'produtos'].includes(local.categoria) && (
-            <Link
-              href="/dashboard/eventos"
-              className="bg-[#232230] hover:bg-[#2D2B3D] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"
-            >
-              Meus eventos
-            </Link>
-          )}
-          {!['servicos', 'turismo', 'produtos'].includes(local.categoria) && (
-            <Link
-              href="/dashboard/agenda"
-              className="bg-[#232230] hover:bg-[#2D2B3D] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"
-            >
-              Agenda da semana
-            </Link>
-          )}
-          <Link
-            href="/dashboard/perfil"
-            className="bg-[#232230] hover:bg-[#2D2B3D] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"
-          >
-            Fotos, tags e horário
-          </Link>
-          <Link
-            href="/planos"
-            className="bg-[#E1306C] hover:bg-[#C2285C] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center gap-2"
-          >
-            <Plus size={14} /> Ver planos
-          </Link>
-        </div>
+    <div className="space-y-8 p-5 md:p-8">
+      <div>
+        <h1 className="text-2xl font-black">{saudacao}, {local.nome}!</h1>
+        <p className="mt-1 text-sm text-[#A0A0B2]">Veja o que vale fazer agora para o seu espaço render mais no app.</p>
       </div>
 
-      {/* Métricas honestas: só o que já existe de verdade no banco hoje. */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div className="bg-[#161520] border border-[#232230] p-5 rounded-2xl">
-          <span className="text-xs text-[#A0A0B2] font-semibold block mb-2">Avaliação média</span>
-          <div className="text-3xl font-black text-white mb-1">
-            {local.rating_total > 0 ? local.rating_media.toFixed(1) : '—'}
-          </div>
-          <span className="text-[#626274] text-[11px]">
-            {local.rating_total > 0 ? `${local.rating_total} avaliações` : 'ainda sem avaliações'}
-          </span>
-        </div>
-
-        <div className="bg-[#161520] border border-[#232230] p-5 rounded-2xl">
-          <span className="text-xs text-[#A0A0B2] font-semibold block mb-2">Categoria no app</span>
-          <div className="text-lg font-black text-white mb-1 capitalize">{local.categoria}</div>
-          <span className="text-[#626274] text-[11px]">status: {local.status}</span>
-        </div>
-
-        <div className="bg-[#161520] border border-[#232230] p-5 rounded-2xl">
-          <span className="text-xs text-[#A0A0B2] font-semibold block mb-2">Visualizações / cliques (30 dias)</span>
-          {analytics ? (
-            <>
-              <div className="text-lg font-black text-white mb-1">{analytics.visualizacao_perfil} visualizações</div>
-              <span className="text-[#626274] text-[11px]">
-                {analytics.clique_instagram} cliques no Instagram · {analytics.clique_cupom} cliques em cupom
-              </span>
-            </>
-          ) : (
-            <>
-              <div className="text-lg font-black text-white mb-1">Em breve</div>
-              <span className="text-[#626274] text-[11px]">
-                {analyticsIndisponivel
-                  ? 'essas métricas ainda não são coletadas — não inventamos números aqui.'
-                  : 'carregando...'}
-              </span>
-            </>
-          )}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 bg-[#161520] border border-[#232230] p-6 rounded-2xl flex flex-col justify-between">
-          <div>
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-base font-bold text-white">Seu plano atual</h2>
-              <span className="text-xs font-bold text-[#E1306C]">
-                {planoInfo.nome} — {planoInfo.preco}
-              </span>
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* O QUE FAZER ESTA SEMANA */}
+        <section className="lg:col-span-2">
+          <h2 className="mb-3 text-base font-bold">O que fazer esta semana</h2>
+          {paraFazer.length === 0 ? (
+            <div className="rounded-2xl border border-[#4CAF7D]/25 bg-[#4CAF7D]/10 p-5 text-sm text-[#7ED9A6]">
+              Tudo em dia por aqui. Quando surgir algo para fazer, avisamos neste lugar e no sino lá em cima. 🎉
             </div>
-            <p className={`text-xs mb-4 ${statusInfo.cor === '#E1A93A' ? '' : statusInfo.cor}`} style={statusInfo.cor === '#E1A93A' ? { color: '#E1A93A' } : undefined}>
-              {statusInfo.label}
-            </p>
-            {local.plano_comercial_status === 'interesse' && (
-              <p className="text-[11px] text-[#A0A0B2] mb-4">
-                Vamos entrar em contato pelo WhatsApp/e-mail cadastrado pra combinar o pagamento (Pix).
-                Assim que confirmado, seu plano é ativado.
-              </p>
-            )}
-          </div>
-          <div>
-            <Link
-              href="/planos"
-              className="inline-block bg-[#232230] hover:bg-[#2D2B3D] text-white text-xs font-bold px-4 py-2.5 rounded-xl border border-[#232230] transition"
-            >
-              Ver todos os planos
-            </Link>
-          </div>
-        </div>
+          ) : (
+            <ListaLembretes lembretes={paraFazer} adiar={adiar} onEspecial={abrirTrocaSenha} />
+          )}
+          {dicas.length > 0 && (
+            <div className="mt-6">
+              <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-[#626274]">Ideias para crescer</h3>
+              <ListaLembretes lembretes={dicas} adiar={adiar} onEspecial={abrirTrocaSenha} />
+            </div>
+          )}
+        </section>
 
-        <div className="bg-[#161520] border border-[#232230] p-6 rounded-2xl">
-          <h2 className="text-sm font-bold text-white mb-4">Próximos eventos aprovados</h2>
-          <div className="space-y-3">
-            {eventos.length === 0 && (
-              <p className="text-[11px] text-[#626274]">Nenhum evento futuro aprovado ainda.</p>
-            )}
-            {eventos.map((ev) => {
-              const lista = ev.listas_vip?.[0];
-              return (
-                <div
-                  key={ev.id}
-                  className="bg-[#0B0B0E] p-3 rounded-xl border border-[#232230] flex items-center justify-between"
-                >
-                  <div>
+        {/* PRIMEIROS PASSOS */}
+        <section className="rounded-2xl border border-[#232230] bg-[#161520] p-5 self-start">
+          <div className="mb-1 flex items-center justify-between">
+            <h2 className="text-base font-bold">Primeiros passos</h2>
+            <span className="text-xs font-bold text-[#FF7AA8]">{feitos}/{checklist.length}</span>
+          </div>
+          <div className="mb-4 h-1.5 overflow-hidden rounded-full bg-[#232230]">
+            <div className="h-full rounded-full bg-gradient-to-r from-[#E1306C] to-[#A855F7] transition-all" style={{ width: `${pct}%` }} />
+          </div>
+          <ul className="space-y-3">
+            {checklist.map((c) => (
+              <li key={c.id} className="flex gap-3">
+                {c.feito ? <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-[#4CAF7D]" /> : <Circle size={18} className="mt-0.5 shrink-0 text-[#626274]" />}
+                <div className="min-w-0 flex-1">
+                  <p className={`text-sm font-semibold ${c.feito ? 'text-[#8888A0] line-through' : 'text-white'}`}>{c.titulo}</p>
+                  {!c.feito && (
+                    <>
+                      <p className="text-xs text-[#8888A0]">{c.texto}</p>
+                      <Link href={c.href} className="mt-1 inline-block text-xs font-bold text-[#FF7AA8] hover:underline">{c.acao} →</Link>
+                    </>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+          {pct === 100 && <p className="mt-4 text-xs text-[#7ED9A6]">Parabéns, seu espaço está prontinho! ✨</p>}
+        </section>
+      </div>
+
+      {/* NÚMEROS */}
+      <section>
+        <h2 className="mb-3 text-base font-bold">Seus números (últimos 30 dias)</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Cartao icone={Eye} rotulo="Visualizações do perfil" valor={analytics ? String(analytics.visualizacao_perfil) : '—'} nota={analytics ? 'vezes que sua página foi aberta' : 'ainda sem dados'} />
+          <Cartao icone={Instagram} rotulo="Cliques no Instagram" valor={analytics ? String(analytics.clique_instagram) : '—'} nota="a partir da sua página" />
+          <Cartao icone={Ticket} rotulo="Cliques em cupom" valor={analytics ? String(analytics.clique_cupom) : '—'} nota="interesse nos seus cupons" />
+          <Cartao icone={Star} rotulo="Avaliação média" valor={local.rating_total > 0 ? local.rating_media.toFixed(1) : '—'} nota={local.rating_total > 0 ? `${local.rating_total} avaliações` : 'ainda sem avaliações'} />
+        </div>
+      </section>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* PLANO */}
+        <section className="rounded-2xl border border-[#232230] bg-[#161520] p-5 lg:col-span-2">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-base font-bold">Seu plano</h2>
+            <span className="text-sm font-bold text-[#FF7AA8]">{info.nome} — {info.preco}</span>
+          </div>
+          <p className="mb-4 text-xs text-[#A0A0B2]">{statusPlano}</p>
+          {local.plano_comercial_status === 'interesse' && (
+            <p className="mb-4 text-xs text-[#A0A0B2]">
+              Vamos entrar em contato pelo WhatsApp ou e-mail cadastrado para combinar o pagamento (Pix). Assim que confirmado, o plano é ativado.
+            </p>
+          )}
+          <Link href="/planos" className="inline-block rounded-xl bg-[#232230] px-4 py-2.5 text-xs font-bold text-white transition hover:bg-[#2D2B3D]">
+            Ver o que cada plano libera
+          </Link>
+        </section>
+
+        {/* PRÓXIMOS EVENTOS */}
+        <section className="rounded-2xl border border-[#232230] bg-[#161520] p-5">
+          <h2 className="mb-3 text-sm font-bold">Próximos eventos aprovados</h2>
+          {eventos.length === 0 ? (
+            <p className="text-xs text-[#626274]">Nenhum evento futuro aprovado ainda.</p>
+          ) : (
+            <div className="space-y-2.5">
+              {eventos.map((ev) => {
+                const lista = ev.listas_vip?.[0];
+                return (
+                  <div key={ev.id} className="rounded-xl border border-[#232230] bg-[#0B0B0E] p-3">
                     <h3 className="text-xs font-bold text-white">{ev.titulo}</h3>
-                    <p className="text-[10px] text-[#A0A0B2]">
-                      {new Date(ev.data_inicio).toLocaleString('pt-BR', {
-                        weekday: 'short',
-                        day: '2-digit',
-                        month: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                      {lista?.vagas_limite ? ` — Lista VIP: ${lista.vagas_ocupadas}/${lista.vagas_limite} vagas` : ''}
+                    <p className="text-[11px] text-[#A0A0B2]">
+                      {new Date(ev.data_inicio).toLocaleString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                      {lista?.vagas_limite ? ` — Lista VIP: ${lista.vagas_ocupadas}/${lista.vagas_limite}` : ''}
                     </p>
                   </div>
-                  <span className="w-2 h-2 rounded-full bg-[#E1306C]" />
-                </div>
-              );
-            })}
-          </div>
-        </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
       </div>
+    </div>
+  );
+}
 
-      <div className="mt-8 flex items-center gap-4">
-        {ehAdmin && (
-          <Link href="/admin" className="text-xs text-[#E1306C] font-bold hover:underline">
-            Painel de moderação (admin)
-          </Link>
-        )}
-        <button
-          onClick={handleLogout}
-          className="text-xs text-[#626274] hover:text-white flex items-center gap-1.5"
-        >
-          <LogOut size={13} /> Sair
-        </button>
+function Cartao({ icone: Icone, rotulo, valor, nota }: { icone: React.ComponentType<{ size?: number; className?: string }>; rotulo: string; valor: string; nota: string }) {
+  return (
+    <div className="rounded-2xl border border-[#232230] bg-[#161520] p-5">
+      <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-[#A0A0B2]">
+        <Icone size={14} className="text-[#E1306C]" /> {rotulo}
       </div>
+      <div className="text-3xl font-black">{valor}</div>
+      <p className="mt-1 text-[11px] text-[#626274]">{nota}</p>
     </div>
   );
 }

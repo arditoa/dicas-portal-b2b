@@ -13,6 +13,8 @@ import PainelBanners from '../../components/PainelBanners';
 import PainelVitrine from '../../components/PainelVitrine';
 import PainelCategorias from '../../components/PainelCategorias';
 import PosicaoLocal from '../../components/PosicaoLocal';
+import SubcategoriaAdmin from '../../components/SubcategoriaAdmin';
+import { SUBCATEGORIAS_APP } from '../../lib/subcategoriasApp';
 import PainelPush from '../../components/PainelPush';
 import PainelRodizio from '../../components/PainelRodizio';
 import PainelDestaqueHora from '../../components/PainelDestaqueHora';
@@ -35,6 +37,7 @@ type LocalPendente = {
   id: string;
   nome: string;
   categoria: string;
+  subcategoria: string | null;
   cidade: string;
   bairro: string | null;
   cnpj: string | null;
@@ -162,6 +165,7 @@ type LocalDestaque = {
   id: string;
   nome: string;
   categoria: string;
+  subcategoria: string | null;
   cidade: string;
   bairro: string | null;
   plano_destaque: 'basico' | 'destaque' | 'vip';
@@ -705,7 +709,7 @@ export default function AdminPage() {
     ] = await Promise.all([
         supabase
           .from('locais')
-          .select('id, nome, categoria, cidade, bairro, cnpj, contato_nome, contato_telefone, contato_email, created_at')
+          .select('id, nome, categoria, subcategoria, cidade, bairro, cnpj, contato_nome, contato_telefone, contato_email, created_at')
           .eq('status', 'pendente')
           .order('created_at', { ascending: true }),
         supabase
@@ -736,7 +740,7 @@ export default function AdminPage() {
         supabase
           .from('locais')
           .select(
-            'id, nome, categoria, cidade, bairro, bairro_exibicao, plano_destaque, plano_comercial, plano_comercial_status, destaque_secoes, destaque_ate, experiencias, descricao, instagram, foto_capa_url, logo_url, galeria_fotos, video_url, tags'
+            'id, nome, categoria, subcategoria, cidade, bairro, bairro_exibicao, plano_destaque, plano_comercial, plano_comercial_status, destaque_secoes, destaque_ate, experiencias, descricao, instagram, foto_capa_url, logo_url, galeria_fotos, video_url, tags'
           )
           .eq('status', 'aprovado')
           .order('nome', { ascending: true }),
@@ -1330,14 +1334,27 @@ Dicas LGBT+`;
   const trocarCategoria = async (id: string, nova: string) => {
     setProcessando(id);
     setErro('');
-    setLocaisDestaque((atual) => atual.map((item) => (item.id === id ? { ...item, categoria: nova } : item)));
-    setLocaisPendentes((atual) => atual.map((item) => (item.id === id ? { ...item, categoria: nova } : item)));
-    const { error } = await supabase.from('locais').update({ categoria: nova }).eq('id', id);
+    // Rodada 129 — se a subcategoria atual é de OUTRA categoria da lista do app, ela não vale mais na nova:
+    // limpa junto. Texto livre do parceiro (fora das listas) é preservado.
+    const item = locaisDestaque.find((i) => i.id === id) ?? locaisPendentes.find((i) => i.id === id);
+    const subAtual = (item?.subcategoria ?? '').trim();
+    const naNova = (SUBCATEGORIAS_APP[nova]?.itens ?? []).some((i) => i.rotulo === subAtual);
+    const deOutraCategoria = !naNova && Object.values(SUBCATEGORIAS_APP).some((g) => g.itens.some((i) => i.rotulo === subAtual));
+    const ajuste = subAtual && deOutraCategoria ? { categoria: nova, subcategoria: null } : { categoria: nova };
+    setLocaisDestaque((atual) => atual.map((it) => (it.id === id ? { ...it, ...ajuste } : it)));
+    setLocaisPendentes((atual) => atual.map((it) => (it.id === id ? { ...it, ...ajuste } : it)));
+    const { error } = await supabase.from('locais').update(ajuste).eq('id', id);
     if (error) {
       setErro(error.message);
       await carregarFilas();
     }
     setProcessando(null);
+  };
+
+  // Rodada 129 — reflete na tela a subcategoria que acabou de ser salva (componente SubcategoriaAdmin).
+  const atualizarSubcategoriaLocal = (id: string, nova: string | null) => {
+    setLocaisDestaque((atual) => atual.map((it) => (it.id === id ? { ...it, subcategoria: nova } : it)));
+    setLocaisPendentes((atual) => atual.map((it) => (it.id === id ? { ...it, subcategoria: nova } : it)));
   };
 
   // Sobe/remove a arte de destaque (banner 2:1 do carrossel da Home). Só a equipe faz isso.
@@ -1848,6 +1865,16 @@ Dicas LGBT+`;
                   <p className="text-[11px] text-[#626274] mt-2">
                     CNPJ/CPF {l.cnpj || '—'} · Contato: {l.contato_nome || '—'} · {l.contato_telefone || '—'} · {l.contato_email || '—'}
                   </p>
+                  <div className="mt-3 flex flex-wrap items-start gap-2">
+                    <span className="pt-2 text-[11px] font-bold text-[#D0D0E0]">Subcategoria</span>
+                    <SubcategoriaAdmin
+                      key={`${l.id}-${l.categoria}`}
+                      localId={l.id}
+                      categoria={l.categoria}
+                      valor={l.subcategoria}
+                      aoSalvar={(novo) => atualizarSubcategoriaLocal(l.id, novo)}
+                    />
+                  </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0 flex-wrap">
                   <select
@@ -2206,6 +2233,17 @@ Dicas LGBT+`;
                   {CATEGORIAS_EDITAVEIS.map(([v, rotulo]) => <option key={v} value={v}>{rotulo}</option>)}
                 </select>
                 <span className="text-[11px] text-[#626274]">Se foi cadastrado errado, corrija aqui: muda onde aparece no app.</span>
+              </div>
+              <div className="flex items-start gap-3 flex-wrap border-t border-[#232230] pt-3">
+                <span className="pt-2 text-xs font-bold text-[#D0D0E0]">Subcategoria</span>
+                <SubcategoriaAdmin
+                  key={`${l.id}-${l.categoria}`}
+                  localId={l.id}
+                  categoria={l.categoria}
+                  valor={l.subcategoria}
+                  aoSalvar={(novo) => atualizarSubcategoriaLocal(l.id, novo)}
+                />
+                <span className="text-[11px] text-[#626274]">É o ícone redondo em que o local aparece dentro da categoria no app. Não achou? Escolha &quot;Outra&quot; e reescreva.</span>
               </div>
               {l.categoria === 'turismo' && (
                 <div className="flex items-center gap-3 flex-wrap border-t border-[#232230] pt-3">

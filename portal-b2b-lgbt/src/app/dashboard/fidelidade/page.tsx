@@ -1,5 +1,5 @@
 'use client';
-import { ArrowLeft, CheckCircle2, Gift, Info, Loader2, QrCode, Save } from 'lucide-react';
+import { CheckCircle2, Gift, Info, Loader2, QrCode, Save } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -218,9 +218,6 @@ export default function FidelidadePage() {
 
   return (
     <div className="p-8 max-w-2xl mx-auto text-white">
-      <Link href="/dashboard" className="inline-flex items-center gap-2 text-[#A0A0B2] text-xs hover:text-white transition mb-6">
-        <ArrowLeft size={14} /> Voltar
-      </Link>
 
       <div className="mb-6">
         <h1 className="text-2xl font-black flex items-center gap-2">

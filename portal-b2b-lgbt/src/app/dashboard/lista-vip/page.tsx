@@ -1,5 +1,5 @@
 'use client';
-import { ArrowLeft, Check, Loader2, LogIn, Plus, Users, X } from 'lucide-react';
+import { Check, Loader2, LogIn, Plus, Users, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -177,9 +177,6 @@ export default function ListaVipPage() {
 
   return (
     <div className="p-8 max-w-4xl mx-auto text-white">
-      <Link href="/dashboard" className="inline-flex items-center gap-2 text-[#A0A0B2] text-xs hover:text-white transition mb-6">
-        <ArrowLeft size={14} /> Voltar
-      </Link>
 
       <h1 className="text-2xl font-black mb-1">Lista VIP</h1>
       <p className="text-[#A0A0B2] text-xs mb-8">

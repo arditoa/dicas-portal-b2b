@@ -1,5 +1,5 @@
 'use client';
-import { ArrowLeft, ImagePlus, Loader2, Plane, Plus, Trash2 } from 'lucide-react';
+import { ImagePlus, Loader2, Plane, Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -170,9 +170,6 @@ export default function PacotesPage() {
 
   return (
     <div className="p-8 max-w-2xl mx-auto text-white">
-      <Link href="/dashboard" className="inline-flex items-center gap-2 text-[#A0A0B2] text-xs hover:text-white transition mb-6">
-        <ArrowLeft size={14} /> Voltar
-      </Link>
 
       <div className="flex justify-between items-center mb-8">
         <div>

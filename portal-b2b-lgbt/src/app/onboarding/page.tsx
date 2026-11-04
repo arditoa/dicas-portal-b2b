@@ -13,6 +13,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
 import FormularioCadastroRapido from '../../components/FormularioCadastroRapido';
+import FundoAnimado from '../../components/FundoAnimado';
 
 export default function OnboardingPage() {
   const [aba, setAba] = useState<'local' | 'evento'>('local');
@@ -20,7 +21,9 @@ export default function OnboardingPage() {
   const [whatsappEnviado, setWhatsappEnviado] = useState('');
 
   return (
-    <div className="min-h-screen bg-[#111217] text-white flex flex-col justify-center items-center p-6">
+    <>
+    <FundoAnimado />
+    <div className="relative z-10 min-h-screen text-white flex flex-col justify-center items-center p-6">
       <div className="max-w-3xl w-full space-y-8">
         {/* Header com Logo */}
         <div className="flex items-center gap-3">
@@ -93,6 +96,7 @@ export default function OnboardingPage() {
                 : 'Festas, shows e eventos avulsos — com ou sem local fixo. Divulgação pontual, com opção de venda de ingresso.'}
             </p>
 
+            <div className="rounded-2xl border border-white/10 bg-[#12111A]/80 p-5 backdrop-blur-xl md:p-6">
             <FormularioCadastroRapido
               key={aba}
               tipo={aba}
@@ -101,6 +105,7 @@ export default function OnboardingPage() {
                 setSucesso(true);
               }}
             />
+            </div>
 
             {/* Parceiro Institucional — opção secundária, não é um
                 cadastro rápido (sempre fechado por atendimento direto). */}
@@ -137,5 +142,6 @@ export default function OnboardingPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }
