@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { NOMES_DIAS, textoJanela } from '../../../lib/janelaCupom';
 
 // Cupons são 100% do dono do local — a policy `cupons_write_dono_ou_admin`
 // (001_migrar_para_locais.sql) já deixa o dono criar/editar/apagar cupom
@@ -19,6 +20,9 @@ type Cupom = {
   valido_de: string | null;
   valido_ate: string | null;
   limite_uso: number | null;
+  dias_semana?: number[] | null;
+  hora_inicio?: string | null;
+  hora_fim?: string | null;
   ativo: boolean;
   created_at: string;
   resgates?: number;
@@ -48,13 +52,17 @@ export default function CupomPage() {
   const [validoDe, setValidoDe] = useState('');
   const [validoAte, setValidoAte] = useState('');
   const [limiteUso, setLimiteUso] = useState('');
+  // Migration 078 — dias da semana e horário em que o cupom vale (vazio = sempre).
+  const [dias, setDias] = useState<number[]>([]);
+  const [horaInicio, setHoraInicio] = useState('');
+  const [horaFim, setHoraFim] = useState('');
   // Migration 066 — quantas ofertas o plano permite por período (Premium/Fundador: 1 a cada 7 dias; Intermediário: 1 a cada 14 dias; null = sem limite).
   const [uso, setUso] = useState<{ plano: string; periodo: 'semana' | 'mes' | 'dias'; limite: number | null; usadas: number; dias: number; liberaEm: string | null } | null>(null);
 
   const carregarCupons = useCallback(async (id: string) => {
     const { data } = await supabase
       .from('cupons')
-      .select('id, titulo, descricao, codigo, valido_de, valido_ate, limite_uso, ativo, created_at, cupons_resgatados(count)')
+      .select('id, titulo, descricao, codigo, valido_de, valido_ate, limite_uso, dias_semana, hora_inicio, hora_fim, ativo, created_at, cupons_resgatados(count)')
       .eq('local_id', id)
       .order('created_at', { ascending: false });
 
@@ -105,6 +113,9 @@ export default function CupomPage() {
       valido_de: validoDe ? new Date(validoDe).toISOString() : null,
       valido_ate: validoAte ? new Date(validoAte).toISOString() : null,
       limite_uso: limiteUso ? Number(limiteUso) : null,
+      dias_semana: dias.length > 0 && dias.length < 7 ? dias : null,
+      hora_inicio: horaInicio || null,
+      hora_fim: horaFim || null,
     });
 
     if (error) {
@@ -116,6 +127,9 @@ export default function CupomPage() {
       setValidoDe('');
       setValidoAte('');
       setLimiteUso('');
+      setDias([]);
+      setHoraInicio('');
+      setHoraFim('');
       setMostrarForm(false);
       await carregarCupons(localId);
     }
@@ -305,6 +319,37 @@ export default function CupomPage() {
               />
             </div>
           </div>
+          <div>
+            <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">Dias em que vale (opcional)</label>
+            <div className="flex flex-wrap gap-2">
+              {NOMES_DIAS.map((nome, i) => (
+                <button
+                  type="button"
+                  key={nome}
+                  onClick={() => setDias((atual) => (atual.includes(i) ? atual.filter((x) => x !== i) : [...atual, i].sort((a, b) => a - b)))}
+                  className={`px-3 py-2 rounded-lg text-xs font-bold border transition ${dias.includes(i) ? 'bg-[#E1306C] border-[#E1306C] text-white' : 'bg-[#0B0B0E] border-[#232230] text-[#A0A0B2]'}`}
+                >
+                  {nome}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-2 mt-2">
+              <button type="button" onClick={() => setDias([2, 3, 4])} className="text-[11px] text-[#A0A0B2] underline">Ter a Qui</button>
+              <button type="button" onClick={() => setDias([0, 5, 6])} className="text-[11px] text-[#A0A0B2] underline">Sex a Dom</button>
+              <button type="button" onClick={() => setDias([])} className="text-[11px] text-[#A0A0B2] underline">Todos os dias</button>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">A partir das (opcional)</label>
+              <input type="time" value={horaInicio} onChange={(e) => setHoraInicio(e.target.value)} className="w-full bg-[#0B0B0E] border border-[#232230] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#E1306C]" style={{ colorScheme: 'dark' }} />
+            </div>
+            <div>
+              <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">Até às (opcional)</label>
+              <input type="time" value={horaFim} onChange={(e) => setHoraFim(e.target.value)} className="w-full bg-[#0B0B0E] border border-[#232230] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#E1306C]" style={{ colorScheme: 'dark' }} />
+            </div>
+          </div>
+          <p className="text-[11px] text-[#626274]">Sem nada marcado, o cupom vale todos os dias e o dia todo. O app só libera o check-in nos dias e horários escolhidos (horário de Brasília).</p>
           <button
             type="submit"
             disabled={salvando}
@@ -330,6 +375,7 @@ export default function CupomPage() {
                 {c.limite_uso ? `${c.resgates}/${c.limite_uso} resgatados` : `${c.resgates} resgatados`}
                 {c.valido_ate ? ` · válido até ${new Date(c.valido_ate).toLocaleDateString('pt-BR')}` : ''}
               </p>
+              {textoJanela(c.dias_semana, c.hora_inicio, c.hora_fim) && <p className="text-[11px] text-amber-300 mt-1">Vale: {textoJanela(c.dias_semana, c.hora_inicio, c.hora_fim)}</p>}
             </div>
             <div className="flex gap-2 shrink-0">
               <button

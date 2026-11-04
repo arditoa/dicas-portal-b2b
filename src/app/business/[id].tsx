@@ -22,6 +22,7 @@ import { supabase } from '../../lib/supabase';
 import { CLASSIFICACOES_LGBT } from '../../lib/classificacaoLgbt';
 import HospedagemDetalhes from '../../components/HospedagemDetalhes';
 import { useRastrearTela } from '../../lib/usoTelas';
+import { dentroDaJanela, textoJanela } from '../../lib/janelaCupom';
 
 // Precisam bater com o enum public.categoria_tipo real (só 6 valores —
 // a taxonomia de 10 categorias desenhada nas Rodadas 1-8 nunca chegou a
@@ -199,6 +200,10 @@ interface CupomLocal {
   id: string;
   titulo: string;
   descricao: string | null;
+  // Migration 078: dias (0=dom..6=sáb) e horário em que o cupom vale; null = sempre.
+  dias_semana?: number[] | null;
+  hora_inicio?: string | null;
+  hora_fim?: string | null;
 }
 
 // Rodada 127 — cartão fidelidade da casa (migration 074): "a cada N visitas no mês, ganhe X".
@@ -273,7 +278,7 @@ export default function BusinessDetailScreen() {
         // filtra quando preenchidos.
         supabase
           .from('cupons')
-          .select('id, titulo, descricao, valido_de, valido_ate')
+          .select('id, titulo, descricao, valido_de, valido_ate, dias_semana, hora_inicio, hora_fim')
           .eq('local_id', id)
           .eq('ativo', true)
           .or(`valido_de.is.null,valido_de.lte.${agora}`)
@@ -688,14 +693,23 @@ export default function BusinessDetailScreen() {
                       <View key={cupom.id} style={{ marginBottom: 8 }}>
                         <Text style={styles.cupomTitulo}>{cupom.titulo}</Text>
                         {cupom.descricao && <Text style={styles.cupomDescricao}>{cupom.descricao}</Text>}
+                        {!!textoJanela(cupom.dias_semana, cupom.hora_inicio, cupom.hora_fim) && (
+                          <Text style={[styles.cupomDescricao, { color: '#FFD54F', fontWeight: '700' }]}>
+                            Vale: {textoJanela(cupom.dias_semana, cupom.hora_inicio, cupom.hora_fim)}
+                          </Text>
+                        )}
                         <TouchableOpacity
-                          style={[styles.actionBtn, styles.cupomBtn, fazendoCheckin && { opacity: 0.6 }]}
+                          style={[styles.actionBtn, styles.cupomBtn, (fazendoCheckin || !dentroDaJanela(cupom.dias_semana, cupom.hora_inicio, cupom.hora_fim)) && { opacity: 0.5 }]}
                           onPress={() => handleFazerCheckin(cupom.id)}
-                          disabled={fazendoCheckin}
+                          disabled={fazendoCheckin || !dentroDaJanela(cupom.dias_semana, cupom.hora_inicio, cupom.hora_fim)}
                         >
                           <Feather name="check-circle" size={18} color="#FFF" style={{ marginRight: 8 }} />
                           <Text style={styles.actionBtnText}>
-                            {fazendoCheckin ? 'Fazendo check-in...' : 'Fazer check-in pra resgatar'}
+                            {fazendoCheckin
+                              ? 'Fazendo check-in...'
+                              : dentroDaJanela(cupom.dias_semana, cupom.hora_inicio, cupom.hora_fim)
+                                ? 'Fazer check-in pra resgatar'
+                                : 'Fora do dia/horário deste cupom'}
                           </Text>
                         </TouchableOpacity>
                       </View>
