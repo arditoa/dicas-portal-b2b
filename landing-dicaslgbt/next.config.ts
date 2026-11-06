@@ -24,8 +24,14 @@ const nextConfig: NextConfig = {
   // Não aparece em menu nem no sitemap; o endereço /equipe serve o arquivo
   // public/equipe-app/pipeline.html. noindex + sem cache para não ficar
   // guardado em buscador nem em cache de navegador compartilhado.
+  // HOME NOVA: a pagina inicial (/) passa a ser o arquivo estatico public/home-novo/index.html.
+  // Para voltar a home antiga, apague a linha 'beforeFiles' e faca push.
   async rewrites() {
-    return [{ source: '/equipe', destination: '/equipe-app/pipeline.html' }];
+    return {
+      beforeFiles: [{ source: '/', destination: '/home-novo/index.html' }],
+      afterFiles: [{ source: '/equipe', destination: '/equipe-app/pipeline.html' }],
+      fallback: [],
+    };
   },
   async headers() {
     const interno = [
