@@ -192,13 +192,17 @@ export const GRUPOS_EVENTO: GrupoTags[] = [
     'Encontro', 'Gastronomia', 'Pool party', 'Pré-festa', 'After',
   ] },
   { id: 'musica', titulo: 'Estilo musical', tags: [
-    'Pop', 'Funk', 'Eletrônica', 'Tribal', 'House', 'Techno', 'Disco', 'Brasilidades', 'MPB', 'Samba',
-    'Pagode', 'Sertanejo', 'Forró', 'Axé', 'Rock Doido', 'Tecnomelody', 'Rock', 'Reggaeton', 'Hip-hop',
-    'Trap', 'K-pop', 'Música ao vivo', 'DJ', 'Open format',
+    'Divas do POP', 'Brasilidades', 'Anos 2000/2010', 'Flash Back anos 80/90', 'Hits do Momento', 'Open Format',
+    'Tribal', 'Tribal House', 'Eletrônica', 'Pop', 'Funk', 'Samba/Pagode', 'Sertanejo', 'MPB', 'Pop Rock',
+    'Disco House', 'Hip-hop e Rap', 'Música Latina', 'Axé', 'Brega e Tecnobrega', 'Rock and Roll', 'Jazz',
+    'Burlesco', 'K-Pop', 'Ritmos Nordestinos', 'Ritmos Nortistas',
   ] },
-  { id: 'publico', titulo: 'Público', tags: [
-    'Todos os públicos', 'Predominância gay', 'Predominância lésbica', 'Público trans', 'Público queer',
-    'Pessoas não binárias', 'Ursos', '50+', 'Jovens', 'Famílias', 'Aliados', 'Turistas',
+  { id: 'publico', titulo: 'Tipo de público', tags: [
+    'Para eles', 'Para elas', 'Para Todes', 'Festas Queer', 'Público Hétero e Queer',
+  ] },
+  { id: 'experiencia', titulo: 'Experiência', tags: [
+    'Música', 'Drinks e bebidas', 'Open bar', 'Gastronomia', 'Arte', 'Karaokê', 'Shows ao vivo', 'DJs',
+    'Pista de dança', 'Drag show', 'Gogo Dancer', 'Sunset Parties',
   ] },
   { id: 'ingresso', titulo: 'Entrada e ingresso', tags: [
     'Gratuito', 'Pago', 'Lista gratuita', 'Lista VIP', 'Fila exclusiva', 'Último lote', 'Desconto no app',
@@ -221,6 +225,12 @@ export const GRUPOS_EVENTO: GrupoTags[] = [
   ] },
   { id: 'classificacao', titulo: 'Classificação', tags: ['Livre', '16+', '18+', 'Parceiro Fundador', 'Verificado pelo Dicas'] },
 ];
+
+// Emoji de cada tag de Experiência (só enfeite no cadastro; o dado gravado é o slug).
+export const EMOJI_EXPERIENCIA: Record<string, string> = {
+  musica: '🎧', drinks_e_bebidas: '🍸', open_bar: '🥃', gastronomia: '🍽', arte: '🎭', karaoke: '🎤',
+  shows_ao_vivo: '🎙', djs: '💽', pista_de_danca: '💃', drag_show: '💄', gogo_dancer: '🕺', sunset_parties: '🌇',
+};
 
 // "Hoje", "Amanhã" e "Fim de semana" o app já calcula pela data do evento —
 // não precisam ser marcados no cadastro.
@@ -248,9 +258,29 @@ export const LEGADO_EVENTO: Record<string, string[]> = {
   ursos: ['ursos'],
   aliados: ['aliados'],
   todos_os_publicos: ['todos', 'misto_lgbt'],
+  // Lista nova de Festas (nov/2026): equivalências com o enum antigo, para os filtros antigos continuarem valendo.
+  para_eles: ['gay'],
+  para_elas: ['lesbica'],
+  para_todes: ['todos', 'misto_lgbt'],
+  festas_queer: ['queer'],
+  publico_hetero_e_queer: ['misto_lgbt'],
+  samba_pagode: ['mpb_samba'],
+  tribal_house: ['techno_house'],
+  disco_house: ['techno_house'],
+  pop_rock: ['rock'],
+  rock_and_roll: ['rock'],
+  ritmos_nordestinos: ['forro'],
+  divas_do_pop: ['pop_eletronica'],
 };
 
 // ─────────────────────────────────────────────────────────────────────
+// Tags de evento das listas anteriores: ficam só para mostrar o nome certo em eventos já cadastrados.
+for (const t of [
+  'Predominância gay', 'Predominância lésbica', 'Público trans', 'Público queer', 'Pessoas não binárias', 'Ursos',
+  '50+', 'Jovens', 'Famílias', 'Aliados', 'Turistas', 'Todos os públicos',
+  'House', 'Techno', 'Disco', 'Rock Doido', 'Tecnomelody', 'Rock', 'Reggaeton', 'Trap', 'Forró', 'Pagode',
+  'Samba', 'Música ao vivo', 'DJ', 'Open format',
+]) ROTULOS[slugTag(t)] = t;
 for (const lista of [GRUPOS_HOSPEDAGEM, GRUPOS_DESTINO, GRUPOS_EVENTO]) {
   for (const g of lista) for (const t of g.tags) ROTULOS[slugTag(t)] = t;
 }

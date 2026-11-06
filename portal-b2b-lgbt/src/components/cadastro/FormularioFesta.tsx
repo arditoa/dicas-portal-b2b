@@ -9,7 +9,7 @@ import { formatarNome } from '../../lib/texto';
 import { telefoneParecCurto } from '../../lib/parceiroAuth';
 import { erroFotoNaoSuportada, TAMANHO_MAXIMO_FOTO_MB } from '../../lib/validarFoto';
 import { CLASSIFICACOES_LGBT } from '../../lib/classificacaoLgbt';
-import { GRUPOS_EVENTO, LEGADO_EVENTO, TAGS_EVENTO_AUTOMATICAS, TAGS_RESERVADAS, slugTag } from '../../lib/taxonomia';
+import { EMOJI_EXPERIENCIA, GRUPOS_EVENTO, LEGADO_EVENTO, TAGS_EVENTO_AUTOMATICAS, TAGS_RESERVADAS, slugTag } from '../../lib/taxonomia';
 
 // Rodada 49 — pedido direto da Andrea: dar a opção de já subir o flier
 // aqui no cadastro público (antes só existia depois de aprovado, via
@@ -405,12 +405,12 @@ export default function FormularioFesta({ onSucesso }: { onSucesso: (titulo: str
                           : 'bg-transparent border-[#232230] text-[#A0A0B2] hover:border-purple-500/50'
                       }`}
                     >
-                      {t}
+                      {EMOJI_EXPERIENCIA[s] ? `${EMOJI_EXPERIENCIA[s]} ` : ''}{t}
                     </button>
                   ))}
                 </div>
               );
-              if (i < 3) {
+              if (['tipo', 'musica', 'publico', 'experiencia'].includes(g.id)) {
                 return (
                   <div key={g.id}>
                     <label className={labelClass}>{g.titulo}</label>
