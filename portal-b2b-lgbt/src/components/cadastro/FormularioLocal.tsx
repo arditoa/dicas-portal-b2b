@@ -12,6 +12,8 @@ import { CLASSIFICACOES_LGBT } from '../../lib/classificacaoLgbt';
 import { SUBCATEGORIAS_APP } from '../../lib/subcategoriasApp';
 import { formatarNome, formatarCidade } from '../../lib/texto';
 import { PREFIXO_SUGESTAO_CATEGORIA } from '../../lib/sugestaoCategoria';
+import { HorarioFuncionamento, horarioFuncionamentoVazio, limparHorarioFuncionamento } from '../../lib/horarios';
+import CampoHorarioFuncionamento from '../CampoHorarioFuncionamento';
 
 // Rodada 49 — pedido direto da Andrea: dar a opção de já subir a foto de
 // capa aqui no cadastro público (antes só existia depois de aprovado, via
@@ -229,6 +231,7 @@ export default function FormularioLocal({ onSucesso }: { onSucesso: (nome: strin
   const [subcategoria, setSubcategoria] = useState<string>(''); // da lista do app; '__outros__' = digitar
   const [subcategoriaLivre, setSubcategoriaLivre] = useState<string>('');
   const [categoriaSugerida, setCategoriaSugerida] = useState('');
+  const [horario, setHorario] = useState<HorarioFuncionamento>(horarioFuncionamentoVazio());
   const [classificacaoLgbt, setClassificacaoLgbt] = useState<string>('');
   // Rodada 61 (fazer direito) — campos que só fazem sentido pra
   // Serviços (atendimento_tipo/especialidade) ou Produtos
@@ -435,6 +438,8 @@ export default function FormularioLocal({ onSucesso }: { onSucesso: (nome: strin
         atendimento_tipo: categoria === 'servicos' ? (atendimentoTipo || null) : null,
         especialidade: categoria === 'servicos' ? (especialidade || null) : null,
         link_loja_online: categoria === 'produtos' ? (linkLojaOnline || null) : null,
+        // Horário de funcionamento (opcional): só grava se ao menos um dia estiver marcado como aberto.
+        horario_funcionamento: Object.values(horario).some((d) => d.aberto) ? limparHorarioFuncionamento(horario) : null,
         // status / safe_space / plano_destaque / owner_id são forçados pelo
         // trigger enforce_local_seguro_insert no banco — não mandamos aqui.
       });
@@ -633,18 +638,18 @@ export default function FormularioLocal({ onSucesso }: { onSucesso: (nome: strin
               </div>
             )}
 
-            {SUBCATEGORIAS_APP[categoria] && (
+            {(!categoria || SUBCATEGORIAS_APP[categoria]) && (
               <div>
                 <label className={labelClass}>Subcategoria</label>
-                <select value={subcategoria} onChange={(e) => setSubcategoria(e.target.value)} className={inputClass} disabled={loading}>
-                  <option value="">Escolha a que mais combina com você</option>
-                  {SUBCATEGORIAS_APP[categoria].itens.map((i) => <option key={i.chave} value={i.rotulo}>{i.rotulo}</option>)}
-                  <option value="__outros__">Outros (não está na lista)</option>
+                <select value={subcategoria} onChange={(e) => setSubcategoria(e.target.value)} className={inputClass} disabled={loading || !categoria}>
+                  <option value="">{categoria ? 'Escolha a que mais combina com você' : 'Escolha a categoria primeiro'}</option>
+                  {(SUBCATEGORIAS_APP[categoria]?.itens ?? []).map((i) => <option key={i.chave} value={i.rotulo}>{i.rotulo}</option>)}
+                  {categoria && <option value="__outros__">Outros (não está na lista)</option>}
                 </select>
                 {subcategoria === '__outros__' && (
                   <input type="text" value={subcategoriaLivre} onChange={(e) => setSubcategoriaLivre(e.target.value)} placeholder="Qual é o seu tipo de negócio?" className={`${inputClass} mt-2`} disabled={loading} />
                 )}
-                <p className="text-[11px] text-[#8888A0] mt-1.5">É o ícone redondo em que você aparece dentro da categoria no app. Dá para mudar depois, no seu painel.</p>
+                <p className="text-[11px] text-[#8888A0] mt-1.5">{categoria ? 'É o ícone redondo em que você aparece dentro da categoria no app. Dá para mudar depois, no seu painel.' : 'Depois de escolher a categoria, as subcategorias dela aparecem aqui (ex.: em Bares, Pubs & Cervejarias, Wine Bars, Casas Noturnas e outras).'}</p>
               </div>
             )}
 
@@ -873,6 +878,12 @@ export default function FormularioLocal({ onSucesso }: { onSucesso: (nome: strin
                 </select>
               </div>
             </div>
+          </div>
+
+          <div className="space-y-3">
+            <label className={labelClass}>Horário de funcionamento (opcional)</label>
+            <p className="text-xs text-[#626274] -mt-1">Marque os dias em que abre e o horário. Se tiver música ao vivo ou banda, informe o início. Dá para ajustar depois, no seu painel.</p>
+            <CampoHorarioFuncionamento value={horario} onChange={setHorario} disabled={loading} />
           </div>
 
           <label className="flex items-start gap-3 text-sm text-[#A0A0B2] cursor-pointer">
