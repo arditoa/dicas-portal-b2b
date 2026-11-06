@@ -249,6 +249,35 @@ footer{padding:56px 0 48px;color:var(--dim);font-size:15px;background:var(--bg);
 .foot a:hover{color:#fff}
 .copy{margin-top:40px;padding-top:22px;border-top:1px solid var(--line);font-size:14px}
 @media (max-width:860px){.foot{grid-template-columns:1fr 1fr}.foot>div:first-child{grid-column:1/-1}}
+
+/* CATEGORIAS E SUBCATEGORIAS */
+.catsec{background:radial-gradient(46% 40% at 8% 6%,rgba(0,174,249,.16),transparent 70%),radial-gradient(44% 40% at 96% 100%,rgba(225,48,108,.2),transparent 70%),var(--bg-2)}
+.catpick{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:clamp(20px,3vw,40px);margin-top:clamp(32px,4.6vw,56px);align-items:start}
+.cattabs{display:flex;flex-wrap:wrap;gap:10px}
+.cattab{font:500 15.5px/1.2 var(--body);padding:11px 16px;border-radius:999px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.05);color:var(--text);cursor:pointer;display:inline-flex;align-items:center;gap:9px;transition:background .2s,border-color .2s,transform .2s}
+.cattab i{width:9px;height:9px;border-radius:50%;background:var(--c);flex:none}
+.cattab:hover{border-color:rgba(255,255,255,.5);transform:translateY(-1px)}
+.cattab[aria-selected="true"]{background:#fff;color:var(--ink);border-color:#fff}
+.cattab.sug{border-style:dashed;color:var(--muted)}
+.subpanel{border-radius:28px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));padding:clamp(22px,3vw,34px);min-height:300px}
+.subpanel h3{font-size:clamp(1.3rem,2.2vw,1.7rem);font-weight:500;letter-spacing:-.025em;margin-bottom:6px}
+.subpanel .hint{color:var(--muted);font-size:15.5px;margin-bottom:20px}
+.sublist{display:flex;flex-wrap:wrap;gap:10px;list-style:none}
+.sublist li{font-size:15px;line-height:1.25;padding:10px 15px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);display:inline-flex;align-items:center;gap:9px}
+.sublist li::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--c,#7E57C2);flex:none}
+.sublist li.other{border-style:dashed;color:var(--muted)}
+.subpanel .snote{margin-top:20px;font-size:14.5px;color:var(--dim)}
+.news{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:clamp(40px,5.6vw,68px)}
+.nw{border-radius:26px;border:1px solid var(--line);background:var(--card);padding:26px 22px 28px}
+.nw .nic{width:46px;height:46px;border-radius:15px;display:grid;place-items:center;margin-bottom:18px;background:var(--g)}
+.nw .nic svg{width:23px;height:23px;fill:none;stroke:#fff;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.nw h3{font-size:19px;font-weight:500;letter-spacing:-.02em;line-height:1.25;margin-bottom:8px}
+.nw p{font-size:15.5px;color:var(--muted);line-height:1.6}
+.newshead{margin-top:clamp(48px,6vw,80px)}
+.newshead h3{font-size:clamp(1.6rem,3vw,2.3rem);font-weight:450;letter-spacing:-.03em}
+.newshead p{color:var(--muted);margin-top:10px;max-width:36em}
+@media (max-width:980px){.catpick{grid-template-columns:1fr}.news{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:560px){.news{grid-template-columns:1fr}.cattab{font-size:14.5px;padding:10px 14px}}
 </style>
 </head>
 <body>
@@ -387,13 +416,38 @@ footer{padding:56px 0 48px;color:var(--dim);font-size:15px;background:var(--bg);
   </div>
 </section>
 
+<!-- CATEGORIAS E NOVIDADES -->
+<section class="band catsec" id="categorias">
+  <div class="wrap">
+    <p class="eyebrow">Seu lugar no app</p>
+    <h2>Escolha sua categoria e <em>apareça onde o público procura</em></h2>
+    <p class="sub">No cadastro você escolhe a categoria e a subcategoria do seu negócio. É o ícone redondo em que você aparece dentro da categoria no app, e dá para mudar depois no seu painel.</p>
+    <div class="catpick">
+      <div class="cattabs" role="tablist" aria-label="Categorias do Dicas LGBT+" id="cattabs"></div>
+      <div class="subpanel" id="subpanel" role="tabpanel" aria-live="polite"></div>
+    </div>
+    <div class="newshead">
+      <p class="eyebrow">Novidades do app</p>
+      <h3>O que sua empresa já pode usar</h3>
+      <p>Recursos que chegaram agora ao Dicas LGBT+ para atrair e fidelizar quem vive a cena.</p>
+    </div>
+    <div class="news">
+      <article class="nw"><div class="nic" style="--g:linear-gradient(135deg,#E1306C,#FF8A3D)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9a2 2 0 0 0 0 6v3a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-3a2 2 0 0 1 0-6V6a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1Z"/><path d="M13 5v14" stroke-dasharray="2 3"/></svg></div><h3>Cupom com dia e horário</h3><p>Escolha os dias da semana e a janela de horário, como terça a quinta até 21h. O app só libera o cupom dentro dela.</p></article>
+      <article class="nw"><div class="nic" style="--g:linear-gradient(135deg,#00AEF9,#7E57C2)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.5"/></svg></div><h3>Check-in por localização</h3><p>O cliente faz o check-in no app e o GPS confirma que ele chegou. Sem código para ditar e sem trabalho extra em noite cheia.</p></article>
+      <article class="nw"><div class="nic" style="--g:linear-gradient(135deg,#7E57C2,#E1306C)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.5 6.6 19.5l1.2-6L3.3 9.3l6.1-.7L12 3Z"/></svg></div><h3>Fidelidade com nível VIP</h3><p>Premie quem volta, acompanhe as visitas no mês e no total e crie um nível VIP com o benefício que você escolher.</p></article>
+      <article class="nw"><div class="nic" style="--g:linear-gradient(135deg,#FFB300,#FF8A3D)"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 10h18M8 2v4M16 2v4"/></svg></div><h3>Vitrine e agenda da semana</h3><p>Destaque em rodízio na categoria e espaço na aba Eventos para divulgar festas e a programação da semana.</p></article>
+    </div>
+    <div style="margin-top:42px;text-align:center"><a class="btn btn-primary full" href="https://dicas-portal-b2b-dun.vercel.app/cadastro/local">Cadastre-se gratuitamente</a></div>
+  </div>
+</section>
+
 <!-- CADASTRO EM 3 PASSOS -->
 <section class="band band-reg on-grad" id="cadastro">
   <div class="wrap center">
     <p class="eyebrow">Para empresas</p>
     <h2>Um cadastro simples <em>de 2 minutos</em></h2>
     <ol class="steps3" style="text-align:left">
-      <li><b>Você preenche o cadastro</b><span>Com as informações do negócio.</span></li>
+      <li><b>Você preenche o cadastro</b><span>Escolhe a categoria e a subcategoria e conta sobre o negócio.</span></li>
       <li><b>Nossa equipe analisa</b><span>Os dados enviados.</span></li>
       <li><b>Com a aprovação…</b><span>Seu negócio pode fazer parte do mapa do Dicas LGBT+ App.</span></li>
     </ol>
@@ -555,6 +609,41 @@ footer{padding:56px 0 48px;color:var(--dim);font-size:15px;background:var(--bg);
   if('IntersectionObserver' in window){ new IntersectionObserver(function(en){inView=en[0].isIntersecting}).observe(stage); }
   draw();
   requestAnimationFrame(frame);
+})();
+</script>
+<script>
+(function(){
+  var D=[{"n": "Bares & Vida Noturna", "s": ["Botecos & Bares Tradicionais", "Pubs & Cervejarias", "Coquetelaria & Speakeasies", "Wine Bars", "Gastrobares & Lounges", "Casas Noturnas & Boates", "Música ao Vivo & Rodas de Samba", "Bares Interativos & Esportes"], "c": "#7E57C2", "note": ""}, {"n": "Festas & Eventos", "s": ["Festas Gay", "Festas Lésbicas", "Festas Eletrônicas", "Open Bar", "Sunset Parties", "Festa Temática"], "c": "#FF8A3D", "note": ""}, {"n": "Gastronomia", "s": ["Restaurantes Tradicionais & À la Carte", "Hamburguerias, Lanches & Fast Food", "Pizzarias & Esfiharias", "Culinária Japonesa & Asiática", "Cafeterias, Docerias & Padarias Artesanais", "Churrascarias & Parrillas", "Saudável, Vegano & Vegetariano", "Frutos do Mar & Pescados"], "c": "#E1306C", "note": ""}, {"n": "Cultura", "s": ["Cinemas & Cineclubes", "Teatros, Dança & Circo", "Museus, Galerias & Exposições", "Centros Culturais & Casas de Memória", "Livrarias, Sebos & Bibliotecas", "Shows Acústicos, Óperas & Orquestras", "Saraus, Batalhas de Rima & Slam", "Patrimônio Histórico & Visitas Guiadas"], "c": "#4527A0", "note": ""}, {"n": "Beleza & Estética", "s": ["Salões de Beleza & Cabeleireiros", "Barbearias & Barbaterapia", "Unhas, Manicure & Pedicure", "Design de Sobrancelhas, Cílios & Micropigmentação", "Estética Facial", "Estética Corporal & Massoterapia", "Depilação & Laser", "Maquiagem Social & Noivas"], "c": "#FF4D94", "note": ""}, {"n": "Serviços", "s": ["Fotografia", "Jurídicos e Liberais", "Seguros e Finanças", "Comunicação e Marketing", "Eventos"], "c": "#00AEF9", "note": ""}, {"n": "Artistas", "s": ["Banda", "Solo", "Drag Queens & Kings", "DJs", "Humor & Stand-up", "Dança & Performance"], "c": "#FFD54F", "note": ""}, {"n": "Educação", "s": ["Cursos Livres & Profissionalizantes", "Escolas & Educação Básica", "Faculdades, Universidades & Pós-Graduação", "Escolas de Idiomas", "Aulas Particulares & Reforço Escolar", "Preparatórios (Vestibulares, ENEM, Concursos)", "Cursos de Tecnologia & Programação", "Artes, Música & Dança"], "c": "#4CAF7D", "note": ""}, {"n": "Compras & Produtos", "s": ["Moda & Vestuário", "Calçados & Acessórios", "Eletrônicos, Informática & Gadgets", "Casa, Decoração & Utilidades", "Supermercados, Mercearias & Hortifrúti", "Pet Shop & Artigos Veterinários", "Livraria, Papelaria & Brinquedos", "Esportes, Camping & Lazer"], "c": "#0D6A82", "note": ""}, {"n": "Espaços 18+", "s": ["Sex Shops & Lingeries Sensuais", "Motéis & Suítes Temáticas", "Casas Noturnas Adultas & Clubes de Strip", "Saunas & Clubes Liberais Masculinos/Gays", "Clubes de Swing & Festas Liberais", "Boates & Lounges Adultos (Privês)", "Cinemas & Cabines Adultas", "Tattoo & Body Piercing Sensual / BDSM"], "c": "#B71C5A", "note": ""}, {"n": "Turismo & Agências", "s": [], "c": "#14916F", "note": "Conte no cadastro o tipo de serviço que você oferece, em um campo livre e opcional."}, {"n": "Lojas e Lazer", "s": [], "c": "#FFB300", "note": "Categorias em breve: você já pode se cadastrar, e a gente libera assim que houver parceiros."}];
+  var tabs=document.getElementById('cattabs'), panel=document.getElementById('subpanel');
+  if(!tabs||!panel) return;
+  function esc(t){var d=document.createElement('div');d.textContent=t;return d.innerHTML}
+  function show(i){
+    var c=D[i];
+    Array.prototype.forEach.call(tabs.children,function(b,k){b.setAttribute('aria-selected',k===i?'true':'false')});
+    var h='<h3>'+esc(c.n)+'</h3>';
+    if(c.s.length){
+      h+='<p class="hint">Escolha a que mais combina com o seu negócio:</p><ul class="sublist" style="--c:'+c.c+'">';
+      c.s.forEach(function(x){h+='<li>'+esc(x)+'</li>'});
+      if(c.n!=='Festas & Eventos'&&c.n!=='Serviços'&&c.n!=='Artistas') h+='<li class="other">Outros (não está na lista)</li>';
+      h+='</ul>';
+    } else {
+      h+='<p class="hint">'+esc(c.note)+'</p>';
+    }
+    if(c.n==='Festas & Eventos') h+='<p class="snote">Festas e eventos têm cadastro próprio, com flier, datas e Lista VIP.</p>';
+    if(c.sug) h+='';
+    panel.innerHTML=h;
+  }
+  D.forEach(function(c,i){
+    var b=document.createElement('button');b.type='button';b.className='cattab';b.setAttribute('role','tab');
+    b.style.setProperty('--c',c.c);b.innerHTML='<i></i>'+esc(c.n);
+    b.addEventListener('click',function(){show(i)});tabs.appendChild(b);
+  });
+  var s=document.createElement('button');s.type='button';s.className='cattab sug';s.textContent='Não achou a sua? Sugira uma categoria';
+  s.addEventListener('click',function(){
+    Array.prototype.forEach.call(tabs.children,function(b){b.setAttribute('aria-selected','false')});
+    panel.innerHTML='<h3>Sugira uma categoria nova</h3><p class="hint">Se o seu negócio não se encaixa em nenhuma categoria, escolha “Outra” no cadastro e escreva a sugestão. A equipe analisa e coloca você no lugar certo.</p>';
+  });tabs.appendChild(s);
+  show(0);
 })();
 </script>
 </body>
