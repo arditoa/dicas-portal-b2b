@@ -22,6 +22,7 @@ import {
   buscarVagas,
   buscarOfertas,
   buscarPatrocinio,
+  buscarSubcategoriasDesligadas,
   registrarVitrine,
 } from '../lib/vitrine';
 import CarrosselAnuncios, { Anuncio } from './CarrosselAnuncios';
@@ -156,6 +157,13 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
   // 1) pool de destaques: pagos (selo DESTAQUE / plano premium-fundador) com imagem, girando por hora.
   // Vagas manuais do admin (vitrine_vaga): o local escolhido ocupa a posição escolhida; o resto é preenchido pelo plano.
   const [vagas, setVagas] = useState<VagasCategoria>({ premium: {}, intermediario: {} });
+  // Chaves liga/desliga do portal admin (aba Categorias): '__banner' esconde o banner rotativo, '__cupons' esconde os cupons desta página.
+  const [secoesOff, setSecoesOff] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    let vivo = true;
+    buscarSubcategoriasDesligadas(slug).then((x) => { if (vivo) setSecoesOff(x); });
+    return () => { vivo = false; };
+  }, [slug]);
   useEffect(() => {
     let vivo = true;
     buscarVagas(slug).then((v) => { if (vivo) setVagas(v); });
@@ -295,19 +303,9 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
 
   // Cartões do banner rotativo (padrão da Home). Chamada editável; sem chamada, convite neutro sem nome do local.
   const anunciosRotativos = useMemo<Anuncio[]>(() => {
-    if (posicoes.length === 0) {
-      return [{
-        id: `dest-vazio-${slug}`,
-        chave: `dest-vazio-${slug}`,
-        tag: 'SEU NEGÓCIO AQUI',
-        titulo: `Apareça para quem procura ${titulo}`,
-        cta: 'Conheça os planos',
-        icone: 'award',
-        cor: '#7E57C2',
-        degrade: ['#374151', '#4B5563'],
-        onPress: () => Linking.openURL(URL_PARCEIRO).catch(() => {}),
-      }];
-    }
+    // Sem patrocinador/anunciante nesta página: NÃO mostra convite nem espaço vazio.
+    // O banner só aparece quando há alguém nas vagas (escolhido em Posição no app / Categorias no portal admin).
+    if (posicoes.length === 0) return [];
     return posicoes.map<Anuncio>((pos, idx) => {
       const l = pool[pos];
       const cor = DEGRADES_DESTAQUE[(idx + slot) % DEGRADES_DESTAQUE.length];
@@ -410,9 +408,11 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
       )}
 
       {/* 1) BANNER ROTATIVO — mesmo cartão em degradê da Home (ex.: "Apoio cultural"): etiqueta, chamada, botão, pontinhos. */}
-      <View style={{ marginHorizontal: -16, marginBottom: -8 }}>
-        <CarrosselAnuncios anuncios={anunciosRotativos} onExibir={(id) => { const l = destaques.find((x) => `dest-${x.id}` === id); if (l) registrarVitrine(l.id, `destaques:${slug}`, 'exibicao'); }} />
-      </View>
+      {anunciosRotativos.length > 0 && !secoesOff.has('__banner') && (
+        <View style={{ marginHorizontal: -16, marginBottom: -8 }}>
+          <CarrosselAnuncios anuncios={anunciosRotativos} onExibir={(id) => { const l = destaques.find((x) => `dest-${x.id}` === id); if (l) registrarVitrine(l.id, `destaques:${slug}`, 'exibicao'); }} />
+        </View>
+      )}
 
       {!fundadores && (
         <>
@@ -421,7 +421,7 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
 
       {/* 2) OFERTAS — logo abaixo dos ícones. Só planos Intermediário, Premium e Fundador.
           Quadradinhos pequenos que passam de lado; não mostram o local (só ao tocar), como no Mercado Livre. */}
-      {!semOfertas && (
+      {!semOfertas && !secoesOff.has('__cupons') && (
       <View style={{ marginTop: 10 }}>
         {slotsOferta.length > 0 || MODO_DEMONSTRACAO ? (
           <View style={s.linhaOfertas}>
@@ -458,12 +458,7 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
               );
             })}
           </View>
-        ) : (
-          <View style={s.vazioOfertas}>
-            <Feather name="gift" size={14} color={C.pink} />
-            <Text style={s.vazioOfertasTxt}>Ofertas chegando — cupons dos negócios desta categoria passam aqui.</Text>
-          </View>
-        )}
+        ) : null /* sem cupons: não mostra aviso "Ofertas chegando" */}
       </View>
       )}
 

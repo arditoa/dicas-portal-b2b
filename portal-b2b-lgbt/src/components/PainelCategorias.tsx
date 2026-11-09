@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { erroFotoNaoSuportada } from '../lib/validarFoto';
 import { SUBCATEGORIAS_APP } from '../lib/subcategoriasApp';
+import QuadroCliques from './QuadroCliques';
 
 const input = 'w-full bg-[#0B0B0E] border border-[#232230] rounded-xl py-2.5 px-3 text-white text-sm focus:outline-none focus:border-[#E1306C]';
 const label = 'text-[11px] font-bold text-[#A0A0B2] uppercase block mb-1.5';
@@ -103,6 +104,7 @@ function VisaoCategorias({ onAbrir }: { onAbrir: (c: Cat) => void }) {
         <b> 12 Banners Premium</b> (rodam 4 por hora), as <b>Subcategorias</b> (ícones redondos) e os <b>24 Cupons</b> (quadradinhos: 10 Premium + 2 Fundador + 12 Intermediário; cada tela mostra 6 = 3 Premium/Fundador + 3 Intermediário; Premium/Fundador mudam a cada 10 min e Intermediário a cada 30 min).
         Vaga sem local escolhido é <b>automática</b>: o app preenche sozinho pelo plano do local.
       </div>
+      <QuadroCliques />
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {CATS.map((c) => {
           const x = resumo[c.slug];
@@ -168,7 +170,7 @@ function MasterCategoria({ cat, ok, falha }: Props) {
       setP({ ...PATRO_VAZIO, ...d, subtitulo: d.subtitulo || '', imagem_url: d.imagem_url || '' });
       setPatrocinador(d.locais?.nome || '');
       setExiste(true);
-    } else { setP(PATRO_VAZIO); setPatrocinador(''); setExiste(false); }
+    } else { setP({ ...PATRO_VAZIO, ativo: false }); setPatrocinador(''); setExiste(false); }
   }, [cat.slug]);
   useEffect(() => { carregar(); }, [carregar]);
 
@@ -184,10 +186,19 @@ function MasterCategoria({ cat, ok, falha }: Props) {
     ok('Patrocínio Master salvo — já aparece no app.'); setExiste(true);
   };
   const remover = async () => {
-    if (!confirm('Remover o Patrocínio Master desta categoria? O app volta a mostrar o convite "Sua marca em destaque".')) return;
+    if (!confirm('Remover o Patrocínio Master desta categoria? A faixa some do app até você cadastrar outro.')) return;
     const { error } = await supabase.from('categoria_patrocinio').delete().eq('categoria', cat.slug);
     if (error) return falha(error.message);
     ok('Removido.'); carregar();
+  };
+  // Tick "Aparece no app": se o Master já existe, liga/desliga na hora; se ainda não existe, só abre o formulário para preencher.
+  const alternarMaster = async (ligar: boolean) => {
+    if (existe) {
+      const { error } = await supabase.from('categoria_patrocinio').update({ ativo: ligar }).eq('categoria', cat.slug);
+      if (error) return falha(error.message);
+      ok(ligar ? 'Patrocínio Master aparece no app.' : 'Patrocínio Master escondido do app.');
+    }
+    setP((x) => ({ ...x, ativo: ligar }));
   };
   const subirImagem = async (arquivo?: File) => {
     if (!arquivo) return;
@@ -203,9 +214,12 @@ function MasterCategoria({ cat, ok, falha }: Props) {
     <div className={card}>
       <div className="flex items-center justify-between gap-3 mb-1">
         <h3 className="text-sm font-black">1 · Patrocínio Master <span className="text-[#A0A0B2] font-semibold">(1 vaga)</span></h3>
-        <label className="flex items-center gap-2 text-xs font-bold cursor-pointer"><input type="checkbox" className="accent-[#E1306C]" checked={p.ativo} onChange={(e) => setP({ ...p, ativo: e.target.checked })} /> Aparece no app</label>
+        <label className="flex items-center gap-2 text-xs font-bold cursor-pointer shrink-0"><input type="checkbox" className="accent-[#E1306C]" checked={p.ativo} onChange={(e) => alternarMaster(e.target.checked)} /> Aparece no app</label>
       </div>
-      <p className="text-xs text-[#A0A0B2] mb-4">A faixa grande no topo da categoria, abaixo do título. Pense nela como o &ldquo;nome da casa&rdquo; da categoria: uma marca forte (ex.: uma cervejaria em Bares). {existe ? '' : 'Ainda vazia: o app mostra o convite para anunciar.'}</p>
+      {!p.ativo ? (
+        <p className="text-xs text-[#626274]">Desligado — não aparece no app. Marque &ldquo;Aparece no app&rdquo; quando houver patrocinador.</p>
+      ) : (<>
+      <p className="text-xs text-[#A0A0B2] mb-4">A faixa grande no topo da categoria, abaixo do título. Pense nela como o &ldquo;nome da casa&rdquo; da categoria: uma marca forte (ex.: uma cervejaria em Bares).</p>
       <div className="rounded-2xl p-4 mb-4 min-h-[88px] relative overflow-hidden" style={{ background: p.imagem_url ? `linear-gradient(135deg, ${p.cor1}CC, ${p.cor2}CC), url(${p.imagem_url}) center/cover` : `linear-gradient(135deg, ${p.cor1}, ${p.cor2})` }}>
         <p className="text-[10px] font-black tracking-wider opacity-80">{p.tag || 'PATROCÍNIO MASTER'}</p>
         <p className="text-base font-black">{p.titulo || 'Os dizeres da faixa aparecem aqui'}</p>
@@ -241,8 +255,32 @@ function MasterCategoria({ cat, ok, falha }: Props) {
           {existe && <button onClick={remover} className={botaoCinza}><Trash2 size={14} /> Remover</button>}
         </div>
       </div>
+      </>)}
     </div>
   );
+}
+
+// Tick "Aparece no app" de uma seção (banner rotativo / cupons) de uma página.
+// Fica em subcategoria_config (categoria = slug da página, chave = '__banner' ou '__cupons'); o app só esconde a seção quando está desligada (ativo = false).
+function useLigada(slug: string, chave: string, falha: (m: string) => void) {
+  const [salva, setSalva] = useState<boolean | null>(null);
+  const [lido, setLido] = useState(false);
+  useEffect(() => {
+    let vivo = true;
+    setLido(false);
+    (async () => {
+      const { data } = await supabase.from('subcategoria_config').select('ativo').eq('categoria', slug).eq('chave', chave).maybeSingle();
+      if (vivo) { setSalva(data ? !!(data as any).ativo : null); setLido(true); }
+    })();
+    return () => { vivo = false; };
+  }, [slug, chave]);
+  const gravar = async (v: boolean) => {
+    const { error } = await supabase.from('subcategoria_config').upsert({ categoria: slug, chave, ativo: v, atualizado_em: new Date().toISOString() });
+    if (error) { falha(error.message.includes('subcategoria_config') ? 'Rode a migration 065 no Supabase.' : error.message); return false; }
+    setSalva(v);
+    return true;
+  };
+  return { salva, lido, gravar };
 }
 
 // ---- 2) e 4) Vagas (Premium 12 / Intermediário 24)
@@ -257,6 +295,11 @@ function VagasCategoria({ cat, tipo, total, ok, falha }: Props & { tipo: 'premiu
   const [automaticos, setAutomaticos] = useState<LocalMini[]>([]);
   const [sel, setSel] = useState<number | null>(null);
   const [cham, setCham] = useState({ chamada: '', cta: 'Conhecer' });
+  const tick = useLigada(cat.slug, premium ? '__banner' : '__cupons', falha);
+  const [pronto, setPronto] = useState(false);
+  const [edicao, setEdicao] = useState<Record<string, { chamada: string; cta: string }>>({}); // dizeres em edição, por local
+  const [grade, setGrade] = useState(false); // mostra as 12 vagas (só nos banners)
+  const [novaVaga, setNovaVaga] = useState(0);
 
   const carregar = useCallback(async () => {
     const { data } = await supabase.from('vitrine_vaga').select('posicao, locais(id, nome, plano_comercial, plano_comercial_status, categoria)').eq('categoria', cat.slug).eq('tipo', tipo);
@@ -287,6 +330,7 @@ function VagasCategoria({ cat, tipo, total, ok, falha }: Props & { tipo: 'premiu
       for (const l of [...((a as LocalMini[]) || []), ...extrasLoc]) mapa.set(l.id, l);
       setAutomaticos(Array.from(mapa.values()).sort((x, y) => x.id.localeCompare(y.id)));
     } else setAutomaticos([]);
+    setPronto(true);
   }, [cat.slug, cat.real, cat.fundadores, tipo, premium]);
   useEffect(() => { carregar(); }, [carregar]);
 
@@ -310,9 +354,9 @@ function VagasCategoria({ cat, tipo, total, ok, falha }: Props & { tipo: 'premiu
     if (error) return falha(error.message);
     ok(`Vaga ${n} liberada — volta a ser automática.`); setSel(null); carregar();
   };
-  const salvarChamada = async (l: LocalMini) => {
-    if (!cham.chamada.trim()) return falha('Escreva a frase do banner.');
-    const { error } = await supabase.from('destaque_chamada').upsert({ local_id: l.id, chamada: cham.chamada.trim(), cta: cham.cta.trim() || 'Conhecer', escrito_por: 'equipe' });
+  const salvarChamada = async (l: LocalMini, c = cham) => {
+    if (!c.chamada.trim()) return falha('Escreva a frase do banner.');
+    const { error } = await supabase.from('destaque_chamada').upsert({ local_id: l.id, chamada: c.chamada.trim(), cta: c.cta.trim() || 'Conhecer', escrito_por: 'equipe' });
     if (error) return falha(error.message);
     ok('Frase salva — o banner já usa esse texto.'); carregar();
   };
@@ -330,11 +374,79 @@ function VagasCategoria({ cat, tipo, total, ok, falha }: Props & { tipo: 'premiu
     ? cat.fundadores ? 'Ocupadas pelos Membros Fundadores.' : 'Ocupadas por locais Premium (ou Fundador) da categoria. Quem você escolher aparece mesmo sem plano — mas o ideal é o plano estar ativo.'
     : 'Premium e Fundador publicam 1 cupom por semana; o Intermediário, 1 a cada 2 semanas. A vaga mostra o cupom mais recente do local. Vaga cinza = automática (o app preenche pelo plano).';
 
+  // Tick "Aparece no app": gravado = manda; sem registro, liga sozinho quando já há alguém nas vagas.
+  const algoFixo = Object.keys(vagas).length > 0;
+  const ligada = tick.salva ?? (algoFixo || (premium && automaticos.length > 0));
+  const livresN = Array.from({ length: total }, (_, i) => i + 1).filter((n) => !vagas[n]);
+  const alternar = async (v: boolean) => {
+    if (await tick.gravar(v)) ok(v ? `${premium ? 'Banner' : 'Cupons'} aparece no app.` : `${premium ? 'Banner' : 'Cupons'} escondido do app.`);
+  };
+
   return (
     <div className={card}>
-      <h3 className="text-sm font-black mb-1">{premium ? '2' : '4'} · {premium ? nomeVaga : 'Cupons'} <span className="text-[#A0A0B2] font-semibold">({total} vagas{premium ? '' : ': 10 Premium + 2 Fundador + 12 Intermediário'})</span></h3>
-      <p className="text-xs text-[#A0A0B2] mb-1">{quando}</p>
-      <p className="text-xs text-[#A0A0B2] mb-4">{regra} Vaga em cinza = automática (o app escolhe pelo plano); escolha um local para fixar a posição dele.</p>
+      <div className="flex items-center justify-between gap-3 mb-1">
+        <h3 className="text-sm font-black">{premium ? '2' : '4'} · {premium ? nomeVaga : 'Cupons'} <span className="text-[#A0A0B2] font-semibold">({total} vagas{premium ? '' : ': 10 Premium + 2 Fundador + 12 Intermediário'})</span></h3>
+        <label className="flex items-center gap-2 text-xs font-bold cursor-pointer shrink-0"><input type="checkbox" className="accent-[#E1306C]" checked={ligada} disabled={!pronto || !tick.lido} onChange={(e) => alternar(e.target.checked)} /> Aparece no app</label>
+      </div>
+      {!pronto || !tick.lido ? (
+        <p className="text-xs text-[#626274]">Carregando…</p>
+      ) : !ligada ? (
+        <p className="text-xs text-[#626274]">Desligado — não aparece no app. Marque &ldquo;Aparece no app&rdquo; quando houver anunciante.</p>
+      ) : (<>
+      {premium ? (
+        <p className="text-xs text-[#A0A0B2] mb-4">Rodam 4 por vez, trocando a cada hora. Escreva abaixo os dizeres de cada local; o nome dele não aparece no banner, só a frase. {regra}</p>
+      ) : (<>
+        <p className="text-xs text-[#A0A0B2] mb-1">{quando}</p>
+        <p className="text-xs text-[#A0A0B2] mb-4">{regra} Vaga em cinza = automática (o app escolhe pelo plano); escolha um local para fixar a posição dele.</p>
+      </>)}
+
+      {premium && (
+        <div className="space-y-3 mb-4">
+          {Array.from({ length: total }, (_, i) => i + 1).filter((n) => vagas[n] || autoDaVaga[n]).map((n) => {
+            const l = (vagas[n] || autoDaVaga[n]) as LocalMini;
+            const fixa = !!vagas[n];
+            const salvo = { chamada: chamadas[l.id]?.chamada || '', cta: chamadas[l.id]?.cta || 'Conhecer' };
+            const v = edicao[l.id] ?? salvo;
+            const mudou = v.chamada !== salvo.chamada || v.cta !== salvo.cta;
+            return (
+              <div key={n} className={`rounded-xl border p-3 ${fixa ? 'border-[#4CAF7D]/50 bg-[#4CAF7D]/5' : 'border-[#232230] bg-[#0B0B0E]'}`}>
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="text-xs font-black">{rotuloVaga(n)} · <span className="text-white">{l.nome}</span></p>
+                  <span className="text-[10px] text-[#A0A0B2]">{fixa ? 'Fixada por você' : 'Automática'} · {rotuloPlano(l)}</span>
+                </div>
+                {fixa && !planoPago(l) && <p className="text-[10px] text-amber-400 mt-0.5">plano não ativo — aparece só porque você fixou</p>}
+                <label className={`${label} mt-3`}>Dizeres do banner (até 90 caracteres)</label>
+                <input className={input} maxLength={90} placeholder="Escreva a frase que aparece no banner" value={v.chamada} onChange={(e) => setEdicao((m) => ({ ...m, [l.id]: { ...v, chamada: e.target.value } }))} />
+                <div className="grid grid-cols-[1fr_auto] gap-2 mt-2 items-end">
+                  <div>
+                    <label className={label}>Texto do botão</label>
+                    <input className={input} maxLength={24} value={v.cta} onChange={(e) => setEdicao((m) => ({ ...m, [l.id]: { ...v, cta: e.target.value } }))} />
+                  </div>
+                  <button onClick={() => salvarChamada(l, v)} disabled={!mudou || !v.chamada.trim()} className={botao}><Save size={14} /> Salvar dizeres</button>
+                </div>
+                {fixa && <button onClick={() => liberar(n)} className="text-[11px] text-[#E1306C] mt-2">Liberar esta vaga (volta a ser automática)</button>}
+              </div>
+            );
+          })}
+          {!Object.keys(vagas).length && !automaticos.length && <p className="text-xs text-[#A0A0B2]">Nenhum local nas vagas ainda. Adicione um abaixo.</p>}
+
+          {livresN.length > 0 && (
+            <div className="rounded-xl border border-dashed border-[#232230] p-3">
+              <p className="text-xs font-bold mb-2">Adicionar um local a uma vaga</p>
+              <div className="grid md:grid-cols-[1fr_auto] gap-2 items-start">
+                <BuscaLocal texto="Buscar local pelo nome…" onEscolher={(l) => escolher(novaVaga || livresN[0], l)} />
+                <select className={`${input} md:w-40`} value={novaVaga || livresN[0]} onChange={(e) => setNovaVaga(Number(e.target.value))} aria-label="Vaga">
+                  {livresN.map((n) => <option key={n} value={n}>Vaga {n}</option>)}
+                </select>
+              </div>
+              <p className="text-[10px] text-[#626274] mt-1">Vagas sem ninguém fixado são preenchidas sozinhas pelo plano. Ao escolher o local, ele fica fixo na vaga escolhida.</p>
+            </div>
+          )}
+          <button type="button" onClick={() => setGrade((g) => !g)} className="text-xs font-bold text-[#E1306C]">{grade ? 'Esconder o quadro das 12 vagas' : 'Ver o quadro das 12 vagas'}</button>
+        </div>
+      )}
+
+      {(!premium || grade) && (<>
       <div className={`grid gap-2 ${premium ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-6'}`}>
         {Array.from({ length: total }, (_, i) => i + 1).map((n) => {
           const l = vagas[n];
@@ -373,6 +485,8 @@ function VagasCategoria({ cat, tipo, total, ok, falha }: Props & { tipo: 'premiu
           {vagas[sel] && <button onClick={() => liberar(sel)} className={botaoCinza + ' mt-4'}><Trash2 size={14} /> Liberar vaga (volta a ser automática)</button>}
         </div>
       )}
+      </>)}
+      </>)}
     </div>
   );
 }
