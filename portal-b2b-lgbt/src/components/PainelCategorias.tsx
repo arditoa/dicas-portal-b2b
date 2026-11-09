@@ -497,9 +497,13 @@ function SubcategoriasCategoria({ cat, ok, falha }: Props) {
   const defs = SUBCATEGORIAS_APP[chaveSub]?.itens;
   const [desligadas, setDesligadas] = useState<Set<string>>(new Set());
   const [contagem, setContagem] = useState<Record<string, number>>({});
+  // Escolha manual "Em breve" (true) ou "Ativar" (false), guardada em linhas "breve:<chave>"; sem linha = automático.
+  const [manual, setManual] = useState<Record<string, boolean>>({});
   const carregar = useCallback(async () => {
-    const { data } = await supabase.from('subcategoria_config').select('chave').eq('categoria', chaveSub).eq('ativo', false);
-    setDesligadas(new Set(((data as any[]) || []).map((r) => r.chave as string)));
+    const { data } = await supabase.from('subcategoria_config').select('chave, ativo').eq('categoria', chaveSub);
+    const linhas = ((data as any[]) || []) as { chave: string; ativo: boolean }[];
+    setDesligadas(new Set(linhas.filter((r) => !r.ativo && !r.chave.startsWith('breve:')).map((r) => r.chave)));
+    setManual(Object.fromEntries(linhas.filter((r) => r.chave.startsWith('breve:')).map((r) => [r.chave.slice(6), !!r.ativo])));
     if (cat.real) {
       const { data: ls } = await supabase.from('locais').select('subcategoria').eq('status', 'aprovado').eq('categoria', cat.real).limit(3000);
       const c: Record<string, number> = {};
@@ -512,28 +516,55 @@ function SubcategoriasCategoria({ cat, ok, falha }: Props) {
   }, [chaveSub, cat.real]);
   useEffect(() => { carregar(); }, [carregar]);
   if (!defs) return null;
-  const alternar = async (chave: string, ligar: boolean) => {
-    const { error } = await supabase.from('subcategoria_config').upsert({ categoria: chaveSub, chave, ativo: ligar, atualizado_em: new Date().toISOString() });
-    if (error) return falha(error.message.includes('subcategoria_config') ? 'Rode a migration 065 no Supabase.' : error.message);
-    ok(ligar ? 'Subcategoria aparece no app.' : 'Subcategoria escondida do app.'); carregar();
+  type Estado = 'ativa' | 'breve' | 'escondida';
+  const grava = async (chave: string, ativo: boolean) => {
+    const { error } = await supabase.from('subcategoria_config').upsert({ categoria: chaveSub, chave, ativo, atualizado_em: new Date().toISOString() });
+    if (error) { falha(error.message.includes('subcategoria_config') ? 'Rode a migration 065 no Supabase.' : error.message); return false; }
+    return true;
   };
+  const definir = async (chave: string, estado: Estado) => {
+    // "Esconder" só mexe no liga/desliga; "Ativar" e "Em breve" religam e guardam a escolha.
+    const feito = estado === 'escondida'
+      ? await grava(chave, false)
+      : (await grava(chave, true)) && (await grava(`breve:${chave}`, estado === 'breve'));
+    if (!feito) return;
+    ok(estado === 'ativa' ? 'Subcategoria ativada no app.' : estado === 'breve' ? 'Subcategoria aparece como "em breve".' : 'Subcategoria escondida do app.');
+    carregar();
+  };
+  const OPCOES: { v: Estado; nome: string; cor: string }[] = [
+    { v: 'ativa', nome: 'Ativar', cor: 'bg-[#4CAF7D]/15 border-[#4CAF7D]/50 text-[#4CAF7D]' },
+    { v: 'breve', nome: 'Em breve', cor: 'bg-[#7E57C2]/20 border-[#7E57C2]/60 text-[#B39DDB]' },
+    { v: 'escondida', nome: 'Esconder', cor: 'bg-[#232230] border-[#3A3850] text-white' },
+  ];
   return (
     <div className={card}>
       <h3 className="text-sm font-black mb-1">3 · Subcategorias <span className="text-[#A0A0B2] font-semibold">(ícones redondos)</span></h3>
-      <p className="text-xs text-[#A0A0B2] mb-4">Os ícones logo abaixo dos Banners Premium. Ligue quando já houver local cadastrado nela. Ligada sem nenhum local, o ícone aparece como &ldquo;em breve&rdquo;; desligada, some do app. A contagem usa o nome que o parceiro escolheu no cadastro.</p>
+      <p className="text-xs text-[#A0A0B2] mb-1">Os ícones logo abaixo dos banners. Para cada um, escolha:</p>
+      <ul className="text-xs text-[#A0A0B2] mb-4 space-y-0.5">
+        <li><b className="text-[#4CAF7D]">Ativar</b> — aparece normal, sem selo.</li>
+        <li><b className="text-[#B39DDB]">Em breve</b> — aparece com o selo EM BREVE (o visitante pode pedir aviso).</li>
+        <li><b className="text-white">Esconder</b> — some do app.</li>
+        <li>Se você não escolher, o app decide sozinho: aparece como &ldquo;em breve&rdquo; enquanto não houver nenhum local nela (a contagem usa o nome escolhido no cadastro).</li>
+      </ul>
       <div className="divide-y divide-[#232230]">
         {defs.map((d) => {
-          const ligada = !desligadas.has(d.chave);
           const n = contagem[d.chave] || contagem[norm(d.rotulo)] || 0;
+          const escolha = manual[d.chave]; // true = em breve, false = ativar, undefined = automático
+          const atual: Estado = desligadas.has(d.chave) ? 'escondida' : escolha === true ? 'breve' : escolha === false ? 'ativa' : n > 0 ? 'ativa' : 'breve';
+          const automatico = !desligadas.has(d.chave) && escolha === undefined;
           return (
-            <div key={d.chave} className="flex items-center justify-between gap-3 py-2.5">
+            <div key={d.chave} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
               <div className="min-w-0">
                 <p className="text-sm font-bold truncate">{d.rotulo}</p>
-                <p className={`text-[11px] ${n > 0 ? 'text-[#4CAF7D]' : 'text-[#626274]'}`}>{n > 0 ? `${n} local${n > 1 ? 'is' : ''} cadastrado${n > 1 ? 's' : ''}` : 'nenhum local ainda'}</p>
+                <p className={`text-[11px] ${n > 0 ? 'text-[#4CAF7D]' : 'text-[#626274]'}`}>{n > 0 ? `${n} local${n > 1 ? 'is' : ''} cadastrado${n > 1 ? 's' : ''}` : 'nenhum local ainda'}{automatico ? ' · automático' : ''}</p>
               </div>
-              <button onClick={() => alternar(d.chave, !ligada)} className={`shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg border transition ${ligada ? 'bg-[#4CAF7D]/15 border-[#4CAF7D]/40 text-[#4CAF7D]' : 'bg-[#232230] border-[#232230] text-[#A0A0B2]'}`}>
-                {ligada ? (n > 0 ? 'Aparece no app' : 'Aparece como "em breve"') : 'Escondida'}
-              </button>
+              <div role="group" aria-label={`Estado de ${d.rotulo}`} className="shrink-0 inline-flex rounded-lg overflow-hidden border border-[#232230]">
+                {OPCOES.map((o) => (
+                  <button key={o.v} type="button" onClick={() => definir(d.chave, o.v)} aria-pressed={atual === o.v} className={`text-xs font-bold px-3 py-1.5 border-r last:border-r-0 border-[#232230] transition ${atual === o.v ? o.cor : 'bg-[#0B0B0E] border-[#232230] text-[#626274] hover:text-white'}`}>
+                    {o.nome}
+                  </button>
+                ))}
+              </div>
             </div>
           );
         })}

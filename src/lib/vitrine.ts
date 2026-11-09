@@ -171,6 +171,26 @@ export async function buscarSubcategoriasDesligadas(categoria: string): Promise<
   }
 }
 
+// Estado manual das subcategorias no /admin (aba Categorias): linhas com chave "breve:<subcategoria>".
+//   ativo = true  → "Em breve" (selo EM BREVE mesmo que já tenha locais)
+//   ativo = false → "Ativada"  (sem selo, mesmo que ainda não tenha locais)
+// Sem linha = automático (selo "em breve" só enquanto não há nenhum local).
+export type EstadoSubcategorias = { breve: Set<string>; ativas: Set<string> };
+export async function buscarEstadoSubcategorias(categoria: string): Promise<EstadoSubcategorias> {
+  const vazio: EstadoSubcategorias = { breve: new Set(), ativas: new Set() };
+  try {
+    const { data, error } = await supabase.from('subcategoria_config').select('chave, ativo').eq('categoria', categoria).like('chave', 'breve:%');
+    if (error || !data) return vazio;
+    for (const r of data as any[]) {
+      const chave = String(r.chave).slice('breve:'.length);
+      (r.ativo ? vazio.breve : vazio.ativas).add(chave);
+    }
+    return vazio;
+  } catch {
+    return vazio;
+  }
+}
+
 // Ids dos Membros Fundadores (selo real em local_badges), como na Home.
 export async function buscarIdsFundadores(): Promise<string[]> {
   try {

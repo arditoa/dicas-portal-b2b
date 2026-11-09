@@ -54,10 +54,10 @@ export function agruparSubcategorias(
   return lista.sort((a, b) => (a.chave === '' ? 1 : b.chave === '' ? -1 : b.qtd - a.qtd || a.rotulo.localeCompare(b.rotulo, 'pt-BR')));
 }
 
-type Props = { grupos: GrupoSub[]; onAbrir: (chave: string) => void; defs?: SubDef[]; selecionada?: string | null; compacto?: boolean; cor?: string; largura?: number; categoriaAviso?: string }; // categoriaAviso = prefixo do "avise-me" das subcategorias em breve; cor = a do ícone da categoria na Home
+type Props = { grupos: GrupoSub[]; onAbrir: (chave: string) => void; defs?: SubDef[]; selecionada?: string | null; compacto?: boolean; cor?: string; largura?: number; categoriaAviso?: string; estado?: { breve: Set<string>; ativas: Set<string> } }; // categoriaAviso = prefixo do "avise-me" das subcategorias em breve; cor = a do ícone da categoria na Home; estado = "Em breve"/"Ativar" escolhido no /admin
 
 // Ícones redondos no mesmo desenho das categorias da Home (círculo 46, legenda de até 2 linhas, rolagem lateral).
-export default function SubcategoriaBanners({ grupos, onAbrir, defs, selecionada, compacto, cor, largura, categoriaAviso }: Props) {
+export default function SubcategoriaBanners({ grupos, onAbrir, defs, selecionada, compacto, cor, largura, categoriaAviso, estado }: Props) {
   const router = useRouter();
   const { user } = useAuth();
   const { t } = useI18n();
@@ -87,14 +87,18 @@ export default function SubcategoriaBanners({ grupos, onAbrir, defs, selecionada
           const def = defs?.find((d) => d.chave === g.chave);
           const icone = def?.icone || 'more-horizontal';
           const nomeCurto = def?.curto || g.rotulo;
-          const breve = !!def?.breve || g.qtd === 0;
+          // /admin manda: "Em breve" força o selo; "Ativar" tira o selo. Sem escolha, é automático (selo só enquanto não há local).
+          const forcaBreve = !!estado?.breve.has(g.chave);
+          const forcaAtiva = !!estado?.ativas.has(g.chave);
+          const breve = forcaBreve ? true : forcaAtiva ? false : !!def?.breve || g.qtd === 0;
+          const avisar = forcaBreve || (!forcaAtiva && !!def?.breve);
           return (
             <TouchableOpacity
               key={g.chave || 'outros'}
               activeOpacity={0.8}
               style={[s.item, { width: larg }]}
               onPress={() =>
-                def?.breve
+                avisar
                   ? registrarAviso({ userId: user?.id, alvo: `sub-${categoriaAviso || 'cat'}-${g.chave}`, alvoLabel: g.rotulo, t, irParaLogin: () => router.push('/(tabs)/profile') })
                   : onAbrir(g.chave)
               }

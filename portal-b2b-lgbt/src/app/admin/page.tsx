@@ -1,5 +1,5 @@
 'use client';
-import { Bell, CalendarDays, Check, ChevronDown, ChevronUp, ClipboardCheck, Compass, LayoutDashboard, Loader2, LogOut, Megaphone, Menu, MessageCircle, Route as RouteIcon, Search, ShieldAlert, Sparkles, Star, Store, X } from 'lucide-react';
+import { BarChart3, Bell, CalendarDays, Check, ChevronDown, ChevronUp, ClipboardCheck, Compass, LayoutDashboard, LayoutGrid, Loader2, LogOut, Megaphone, Menu, MessageCircle, Route as RouteIcon, Search, ShieldAlert, Sparkles, Star, Store, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
@@ -485,20 +485,24 @@ type ItemMenu = { subs?: ItemSub[]; id: 'visao' | 'aprovacoes' | 'locais' | 'eve
 function MENU_ADMIN(pendentes: number, locais: number, eventos: number, fundadores: number, filas: { interesse: number; locais: number; eventos: number; vinculos: number; leads: number; acesso: number }): { grupo: string; itens: ItemMenu[] }[] {
   return [
     { grupo: 'Início', itens: [{ id: 'visao', rotulo: 'Visão geral', icone: LayoutDashboard }] },
-    { grupo: 'Operação', itens: [{
-      id: 'aprovacoes', rotulo: 'Aprovações', icone: ClipboardCheck, badge: pendentes, alerta: true,
-      subs: [
-        { id: 'interesse', rotulo: 'Quer assinar plano', badge: filas.interesse },
-        { id: 'locais', rotulo: 'Locais novos', badge: filas.locais },
-        { id: 'eventos', rotulo: 'Festas e eventos novos', badge: filas.eventos },
-        { id: 'vinculos', rotulo: 'Pedidos de vínculo', badge: filas.vinculos },
-        { id: 'leads', rotulo: 'Contatos institucionais', badge: filas.leads },
-        { id: 'hospedagem', rotulo: 'Hospedagens e pontos' },
-        { id: 'acesso', rotulo: 'Enviar acesso ao portal', badge: filas.acesso },
-      ],
-    }] },
+    // Ordem pensada no dia a dia: 1) o que precisa de resposta, 2) o cadastro, 3) o que aparece no app, 4) avisos.
+    { grupo: 'Operação', itens: [
+      {
+        id: 'aprovacoes', rotulo: 'Aprovações', icone: ClipboardCheck, badge: pendentes, alerta: true,
+        subs: [
+          { id: 'interesse', rotulo: 'Quer assinar plano', badge: filas.interesse },
+          { id: 'locais', rotulo: 'Locais novos', badge: filas.locais },
+          { id: 'eventos', rotulo: 'Festas e eventos novos', badge: filas.eventos },
+          { id: 'vinculos', rotulo: 'Pedidos de vínculo', badge: filas.vinculos },
+          { id: 'leads', rotulo: 'Contatos institucionais', badge: filas.leads },
+          { id: 'hospedagem', rotulo: 'Hospedagens e pontos' },
+          { id: 'acesso', rotulo: 'Enviar acesso ao portal', badge: filas.acesso },
+        ],
+      },
+      { id: 'denuncias', rotulo: 'Denúncias', icone: ShieldAlert },
+    ] },
     {
-      grupo: 'Catálogo',
+      grupo: 'Cadastros',
       itens: [
         { id: 'locais', rotulo: 'Locais', icone: Store, badge: locais },
         { id: 'eventos', rotulo: 'Eventos', icone: CalendarDays, badge: eventos },
@@ -507,19 +511,22 @@ function MENU_ADMIN(pendentes: number, locais: number, eventos: number, fundador
       ],
     },
     {
-      grupo: 'Vitrine da Home',
+      grupo: 'Vitrine do app',
       itens: [
-        { id: 'categorias', rotulo: 'Categorias (vagas)', icone: LayoutDashboard },
-        { id: 'rodizio', rotulo: 'Rodízio e Destaques', icone: Sparkles },
+        { id: 'categorias', rotulo: 'Categorias e vagas', icone: LayoutGrid },
         { id: 'banners', rotulo: 'Banners e parceiros', icone: Megaphone },
-        { id: 'vitrine', rotulo: 'Vitrine das categorias', icone: Store },
+        { id: 'rodizio', rotulo: 'Rodízio e Destaques', icone: Sparkles },
         { id: 'fundador', rotulo: 'Membros Fundadores', icone: Star, badge: fundadores },
+        { id: 'vitrine', rotulo: 'Frases e desempenho', icone: BarChart3 },
       ],
     },
     { grupo: 'Comunicação', itens: [{ id: 'push', rotulo: 'Avisos (push)', icone: Bell }] },
-    { grupo: 'Segurança', itens: [{ id: 'denuncias', rotulo: 'Denúncias', icone: ShieldAlert }] },
   ];
 }
+// Grupo do menu de cada aba (aparece pequeno acima do título, para a pessoa saber onde está).
+const GRUPO_DA_ABA: Record<string, string> = Object.fromEntries(
+  MENU_ADMIN(0, 0, 0, 0, { interesse: 0, locais: 0, eventos: 0, vinculos: 0, leads: 0, acesso: 0 }).flatMap((g) => g.itens.map((i) => [i.id, g.grupo]))
+);
 const TITULO_SUB: Record<SubAprov, string> = {
   todas: 'Tudo',
   interesse: 'Quer assinar plano',
@@ -541,7 +548,7 @@ const TITULO_ABA: Record<ItemMenu['id'], string> = {
   push: 'Avisos (push)',
   rodizio: 'Rodízio e Destaques',
   banners: 'Banners e parceiros',
-  vitrine: 'Vitrine das categorias',
+  vitrine: 'Frases dos Fundadores e desempenho',
   categorias: 'Categorias e vagas',
   denuncias: 'Denúncias',
 };
@@ -556,8 +563,8 @@ const SUBTITULO_ABA: Record<ItemMenu['id'], string> = {
   push: 'Notificações push: escreva o aviso, teste no seu celular e envie para quem aceitou.',
   rodizio: 'Rodízio por horário da Home: quantos locais aparecem por vez, de quanto em quanto tempo troca, e a oferta do bloco Destaques.',
   banners: 'Cartões que giram na tela inicial e na aba Trip (Copa, Embratur, Câmara LGBT, patrocinadores): textos, onde aparecem, peso, período e relatório de exibições e cliques.',
-  vitrine: 'Banner fixo de patrocínio de cada categoria, comunicação dos Membros Fundadores (o gancho de venda), limite de ofertas por plano e desempenho dos destaques.',
-  categorias: 'Escolha uma categoria: Patrocínio Master, 12 Banners Premium, subcategorias e 24 Intermediários, na ordem em que aparecem no app. Vaga sem local escolhido é automática (pelo plano).',
+  vitrine: 'A frase que gera desejo de cada Membro Fundador, o limite de ofertas por plano e o desempenho (exibições e toques) dos destaques. O Patrocínio Master de cada categoria fica em "Categorias e vagas".',
+  categorias: 'Escolha uma categoria. Em cada uma, na ordem em que aparece no app: Patrocínio Master, Banners (com os dizeres de cada local), subcategorias (Ativar, Em breve ou Esconder) e Cupons. Marque "Aparece no app" só quando houver anunciante; vaga sem local escolhido é automática (pelo plano).',
   denuncias: 'Ocorrências registradas no app: relato, provas, histórico e atendimento. Conteúdo sensível — acesso restrito à equipe.',
 };
 
@@ -1726,6 +1733,7 @@ Dicas LGBT+`;
       </aside>
 
       <main className="flex-1 min-w-0 p-5 md:p-8 max-w-6xl">
+      <p className="text-[10px] font-bold uppercase tracking-wider text-[#626274] mb-1">{GRUPO_DA_ABA[aba]}</p>
       <h1 className="text-2xl font-black mb-1">{aba === 'aprovacoes' && subAprov !== 'todas' ? `Aprovações · ${TITULO_SUB[subAprov]}` : TITULO_ABA[aba]}</h1>
       <p className="text-[#A0A0B2] text-xs mb-6">{aba === 'aprovacoes' && subAprov !== 'todas' ? 'Use o menu à esquerda, embaixo de Aprovações, para trocar de fila. Clique em "Aprovações" para ver tudo junto.' : SUBTITULO_ABA[aba]}</p>
 

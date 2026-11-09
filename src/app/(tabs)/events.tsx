@@ -4,7 +4,7 @@ import SubcategoriaBanners, { GrupoSub } from '../../components/SubcategoriaBann
 import VitrineCategoria, { LocalVitrine } from '../../components/VitrineCategoria';
 import { CAMPOS_LOCAL } from '../../components/ListaPadrao';
 import { normTxt, SUBCATEGORIAS } from '../../lib/subcategorias';
-import { buscarSubcategoriasDesligadas } from '../../lib/vitrine';
+import { EstadoSubcategorias, buscarEstadoSubcategorias, buscarSubcategoriasDesligadas } from '../../lib/vitrine';
 import MarcaApp from '../../components/MarcaApp';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -227,6 +227,7 @@ export default function EventsScreen() {
   // Locais de festa/noite: alimentam o banner rotativo Premium da vitrine.
   const [locaisVitrine, setLocaisVitrine] = useState<LocalVitrine[]>([]);
   const [subDesligadas, setSubDesligadas] = useState<Set<string>>(new Set());
+  const [estadoSub, setEstadoSub] = useState<EstadoSubcategorias>({ breve: new Set(), ativas: new Set() });
   useEffect(() => {
     let vivo = true;
     (supabase.from('locais') as any)
@@ -236,6 +237,7 @@ export default function EventsScreen() {
       .limit(500)
       .then((r: any) => { if (vivo && r?.data) setLocaisVitrine(r.data as LocalVitrine[]); });
     buscarSubcategoriasDesligadas('festas').then((x) => { if (vivo) setSubDesligadas(x); });
+    buscarEstadoSubcategorias('festas').then((x) => { if (vivo) setEstadoSub(x); });
     return () => { vivo = false; };
   }, []);
   const [showFiltrosModal, setShowFiltrosModal] = useState(false);
@@ -802,6 +804,7 @@ export default function EventsScreen() {
                   <SubcategoriaBanners
                     grupos={gruposSub}
                     defs={defsFestas}
+                    estado={estadoSub}
                     selecionada={selectedSub}
                     compacto
                     cor={CATEGORIAS.festas.color}

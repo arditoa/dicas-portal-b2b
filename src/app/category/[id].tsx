@@ -33,7 +33,7 @@ import VitrineCategoria from '../../components/VitrineCategoria';
 import BordaArcoIris from '../../components/BordaArcoIris';
 import SubcategoriaBanners, { agruparSubcategorias, chaveDoLocal } from '../../components/SubcategoriaBanners';
 import { SUBCATEGORIAS } from '../../lib/subcategorias';
-import { buscarSubcategoriasDesligadas } from '../../lib/vitrine';
+import { EstadoSubcategorias, buscarEstadoSubcategorias, buscarSubcategoriasDesligadas } from '../../lib/vitrine';
 import { Anuncio } from '../../components/CarrosselAnuncios';
 import { buscarIdsFundadores } from '../../lib/vitrine';
 
@@ -438,8 +438,10 @@ export default function CategoryListScreen() {
 
   // Subcategorias em ícones redondos: logo abaixo das ofertas. Tocar filtra a lista; tocar de novo limpa.
   const [subDesligadas, setSubDesligadas] = useState<Set<string>>(new Set());
+  const [estadoSub, setEstadoSub] = useState<EstadoSubcategorias>({ breve: new Set(), ativas: new Set() });
   useEffect(() => {
     let vivo = true;
+    if (categoriaReal) buscarEstadoSubcategorias(categoriaReal).then((x) => { if (vivo) setEstadoSub(x); });
     if (categoriaReal) buscarSubcategoriasDesligadas(categoriaReal).then((x) => { if (vivo) setSubDesligadas(x); });
     return () => { vivo = false; };
   }, [categoriaReal]);
@@ -454,6 +456,7 @@ export default function CategoryListScreen() {
       selecionada={selectedSubcat}
       cor={categoriaConfig?.color}
       categoriaAviso={slug}
+      estado={estadoSub}
       onAbrir={(chave) => setSelectedSubcat((atual) => (atual === chave ? null : chave))}
     />
   ) : undefined;
