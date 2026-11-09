@@ -2,7 +2,7 @@ import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import Footer from '../../components/Footer';
 import Header from '../../components/Header';
-import { SUPORTE_EMAIL } from '../../lib/constants';
+import { INSTAGRAM_URL, SUPORTE_EMAIL, SUPORTE_WHATSAPP, linkWhatsapp } from '../../lib/constants';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic';
 //
 // Rodada 59 — Andrea: "advogado aprovou o seu rascunho.. pode deixar o
 // final." Aviso de rascunho removido, texto abaixo é o oficial.
-const DATA_ATUALIZACAO = '22 de setembro de 2026';
+const DATA_ATUALIZACAO = '9 de novembro de 2026';
 
 export default function PrivacidadePage() {
   return (
@@ -107,17 +107,33 @@ export default function PrivacidadePage() {
 
           <div>
             <h2 className="font-bold text-white mb-2">7. Contato</h2>
-            <p>
-              Dúvidas sobre seus dados ou esta política:{' '}
-              {SUPORTE_EMAIL ? (
-                <a href={`mailto:${SUPORTE_EMAIL}`} className="underline hover:text-white">
-                  {SUPORTE_EMAIL}
-                </a>
-              ) : (
-                <span className="text-[#FFD54F]">canal de contato ainda não configurado</span>
+            <p>Dúvidas, pedidos de acesso, correção ou exclusão de dados e esta política:</p>
+            <ul className="list-disc list-inside mt-2 space-y-1 text-[#A0A0B2]">
+              {SUPORTE_EMAIL && (
+                <li>
+                  E-mail:{' '}
+                  <a href={`mailto:${SUPORTE_EMAIL}`} className="underline hover:text-white">
+                    {SUPORTE_EMAIL}
+                  </a>
+                </li>
               )}
-              .
-            </p>
+              <li>
+                WhatsApp:{' '}
+                <a
+                  href={linkWhatsapp(SUPORTE_WHATSAPP, 'Olá! Tenho uma dúvida sobre privacidade e dados no Dicas LGBT+.')}
+                  className="underline hover:text-white"
+                >
+                  +55 11 94294-2028
+                </a>
+              </li>
+              <li>
+                Instagram:{' '}
+                <a href={INSTAGRAM_URL} className="underline hover:text-white">
+                  @dicaslgbt
+                </a>
+              </li>
+            </ul>
+            <p className="mt-2">Respondemos em até 5 dias úteis.</p>
           </div>
         </div>
       </section>

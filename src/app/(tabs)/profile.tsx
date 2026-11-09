@@ -519,7 +519,7 @@ export default function ProfileScreen() {
                     <Text style={styles.link} onPress={() => Linking.openURL(`${URL_SITE}/privacidade`)}>
                       Política de Privacidade
                     </Text>{' '}e os{' '}
-                    <Text style={styles.link} onPress={() => Linking.openURL(`${URL_SITE}/termos`)}>
+                    <Text style={styles.link} onPress={() => Linking.openURL(`${URL_SITE}/termos-de-uso`)}>
                       Termos de Uso
                     </Text>
                     .
@@ -754,7 +754,7 @@ export default function ProfileScreen() {
               </View>
               <Feather name="external-link" size={16} color={COLORS.textMuted} />
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.linha, styles.linhaBorda]} onPress={() => Linking.openURL(`${URL_SITE}/termos`)} activeOpacity={0.7} accessibilityRole="button">
+            <TouchableOpacity style={[styles.linha, styles.linhaBorda]} onPress={() => Linking.openURL(`${URL_SITE}/termos-de-uso`)} activeOpacity={0.7} accessibilityRole="button">
               <View style={[styles.menuIconBg, { backgroundColor: '#FFFFFF26' }]}>
                 <Feather name="file-text" size={16} color="#FFFFFF" />
               </View>
