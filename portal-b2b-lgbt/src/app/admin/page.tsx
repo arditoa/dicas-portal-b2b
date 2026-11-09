@@ -592,6 +592,16 @@ export default function AdminPage() {
   const [filtroPlano, setFiltroPlano] = useState<'todos' | 'pagos' | 'sem_plano'>('todos');
   const [limiteEventos, setLimiteEventos] = useState(25);
   const [menuAberto, setMenuAberto] = useState(false);
+  // Menu lateral recolhível: cada grupo (Operação, Catálogo…) e a lista de filas dentro de Aprovações. Lembra a escolha neste navegador.
+  const [gruposFechados, setGruposFechados] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    try { const v = localStorage.getItem('admin_menu_fechados'); if (v) setGruposFechados(JSON.parse(v)); } catch { /* sem armazenamento: segue aberto */ }
+  }, []);
+  const alternarGrupo = (chave: string) => setGruposFechados((m) => {
+    const n = { ...m, [chave]: !m[chave] };
+    try { localStorage.setItem('admin_menu_fechados', JSON.stringify(n)); } catch { /* ignora */ }
+    return n;
+  });
   useEffect(() => { setLimiteLocais(25); }, [buscaLocal, filtroPrincipal, filtroPlano]);
   useEffect(() => { setLimiteEventos(25); }, [buscaEvento, filtroEventos]);
   const [experienciaAberta, setExperienciaAberta] = useState<Record<string, boolean>>({});
@@ -1646,16 +1656,25 @@ Dicas LGBT+`;
         <nav className={`${menuAberto ? 'block' : 'hidden'} md:block px-3 pb-4`}>
           {MENU_ADMIN(totalPendente, locaisDestaque.length, eventosDestaque.length, locaisDestaque.filter((l) => l.fundador).length, { interesse: interessesPlano.length, locais: locaisPendentes.length, eventos: eventosPendentes.length, vinculos: vinculosPendentes.length, leads: leads.length, acesso: aprovadosSemConta.length }).map((g) => (
             <div key={g.grupo} className="mb-4">
-              <p className="px-2 mb-1 text-[10px] font-bold uppercase tracking-wider text-[#626274]">{g.grupo}</p>
-              {g.itens.map((it) => {
+              <button
+                type="button"
+                onClick={() => alternarGrupo(g.grupo)}
+                aria-expanded={!gruposFechados[g.grupo]}
+                className="w-full flex items-center justify-between px-2 mb-1 text-[10px] font-bold uppercase tracking-wider text-[#626274] hover:text-white transition"
+              >
+                <span>{g.grupo}</span>
+                {gruposFechados[g.grupo] ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
+              </button>
+              {!gruposFechados[g.grupo] && g.itens.map((it) => {
                 const Icone = it.icone;
                 const ativo = aba === it.id && (it.id !== 'aprovacoes' || subAprov === 'todas');
                 return (
                   <div key={it.id}>
+                  <div className="flex items-center gap-1">
                   <button
                     onClick={() => { setAba(it.id); if (it.id === 'aprovacoes') setSubAprov('todas'); setMenuAberto(false); }}
                     aria-current={ativo ? 'page' : undefined}
-                    className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-semibold transition ${ativo ? 'bg-[#E1306C]/15 text-white' : 'text-[#A0A0B2] hover:bg-[#1D1C29] hover:text-white'}`}
+                    className={`flex-1 min-w-0 flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-semibold transition ${ativo ? 'bg-[#E1306C]/15 text-white' : 'text-[#A0A0B2] hover:bg-[#1D1C29] hover:text-white'}`}
                   >
                     <Icone size={16} className={ativo ? 'text-[#E1306C]' : ''} />
                     <span className="flex-1 text-left truncate">{it.rotulo}</span>
@@ -1664,6 +1683,18 @@ Dicas LGBT+`;
                     )}
                   </button>
                   {it.subs && (
+                    <button
+                      type="button"
+                      onClick={() => alternarGrupo(`${it.id}-subs`)}
+                      aria-expanded={!gruposFechados[`${it.id}-subs`]}
+                      aria-label={gruposFechados[`${it.id}-subs`] ? 'Mostrar as filas' : 'Esconder as filas'}
+                      className="shrink-0 p-1.5 rounded-md text-[#8888A0] hover:text-white hover:bg-[#1D1C29] transition"
+                    >
+                      {gruposFechados[`${it.id}-subs`] ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                    </button>
+                  )}
+                  </div>
+                  {it.subs && !gruposFechados[`${it.id}-subs`] && (
                     <div className="ml-4 mt-1 mb-1 pl-2 border-l border-[#232230] space-y-0.5">
                       {it.subs.map((sub) => {
                         const subAtivo = aba === it.id && subAprov === sub.id;
