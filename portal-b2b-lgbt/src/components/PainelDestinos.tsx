@@ -53,7 +53,8 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
 
 const alternar = (l: string[], v: string) => (l.includes(v) ? l.filter((x) => x !== v) : [...l, v]);
 
-export default function PainelDestinos() {
+// `abrir` vem da busca global do /admin: abre (e rola até) a cidade escolhida. `n` muda a cada pedido, para reabrir a mesma cidade.
+export default function PainelDestinos({ abrir: pedidoAbrir }: { abrir?: { id: string; n: number } | null }) {
   const [lista, setLista] = useState<Destino[] | null>(null);
   const [erro, setErro] = useState('');
   const [aviso, setAviso] = useState('');
@@ -172,6 +173,18 @@ export default function PainelDestinos() {
   };
 
   useEffect(() => {
+    if (!pedidoAbrir || !lista) return;
+    const d = lista.find((x) => x.slug === pedidoAbrir.id);
+    if (!d) return;
+    setAberto(d.slug);
+    setEditando({ ...d });
+    setAviso('');
+    setErro('');
+    setTimeout(() => document.getElementById(`destino-${d.slug}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pedidoAbrir?.n, lista === null]);
+
+  useEffect(() => {
     if (aberto && lista && (!editando || editando.slug !== aberto)) {
       const d = lista.find((x) => x.slug === aberto);
       if (d) setEditando({ ...d });
@@ -194,6 +207,11 @@ export default function PainelDestinos() {
     <div className="space-y-6">
       {erro && <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl text-xs">{erro}</div>}
       {aviso && <div className="bg-green-500/10 border border-green-500/20 text-green-400 p-3 rounded-xl text-xs">{aviso}</div>}
+
+      <div className="bg-[#21173A]/60 border border-[#3A2D66] rounded-2xl p-4 text-xs text-[#C9B6FF] leading-relaxed">
+        <b className="text-white">Procurando Fundador, plano ou posição de uma agência/hotel?</b> Destino é só a cidade. Quem tem plano é o <b className="text-white">local</b>:
+        use a busca no topo (tecla <b className="text-white">/</b>), digite o nome e abrimos o local pronto para editar.
+      </div>
 
       <div className="bg-[#161520] border border-[#232230] rounded-2xl p-4 text-xs text-[#A0A0B2] leading-relaxed">
         <b className="text-white">Fotos:</b> use só fotos próprias, de parceiros com autorização, de bancos com uso comercial liberado (Unsplash, Pexels) ou de bancos
@@ -234,7 +252,7 @@ export default function PainelDestinos() {
           const e = estaAberto ? editando! : d;
           const pendencias = [!d.foto_url && 'sem foto', d.foto_url && !d.foto_credito && 'sem crédito da foto', !d.vibe && 'sem frase', d.tags.length === 0 && 'sem tags'].filter(Boolean);
           return (
-            <div key={d.slug} className={`bg-[#161520] border rounded-2xl overflow-hidden ${d.ativo ? 'border-[#232230]' : 'border-dashed border-[#3A3850]'}`}>
+            <div key={d.slug} id={`destino-${d.slug}`} className={`scroll-mt-4 bg-[#161520] border rounded-2xl overflow-hidden ${d.ativo ? 'border-[#232230]' : 'border-dashed border-[#3A3850]'}`}>
               <div className="flex items-center gap-3 p-3">
                 <div className="w-20 h-14 rounded-lg overflow-hidden bg-[#21173A] flex items-center justify-center shrink-0">
                   {d.foto_url ? (

@@ -9,6 +9,7 @@ import PainelPontosProximos from '../../components/PainelPontosProximos';
 import PainelValidacaoHospedagem from '../../components/PainelValidacaoHospedagem';
 import PainelDestinos from '../../components/PainelDestinos';
 import PainelRoteiros from '../../components/PainelRoteiros';
+import BuscaGlobal from '../../components/BuscaGlobal';
 import PainelBanners from '../../components/PainelBanners';
 import PainelVitrine from '../../components/PainelVitrine';
 import PainelCategorias from '../../components/PainelCategorias';
@@ -503,7 +504,7 @@ function MENU_ADMIN(pendentes: number, locais: number, eventos: number, fundador
       { id: 'denuncias', rotulo: 'Denúncias', icone: ShieldAlert },
     ] },
     {
-      grupo: 'Cadastros',
+      grupo: 'Catálogo',
       itens: [
         { id: 'locais', rotulo: 'Locais', icone: Store, badge: locais },
         { id: 'eventos', rotulo: 'Eventos', icone: CalendarDays, badge: eventos },
@@ -622,6 +623,10 @@ export default function AdminPage() {
   // sempre visível, então dá pra confirmar o essencial sem abrir nada);
   // um clique mostra os controles de edição completos.
   const [localExpandido, setLocalExpandido] = useState<Record<string, boolean>>({});
+  // Pedidos da busca global: abrir um destino/roteiro dentro da aba dele (n muda a cada pedido, para reabrir o mesmo item).
+  const [pedidoDestino, setPedidoDestino] = useState<{ id: string; n: number } | null>(null);
+  const [pedidoRoteiro, setPedidoRoteiro] = useState<{ id: string; n: number } | null>(null);
+  const rolarPara = (id: string) => setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120);
   const [eventoExpandido, setEventoExpandido] = useState<Record<string, boolean>>({});
   // Rodada 48 — upload de flier/arte do evento direto do admin, mesmo
   // espírito de enviandoFoto (locais) abaixo, só que pra eventos.
@@ -1734,6 +1739,35 @@ Dicas LGBT+`;
       </aside>
 
       <main className="flex-1 min-w-0 p-5 md:p-8 max-w-6xl">
+      {/* Busca global: acha qualquer local, festa, destino ou roteiro e abre direto para editar (tecla "/" ou Ctrl+K). */}
+      <BuscaGlobal
+        locais={locaisDestaque.map((l) => ({ id: l.id, nome: l.nome, categoria: l.categoria, bairro: l.bairro, cidade: l.cidade, fundador: l.fundador }))}
+        eventos={eventosDestaque.map((e) => ({ id: e.id, titulo: e.titulo }))}
+        rotuloCategoria={(c) => CATEGORIA_REAL_LABEL_ADMIN[c] || c}
+        onAbrirLocal={(l) => {
+          setAba('locais');
+          setFiltroPrincipal('todas');
+          setFiltroPlano('todos');
+          setBuscaLocal(l.nome);
+          setLocalExpandido((atual) => ({ ...atual, [l.id]: true }));
+          rolarPara(`local-${l.id}`);
+        }}
+        onAbrirEvento={(e) => {
+          setAba('eventos');
+          setFiltroEventos('todos');
+          setBuscaEvento(e.titulo);
+          setEventoExpandido((atual) => ({ ...atual, [e.id]: true }));
+          rolarPara(`evento-${e.id}`);
+        }}
+        onAbrirDestino={(slug) => {
+          setAba('destinos');
+          setPedidoDestino((p) => ({ id: slug, n: (p?.n ?? 0) + 1 }));
+        }}
+        onAbrirRoteiro={(id) => {
+          setAba('roteiros');
+          setPedidoRoteiro((p) => ({ id, n: (p?.n ?? 0) + 1 }));
+        }}
+      />
       <p className="text-[10px] font-bold uppercase tracking-wider text-[#626274] mb-1">{GRUPO_DA_ABA[aba]}</p>
       <h1 className="text-2xl font-black mb-1">{aba === 'aprovacoes' && subAprov !== 'todas' ? `Aprovações · ${TITULO_SUB[subAprov]}` : TITULO_ABA[aba]}</h1>
       <p className="text-[#A0A0B2] text-xs mb-6">{aba === 'aprovacoes' && subAprov !== 'todas' ? 'Use o menu à esquerda, embaixo de Aprovações, para trocar de fila. Clique em "Aprovações" para ver tudo junto.' : SUBTITULO_ABA[aba]}</p>
@@ -2214,7 +2248,7 @@ Dicas LGBT+`;
             const aberto = experienciaAberta[l.id] ?? selecaoExperiencia.length > 0;
             const expandido = localExpandido[l.id] ?? false;
             return (
-            <div key={l.id} className="bg-[#161520] border border-[#232230] rounded-xl p-4 space-y-4 hover:border-[#33324A] transition">
+            <div key={l.id} id={`local-${l.id}`} className="scroll-mt-4 bg-[#161520] border border-[#232230] rounded-xl p-4 space-y-4 hover:border-[#33324A] transition">
               <div className="flex items-start justify-between gap-3 flex-wrap">
                 <div className="min-w-0 flex-1">
                   <h3 className="font-bold text-sm truncate">{l.nome}</h3>
@@ -2599,7 +2633,7 @@ Dicas LGBT+`;
             const rascunho = lerRascunhoFixacao(ev.id, ev.destaque_secoes, ev.destaque_ate);
             const expandidoEv = eventoExpandido[ev.id] ?? false;
             return (
-            <div key={ev.id} className="bg-[#161520] border border-[#232230] rounded-xl p-4 space-y-3">
+            <div key={ev.id} id={`evento-${ev.id}`} className="scroll-mt-4 bg-[#161520] border border-[#232230] rounded-xl p-4 space-y-3">
               <div className="flex justify-between items-center gap-4">
                 <div className="flex items-center gap-3">
                   {/* Rodada 48 — miniatura do flier, sempre visível (não
@@ -2744,8 +2778,8 @@ Dicas LGBT+`;
           existia dentro de "Escolha pela experiência"). Nada de mecanismo
           novo — alternarFundador/enviarFotoLocal/enviarArteMarketing já
           existiam, só ganharam um lugar mais fácil de achar. */}
-      {aba === 'destinos' && <PainelDestinos />}
-      {aba === 'roteiros' && <PainelRoteiros />}
+      {aba === 'destinos' && <PainelDestinos abrir={pedidoDestino} />}
+      {aba === 'roteiros' && <PainelRoteiros abrir={pedidoRoteiro} />}
       {aba === 'push' && <PainelPush />}
       {aba === 'banners' && <PainelBanners />}
       {aba === 'vitrine' && <PainelVitrine />}

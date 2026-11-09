@@ -63,7 +63,8 @@ async function subirFoto(pasta: string, arquivo: File): Promise<string> {
   return supabase.storage.from('fotos-destinos').getPublicUrl(caminho).data.publicUrl;
 }
 
-export default function PainelRoteiros() {
+// `abrir` vem da busca global do /admin: abre (e rola até) o roteiro escolhido. `n` muda a cada pedido.
+export default function PainelRoteiros({ abrir: pedidoAbrir }: { abrir?: { id: string; n: number } | null }) {
   const [lista, setLista] = useState<Roteiro[] | null>(null);
   const [destinos, setDestinos] = useState<Destino[]>([]);
   const [aberto, setAberto] = useState<string | null>(null);
@@ -113,6 +114,23 @@ export default function PainelRoteiros() {
     const { data } = await supabase.from('locais').select('id, nome').eq('status', 'aprovado').eq('cidade', r.cidade).order('nome').limit(300);
     setLocaisCidade((data as { id: string; nome: string }[]) || []);
   };
+
+  useEffect(() => {
+    if (!pedidoAbrir || !lista) return;
+    const r = lista.find((x) => x.id === pedidoAbrir.id);
+    if (!r) return;
+    (async () => {
+      setErro('');
+      setAviso('');
+      setAberto(r.id);
+      setEd({ ...r });
+      await carregarParadas(r.id);
+      const { data } = await supabase.from('locais').select('id, nome').eq('status', 'aprovado').eq('cidade', r.cidade).order('nome').limit(300);
+      setLocaisCidade((data as { id: string; nome: string }[]) || []);
+      setTimeout(() => document.getElementById(`roteiro-${r.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pedidoAbrir?.n, lista === null]);
 
   const criar = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -311,7 +329,7 @@ export default function PainelRoteiros() {
         {lista.map((r, idx) => {
           const estaAberto = aberto === r.id && ed?.id === r.id;
           return (
-            <div key={r.id} className={`bg-[#161520] border rounded-2xl overflow-hidden ${r.status === 'publicado' ? 'border-[#232230]' : 'border-dashed border-[#3A3850]'}`}>
+            <div key={r.id} id={`roteiro-${r.id}`} className={`scroll-mt-4 bg-[#161520] border rounded-2xl overflow-hidden ${r.status === 'publicado' ? 'border-[#232230]' : 'border-dashed border-[#3A3850]'}`}>
               <div className="flex items-center gap-3 p-3">
                 <div className="w-20 h-14 rounded-lg overflow-hidden bg-[#21173A] flex items-center justify-center shrink-0">
                   {r.foto_url ? (
