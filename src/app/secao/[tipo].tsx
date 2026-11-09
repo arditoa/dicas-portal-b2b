@@ -55,7 +55,7 @@ function eventoTemTag(ev: any, slug: string): boolean {
 }
 function tagsDoGrupo(ev: any, grupo: string): string[] {
   const g = GRUPOS_EVENTO.find((x) => x.id === grupo);
-  return g ? g.tags.filter((label) => label !== 'Todos os públicos' && eventoTemTag(ev, slugTag(label))) : [];
+  return g ? g.tags.filter((label) => label !== 'Para Todes' && eventoTemTag(ev, slugTag(label))) : [];
 }
 
 type Tipo = 'servicos' | 'trip' | 'em-alta' | 'hoje' | 'semana' | 'experiencia';
@@ -318,7 +318,7 @@ export default function SecaoScreen() {
     // nenhum item tenha a tag: quem tem resultado vem primeiro na lista, o resto logo depois.
     const catalogo = (grupo: string, pega: (m: MetaHoje) => string[], so?: string[]) => {
       const existentes = unicas(pega);
-      const todos = (GRUPOS_EVENTO.find((g) => g.id === grupo)?.tags || []).filter((x) => x !== 'Todos os públicos' && (!so || so.includes(x)));
+      const todos = (GRUPOS_EVENTO.find((g) => g.id === grupo)?.tags || []).filter((x) => x !== 'Para Todes' && (!so || so.includes(x)));
       return [...todos.filter((x) => existentes.includes(x)), ...todos.filter((x) => !existentes.includes(x))];
     };
     return [

@@ -25,6 +25,7 @@ export const SUBCATEGORIAS_APP: Record<string, { titulo: string; itens: { chave:
       { chave: 'festa tematica', rotulo: 'Festa Temática' },
     ],
   },
+  // Categoria real 'eventos' = a mesma Festas & Eventos (a chave `festas` é o slug usado nos painéis de categoria/subcategoria).
   gastronomia: {
     titulo: 'Gastronomia',
     itens: [
@@ -138,3 +139,8 @@ export const SUBCATEGORIAS_APP: Record<string, { titulo: string; itens: { chave:
     ],
   },
 };
+
+// A categoria real do banco 'eventos' usa as mesmas subcategorias de Festas & Eventos. Alias não enumerável:
+// busca por categoria real (cadastro, Locais, Posição no app) acha a lista, mas painéis que percorrem a lista
+// (ex.: Subcategorias da Vitrine) não mostram Festas duas vezes.
+Object.defineProperty(SUBCATEGORIAS_APP, 'eventos', { value: SUBCATEGORIAS_APP.festas, enumerable: false });

@@ -129,6 +129,7 @@ async function enviarFotoCapaLocal(localId: string, arquivo: File): Promise<stri
 // "Em breve".
 const CATEGORIAS = [
   { value: 'lugares', label: 'Bares', disabled: false, emBreve: false },
+  { value: 'eventos', label: 'Festas & Eventos', disabled: false, emBreve: false }, // casa/produtora de festas — categoria própria com subcategorias (a data de cada festa continua em /cadastro/evento)
   { value: 'gastronomia', label: 'Gastronomia', disabled: false, emBreve: false },
   { value: 'cultura', label: 'Cultura', disabled: false, emBreve: false },
   { value: 'turismo', label: 'Turismo / Agências de turismo', disabled: false, emBreve: false },

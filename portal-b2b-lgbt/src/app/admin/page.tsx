@@ -228,7 +228,7 @@ type LocalDestaque = {
 const CATEGORIA_CHIPS: { slug: string; label: string; categoriaReal: string | null }[] = [
   { slug: 'bares', label: 'Bares', categoriaReal: 'lugares' },
   { slug: 'gastronomia', label: 'Gastronomia', categoriaReal: 'gastronomia' },
-  { slug: 'festas', label: 'Festas', categoriaReal: null }, // eventos ficam na tabela `eventos`, não em `locais` — ver seção de eventos mais abaixo
+  { slug: 'festas', label: 'Festas', categoriaReal: 'eventos' }, // Festas & Eventos: categoria própria de local (enum 'eventos'), com subcategorias; a agenda de datas fica na tabela `eventos`
   { slug: 'artistas', label: 'Artistas', categoriaReal: 'artistas' }, // categoria nova — migration 069
   { slug: 'cultura', label: 'Cultura', categoriaReal: 'cultura' },
   { slug: 'dicas_trip', label: 'Dicas Trip', categoriaReal: 'turismo' },
@@ -243,6 +243,7 @@ const CATEGORIA_CHIPS: { slug: string; label: string; categoriaReal: string | nu
 
 const CATEGORIA_REAL_LABEL_ADMIN: Record<string, string> = {
   lugares: 'Bares',
+  eventos: 'Festas',
   gastronomia: 'Gastronomia',
   cultura: 'Cultura',
   turismo: 'Dicas Trip',

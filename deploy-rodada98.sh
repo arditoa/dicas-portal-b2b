@@ -4,7 +4,7 @@
 #  Vitrine de vendas (categoria Destaques, banner de patrocínio, ofertas com limite por plano, comunicação dos fundadores),
 #  Membros Fundadores em cartão largo, página e card do Museu, Pacotes separado de Agências.
 # ANTES: no SQL Editor do Supabase, uma de cada vez, nesta ordem (as que já rodou, pule):
-#   047, 048, 049, 050_banners_app, 051_banner_museu, 052_pacotes_agencias, 053_categoria_educacao (SOZINHA), 054_pacotes_destino_duracao, 055_arte_destaque_home, 056_status_aberto (SOZINHA), 057_bucket_avatares, 058_perfil_privado, 059_vitrine_ofertas_patrocinio, 060_destaque_chamada, 061_ofertas_exemplo_equipe, 062_exemplo_patrocinio_bares, 063_ligar_exemplo_ambev_teste, 064_forcar_ambev_e_permissoes
+#   047, 048, 049, 050_banners_app, 051_banner_museu, 052_pacotes_agencias, 053_categoria_educacao (SOZINHA), 054_pacotes_destino_duracao, 055_arte_destaque_home, 056_status_aberto (SOZINHA), 057_bucket_avatares, 058_perfil_privado, 059_vitrine_ofertas_patrocinio, 060_destaque_chamada, 061_ofertas_exemplo_equipe, 062_exemplo_patrocinio_bares, 063_ligar_exemplo_ambev_teste, 064_forcar_ambev_e_permissoes, 065_subcategoria_config
 cd "$(dirname "$0")" || exit 1
 git add src portal-b2b-lgbt/src supabase-migration ':!src/assets/images/*(2).png' \
   package.json package-lock.json app.json deploy-rodada98.sh

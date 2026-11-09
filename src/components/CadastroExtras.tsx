@@ -85,7 +85,7 @@ export function PassoSobreVoce({ valor, onMudar }: PassoProps) {
   );
 }
 
-const GRUPO = (id: string) => (GRUPOS_EVENTO.find((g) => g.id === id)?.tags || []).filter((t) => t !== 'Todos os públicos');
+const GRUPO = (id: string) => (GRUPOS_EVENTO.find((g) => g.id === id)?.tags || []).filter((t) => t !== 'Para Todes');
 const EXPERIENCIAS_CADASTRO = ['Para dançar', 'Para conhecer pessoas', 'Para ir com amigos', 'Romântico', 'Cultural', 'Ao ar livre', 'Arte e diversidade', 'Orgulho LGBT+'];
 
 export function PassoGostos({ valor, onMudar }: PassoProps) {

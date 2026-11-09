@@ -99,6 +99,7 @@ function tagsAgrupadas(ev: Evento) {
     if (legado.some((l) => ev.estilos_musicais?.includes(l) || ev.publico_tags?.includes(l))) slugs.add(slug);
   }
   slugs.delete('todos_os_publicos');
+  slugs.delete('para_todes');
   return GRUPOS_EVENTO.map((g) => ({ titulo: g.titulo, tags: g.tags.map(slugTag).filter((t) => slugs.has(t)) })).filter((g) => g.tags.length > 0);
 }
 

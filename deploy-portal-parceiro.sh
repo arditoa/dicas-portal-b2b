@@ -1,6 +1,6 @@
 #!/bin/bash
 # Sobe SO o portal do parceiro (B2B + admin) para o GitHub. A Vercel publica sozinha depois do push.
-# Nao envia o app (src/), so portal-b2b-lgbt/src e as migrations 058 a 078.
+# Nao envia o app (src/), so portal-b2b-lgbt/src e as migrations 058 a 081.
 #
 # Uso (Terminal do Mac):
 #   bash ~/Projetos/meu-app-isolado/deploy-portal-parceiro.sh
@@ -16,7 +16,7 @@ echo "OK: sem erros."
 
 echo ""
 echo "=== 2/4 Banco de dados ==="
-echo "O portal novo usa tabelas e funcoes das migrations 058 a 078."
+echo "O portal novo usa tabelas e funcoes das migrations 058 a 081."
 echo "Rode no SQL Editor do Supabase, uma por vez e em ordem (069 e 070 sozinhas)."
 read -p "Ja rodou todas as migrations pendentes? (s/n) " ok
 if [ "$ok" != "s" ]; then
@@ -27,7 +27,7 @@ fi
 echo ""
 echo "=== 3/4 Separando os arquivos do portal ==="
 git add portal-b2b-lgbt/src \
-  supabase-migration/05[89]*.sql supabase-migration/06*.sql supabase-migration/07[0-8]*.sql
+  supabase-migration/05[89]*.sql supabase-migration/06*.sql supabase-migration/0[78][0-9]*.sql
 if git diff --cached --name-only | grep -q -i -E "(^|/)\.env|\.csv$|042_pipeline_dados_iniciais|\.tgz$|^dist/|service_role|google-services\.json"; then
   echo "ERRO: entrou no commit um arquivo que nao deveria (env, csv, backup, dist ou chave). Cancelando."
   git reset -q

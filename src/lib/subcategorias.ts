@@ -17,13 +17,13 @@ export const SUBCATEGORIAS: Record<string, SubDef[]> = {
   // Bares & Vida Noturna
   lugares: [
     def('Botecos & Bares Tradicionais', 'Botecos e Bares', 'users', ['bar', 'bares', 'bar lgbt', 'boteco', 'botequim', 'bar tradicional', 'petiscos', 'cerveja de garrafa']),
-    def('Pubs & Cervejarias', 'Pubs e Cervejarias', 'droplet', ['pub', 'pubs', 'choperia', 'chopperia', 'cervejaria', 'cervejaria artesanal', 'brewpub', 'taproom', 'chopp artesanal']),
-    def('Coquetelaria & Speakeasies', 'Coquetelaria', 'triangle', ['coquetelaria', 'coquetelarias', 'drinks', 'drink', 'mixologia', 'speakeasy', 'cocktail', 'coquetel', 'bar de drinks']),
-    def('Wine Bars', 'Wine Bars', 'heart', ['wine bar', 'wine bars', 'vinho', 'vinhos', 'enoteca', 'adega', 'espumante']),
-    def('Gastrobares & Lounges', 'Gastrobares e Lounges', 'sun', ['gastrobar', 'gastrobares', 'lounge', 'lounges', 'rooftop', 'rooftops', 'terraco', 'sky bar', 'skybar']),
+    def('Café Bar & Bar e Restaurante', 'Café Bar e Restaurante', 'coffee', ['cafe bar', 'bar e restaurante', 'bar restaurante', 'bar & restaurante', 'bar-restaurante']),
+    def('Pubs e Cervejarias', 'Pubs e Cervejarias', 'droplet', ['pubs & cervejarias', 'pub', 'pubs', 'choperia', 'chopperia', 'cervejaria', 'cervejaria artesanal', 'brewpub', 'taproom', 'chopp artesanal']),
+    def('Coquetelaria', 'Coquetelaria', 'triangle', ['coquetelaria & speakeasies', 'coquetelarias', 'drinks', 'drink', 'mixologia', 'speakeasy', 'cocktail', 'coquetel', 'bar de drinks']),
+    def('Bares com Atrações & Música ao Vivo', 'Atrações e Música ao vivo', 'music', ['musica ao vivo & rodas de samba', 'musica ao vivo', 'ao vivo', 'show', 'shows', 'sertanejo', 'pagode', 'samba', 'roda de samba', 'forro', 'mpb', 'jazz', 'rock', 'banda', 'bares interativos & esportes', 'karaoke', 'karaoke bar', 'sinuca', 'fliperama', 'jogos de tabuleiro', 'sports bar', 'bar esportivo', 'telao', 'boliche', 'bar com atracoes', 'bares com atracoes', 'atracoes']),
+    def('Wine Bar', 'Wine Bar', 'heart', ['wine bars', 'vinho', 'vinhos', 'enoteca', 'adega', 'espumante']),
+    def('Gastrobar e Lounges', 'Gastrobar e Lounges', 'sun', ['gastrobares & lounges', 'gastrobar', 'gastrobares', 'lounge', 'lounges', 'rooftop', 'rooftops', 'terraco', 'sky bar', 'skybar']),
     def('Casas Noturnas & Boates', 'Baladas e Boates', 'disc', ['balada', 'baladas', 'baladas e clubes', 'club', 'clube', 'boate', 'boates', 'night', 'nightclub', 'casa noturna', 'dance', 'danceteria', 'drag', 'drag show', 'drag e shows', 'cabare', 'cabaret', 'performance']),
-    def('Música ao Vivo & Rodas de Samba', 'Música ao vivo', 'music', ['musica ao vivo', 'ao vivo', 'show', 'shows', 'sertanejo', 'pagode', 'samba', 'roda de samba', 'forro', 'mpb', 'jazz', 'rock', 'banda']),
-    def('Bares Interativos & Esportes', 'Jogos e Esportes', 'target', ['karaoke', 'karaoke bar', 'karaokê', 'sinuca', 'fliperama', 'jogos de tabuleiro', 'sports bar', 'bar esportivo', 'telao', 'boliche']),
   ],
   // Festas & Eventos
   festas: [
@@ -45,25 +45,25 @@ export const SUBCATEGORIAS: Record<string, SubDef[]> = {
   ],
   // Gastronomia
   gastronomia: [
-    def('Restaurantes Tradicionais & À la Carte', 'Restaurantes', 'award', ['restaurante', 'restaurantes', 'a la carte', 'massas', 'carnes', 'cozinha regional', 'comida regional', 'self service', 'bistro']),
+    def('Comida Brasileira & À la Carte', 'Brasileira e À la Carte', 'award', ['restaurantes tradicionais & a la carte', 'restaurante', 'restaurantes', 'a la carte', 'massas', 'carnes', 'cozinha regional', 'comida regional', 'self service', 'bistro', 'comida brasileira', 'brasileira', 'culinaria brasileira']),
     def('Hamburguerias, Lanches & Fast Food', 'Hambúrguer e Lanches', 'shopping-bag', ['hamburgueria', 'hamburguerias', 'hamburguer', 'lanche', 'lanches', 'lanchonete', 'fast food', 'sanduiche']),
-    def('Pizzarias & Esfiharias', 'Pizzarias', 'pie-chart', ['pizza', 'pizzaria', 'pizzarias', 'esfiha', 'esfiharia', 'esfirra']),
-    def('Culinária Japonesa & Asiática', 'Japonesa e Asiática', 'globe', ['japonesa', 'japones', 'sushi', 'temaki', 'asiatica', 'oriental', 'chinesa', 'coreana', 'tailandesa', 'culinaria japonesa']),
-    def('Cafeterias, Docerias & Padarias Artesanais', 'Cafés e Doces', 'coffee', ['cafe', 'cafes', 'cafeteria', 'cafeterias', 'doceria', 'docerias', 'padaria', 'padarias', 'confeitaria', 'sorveteria', 'brunch']),
-    def('Churrascarias & Parrillas', 'Churrasco', 'grid', ['churrasco', 'churrascaria', 'churrascarias', 'parrilla', 'parrillas', 'rodizio', 'steakhouse']),
+    def('Pizzarias', 'Pizzarias', 'pie-chart', ['pizzarias & esfiharias', 'pizza', 'pizzaria', 'esfiha', 'esfiharia', 'esfirra']),
+    def('Culinária Árabe, Oriental & Internacional', 'Culinária do Mundo', 'globe', ['culinaria japonesa & asiatica', 'japonesa', 'japones', 'sushi', 'temaki', 'asiatica', 'oriental', 'chinesa', 'coreana', 'tailandesa', 'culinaria japonesa', 'culinaria arabe', 'arabe', 'libanesa', 'kibe', 'comida oriental', 'culinaria internacional', 'internacional', 'italiana', 'mexicana', 'francesa', 'portuguesa', 'indiana', 'peruana', 'espanhola']),
+    def('Cafeterias, Padarias, Docerias & Sorveterias', 'Cafés e Doces', 'coffee', ['cafeterias, docerias & padarias artesanais', 'cafe', 'cafes', 'cafeteria', 'cafeterias', 'doceria', 'docerias', 'padaria', 'padarias', 'confeitaria', 'sorveteria', 'brunch', 'cafeterias e padarias', 'docerias e sorveterias', 'sorvete', 'sorvetes', 'gelateria', 'acai']),
+    def('Churrascarias', 'Churrasco', 'grid', ['churrascarias & parrillas', 'churrasco', 'churrascaria', 'parrilla', 'parrillas', 'rodizio', 'steakhouse']),
     def('Saudável, Vegano & Vegetariano', 'Saudável e Vegano', 'feather', ['saudavel', 'vegano', 'vegana', 'vegetariano', 'vegetariana', 'plant based', 'natural', 'fit', 'organico']),
     def('Frutos do Mar & Pescados', 'Frutos do Mar', 'anchor', ['frutos do mar', 'peixe', 'peixes', 'pescado', 'pescados', 'camarao', 'marisqueira', 'moqueca']),
   ],
   // Cultura
   cultura: [
-    def('Cinemas & Cineclubes', 'Cinemas', 'film', ['cinema', 'cinemas', 'cineclube', 'cineclubes', 'sala de cinema']),
+    def('Cinemas', 'Cinemas', 'film', ['cinemas & cineclubes', 'cinema', 'cineclube', 'cineclubes', 'sala de cinema']),
     def('Teatros, Dança & Circo', 'Teatro e Dança', 'smile', ['teatro', 'teatros', 'danca', 'circo', 'espetaculo', 'cabare', 'ballet']),
-    def('Museus, Galerias & Exposições', 'Museus e Galerias', 'image', ['museu', 'museus', 'galeria', 'galerias', 'exposicao', 'exposicoes', 'arte', 'galeria de arte']),
-    def('Centros Culturais & Casas de Memória', 'Centros Culturais', 'home', ['centro cultural', 'centros culturais', 'casa de cultura', 'casa de memoria', 'memorial', 'espaco cultural']),
-    def('Livrarias, Sebos & Bibliotecas', 'Livrarias e Sebos', 'book', ['livraria', 'livrarias', 'sebo', 'sebos', 'biblioteca', 'bibliotecas']),
-    def('Shows Acústicos, Óperas & Orquestras', 'Shows e Orquestras', 'music', ['show acustico', 'shows acusticos', 'acustico', 'opera', 'operas', 'orquestra', 'orquestras', 'concerto', 'musica classica']),
-    def('Saraus, Batalhas de Rima & Slam', 'Saraus e Slam', 'mic', ['sarau', 'saraus', 'batalha de rima', 'batalhas de rima', 'slam', 'poesia', 'rima', 'rap']),
-    def('Patrimônio Histórico & Visitas Guiadas', 'Patrimônio e Visitas', 'map-pin', ['patrimonio', 'patrimonio historico', 'historico', 'visita guiada', 'visitas guiadas', 'tour historico', 'monumento']),
+    def('Museus, Galerias e Exposições', 'Museus e Galerias', 'image', ['museus, galerias & exposicoes', 'museu', 'museus', 'galeria', 'galerias', 'exposicao', 'exposicoes', 'arte', 'galeria de arte']),
+    def('Centros Culturais', 'Centros Culturais', 'home', ['centros culturais & casas de memoria', 'centro cultural', 'casa de cultura', 'casa de memoria', 'memorial', 'espaco cultural', 'patrimonio historico & visitas guiadas', 'patrimonio', 'patrimonio historico', 'historico', 'visita guiada', 'visitas guiadas', 'tour historico', 'monumento']),
+    def('Livrarias e Bibliotecas', 'Livrarias e Bibliotecas', 'book', ['livrarias, sebos & bibliotecas', 'livraria', 'livrarias', 'sebo', 'sebos', 'biblioteca', 'bibliotecas']),
+    def('Shows Acústicos', 'Shows Acústicos', 'music', ['show acustico', 'acustico', 'shows acusticos & operas & orquestras', 'shows acusticos, operas & orquestras']),
+    def('Óperas e Orquestras', 'Óperas e Orquestras', 'star', ['opera', 'operas', 'orquestra', 'orquestras', 'concerto', 'musica classica', 'sinfonica']),
+    def('Saraus', 'Saraus', 'mic', ['saraus, batalhas de rima & slam', 'sarau', 'batalha de rima', 'batalhas de rima', 'slam', 'poesia', 'rima', 'rap']),
   ],
   // Serviços
   servicos: [
@@ -109,24 +109,24 @@ export const SUBCATEGORIAS: Record<string, SubDef[]> = {
   // Beleza & Estética
   beleza: [
     def('Salões de Beleza & Cabeleireiros', 'Salões', 'scissors', ['salao', 'saloes', 'salao de beleza', 'cabelereiro', 'cabelereiros', 'cabeleireiro', 'cabeleireiros', 'cabelo', 'corte', 'tintura', 'coloracao', 'penteado', 'hair']),
-    def('Barbearias & Barbaterapia', 'Barbearias', 'user', ['barbearia', 'barbearias', 'barbeiro', 'barbaterapia', 'barba']),
-    def('Unhas, Manicure & Pedicure', 'Unhas', 'droplet', ['unha', 'unhas', 'manicure', 'pedicure', 'nail', 'alongamento', 'esmaltacao']),
-    def('Design de Sobrancelhas, Cílios & Micropigmentação', 'Sobrancelhas e Cílios', 'eye', ['sobrancelha', 'sobrancelhas', 'cilios', 'micropigmentacao', 'design de sobrancelhas', 'lash', 'brow']),
-    def('Estética Facial', 'Estética Facial', 'smile', ['estetica facial', 'limpeza de pele', 'peeling', 'botox', 'harmonizacao', 'harmonizacao facial', 'preenchimento', 'dermato']),
-    def('Estética Corporal & Massoterapia', 'Corporal e Massagem', 'wind', ['estetica corporal', 'massoterapia', 'massagem', 'drenagem', 'drenagem linfatica', 'modeladora', 'spa', 'estetica']),
-    def('Depilação & Laser', 'Depilação e Laser', 'zap', ['depilacao', 'depilacao a laser', 'laser', 'cera', 'epilacao']),
-    def('Maquiagem Social & Noivas', 'Maquiagem e Noivas', 'star', ['maquiagem', 'make', 'makeup', 'maquiador', 'maquiadora', 'noiva', 'noivas', 'automaquiagem']),
+    def('Barbearias', 'Barbearias', 'user', ['barbearias & barbaterapia', 'barbearia', 'barbeiro', 'barbaterapia', 'barba']),
+    def('Manicure e Pedicure', 'Manicure e Pedicure', 'droplet', ['unhas, manicure & pedicure', 'unha', 'unhas', 'manicure', 'pedicure', 'nail', 'alongamento', 'esmaltacao']),
+    def('Sobrancelhas, Cílios & Micropigmentação', 'Sobrancelhas e Cílios', 'eye', ['design de sobrancelhas, cilios & micropigmentacao', 'sobrancelha', 'sobrancelhas', 'cilios', 'micropigmentacao', 'design de sobrancelhas', 'lash', 'brow']),
+    def('Estética Facial', 'Estética Facial', 'smile', ['limpeza de pele', 'peeling', 'botox', 'harmonizacao', 'harmonizacao facial', 'preenchimento', 'dermato']),
+    def('Estética Corporal e Massoterapia', 'Corporal e Massagem', 'wind', ['estetica corporal & massoterapia', 'estetica corporal', 'massoterapia', 'massagem', 'drenagem', 'drenagem linfatica', 'modeladora', 'spa', 'estetica']),
+    def('Depilação e Laser', 'Depilação e Laser', 'zap', ['depilacao & laser', 'depilacao', 'depilacao a laser', 'laser', 'cera', 'epilacao']),
+    def('Maquiagem', 'Maquiagem', 'star', ['maquiagem social & noivas', 'make', 'makeup', 'maquiador', 'maquiadora', 'noiva', 'noivas', 'automaquiagem']),
   ],
   // Espaços 18+
   mais18: [
-    def('Sex Shops & Lingeries Sensuais', 'Sex Shops e Lingerie', 'shopping-bag', ['sex shop', 'sexshop', 'sex shops', 'lingerie', 'lingeries', 'lingerie sensual', 'erotico', 'produtos eroticos']),
+    def('Festas 18+', 'Festas 18+', 'zap', ['festa 18+', 'festas 18', 'festa 18', 'festa adulta', 'festas adultas', 'festa erotica']),
+    def('Sex Shops', 'Sex Shops', 'shopping-bag', ['sex shops & lingeries sensuais', 'sex shop', 'sexshop', 'lingerie', 'lingeries', 'lingerie sensual', 'erotico', 'produtos eroticos']),
     def('Motéis & Suítes Temáticas', 'Motéis', 'key', ['motel', 'moteis', 'suite', 'suites tematicas', 'love hotel']),
-    def('Casas Noturnas Adultas & Clubes de Strip', 'Casas Noturnas Adultas', 'moon', ['casa noturna adulta', 'strip', 'strip club', 'clube de strip', 'striptease', 'boate adulta']),
-    def('Saunas & Clubes Liberais Masculinos/Gays', 'Saunas e Clubes', 'thermometer', ['sauna', 'saunas', 'sauna gay', 'clube liberal', 'clubes liberais', 'dark room', 'darkroom']),
-    def('Clubes de Swing & Festas Liberais', 'Swing e Festas Liberais', 'users', ['swing', 'clube de swing', 'festa liberal', 'festas liberais', 'liberal', 'liberais']),
-    def('Boates & Lounges Adultos (Privês)', 'Lounges Adultos', 'lock', ['prive', 'prives', 'boate adulta', 'lounge adulto', 'lounges adultos', 'boates adultas']),
-    def('Cinemas & Cabines Adultas', 'Cinemas e Cabines', 'film', ['cinema adulto', 'cabine', 'cabines', 'cabines adultas', 'cinema porno']),
-    def('Tattoo & Body Piercing Sensual / BDSM', 'Tattoo, Piercing e BDSM', 'pen-tool', ['tattoo', 'tatuagem', 'tatuador', 'piercing', 'body piercing', 'bdsm', 'fetiche', 'sensual']),
+    def('Cruising Bar & Dark Room', 'Cruising e Dark Room', 'lock', ['cruising', 'cruising bar', 'dark room', 'darkroom', 'dark-room']),
+    def('Cinemas & Cabines Adultas', 'Cinemas e Cabines', 'film', ['cinema adulto', 'cabine', 'cabines', 'cabines adultas', 'cinema porno', 'cinema 18+', 'cinema 18']),
+    def('Casas Noturnas, Boates & Cabaré Adultos', 'Boates e Cabaré Adultos', 'moon', ['casas noturnas adultas & clubes de strip', 'casa noturna adulta', 'strip', 'strip club', 'clube de strip', 'striptease', 'boate adulta', 'boates & lounges adultos (prives)', 'prive', 'prives', 'lounge adulto', 'lounges adultos', 'boates adultas', 'casas noturnas adultas', 'cabare', 'cabaret adulto']),
+    def('Saunas, Swing & Festas Liberais', 'Saunas e Swing', 'thermometer', ['saunas & clubes liberais masculinos/gays', 'sauna', 'saunas', 'sauna gay', 'clube liberal', 'clubes liberais', 'clubes de swing & festas liberais', 'swing', 'clube de swing', 'festa liberal', 'festas liberais', 'liberal', 'liberais']),
+    def('Tattoo, Piercing & BDSM', 'Tattoo, Piercing e BDSM', 'pen-tool', ['tattoo & body piercing sensual / bdsm', 'tattoo', 'tatuagem', 'tatuador', 'piercing', 'body piercing', 'bdsm', 'fetiche', 'sensual', 'tattoo & body piercing sensual', 'espaco bdsm']),
   ],
 };
 

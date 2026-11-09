@@ -20,3 +20,4 @@ supabase-migration/042_pipeline_dados_iniciais.sql
 .tmp-claude-*.tgz
 .backup-*.tgz
 .tsconfig.check.json
+.backup-sdk57/
