@@ -15,7 +15,7 @@ export const URL_PORTAL = 'https://dicas-portal-b2b-dun.vercel.app';
 // comercial pro botão "Quero ser Parceiro Fundador" — mesmo princípio:
 // variável de ambiente, com aviso visível em vez de link morto enquanto
 // não for preenchida. Rodada 59 — Andrea passou os valores reais
-// (Instagram @dicaslgbt, WhatsApp oficial).
+// (Instagram @dicaslgbtbrasil, WhatsApp oficial).
 // URL real do site institucional (Rodada 59 — domínio próprio confirmado
 // pela Andrea). Usado no metadata do layout (Open Graph / canonical).
 export const URL_SITE = 'https://www.dicaslgbt.com.br';
@@ -34,7 +34,7 @@ export const SUPORTE_EMAIL = process.env.NEXT_PUBLIC_SUPORTE_EMAIL || '';
 // funciona mesmo se a variável de ambiente da Vercel nunca for
 // preenchida, e continua substituível por env var se precisar trocar.
 export const SUPORTE_WHATSAPP = process.env.NEXT_PUBLIC_SUPORTE_WHATSAPP || '5511942942028';
-export const INSTAGRAM_URL = process.env.NEXT_PUBLIC_INSTAGRAM_URL || 'https://www.instagram.com/dicaslgbt/';
+export const INSTAGRAM_URL = process.env.NEXT_PUBLIC_INSTAGRAM_URL || 'https://www.instagram.com/dicaslgbtbrasil/';
 // WhatsApp comercial do time (Seção 1/2 da página Parceiro Fundador pede
 // "conversa comercial no WhatsApp") — pode ser o mesmo número de
 // SUPORTE_WHATSAPP ou um diferente; variável própria pra dar liberdade.

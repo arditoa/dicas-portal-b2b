@@ -1113,7 +1113,7 @@ export default function HomeScreen() {
           {[
             { label: t('rodape.site'), icone: 'globe', onPress: () => Linking.openURL('https://www.dicaslgbt.com.br') },
             { label: t('rodape.produtos'), icone: 'shopping-bag', onPress: () => router.push({ pathname: '/category/produtos' as any, params: { title: encodeURIComponent(t('rodape.produtos')) } }) },
-            { label: 'Instagram', icone: 'instagram', onPress: () => Linking.openURL('https://www.instagram.com/dicaslgbt/') },
+            { label: 'Instagram', icone: 'instagram', onPress: () => Linking.openURL('https://www.instagram.com/dicaslgbtbrasil/') },
             { label: t('rodape.parceiro'), icone: 'briefcase', onPress: () => Linking.openURL('https://www.dicaslgbt.com.br/parceiro-fundador') },
           ].map((l) => (
             <TouchableOpacity key={l.label} style={styles.rodapeLink} onPress={l.onPress} accessibilityRole="link">

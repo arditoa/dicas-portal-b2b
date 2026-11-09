@@ -129,7 +129,7 @@ export default function TermosDeUsoPage() {
               </li>
               <li>
                 Instagram:{' '}
-                <a href={INSTAGRAM_URL} className="underline hover:text-white">@dicaslgbt</a>
+                <a href={INSTAGRAM_URL} className="underline hover:text-white">@dicaslgbtbrasil</a>
               </li>
             </ul>
             <p className="mt-3 text-xs text-[#626274]">

@@ -129,7 +129,7 @@ export default function PrivacidadePage() {
               <li>
                 Instagram:{' '}
                 <a href={INSTAGRAM_URL} className="underline hover:text-white">
-                  @dicaslgbt
+                  @dicaslgbtbrasil
                 </a>
               </li>
             </ul>
