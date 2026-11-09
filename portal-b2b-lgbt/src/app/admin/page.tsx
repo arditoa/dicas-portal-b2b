@@ -10,6 +10,7 @@ import PainelValidacaoHospedagem from '../../components/PainelValidacaoHospedage
 import PainelDestinos from '../../components/PainelDestinos';
 import PainelRoteiros from '../../components/PainelRoteiros';
 import BuscaGlobal from '../../components/BuscaGlobal';
+import AdminMfa from '../../components/AdminMfa';
 import PainelBanners from '../../components/PainelBanners';
 import PainelVitrine from '../../components/PainelVitrine';
 import PainelCategorias from '../../components/PainelCategorias';
@@ -574,6 +575,8 @@ export default function AdminPage() {
   const router = useRouter();
   const [carregando, setCarregando] = useState(true);
   const [autorizado, setAutorizado] = useState(false);
+  // Segundo fator (app autenticador): 'ok' = sessão já em nível aal2; senão o painel só mostra a tela do código.
+  const [mfa, setMfa] = useState<'verificando' | 'ok' | 'cadastrar' | 'verificar'>('verificando');
 
   // Rodada 44 — nova navegação em abas pedida pela Andrea: Aba 1
   // "Aprovações" (fluxo de aprovação, tudo que já existia) e uma tela
@@ -874,6 +877,15 @@ export default function AdminPage() {
       }
 
       setAutorizado(true);
+
+      // Segundo fator: sem nível aal2 nada do painel carrega (nem as filas).
+      const aal = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (aal.error || aal.data?.currentLevel !== 'aal2') {
+        setMfa(aal.data?.nextLevel === 'aal2' ? 'verificar' : 'cadastrar');
+        setCarregando(false);
+        return;
+      }
+      setMfa('ok');
       await carregarFilas();
       setCarregando(false);
     })();
@@ -1553,6 +1565,10 @@ Dicas LGBT+`;
         <p className="text-[#A0A0B2] text-sm">Essa área é só para administradores.</p>
       </div>
     );
+  }
+
+  if (mfa === 'cadastrar' || mfa === 'verificar') {
+    return <AdminMfa modo={mfa} onConcluido={() => window.location.reload()} onSair={handleLogout} />;
   }
 
   // Rodada 30 — resumo rápido do que precisa de atenção, pra não ter que

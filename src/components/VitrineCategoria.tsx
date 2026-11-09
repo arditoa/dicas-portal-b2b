@@ -228,7 +228,8 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
       // Destaques: Intermediário + Fundador + equipe, 6 por vez a cada 6 horas (regra anterior).
       const posVaga = (o: OfertaVitrine) => { const e = Object.entries(vagas.intermediario).find(([, id]) => id === o.local_id); return e ? Number(e[0]) : 99; };
       const ord = ofertas.filter((o) => planoComOferta(o, true) || posVaga(o) < 99).sort((a, b) => posVaga(a) - posVaga(b) || (a.equipe ? 0 : 1) - (b.equipe ? 0 : 1) || a.id.localeCompare(b.id));
-      const vis = ord.length === 0 ? [] : janela(ord, slotOferta * OFERTAS_POR_VEZ, OFERTAS_POR_VEZ);
+      const visBruto = ord.length === 0 ? [] : janela(ord, slotOferta * OFERTAS_POR_VEZ, OFERTAS_POR_VEZ);
+      const vis = visBruto.filter((o, i) => visBruto.findIndex((p) => p.id === o.id) === i); // a janela gira em círculo: sem cupom repetido
       const out: SlotOferta[] = vis.map((o, i) => ({ oferta: o, rotulo: `Banner ${i + 1} Intermediário ${titulo}` }));
       if (MODO_DEMONSTRACAO) for (let n = out.length + 1; n <= OFERTAS_POR_VEZ; n++) out.push({ rotulo: `Banner ${n} Intermediário ${titulo}` });
       return out;
@@ -282,7 +283,14 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
     // Se um grupo tem menos de 3, o outro completa até 6.
     if (va.length < COM_GRUPO) vb = janela(b, slot30 * COM_GRUPO, OFERTAS_POR_VEZ - va.length);
     else if (vb.length < COM_GRUPO) va = janela(a, slot10 * COM_GRUPO, OFERTAS_POR_VEZ - vb.length);
-    return [...va, ...vb];
+    // A janela gira em círculo: com poucas ofertas o mesmo cupom pode voltar duas vezes na faixa. Mostra cada um só uma vez.
+    const vistos = new Set<string>();
+    return [...va, ...vb].filter((x) => {
+      if (!x.oferta) return true;
+      if (vistos.has(x.oferta.id)) return false;
+      vistos.add(x.oferta.id);
+      return true;
+    });
   }, [ofertas, slotOferta, slot10, slot30, slot, fundadores, vagas, titulo]);
   const ofertasHora = useMemo(() => slotsOferta.map((x) => x.oferta).filter(Boolean) as OfertaVitrine[], [slotsOferta]);
 
@@ -439,7 +447,7 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
               }
               return (
                 <TouchableOpacity
-                  key={o.id}
+                  key={`${o.id}-${idx}`}
                   activeOpacity={0.9}
                   style={s.cardOferta}
                   onPress={() => {
