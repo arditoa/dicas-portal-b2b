@@ -549,7 +549,7 @@ export default function PainelVitrine() {
                     </div>
                     <div className="grid md:grid-cols-2 gap-3">
                       <div><label className={label}>Botão leva para (vazio = página do local)</label><input className={input} value={c.destino} onChange={(e) => setComs({ ...coms, [f.id]: { ...c, destino: e.target.value } })} placeholder="/rota, https://... ou local:<id>" /></div>
-                      <div><label className={label}>Imagem do destaque (URL, opcional)</label><input className={input} value={c.imagem_url} onChange={(e) => setComs({ ...coms, [f.id]: { ...c, imagem_url: e.target.value } })} /></div>
+                      <div><label className={label}>Foto do banner</label><p className="text-[11px] text-[#A0A0B2]">Agora a foto sobe direto na ficha do local: Locais e marcas &gt; {f.nome} &gt; Editar &gt; &ldquo;Banner de destaque (frase + foto)&rdquo;. Lá tem a prévia de como fica no app.</p></div>
                     </div>
                     <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={c.ativo} onChange={(e) => setComs({ ...coms, [f.id]: { ...c, ativo: e.target.checked } })} /> Ativo no app</label>
                     <div className="flex items-center gap-3 flex-wrap">

@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
   tituloCompacto: { fontSize: 14, fontWeight: '800', color: '#FFFFFF', lineHeight: 17 },
   setaCompacto: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
   marcaDagua: { position: 'absolute', right: -14, bottom: -18 },
-  cardComFoto: { flexDirection: 'row' },
+  cardComFoto: {},
   fotoMetade: { position: 'absolute', top: 0, right: 0, bottom: 0, width: '45%', backgroundColor: '#1C1B26' },
   corpoComFoto: { width: '55%', paddingRight: 12 },
   tituloComFoto: { fontSize: 13, lineHeight: 17 },
