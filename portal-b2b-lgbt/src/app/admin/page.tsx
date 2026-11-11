@@ -994,7 +994,7 @@ Dicas LGBT+`;
         const whatsappBruto = ev.contato_whatsapp || extraido?.whatsapp || null;
         if (whatsappBruto) {
           const telefone = normalizarTelefoneBR(whatsappBruto);
-          const mensagem = `Boas notícias${nomeContato ? `, ${nomeContato}` : ''}! Seu evento "${ev.titulo}" foi aprovado no Dicas LGBT+ 🏳️‍🌈. O app será lançado no dia 03/12, e seu evento já estará lá. Conte com a gente: pode me chamar aqui no WhatsApp sempre que precisar. Um abraço, Emerson (Dicas LGBT+)`;
+          const mensagem = `Boas notícias${nomeContato ? `, ${nomeContato}` : ''}! Seu evento "${ev.titulo}" foi aprovado no Dicas LGBT+ 🏳️‍🌈.\n\nO app será lançado no dia 03/12 para o público, e seu evento já estará lá.\n\nPara editar data, descrição, foto e Lista VIP, use o Portal de Parceiros: ${URL_PORTAL}/login\nSeu login é o seu WhatsApp. Se esqueceu a senha, me avise por aqui que eu envio uma nova.\n\nConte com a gente: pode me chamar aqui no WhatsApp sempre que precisar.\n\nUm abraço,\nEmerson\nDicas LGBT+`;
           setEventoAprovado({
             titulo: ev.titulo,
             telefone,

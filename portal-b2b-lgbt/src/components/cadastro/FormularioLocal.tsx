@@ -129,7 +129,7 @@ async function enviarFotoCapaLocal(localId: string, arquivo: File): Promise<stri
 // "Em breve".
 const CATEGORIAS = [
   { value: 'lugares', label: 'Bares', disabled: false, emBreve: false },
-  { value: 'eventos', label: 'Festas & Eventos', disabled: false, emBreve: false }, // casa/produtora de festas — categoria própria com subcategorias (a data de cada festa continua em /cadastro/evento)
+  { value: 'eventos', label: 'Festas — casa noturna, balada ou produtora (marca fixa)', disabled: false, emBreve: false }, // casa/produtora de festas — categoria própria com subcategorias (a data de cada festa continua em /cadastro/evento)
   { value: 'gastronomia', label: 'Gastronomia', disabled: false, emBreve: false },
   { value: 'cultura', label: 'Cultura', disabled: false, emBreve: false },
   { value: 'turismo', label: 'Turismo / Agências de turismo', disabled: false, emBreve: false },
@@ -597,6 +597,14 @@ export default function FormularioLocal({ onSucesso }: { onSucesso: (nome: strin
                   </option>
                 ))}
               </select>
+              {categoria === 'eventos' && (
+                <p className="mt-2 rounded-lg border border-[#E1306C]/30 bg-[#E1306C]/10 px-3 py-2 text-[11px] leading-relaxed text-[#F9A8C9]">
+                  Esta categoria é para quem tem uma <b>marca ou casa de festas fixa</b> (balada, casa noturna, produtora),
+                  com perfil próprio no app. Vai divulgar <b>uma festa com data marcada</b>? Use a aba{' '}
+                  <Link href="/onboarding?aba=evento" className="underline">Eventos e Festas</Link>. Depois de aprovado, você
+                  cadastra as próximas datas direto no portal.
+                </p>
+              )}
               {CATEGORIAS.find((c) => c.value === categoria)?.emBreve && (
                 <p className="mt-2 rounded-lg border border-[#A855F7]/30 bg-[#A855F7]/10 px-3 py-2 text-[11px] leading-relaxed text-[#D8B4FE]">
                   Esta categoria ainda não aparece no app, mas você já pode se cadastrar: a gente libera a categoria assim

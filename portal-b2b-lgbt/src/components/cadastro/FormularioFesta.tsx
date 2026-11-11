@@ -139,7 +139,16 @@ function toggleValue<T>(arr: T[], value: T): T[] {
   return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
 }
 
-export default function FormularioFesta({ onSucesso }: { onSucesso: (titulo: string, whatsapp: string, listaVip: boolean) => void }) {
+// `organizador`: quando quem cadastra já está logado no portal (dashboard/eventos/novo), o nome e o WhatsApp
+// vêm do perfil dele e o bloco de contato some — o evento nasce ligado à conta dele (gatilho do banco grava
+// criado_por = auth.uid()), então a aprovação não cria acesso novo nem manda senha.
+export default function FormularioFesta({
+  onSucesso,
+  organizador,
+}: {
+  onSucesso: (titulo: string, whatsapp: string, listaVip: boolean) => void;
+  organizador?: { nome: string; whatsapp: string };
+}) {
   const [titulo, setTitulo] = useState('');
   const [descricao, setDescricao] = useState('');
   const [dataInicio, setDataInicio] = useState('');
@@ -151,8 +160,8 @@ export default function FormularioFesta({ onSucesso }: { onSucesso: (titulo: str
   const [publicoTags] = useState<string[]>(['todos']);
   // Rodada 63 — tags oficiais da aba de festas (eventos.tags, migration 036)
   const [tagsEvento, setTagsEvento] = useState<string[]>([]);
-  const [nomeContato, setNomeContato] = useState('');
-  const [whatsapp, setWhatsapp] = useState('');
+  const [nomeContato, setNomeContato] = useState(organizador?.nome || '');
+  const [whatsapp, setWhatsapp] = useState(organizador?.whatsapp || '');
   const [flier, setFlier] = useState<File | null>(null);
   // Rodada 59 (parte 7) — Andrea pediu pra já oferecer a opção de Lista
   // VIP aqui no cadastro público, em vez de só depois no dashboard (ver
@@ -431,6 +440,33 @@ export default function FormularioFesta({ onSucesso }: { onSucesso: (titulo: str
 
           <div className="bg-[#12121A] border border-[#232230] rounded-2xl p-6 space-y-4">
             <h2 className="text-sm font-bold text-white">Contato do organizador</h2>
+            {organizador?.whatsapp ? (
+              <div className="space-y-3">
+                <p className="text-xs text-[#A0A0B2]">
+                  Você está cadastrando com o seu acesso ao portal. Contato do evento: WhatsApp{' '}
+                  <b className="text-white">{organizador.whatsapp}</b>.
+                </p>
+                {!organizador.nome && (
+                  <div>
+                    <label className={labelClass}>Seu nome</label>
+                    <input
+                      type="text"
+                      required
+                      value={nomeContato}
+                      onChange={(e) => setNomeContato(e.target.value)}
+                      className={inputClass}
+                      disabled={loading}
+                    />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <p className="text-xs text-[#A0A0B2]">
+                  Já tem acesso ao portal de parceiros?{' '}
+                  <Link href="/login" className="underline hover:text-white">Entre</Link> e cadastre o evento por lá,
+                  sem precisar preencher o contato de novo.
+                </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className={labelClass}>Nome</label>
@@ -461,6 +497,8 @@ export default function FormularioFesta({ onSucesso }: { onSucesso: (titulo: str
                 )}
               </div>
             </div>
+              </>
+            )}
           </div>
 
           <div className="bg-[#12121A] border border-[#232230] rounded-2xl p-6">

@@ -308,7 +308,12 @@ export default function DashboardEventosPage() {
     <div className="p-8 max-w-2xl mx-auto text-white">
 
       <div className="mb-8">
-        <h1 className="text-2xl font-black">Meus eventos</h1>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-2xl font-black">Meus eventos</h1>
+          <Link href="/dashboard/eventos/novo" className="bg-[#E1306C] hover:bg-[#C2285C] text-white text-xs font-bold px-4 py-2 rounded-xl whitespace-nowrap">
+            + Novo evento
+          </Link>
+        </div>
         <p className="text-[#A0A0B2] text-xs mt-1">
           Data, descrição e foto de capa das suas festas — o título é o mesmo que aparece no app.
           Mudar título ou data de uma festa já aprovada manda ela de volta pra análise antes de
@@ -323,7 +328,7 @@ export default function DashboardEventosPage() {
       {eventos.length === 0 && (
         <p className="text-xs text-[#626274]">
           Nenhum evento seu por aqui ainda. Cadastre uma festa em{' '}
-          <Link href="/onboarding?aba=evento" className="underline hover:text-white">cadastro de festas</Link>.
+          <Link href="/dashboard/eventos/novo" className="underline hover:text-white">cadastro de festas</Link>.
         </p>
       )}
 

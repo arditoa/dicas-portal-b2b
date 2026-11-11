@@ -105,7 +105,7 @@ export default function OnboardingPage() {
             <p className="text-gray-500 text-xs -mt-2">
               {aba === 'local'
                 ? 'Bares, restaurantes, hotéis e outros espaços físicos. Aparece no mapa, nas categorias e pode ganhar destaque.'
-                : 'Festas, shows e eventos avulsos — com ou sem local fixo. Divulgação pontual, com opção de venda de ingresso.'}
+                : 'Festas, shows e eventos avulsos, com data marcada. Divulgação pontual, com opção de venda de ingresso. Tem uma casa ou espaço fixo? Cadastre em Local / Comércio.'}
             </p>
 
             <div>
