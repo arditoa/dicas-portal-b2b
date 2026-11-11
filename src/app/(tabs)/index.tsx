@@ -1,4 +1,5 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
+import { estiloDoCartao } from '../../lib/estiloBanner';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -557,10 +558,10 @@ export default function HomeScreen() {
         tag: formatarNome(d.nome).toUpperCase(),
         titulo: com?.headline || com?.oferta || `Conheça ${formatarNome(d.nome)}`,
         cta: com?.cta || 'Conhecer',
-        fotoUrl: com?.imagem_url || null, // Rodada 136 — foto do fundador na metade direita
+        // Rodada 140 — estilo escolhido no portal: degradê, foto (direita/esquerda/fundo), cor dos dizeres e palavra de impacto.
+        ...estiloDoCartao(com, ['#B45309', '#9D174D'] as [string, string]),
         icone: 'star',
-        cor: '#F59E0B',
-        degrade: ['#B45309', '#9D174D'] as [string, string],
+        cor: estiloDoCartao(com, ['#B45309', '#9D174D'] as [string, string]).degrade[0],
         onPress: () => {
           registrarVitrine(d.id, 'home:destaques', 'clique');
           router.push(`/business/${d.id}` as any);

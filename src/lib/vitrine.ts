@@ -39,6 +39,13 @@ export type Comunicacao = {
   cta: string;
   destino: string;
   imagem_url: string | null;
+  // Rodada 140 — estilo do banner (destaque_chamada, migration 095). Vazio = degradê padrão e dizeres brancos.
+  estilo?: 'degrade' | 'foto_metade' | 'foto_esquerda' | 'foto_fundo' | null;
+  destaque_texto?: string | null;
+  cor_destaque?: string | null;
+  cor1?: string | null;
+  cor2?: string | null;
+  cor_texto?: string | null;
 };
 
 // Exemplo "Bares by Ambev" usado SÓ em desenvolvimento (Expo Go / __DEV__), quando o banco não devolve patrocínio de
@@ -136,10 +143,13 @@ export async function buscarComunicacao(ids: string[]): Promise<Record<string, C
     // sem a tabela (migration 059): segue
   }
   try {
-    const { data, error } = await supabase
+    let resp: any = await supabase
       .from('destaque_chamada')
-      .select('local_id, chamada, cta, imagem_url')
+      .select('local_id, chamada, cta, imagem_url, estilo, cor1, cor2, cor_texto, destaque_texto, cor_destaque')
       .in('local_id', ids);
+    // Sem a migration 095 (colunas de estilo): segue com o básico.
+    if (resp.error) resp = await supabase.from('destaque_chamada').select('local_id, chamada, cta, imagem_url').in('local_id', ids);
+    const { data, error } = resp;
     if (!error && data) {
       for (const r of data as any[]) {
         const base = mapa[r.local_id];
@@ -151,6 +161,12 @@ export async function buscarComunicacao(ids: string[]): Promise<Record<string, C
           cta: r.cta || base?.cta || 'Conhecer',
           destino: base?.destino || '',
           imagem_url: r.imagem_url || base?.imagem_url || null,
+          estilo: r.estilo ?? (r.imagem_url ? 'foto_metade' : null),
+          cor1: r.cor1 ?? null,
+          cor2: r.cor2 ?? null,
+          cor_texto: r.cor_texto ?? null,
+          destaque_texto: r.destaque_texto ?? null,
+          cor_destaque: r.cor_destaque ?? null,
         };
       }
     }

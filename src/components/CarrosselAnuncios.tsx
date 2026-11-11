@@ -3,6 +3,7 @@ import { ReactNode, useEffect, useRef, useState } from 'react';
 import { Image, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useReduzirMovimento } from '../hooks/useReduzirMovimento';
 import FundoCaixaDegrade from './FundoCaixaDegrade';
+import { partesDaFrase } from '../lib/estiloBanner';
 
 // Carrossel de anúncios da Home (no lugar do antigo cartão único da Copa):
 // cartão claro com etiqueta, título, botão e uma faixa colorida com ícone.
@@ -25,9 +26,20 @@ export type Anuncio = {
   // Rodada 136 — foto do parceiro (Fundador/Premium). Fica na metade direita do cartão; o texto fica na metade
   // esquerda, sobre o degradê, e nunca por cima da foto. Assim a foto nunca atrapalha a leitura dos dizeres.
   fotoUrl?: string | null;
+  // Rodada 140 — 'metade' (padrão): foto à direita, dizeres à esquerda. 'fundo': foto no cartão inteiro com véu escuro.
+  fotoModo?: 'metade' | 'esquerda' | 'fundo';
+  corTexto?: string | null; // cor dos dizeres (padrão branco)
+  destaqueTexto?: string | null; // palavra de impacto (pintada com corDestaque)
+  corDestaque?: string | null; // cor da palavra de impacto e do botão
 };
 
 const INTERVALO_MS = 5000;
+// Texto legível sobre a cor do botão: escuro em cores claras (amarelo, branco), branco nas demais.
+function textoSobre(hex: string): string {
+  const n = parseInt(hex.slice(1), 16);
+  const lum = 0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255);
+  return lum > 170 ? '#1A1020' : '#FFFFFF';
+}
 // Cartões de anúncio (futebol feminino, comércio LGBT, Câmara, Embratur): roxo escuro, texto claro.
 const COR_TILE = '#2B1259';
 const COR_TEXTO = '#FFFFFF';
@@ -96,7 +108,7 @@ export default function CarrosselAnuncios({ anuncios, onExibir, compacto = false
                       <Text style={styles.pilulaDegradeTxt} numberOfLines={1}>{a.tag}</Text>
                     </View>
                   )}
-                  <Text style={styles.tituloCompacto} numberOfLines={2}>{a.titulo}</Text>
+                  <Text style={[styles.tituloCompacto, a.corTexto ? { color: a.corTexto } : null]} numberOfLines={2}>{a.titulo}</Text>
                 </View>
                 {a.fotoUrl ? (
                   <View style={styles.fotoCompacto}>
@@ -111,24 +123,40 @@ export default function CarrosselAnuncios({ anuncios, onExibir, compacto = false
             ) : (
             <View style={[styles.cardDegrade, altura ? { height: altura } : null, a.fotoUrl ? styles.cardComFoto : null]}>
               <FundoCaixaDegrade id={`anc-${a.id}`} cores={a.degrade} />
-              {a.fotoUrl ? (
-                <View style={styles.fotoMetade}>
+              {a.fotoUrl && a.fotoModo === 'fundo' ? (
+                <>
+                  <Image source={{ uri: a.fotoUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                  <View style={styles.veuFundo} />
+                </>
+              ) : a.fotoUrl ? (
+                <View style={[styles.fotoMetade, a.fotoModo === 'esquerda' ? { right: undefined, left: 0 } : null]}>
                   <Image source={{ uri: a.fotoUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
                 </View>
               ) : (
               <Feather name={a.icone} size={132} color="rgba(255,255,255,0.16)" style={styles.marcaDagua} />
               )}
-              <View style={[styles.corpoDegrade, altura ? { paddingVertical: 10, gap: 4 } : null, a.fotoUrl ? styles.corpoComFoto : null]}>
+              <View style={[styles.corpoDegrade, altura ? { paddingVertical: 10, gap: 4 } : null, a.fotoUrl && a.fotoModo !== 'fundo' ? styles.corpoComFoto : null, a.fotoUrl && a.fotoModo === 'esquerda' ? { marginLeft: '45%', paddingRight: 14, paddingLeft: 14 } : null]}>
                 {!!a.tag && (
                   <View style={styles.pilulaDegrade}>
-                    <Feather name={a.icone} size={11} color="#FFFFFF" />
-                    <Text style={styles.pilulaDegradeTxt} numberOfLines={1}>{a.tag}</Text>
+                    <Feather name={a.icone} size={11} color={a.corTexto || '#FFFFFF'} />
+                    <Text style={[styles.pilulaDegradeTxt, a.corTexto ? { color: a.corTexto } : null]} numberOfLines={1}>{a.tag}</Text>
                   </View>
                 )}
-                <Text style={[styles.tituloDegrade, a.fotoUrl ? styles.tituloComFoto : null]} numberOfLines={a.fotoUrl ? 3 : 2}>{a.titulo}</Text>
-                <View style={styles.btnDegrade}>
-                  <Text style={styles.btnDegradeTxt}>{a.cta}</Text>
-                  <Feather name="arrow-right" size={14} color="#1A1020" />
+                <Text style={[styles.tituloDegrade, a.fotoUrl && a.fotoModo !== 'fundo' ? styles.tituloComFoto : null, a.corTexto ? { color: a.corTexto } : null]} numberOfLines={a.fotoUrl && a.fotoModo !== 'fundo' ? 3 : 2}>
+                  {(() => {
+                    const p = partesDaFrase(a.titulo, a.destaqueTexto);
+                    return (
+                      <>
+                        {p.antes}
+                        {!!p.destaque && <Text style={{ color: a.corDestaque || '#FB923C', fontWeight: '900' }}>{p.destaque}</Text>}
+                        {p.depois}
+                      </>
+                    );
+                  })()}
+                </Text>
+                <View style={[styles.btnDegrade, a.corDestaque ? { backgroundColor: a.corDestaque } : null]}>
+                  <Text style={[styles.btnDegradeTxt, a.corDestaque ? { color: textoSobre(a.corDestaque) } : null]}>{a.cta}</Text>
+                  <Feather name="arrow-right" size={14} color={a.corDestaque ? textoSobre(a.corDestaque) : '#1A1020'} />
                 </View>
               </View>
             </View>
@@ -179,6 +207,7 @@ const styles = StyleSheet.create({
   setaCompacto: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
   marcaDagua: { position: 'absolute', right: -14, bottom: -18 },
   cardComFoto: {},
+  veuFundo: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(10,6,20,0.45)' },
   fotoMetade: { position: 'absolute', top: 0, right: 0, bottom: 0, width: '45%', backgroundColor: '#1C1B26' },
   corpoComFoto: { width: '55%', paddingRight: 12 },
   tituloComFoto: { fontSize: 13, lineHeight: 17 },

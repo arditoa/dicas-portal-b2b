@@ -3,6 +3,7 @@
 //   2) PATROCÍNIO — banner fixo da categoria (editável no /admin e no portal do patrocinador)
 //   3) OFERTAS E BENEFÍCIOS — cupons dos parceiros da categoria, girando por hora
 // Cada bloco mede exibições e toques (vitrine_eventos) para a equipe comercial mostrar resultado.
+import { estiloDoCartao } from '../lib/estiloBanner';
 import { Feather } from '@expo/vector-icons';
 import { MODO_DEMONSTRACAO } from '../lib/demo';
 import { useRouter } from 'expo-router';
@@ -343,10 +344,10 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
         tag: fundadores ? formatarNome(l.nome).toUpperCase() : '',
         titulo: chamada,
         cta: com?.cta || 'Conhecer',
-        fotoUrl: com?.imagem_url || null, // Rodada 136 — foto do parceiro na metade direita, texto ao lado
+        // Rodada 140 — estilo escolhido no portal: degradê, foto (direita/esquerda/fundo), cor dos dizeres e palavra de impacto.
+        ...estiloDoCartao(com, cor),
         icone: fundadores ? 'star' : 'map-pin',
-        cor: cor[0],
-        degrade: cor,
+        cor: estiloDoCartao(com, cor).degrade[0],
         onPress: () => {
           registrarVitrine(l.id, `destaques:${slug}`, 'clique');
           if (com?.destino) abrirDestino(router, com.destino);

@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { idsMarcaAtiva } from '../../../lib/marcaAtiva';
 import { erroFotoNaoSuportada } from '../../../lib/validarFoto';
+import EditorEstiloBanner, { ESTILO_VAZIO, EstiloValor } from '../../../components/EditorEstiloBanner';
 
 const input = 'w-full bg-[#0B0B0E] border border-[#232230] rounded-xl py-2.5 px-3 text-white text-sm focus:outline-none focus:border-[#E1306C]';
 const label = 'text-[11px] font-bold text-[#A0A0B2] uppercase block mb-1.5';
@@ -63,6 +64,9 @@ export default function DestaquesPage() {
   const [cham, setCham] = useState<{ chamada: string; cta: string; imagem_url: string }>({ chamada: '', cta: 'Conhecer', imagem_url: '' });
   const [enviandoFotoBanner, setEnviandoFotoBanner] = useState(false);
   const [chamAtualizada, setChamAtualizada] = useState<string | null>(null);
+  // Rodada 140 — visual do banner (migration 095).
+  const [estilo, setEstilo] = useState<EstiloValor>(ESTILO_VAZIO);
+  const [temColunasEstilo, setTemColunasEstilo] = useState(true);
   const [vagas, setVagas] = useState<{ categoria: string; tipo: string; posicao: number }[]>([]);
   const [aviso, setAviso] = useState('');
   const [erro, setErro] = useState('');
@@ -84,8 +88,14 @@ export default function DestaquesPage() {
     const { data: c } = await supabase.from('fundador_comunicacao').select('headline, texto, oferta, cta, destino, escrito_por').eq('local_id', l.id).maybeSingle();
     if (c) setCom({ headline: c.headline || '', texto: c.texto || '', oferta: c.oferta || '', cta: c.cta || 'Conhecer', destino: c.destino || '', escrito_por: c.escrito_por });
 
-    const { data: ch } = await supabase.from('destaque_chamada').select('chamada, cta, imagem_url, updated_at').eq('local_id', l.id).maybeSingle();
-    if (ch) { setCham({ chamada: (ch as any).chamada || '', cta: (ch as any).cta || 'Conhecer', imagem_url: (ch as any).imagem_url || '' }); setChamAtualizada((ch as any).updated_at || null); }
+    let rch: any = await supabase.from('destaque_chamada').select('chamada, cta, imagem_url, updated_at, estilo, cor1, cor2, cor_texto, destaque_texto, cor_destaque').eq('local_id', l.id).maybeSingle();
+    if (rch.error) { setTemColunasEstilo(false); rch = await supabase.from('destaque_chamada').select('chamada, cta, imagem_url, updated_at').eq('local_id', l.id).maybeSingle(); }
+    const ch = rch.data as any;
+    if (ch) {
+      setCham({ chamada: ch.chamada || '', cta: ch.cta || 'Conhecer', imagem_url: ch.imagem_url || '' });
+      setChamAtualizada(ch.updated_at || null);
+      setEstilo({ estilo: ch.estilo || (ch.imagem_url ? 'foto_metade' : 'degrade'), cor1: ch.cor1 ?? null, cor2: ch.cor2 ?? null, cor_texto: ch.cor_texto ?? null, destaque_texto: ch.destaque_texto || '', cor_destaque: ch.cor_destaque ?? null });
+    }
 
     const { data: vg } = await supabase.from('vitrine_vaga').select('categoria, tipo, posicao').eq('local_id', l.id);
     setVagas((vg as any[]) || []);
@@ -111,7 +121,10 @@ export default function DestaquesPage() {
     if (!local) return;
     setErro(''); setAviso('');
     if (!cham.chamada.trim()) { setErro('Escreva a chamada do seu banner.'); return; }
-    const { error } = await supabase.from('destaque_chamada').upsert({ local_id: local.id, chamada: cham.chamada.trim(), cta: cham.cta.trim() || 'Conhecer', imagem_url: cham.imagem_url || null });
+    const base: Record<string, unknown> = { local_id: local.id, chamada: cham.chamada.trim(), cta: cham.cta.trim() || 'Conhecer', imagem_url: cham.imagem_url || null };
+    const { error } = await supabase.from('destaque_chamada').upsert(temColunasEstilo
+      ? { ...base, estilo: estilo.estilo, cor1: estilo.cor1, cor2: estilo.cor2, cor_texto: estilo.cor_texto, destaque_texto: estilo.destaque_texto.trim() || null, cor_destaque: estilo.cor_destaque }
+      : base);
     if (error) setErro(error.message); else { setAviso('Frase salva — o banner já usa esse texto.'); setChamAtualizada(new Date().toISOString()); }
   };
 
@@ -126,6 +139,7 @@ export default function DestaquesPage() {
     const { error } = await supabase.storage.from('fotos-locais').upload(caminho, arquivo, { cacheControl: '3600', upsert: false });
     if (error) { setErro(`Não deu para enviar a foto: ${error.message}`); setEnviandoFotoBanner(false); return; }
     setCham((c) => ({ ...c, imagem_url: supabase.storage.from('fotos-locais').getPublicUrl(caminho).data.publicUrl }));
+    setEstilo((e) => (e.estilo === 'degrade' ? { ...e, estilo: 'foto_metade' } : e));
     setEnviandoFotoBanner(false);
     setAviso('Foto enviada. Clique em "Salvar frase" para publicar.');
   };
@@ -235,22 +249,16 @@ export default function DestaquesPage() {
               {cham.imagem_url && <button type="button" className="text-xs font-bold text-[#A0A0B2] hover:underline" onClick={() => setCham({ ...cham, imagem_url: '' })}>Tirar foto</button>}
             </div>
           </div>
-          {/* Prévia: igual ao banner do app (metade frase, metade foto). */}
-          <div>
-            <p className={label}>Prévia no app</p>
-            <div className="relative flex h-32 max-w-md rounded-2xl overflow-hidden" style={{ background: 'linear-gradient(135deg, #B45309, #9D174D)' }}>
-              <div className={`${cham.imagem_url ? 'w-[55%]' : 'w-full pr-24'} p-3.5 flex flex-col justify-center gap-1.5`}>
-                <span className="self-start text-[9px] font-black uppercase tracking-wide bg-white/20 text-white px-2 py-0.5 rounded-lg">{local.nome}</span>
-                <p className={`font-black text-white leading-tight ${cham.imagem_url ? 'text-[13px] line-clamp-3' : 'text-[15px] line-clamp-2'}`}>{cham.chamada || 'Sua chamada aparece aqui'}</p>
-                <span className="self-start text-[11px] font-black bg-white text-[#1A1020] px-2.5 py-1 rounded-lg">{cham.cta || 'Conhecer'} →</span>
-              </div>
-              {cham.imagem_url && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={cham.imagem_url} alt="" className="absolute right-0 top-0 h-full w-[45%] object-cover" />
-              )}
-            </div>
-          </div>
-          <button onClick={salvarChamada} className="bg-[#E1306C] hover:bg-[#C2285C] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition inline-flex items-center gap-2"><Save size={14} /> Salvar frase</button>
+          {/* Rodada 140 — visual: fundo, cor dos dizeres, palavra de impacto, e prévia como no app. */}
+          <EditorEstiloBanner
+            valor={estilo}
+            onChange={setEstilo}
+            chamada={cham.chamada}
+            cta={cham.cta}
+            foto={cham.imagem_url}
+            etiquetaHome={local.plano_comercial === 'fundador' ? local.nome : null}
+          />
+          <button onClick={salvarChamada} className="bg-[#E1306C] hover:bg-[#C2285C] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition inline-flex items-center gap-2"><Save size={14} /> Salvar banner</button>
           {!podeEditarFrase && <p className="text-[11px] text-[#A0A0B2]">Você pode guardar a frase desde já: ela entra no ar quando o plano Premium for ativado.</p>}
         </div>
       </div>
