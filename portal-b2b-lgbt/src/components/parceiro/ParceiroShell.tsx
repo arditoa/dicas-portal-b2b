@@ -56,6 +56,7 @@ import {
 } from '../../lib/parceiro';
 import CaixaComoFunciona from './CaixaComoFunciona';
 import { ParceiroProvider } from './ParceiroContext';
+import { gravarMarcaAtiva, lerMarcaAtiva } from '../../lib/marcaAtiva';
 
 type ItemMenu = {
   href: string;
@@ -77,7 +78,7 @@ const GRUPOS: { titulo: string | null; itens: ItemMenu[] }[] = [
         icone: Ticket,
         bloqueio: (p) => (p === 'freemium' ? 'Cupons chegam com o plano Intermediário ou superior.' : null),
       },
-      { href: '/dashboard/agenda', rotulo: 'Agenda da semana', icone: CalendarDays, visivel: (l) => categoriaComAgenda(l.categoria) },
+      { href: '/dashboard/agenda', rotulo: 'Agenda da semana', icone: CalendarDays, visivel: (l) => categoriaComAgenda(l.categoria) && l.categoria !== 'eventos' },
       { href: '/dashboard/eventos', rotulo: 'Meus eventos', icone: PartyPopper, visivel: (l) => categoriaComAgenda(l.categoria) },
       { href: '/dashboard/lista-vip', rotulo: 'Lista VIP', icone: Users, visivel: (l) => categoriaComAgenda(l.categoria) },
       { href: '/dashboard/destaques', rotulo: 'Destaques e resultados', icone: TrendingUp },
@@ -112,6 +113,7 @@ export default function ParceiroShell({ children }: { children: React.ReactNode 
   const [carregando, setCarregando] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [local, setLocal] = useState<LocalParceiro | null>(null);
+  const [marcas, setMarcas] = useState<{ id: string; nome: string; categoria: string }[]>([]);
   const [podePacotes, setPodePacotes] = useState<boolean | null>(null);
   const [diag, setDiag] = useState<Diagnostico | null>(null);
   const [adiados, setAdiados] = useState<Record<string, number>>({});
@@ -135,11 +137,15 @@ export default function ParceiroShell({ children }: { children: React.ReactNode 
       const { data: perfil } = await supabase.from('profiles').select('role').eq('id', u.user.id).maybeSingle();
       const admin = perfil?.role === 'admin';
 
-      const { data: l, error } = await supabase
+      // Portal único: o dono pode ter várias marcas (locais). A ativa é a última escolhida neste navegador.
+      const { data: lista, error } = await supabase
         .from('locais')
         .select(CAMPOS_LOCAL)
         .eq('owner_id', u.user.id)
-        .maybeSingle();
+        .order('created_at', { ascending: true });
+      const marcasDoDono = (lista || []) as unknown as LocalParceiro[];
+      const guardada = lerMarcaAtiva();
+      const l = marcasDoDono.find((m) => m.id === guardada) || marcasDoDono[0] || null;
 
       if (error || !l) {
         // A conta admin da Andrea não é dona de local: o painel dela é o /admin.
@@ -154,6 +160,8 @@ export default function ParceiroShell({ children }: { children: React.ReactNode 
       }
 
       if (admin && naRaiz) { router.replace('/admin'); return; }
+      gravarMarcaAtiva(l.id);
+      setMarcas(marcasDoDono.map((m) => ({ id: m.id, nome: m.nome, categoria: m.categoria })));
       setLocal(l as unknown as LocalParceiro);
       const { data: pp, error: ePP } = await supabase.from('locais').select('pode_subir_pacotes').eq('id', (l as { id: string }).id).maybeSingle();
       if (!ePP && pp) setPodePacotes(!!(pp as { pode_subir_pacotes: boolean }).pode_subir_pacotes);
@@ -350,7 +358,20 @@ export default function ParceiroShell({ children }: { children: React.ReactNode 
               <Menu size={18} />
             </button>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-bold">{local.nome}</p>
+              {marcas.length > 1 ? (
+                <select
+                  value={local.id}
+                  onChange={(e) => { gravarMarcaAtiva(e.target.value); window.location.href = '/dashboard'; }}
+                  aria-label="Trocar de marca"
+                  className="max-w-full truncate rounded-lg border border-[#232230] bg-[#161520] px-2 py-1 text-sm font-bold text-white focus:border-[#E1306C] focus:outline-none"
+                >
+                  {marcas.map((m) => (
+                    <option key={m.id} value={m.id}>{m.nome}</option>
+                  ))}
+                </select>
+              ) : (
+                <p className="truncate text-sm font-bold">{local.nome}</p>
+              )}
               <p className="flex items-center gap-2 text-[11px] text-[#8888A0]">
                 <span className="rounded-full bg-[#E1306C]/15 px-2 py-0.5 font-bold text-[#FF7AA8]">Plano {planoInfo.nome}</span>
                 {local.status === 'pendente' && <span className="text-amber-300">em análise</span>}

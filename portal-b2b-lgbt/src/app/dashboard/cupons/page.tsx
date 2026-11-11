@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { idsMarcaAtiva } from '../../../lib/marcaAtiva';
 import { NOMES_DIAS, textoJanela } from '../../../lib/janelaCupom';
 
 // Cupons são 100% do dono do local — a policy `cupons_write_dono_ou_admin`
@@ -86,7 +87,7 @@ export default function CupomPage() {
       const { data: local } = await supabase
         .from('locais')
         .select('id')
-        .eq('owner_id', userData.user.id)
+        .eq('owner_id', userData.user.id).in('id', idsMarcaAtiva())
         .maybeSingle();
 
       if (!local) {

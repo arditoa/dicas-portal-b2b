@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
+import { idsMarcaAtiva } from '../../lib/marcaAtiva';
 
 // Nomes/valores usados no enum public.plano_comercial (005). Precisam bater
 // exatamente com os `slug`s abaixo.
@@ -108,6 +109,7 @@ export default function PlanosPage() {
           .from('locais')
           .select('id')
           .eq('owner_id', userData.user.id)
+          .in('id', idsMarcaAtiva())
           .maybeSingle();
         setLocalId(data?.id ?? null);
       }

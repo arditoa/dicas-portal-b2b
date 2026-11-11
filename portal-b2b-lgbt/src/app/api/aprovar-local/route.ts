@@ -87,6 +87,7 @@ export async function POST(req: NextRequest) {
   let userId: string | null = local.owner_id;
   let senhaGerada: string | null = null;
   let contaNova = false;
+  let outraMarca = false;
 
   if (userId) {
     // Local já tinha owner_id de uma aprovação anterior — este é o
@@ -174,18 +175,29 @@ export async function POST(req: NextRequest) {
         );
       }
       userId = achou.id;
-      // Rodada 54 — mesmo motivo do comentário acima: reaproveitar uma
-      // conta antiga também garante que ela não esteja bloqueada por
-      // confirmação pendente ou ban antigo, não só a senha nova.
-      const { error: senhaErr } = await admin.auth.admin.updateUserById(userId, {
-        password: senhaNova,
-        email_confirm: true,
-        ban_duration: 'none',
-      });
-      if (senhaErr) {
-        return NextResponse.json({ error: senhaErr.message }, { status: 500 });
+      // Portal único: se esse dono já tem outra marca aprovada, é uma NOVA MARCA na mesma conta — não trocamos
+      // a senha que ele já usa; a mensagem só avisa que a marca nova apareceu no seletor do portal.
+      const { count: marcasAprovadas } = await admin
+        .from('locais')
+        .select('id', { count: 'exact', head: true })
+        .eq('owner_id', userId)
+        .eq('status', 'aprovado');
+      if ((marcasAprovadas ?? 0) > 0) {
+        outraMarca = true;
+      } else {
+        // Rodada 54 — mesmo motivo do comentário acima: reaproveitar uma
+        // conta antiga também garante que ela não esteja bloqueada por
+        // confirmação pendente ou ban antigo, não só a senha nova.
+        const { error: senhaErr } = await admin.auth.admin.updateUserById(userId, {
+          password: senhaNova,
+          email_confirm: true,
+          ban_duration: 'none',
+        });
+        if (senhaErr) {
+          return NextResponse.json({ error: senhaErr.message }, { status: 500 });
+        }
+        senhaGerada = senhaNova;
       }
-      senhaGerada = senhaNova;
       contaNova = false;
     }
   }
@@ -220,6 +232,7 @@ export async function POST(req: NextRequest) {
     telefone,
     senha: senhaGerada,
     contaNova,
+    outraMarca,
     nomeLocal: local.nome,
   });
 }

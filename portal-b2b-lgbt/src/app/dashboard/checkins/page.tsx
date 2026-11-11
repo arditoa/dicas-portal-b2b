@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { idsMarcaAtiva } from '../../../lib/marcaAtiva';
 
 // Check-ins do local (migration 079). A casa NÃO precisa confirmar nada na noite:
 //  - check-in feito com o celular perto do local já nasce confirmado ("pela localização");
@@ -60,7 +61,7 @@ export default function CheckinsPage() {
     (async () => {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData?.user) { router.push('/login'); return; }
-      const { data: local } = await supabase.from('locais').select('id').eq('owner_id', userData.user.id).maybeSingle();
+      const { data: local } = await supabase.from('locais').select('id').eq('owner_id', userData.user.id).in('id', idsMarcaAtiva()).maybeSingle();
       if (!local) { router.push('/dashboard'); return; }
       setLocalId(local.id);
       setCarregando(false);

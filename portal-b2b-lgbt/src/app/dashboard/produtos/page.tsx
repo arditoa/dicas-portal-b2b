@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { idsMarcaAtiva } from '../../../lib/marcaAtiva';
 
 // Catálogo de produtos — Rodada 61 (fazer direito). Só existe pra locais
 // de categoria 'produtos' (a página redireciona quem não for dessa
@@ -71,7 +72,7 @@ export default function ProdutosPage() {
       const { data: local } = await supabase
         .from('locais')
         .select('id, categoria')
-        .eq('owner_id', userData.user.id)
+        .eq('owner_id', userData.user.id).in('id', idsMarcaAtiva())
         .maybeSingle();
 
       if (!local || local.categoria !== 'produtos') {

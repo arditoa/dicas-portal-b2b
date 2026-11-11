@@ -36,6 +36,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { buscarCoordenadas } from '../../../lib/geocodificar';
 import { calcularCompletude, DadosHospedagem, ETAPAS, montarChecklist } from '../../../lib/hospedagemChecklist';
 import { supabase } from '../../../lib/supabase';
+import { idsMarcaAtiva } from '../../../lib/marcaAtiva';
 import {
   COMPROMISSOS_ACOLHIMENTO,
   FORMAS_PAGAMENTO,
@@ -181,7 +182,7 @@ export default function HospedagemPage() {
       const { data, error } = await supabase
         .from('locais')
         .select('id, nome, categoria, cidade, cnpj, endereco, lat, lng, foto_capa_url, galeria_fotos, plano_comercial, plano_comercial_status, tipo_hospedagem, atributos')
-        .eq('owner_id', userData.user.id)
+        .eq('owner_id', userData.user.id).in('id', idsMarcaAtiva())
         .maybeSingle();
       if (error) {
         setErro('Esta área precisa da atualização do banco (migrations 036 e 037). Fale com a equipe Dicas.');

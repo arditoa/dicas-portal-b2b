@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { idsMarcaAtiva } from '../../../lib/marcaAtiva';
 
 // Gestão de Lista VIP pelo dono do LOCAL (Rodada 17). Só existe porque a
 // migration 008_vinculo_evento_e_gestao_lista_vip.sql criou
@@ -84,7 +85,7 @@ export default function ListaVipPage() {
       const { data: local } = await supabase
         .from('locais')
         .select('id')
-        .eq('owner_id', userData.user.id)
+        .eq('owner_id', userData.user.id).in('id', idsMarcaAtiva())
         .maybeSingle();
 
       if (!local) {

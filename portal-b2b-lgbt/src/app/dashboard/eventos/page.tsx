@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { lerMarcaAtiva } from '../../../lib/marcaAtiva';
 
 // Rodada 36 — pedido direto da Andrea: organizador de evento/festa
 // (aprovado com login automático via /api/aprovar-evento, ver
@@ -40,6 +41,7 @@ type EventoEditavel = {
   data_inicio: string;
   data_fim: string | null;
   foto_capa_url: string | null;
+  local_id: string | null;
   status: 'pendente' | 'aprovado' | 'rejeitado' | 'cancelado';
 };
 
@@ -140,9 +142,12 @@ export default function DashboardEventosPage() {
       setErro(error.message);
       return;
     }
-    const lista = ((data || []) as EventoEditavel[]).slice().sort((a, b) =>
-      a.data_inicio < b.data_inicio ? 1 : -1
-    );
+    // Portal único: mostra os eventos da marca ativa e os avulsos (sem espaço); os de outra marca do mesmo dono
+    // aparecem quando ele troca de marca no topo.
+    const marcaAtiva = lerMarcaAtiva();
+    const lista = ((data || []) as EventoEditavel[])
+      .filter((ev) => !marcaAtiva || !ev.local_id || ev.local_id === marcaAtiva)
+      .sort((a, b) => (a.data_inicio < b.data_inicio ? 1 : -1));
     setEventos(lista);
     await carregarListasVip(lista.map((ev) => ev.id));
   }, [carregarListasVip]);

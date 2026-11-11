@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import FormularioFesta from '../../../../components/cadastro/FormularioFesta';
+import { useParceiro } from '../../../../components/parceiro/ParceiroContext';
 import { supabase } from '../../../../lib/supabase';
 
 // Novo evento feito POR DENTRO do portal, por quem já tem acesso (organizador ou dono de local).
@@ -13,6 +14,7 @@ import { supabase } from '../../../../lib/supabase';
 // deixa o evento "pendente" e, na aprovação pelo /admin, não cria acesso novo nem manda senha: vai só o aviso.
 export default function NovoEventoPage() {
   const router = useRouter();
+  const parceiro = useParceiro();
   const [carregando, setCarregando] = useState(true);
   const [organizador, setOrganizador] = useState<{ nome: string; whatsapp: string } | undefined>(undefined);
   const [enviado, setEnviado] = useState<string | null>(null);
@@ -75,11 +77,11 @@ export default function NovoEventoPage() {
       <Link href="/dashboard/eventos" className="inline-flex items-center gap-2 text-sm text-[#A0A0B2] hover:text-white mb-6">
         <ArrowLeft className="w-4 h-4" /> Meus eventos
       </Link>
-      <h1 className="text-2xl font-black mb-1">Novo evento</h1>
+      <h1 className="text-2xl font-black mb-1">Novo evento{parceiro ? ` · ${parceiro.local.nome}` : ''}</h1>
       <p className="text-xs text-[#A0A0B2] mb-6">
         Preencha os dados da festa. Depois de enviado, ele passa pela análise da equipe antes de aparecer no app.
       </p>
-      <FormularioFesta organizador={organizador} onSucesso={(titulo) => setEnviado(titulo)} />
+      <FormularioFesta organizador={organizador} localId={parceiro?.local.id} onSucesso={(titulo) => setEnviado(titulo)} />
     </div>
   );
 }

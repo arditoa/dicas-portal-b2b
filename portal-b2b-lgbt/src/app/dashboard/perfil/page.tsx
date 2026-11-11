@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { idsMarcaAtiva } from '../../../lib/marcaAtiva';
 import { buscarCoordenadas } from '../../../lib/geocodificar';
 import { erroFotoNaoSuportada } from '../../../lib/validarFoto';
 import { telefoneParecCurto } from '../../../lib/parceiroAuth';
@@ -206,7 +207,7 @@ export default function MinhaPaginaPage() {
         .select(
           'id, nome, categoria, subcategoria, descricao, bairro, bairro_exibicao, cidade, endereco, atendimento_tipo, especialidade, link_loja_online, lat, lng, instagram, contato_nome, contato_email, contato_telefone, foto_capa_url, logo_url, publico_tags, tags, plano_comercial, plano_comercial_status, status, plano_destaque, horario_funcionamento, galeria_fotos, video_url, programacao_texto, programacao_imagem_url'
         )
-        .eq('owner_id', userData.user.id)
+        .eq('owner_id', userData.user.id).in('id', idsMarcaAtiva())
         .maybeSingle();
 
       if (error || !data) {

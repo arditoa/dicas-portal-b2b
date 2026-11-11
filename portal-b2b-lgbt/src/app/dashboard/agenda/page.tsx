@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { idsMarcaAtiva } from '../../../lib/marcaAtiva';
 
 // Rodada 126 — a agenda que o bar sobe aqui aparece SÓ na aba Eventos do app,
 // no filtro "Essa semana" (pedido da Andrea). Não aparece mais no perfil do local.
@@ -161,7 +162,7 @@ export default function DashboardAgendaPage() {
       const { data: local, error } = await supabase
         .from('locais')
         .select('id')
-        .eq('owner_id', userData.user.id)
+        .eq('owner_id', userData.user.id).in('id', idsMarcaAtiva())
         .maybeSingle();
       if (error || !local) {
         router.push('/dashboard');

@@ -145,9 +145,12 @@ function toggleValue<T>(arr: T[], value: T): T[] {
 export default function FormularioFesta({
   onSucesso,
   organizador,
+  localId,
 }: {
   onSucesso: (titulo: string, whatsapp: string, listaVip: boolean) => void;
   organizador?: { nome: string; whatsapp: string };
+  /** Marca (local) dona do evento, quando o cadastro é feito por dentro do portal. */
+  localId?: string;
 }) {
   const [titulo, setTitulo] = useState('');
   const [descricao, setDescricao] = useState('');
@@ -245,6 +248,7 @@ export default function FormularioFesta({
         // enforce_evento_seguro_insert no banco.
         tags: tagsEvento,
       };
+      if (localId) payload.local_id = localId;
 
       let { error } = await supabase.from('eventos').insert(payload);
       // Se o banco ainda não tem a coluna `tags` (migration 036), envia sem ela.

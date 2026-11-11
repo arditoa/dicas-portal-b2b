@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { idsMarcaAtiva } from '../../../lib/marcaAtiva';
 
 // Plano de fidelidade da casa (migrations 010 + 074).
 // A casa define: quantas visitas, o que o cliente ganha e se a contagem é por mês.
@@ -85,7 +86,7 @@ export default function FidelidadePage() {
       const { data: local, error } = await supabase
         .from('locais')
         .select('id')
-        .eq('owner_id', userData.user.id)
+        .eq('owner_id', userData.user.id).in('id', idsMarcaAtiva())
         .maybeSingle();
       if (error || !local) {
         router.push('/dashboard');

@@ -656,7 +656,7 @@ export default function AdminPage() {
   // confirmou que a aprovação funcionava mas o WhatsApp nunca abria. Em
   // vez de depender de abrir sozinho, mostra um cartão fixo na tela com
   // o link (ela clica) e o telefone/senha em texto (pra copiar também).
-  const [contaCriada, setContaCriada] = useState<{ nomeLocal: string; telefone: string; senha: string; link: string } | null>(null);
+  const [contaCriada, setContaCriada] = useState<{ nomeLocal: string; telefone: string; senha: string | null; link: string } | null>(null);
   // Rodada 26 — aviso simples pro organizador quando aprovar o evento NÃO
   // cria login (porque o dono do local já gerencia esse evento, ou o
   // organizador já tinha conta) — só avisa que já pode ver o evento no app.
@@ -916,6 +916,15 @@ export default function AdminPage() {
           nomeLocal: resultado.nomeLocal,
           telefone: resultado.telefone,
           senha: resultado.senha,
+          link: `https://wa.me/${resultado.telefone}?text=${encodeURIComponent(mensagem)}`,
+        });
+      } else if (resultado.outraMarca) {
+        // Dono que já tem acesso: nova marca na mesma conta. Não vai senha; ele troca de marca no topo do portal.
+        const mensagem = `TÁ SABENDO? DEU CERTO! 🎉\n\nTudo bem? Aqui é o Emerson, do Dicas LGBT+ 🏳️‍🌈\n\nO cadastro de "${resultado.nomeLocal}" foi aprovado e já está no seu Portal de Parceiros, na mesma conta que você já usa. No topo da tela você troca entre as suas marcas.\n\nLink: ${URL_PORTAL}/login\nLogin: o seu WhatsApp, com a sua senha de sempre. Se esqueceu a senha, me avise por aqui que eu envio uma nova.\n\nO app será lançado no dia 03/12 para o público, e seu espaço já estará lá para a comunidade encontrar.\n\nConte com a gente: pode me chamar aqui no WhatsApp sempre que precisar.\n\nUm abraço,\nEmerson\nDicas LGBT+`;
+        setContaCriada({
+          nomeLocal: resultado.nomeLocal,
+          telefone: resultado.telefone,
+          senha: null,
           link: `https://wa.me/${resultado.telefone}?text=${encodeURIComponent(mensagem)}`,
         });
       }
@@ -1793,11 +1802,11 @@ Dicas LGBT+`;
       {contaCriada && (
         <div className="bg-[#4CAF7D]/10 border border-[#4CAF7D]/30 text-[#4CAF7D] p-4 rounded-xl text-xs mb-6">
           <p className="font-bold mb-2">
-            ✅ "{contaCriada.nomeLocal}" aprovado e conta criada — o navegador pode ter bloqueado a
+            ✅ "{contaCriada.nomeLocal}" aprovado{contaCriada.senha ? ' e conta criada' : ' como nova marca de uma conta que já existe (a senha não foi trocada)'} — o navegador pode ter bloqueado a
             abertura automática do WhatsApp, então aqui está tudo pra enviar manualmente:
           </p>
           <p className="text-[#D0D0E0] mb-2">
-            Telefone: <b>{contaCriada.telefone}</b> · Senha temporária: <b>{contaCriada.senha}</b>
+            Telefone: <b>{contaCriada.telefone}</b>{contaCriada.senha ? <> · Senha temporária: <b>{contaCriada.senha}</b></> : ' · usa a senha que já tem'}
           </p>
           <div className="flex items-center gap-3">
             <a

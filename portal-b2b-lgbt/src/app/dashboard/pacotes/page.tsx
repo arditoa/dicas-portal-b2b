@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { idsMarcaAtiva } from '../../../lib/marcaAtiva';
 
 // Pacotes e roteiros — Rodada 61 (fazer direito). Só existe pra locais de
 // categoria 'turismo' (a página redireciona quem não for dessa categoria
@@ -78,7 +79,7 @@ export default function PacotesPage() {
       const { data: local } = await supabase
         .from('locais')
         .select('id, categoria')
-        .eq('owner_id', userData.user.id)
+        .eq('owner_id', userData.user.id).in('id', idsMarcaAtiva())
         .maybeSingle();
 
       // Só entra quem foi liberado (locais.pode_subir_pacotes, migration 052).

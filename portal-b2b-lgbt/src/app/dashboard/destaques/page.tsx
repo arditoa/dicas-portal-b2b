@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { idsMarcaAtiva } from '../../../lib/marcaAtiva';
 
 const input = 'w-full bg-[#0B0B0E] border border-[#232230] rounded-xl py-2.5 px-3 text-white text-sm focus:outline-none focus:border-[#E1306C]';
 const label = 'text-[11px] font-bold text-[#A0A0B2] uppercase block mb-1.5';
@@ -65,7 +66,7 @@ export default function DestaquesPage() {
   const carregar = useCallback(async () => {
     const { data: u } = await supabase.auth.getUser();
     if (!u?.user) { router.push('/login'); return; }
-    const { data: l } = await supabase.from('locais').select('id, nome, plano_comercial, plano_comercial_status').eq('owner_id', u.user.id).maybeSingle();
+    const { data: l } = await supabase.from('locais').select('id, nome, plano_comercial, plano_comercial_status').eq('owner_id', u.user.id).in('id', idsMarcaAtiva()).maybeSingle();
     if (!l) { router.push('/dashboard'); return; }
     setLocal(l as Local);
 
