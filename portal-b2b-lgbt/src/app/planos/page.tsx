@@ -19,6 +19,7 @@ type PlanoCard = {
   highlight: boolean;
   color?: string;
   borderGold?: boolean;
+  href?: string; // plano sem assinatura (festa avulsa, patrocínio): o botão leva a outra tela em vez de registrar interesse
 };
 
 const planos: readonly PlanoCard[] = [
@@ -32,6 +33,7 @@ const planos: readonly PlanoCard[] = [
       { text: '@Instagram no perfil', ok: false },
       { text: 'Oferta semanal', ok: false },
       { text: 'Posição de destaque na categoria', ok: false },
+      { text: 'Subir uma festa em destaque na aba Eventos: R$49 por festa (máx. 2 por mês)', ok: true },
     ],
     cta: 'Continuar grátis',
     highlight: false,
@@ -47,6 +49,7 @@ const planos: readonly PlanoCard[] = [
       { text: 'Seu cupom roda em telas de 6, que mudam a cada 30 minutos', ok: true },
       { text: 'Na busca da categoria, aparece logo depois dos Fundadores e Premiums', ok: true },
       { text: 'Roda nos banners de destaque inferiores da tela inicial, entre os 15 primeiros, a cada 4 horas', ok: true },
+      { text: 'Subir uma festa em destaque na aba Eventos: R$49 por festa (máx. 2 por mês)', ok: true },
     ],
     cta: 'Selecionar',
     highlight: false,
@@ -63,7 +66,7 @@ const planos: readonly PlanoCard[] = [
       { text: '1 cupom por semana na faixa de cupons da categoria (10 vagas Premium por categoria)', ok: true },
       { text: 'Sempre em primeiro na lista da categoria, por 12 meses', ok: true },
       { text: 'Roda nos banners de destaque inferiores da tela inicial, entre os 10 primeiros, a cada 3 horas', ok: true },
-      { text: 'Categoria Festas & Eventos: até 4 festas em destaque por mês incluídas (destaques extras: R$89 cada)', ok: true },
+      { text: 'Festas do seu local em destaque na aba Eventos: até 4 por mês incluídas (extras: R$89 cada)', ok: true },
       { text: '3 tags — Top 5', ok: true },
     ],
     cta: 'Assinar Premium',
@@ -81,7 +84,7 @@ const planos: readonly PlanoCard[] = [
     beneficios: [
       { text: 'Tudo do Premium', ok: true },
       { text: 'Pagamento: 12 parcelas de R$349 ou R$3.490 à vista', ok: true },
-      { text: 'Categoria Festas & Eventos: até 4 festas em destaque por mês incluídas (destaques extras: R$89 cada)', ok: true },
+      { text: 'Festas do seu local em destaque na aba Eventos: até 4 por mês incluídas (extras: R$89 cada)', ok: true },
       { text: 'Banner no topo da tela inicial por 12 meses (slots de 4, troca a cada 3 horas, texto de curiosidade trocado toda semana)', ok: true },
       { text: '1 cupom por semana na faixa de cupons da categoria (2 vagas de Fundador, trocando a cada 10 minutos)', ok: true },
       { text: 'Categoria Destaques — exclusiva dos 12 Fundadores, por ordem de fechamento', ok: true },
@@ -94,6 +97,79 @@ const planos: readonly PlanoCard[] = [
   },
 ];
 
+// Planos da categoria Festas & Eventos (produtoras, organizadores e casas de festa). Em Festas não há faixa de cupons:
+// no lugar dela fica a faixa "Festas em destaque" (até 24 festas pagas ao mesmo tempo, no máximo 12 por data).
+// Premium e Fundador são os mesmos planos dos locais (mesmo slug no banco); festa avulsa e patrocínio não são assinatura.
+const planosEventos: readonly PlanoCard[] = [
+  {
+    slug: 'festa_avulsa',
+    nome: 'Festa avulsa',
+    preco: 'R$89',
+    sub: 'por festa · preço de lançamento',
+    beneficios: [
+      { text: 'Sem mensalidade: você paga só a festa que quer divulgar', ok: true },
+      { text: 'Faixa "Festas em destaque" no topo da aba Eventos, 1 dia antes e no dia da festa', ok: true },
+      { text: 'Na frente da lista do dia, com o selo Patrocinado', ok: true },
+      { text: 'Portal completo, com Lista VIP', ok: true },
+      { text: 'Cobrança combinada com a equipe (Pix ou máquina)', ok: true },
+    ],
+    cta: 'Cadastrar uma festa',
+    highlight: false,
+    href: '/cadastro/evento',
+  },
+  {
+    slug: 'premium',
+    nome: 'Premium',
+    tag: 'RECOMENDADO',
+    preco: 'R$499',
+    sub: '/mês',
+    beneficios: [
+      { text: 'Tudo da festa avulsa', ok: true },
+      { text: 'Até 4 festas em destaque por mês incluídas (extras: R$89 cada)', ok: true },
+      { text: 'Banner rotativo no topo de Festas & Eventos (12 vagas, junto com os Fundadores, 4 por vez)', ok: true },
+      { text: 'Frase do banner trocada toda semana (ex.: a próxima festa)', ok: true },
+      { text: 'Sempre em primeiro na lista da categoria, por 12 meses', ok: true },
+    ],
+    cta: 'Assinar Premium',
+    highlight: true,
+    color: '#E1306C',
+  },
+  {
+    slug: 'fundador',
+    nome: 'Fundador',
+    tag: '12 VAGAS NO TOTAL',
+    preco: 'R$349',
+    sub: '/mês × 12 meses',
+    beneficios: [
+      { text: 'Tudo do Premium', ok: true },
+      { text: 'Pagamento: 12 parcelas de R$349 ou R$3.490 à vista', ok: true },
+      { text: 'Até 4 festas em destaque por mês incluídas (extras: R$89 cada)', ok: true },
+      { text: 'Banner rotativo de Festas na frente dos Premium', ok: true },
+      { text: 'Banner no topo da tela inicial e categoria Destaques, por 12 meses', ok: true },
+      { text: 'Vaga garantida (são só 12 Fundadores no app inteiro)', ok: true },
+    ],
+    cta: 'Consultar vaga',
+    highlight: false,
+    borderGold: true,
+  },
+  {
+    slug: 'master_festas',
+    nome: 'Patrocínio Master',
+    tag: '1 VAGA',
+    preco: 'R$2.000',
+    sub: '/mês',
+    beneficios: [
+      { text: 'Faixa grande e fixa no topo da aba Eventos, a primeira coisa que se vê', ok: true },
+      { text: 'Fica no ar o tempo todo, enquanto durar o contrato', ok: true },
+      { text: 'Título, subtítulo e botão editáveis a qualquer momento', ok: true },
+      { text: 'É a mesma faixa para todos os ícones de público (Lésbica, Gay, Todos)', ok: true },
+    ],
+    cta: 'Falar com a equipe',
+    highlight: false,
+    href: '/contato',
+  },
+];
+
 export default function PlanosPage() {
   const router = useRouter();
   const [localId, setLocalId] = useState<string | null>(null);
@@ -101,6 +177,7 @@ export default function PlanosPage() {
   const [enviando, setEnviando] = useState<string | null>(null);
   const [confirmado, setConfirmado] = useState<{ nome: string; gratis: boolean } | null>(null);
   const [erro, setErro] = useState('');
+  const [aba, setAba] = useState<'locais' | 'eventos'>('locais');
 
   useEffect(() => {
     (async () => {
@@ -108,11 +185,12 @@ export default function PlanosPage() {
       if (userData?.user) {
         const { data } = await supabase
           .from('locais')
-          .select('id')
+          .select('id, categoria')
           .eq('owner_id', userData.user.id)
           .in('id', idsMarcaAtiva())
           .maybeSingle();
         setLocalId(data?.id ?? null);
+        if (data?.categoria === 'eventos') setAba('eventos'); // quem é da categoria Festas já abre nos planos de eventos
       }
       setCarregando(false);
     })();
@@ -187,17 +265,29 @@ export default function PlanosPage() {
       </Link>
 
       <div className="mb-8">
-        <h1 className="text-2xl font-black text-white">Planos para o seu local</h1>
+        <h1 className="text-2xl font-black text-white">{aba === 'locais' ? 'Planos para o seu local' : 'Planos para eventos e festas'}</h1>
         <p className="text-[#A0A0B2] text-sm mt-1">
-          Escolher um plano pago registra seu interesse — combinamos o pagamento por Pix/WhatsApp e
-          ativamos manualmente por enquanto. Você pode trocar quando quiser.
+          {aba === 'locais'
+            ? 'Escolher um plano pago registra seu interesse — combinamos o pagamento por Pix/WhatsApp e ativamos manualmente por enquanto. Você pode trocar quando quiser.'
+            : 'Para produtoras, organizadores e casas de festa. Em Festas & Eventos não há cupons: as festas pagas ganham a faixa "Festas em destaque" no topo da aba Eventos. Pagamento combinado pela equipe (Pix ou máquina).'}
         </p>
+        <div className="inline-flex mt-4 p-1 rounded-xl bg-[#161520] border border-[#232230] text-xs font-bold">
+          {([['locais', 'Para locais'], ['eventos', 'Para eventos e festas']] as const).map(([k, rotulo]) => (
+            <button
+              key={k}
+              onClick={() => setAba(k)}
+              className={`px-4 py-2 rounded-lg transition ${aba === k ? 'bg-[#E1306C] text-white' : 'text-[#A0A0B2] hover:text-white'}`}
+            >
+              {rotulo}
+            </button>
+          ))}
+        </div>
       </div>
 
       {erro && <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl text-xs mb-6">{erro}</div>}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        {planos.map((p) => (
+        {(aba === 'locais' ? planos : planosEventos).map((p) => (
           <div
             key={p.slug}
             className={`bg-[#161520] border rounded-2xl p-6 flex flex-col justify-between relative ${
@@ -239,26 +329,37 @@ export default function PlanosPage() {
               </div>
             </div>
 
-            <button
-              onClick={() => escolherPlano(p)}
-              disabled={enviando === p.slug}
-              className={`w-full py-3 rounded-xl font-bold text-xs transition flex items-center justify-center gap-2 ${
+            {p.href ? (
+              <Link href={p.href} className={`w-full py-3 rounded-xl font-bold text-xs transition flex items-center justify-center gap-2 ${
                 p.highlight
                   ? 'bg-[#E1306C] text-white hover:bg-[#C2285C]'
                   : p.borderGold
                   ? 'border border-[#FFD54F] text-[#FFD54F] hover:bg-[#FFD54F] hover:text-black'
                   : 'bg-[#232230] text-white hover:bg-[#2D2B3D]'
-              }`}
-            >
-              {enviando === p.slug && <Loader2 className="animate-spin" size={12} />}
-              {p.cta}
-            </button>
+              }`}>
+                {p.cta}
+              </Link>
+            ) : (
+              <button
+                onClick={() => escolherPlano(p)}
+                disabled={enviando === p.slug}
+                className={`w-full py-3 rounded-xl font-bold text-xs transition flex items-center justify-center gap-2 ${
+                p.highlight
+                  ? 'bg-[#E1306C] text-white hover:bg-[#C2285C]'
+                  : p.borderGold
+                  ? 'border border-[#FFD54F] text-[#FFD54F] hover:bg-[#FFD54F] hover:text-black'
+                  : 'bg-[#232230] text-white hover:bg-[#2D2B3D]'
+              }`}>
+                {enviando === p.slug && <Loader2 className="animate-spin" size={12} />}
+                {p.cta}
+              </button>
+            )}
           </div>
         ))}
       </div>
 
       <p className="text-[11px] text-[#626274] text-center">
-        Preços exibidos para o local. Pacotes avulsos de evento e parcerias institucionais têm regras próprias.
+        Valores de lançamento. Parcerias institucionais têm regras próprias. Cobrança manual pela equipe por enquanto.
       </p>
     </div>
   );
