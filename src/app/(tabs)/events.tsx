@@ -4,7 +4,7 @@ import SubcategoriaBanners, { GrupoSub } from '../../components/SubcategoriaBann
 import VitrineCategoria, { LocalVitrine } from '../../components/VitrineCategoria';
 import { CAMPOS_LOCAL } from '../../components/ListaPadrao';
 import { normTxt, SUBCATEGORIAS } from '../../lib/subcategorias';
-import { EstadoSubcategorias, buscarEstadoSubcategorias, buscarSubcategoriasDesligadas } from '../../lib/vitrine';
+import { EstadoSubcategorias, buscarEstadoSubcategorias, buscarSubcategoriasDesligadas, buscarVagas } from '../../lib/vitrine';
 import MarcaApp from '../../components/MarcaApp';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -235,7 +235,20 @@ export default function EventsScreen() {
       .eq('status', 'aprovado')
       .eq('categoria', 'eventos')
       .limit(500)
-      .then((r: any) => { if (vivo && r?.data) setLocaisVitrine(r.data as LocalVitrine[]); });
+      .then(async (r: any) => {
+        if (!vivo || !r?.data) return;
+        const lista = r.data as LocalVitrine[];
+        // Local de outra categoria que a equipe FIXOU numa vaga de banner de Festas (portal admin) também entra: fixar é escolha deliberada.
+        try {
+          const v = await buscarVagas('festas');
+          const faltam = Object.values(v.premium).filter((id) => id && !lista.some((l) => l.id === id));
+          if (faltam.length) {
+            const { data: extras } = await (supabase.from('locais') as any).select(CAMPOS_LOCAL).eq('status', 'aprovado').in('id', faltam);
+            if (extras) lista.push(...(extras as LocalVitrine[]));
+          }
+        } catch { /* segue só com os locais de Festas */ }
+        if (vivo) setLocaisVitrine(lista);
+      });
     buscarSubcategoriasDesligadas('festas').then((x) => { if (vivo) setSubDesligadas(x); });
     buscarEstadoSubcategorias('festas').then((x) => { if (vivo) setEstadoSub(x); });
     return () => { vivo = false; };
