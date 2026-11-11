@@ -63,6 +63,7 @@ const planos: readonly PlanoCard[] = [
       { text: '1 cupom por semana na faixa de cupons da categoria (10 vagas Premium por categoria)', ok: true },
       { text: 'Sempre em primeiro na lista da categoria, por 12 meses', ok: true },
       { text: 'Roda nos banners de destaque inferiores da tela inicial, entre os 10 primeiros, a cada 3 horas', ok: true },
+      { text: 'Categoria Festas & Eventos: até 4 festas em destaque por mês incluídas (destaques extras: R$89 cada)', ok: true },
       { text: '3 tags — Top 5', ok: true },
     ],
     cta: 'Assinar Premium',
@@ -80,7 +81,7 @@ const planos: readonly PlanoCard[] = [
     beneficios: [
       { text: 'Tudo do Premium', ok: true },
       { text: 'Pagamento: 12 parcelas de R$349 ou R$3.490 à vista', ok: true },
-      { text: '1 festa em destaque por mês incluída (destaques extras: R$89 cada)', ok: true },
+      { text: 'Categoria Festas & Eventos: até 4 festas em destaque por mês incluídas (destaques extras: R$89 cada)', ok: true },
       { text: 'Banner no topo da tela inicial por 12 meses (slots de 4, troca a cada 3 horas, texto de curiosidade trocado toda semana)', ok: true },
       { text: '1 cupom por semana na faixa de cupons da categoria (2 vagas de Fundador, trocando a cada 10 minutos)', ok: true },
       { text: 'Categoria Destaques — exclusiva dos 12 Fundadores, por ordem de fechamento', ok: true },
