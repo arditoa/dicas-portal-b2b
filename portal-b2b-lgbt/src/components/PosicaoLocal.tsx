@@ -21,11 +21,11 @@ const sec = 'border border-[#232230] rounded-xl p-4 mb-4';
 // categoria REAL do banco → slug da categoria no app (chave das vagas e do Patrocínio Master)
 const SLUG_DA_CATEGORIA: Record<string, string> = {
   lugares: 'bares', gastronomia: 'gastronomia', cultura: 'cultura', turismo: 'turismo', servicos: 'servicos', produtos: 'produtos',
-  educacao: 'educacao', artistas: 'artistas', beleza: 'beleza', mais18: 'mais18', lazer: 'lazer', lojas: 'lojas', eventos: 'festas',
+  educacao: 'educacao', artistas: 'artistas', beleza: 'beleza', mais18: 'mais18', saude: 'saude', lazer: 'lazer', lojas: 'lojas', eventos: 'festas',
 };
 const NOME_CATEGORIA: Record<string, string> = {
   lugares: 'Bares & Vida Noturna', gastronomia: 'Gastronomia', cultura: 'Cultura', turismo: 'Turismo | Dicas Trip', servicos: 'Serviços', produtos: 'Moda & Acessórios',
-  educacao: 'Educação', artistas: 'Artistas', beleza: 'Beleza & Estética', mais18: 'Espaços 18+', lazer: 'Experiências & Lazer', lojas: 'Lojas', eventos: 'Festas & Eventos',
+  educacao: 'Educação', artistas: 'Artistas', beleza: 'Beleza & Estética', mais18: 'Espaços 18+', saude: 'Saúde & Bem-estar', lazer: 'Experiências & Lazer', lojas: 'Lojas', eventos: 'Festas & Eventos',
 };
 // slug do app → nome da página (inclui as páginas que não têm categoria real no banco)
 const NOME_SLUG: Record<string, string> = {

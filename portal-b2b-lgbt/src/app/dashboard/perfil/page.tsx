@@ -43,6 +43,7 @@ const CATEGORIAS = [
   { value: 'turismo', label: 'Turismo / Agências de turismo', disabled: false },
   { value: 'beleza', label: 'Beleza & Estética', disabled: false },
   { value: 'mais18', label: 'Espaços 18+', disabled: false },
+  { value: 'saude', label: 'Saúde & Bem-estar', disabled: false },
   { value: 'lojas', label: 'Lojas', disabled: true },
   { value: 'servicos', label: 'Serviços', disabled: false },
   { value: 'produtos', label: 'Moda & Acessórios', disabled: false },

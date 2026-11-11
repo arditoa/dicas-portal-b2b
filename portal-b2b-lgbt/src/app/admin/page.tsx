@@ -236,6 +236,7 @@ const CATEGORIA_CHIPS: { slug: string; label: string; categoriaReal: string | nu
   { slug: 'dicas_trip', label: 'Dicas Trip', categoriaReal: 'turismo' },
   { slug: 'beleza', label: 'Beleza', categoriaReal: 'beleza' },
   { slug: 'mais18', label: 'Espaço 18+', categoriaReal: 'mais18' }, // valor novo do enum — migration 070
+  { slug: 'saude', label: 'Saúde', categoriaReal: 'saude' }, // valor novo do enum — migration 089
   { slug: 'lojas', label: 'Lojas', categoriaReal: 'lojas' },
   { slug: 'servicos', label: 'Serviços', categoriaReal: 'servicos' }, // existe no banco — só não aparece pro usuário final ainda (decisão da Andrea, não limitação técnica)
   { slug: 'educacao', label: 'Educação', categoriaReal: 'educacao' }, // categoria nova — migration 053
@@ -255,6 +256,7 @@ const CATEGORIA_REAL_LABEL_ADMIN: Record<string, string> = {
   artistas: 'Artistas',
   beleza: 'Beleza',
   mais18: 'Espaços 18+',
+  saude: 'Saúde & Bem-estar',
   lojas: 'Lojas',
   lazer: 'Lazer',
 };

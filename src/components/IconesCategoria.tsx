@@ -8,7 +8,7 @@ import { CATEGORIA_ORDER, CATEGORIAS } from '../lib/categorias';
 
 const ROTULO_CURTO: Record<string, string> = {
   turismo: 'Dicas Trip', bares: 'Bares', festas: 'Festas', gastronomia: 'Gastronomia', lazer: 'Lazer', cultura: 'Cultura',
-  saude: 'Saúde', beleza: 'Beleza', servicos: 'Serviços', educacao: 'Educação', artistas: 'Artistas', produtos: 'Produtos', mais18: '18+', lojas: 'Lojas',
+  saude: 'Saúde', beleza: 'Beleza', servicos: 'Serviços', educacao: 'Educação', artistas: 'Artistas', produtos: 'Moda', mais18: '18+', lojas: 'Lojas',
 };
 
 export type IconeFiltro = { id: string; label: string; icone: string; cor: string };

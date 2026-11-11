@@ -84,8 +84,8 @@ const GAP_GRADE = 8;
 // Categorias ativas primeiro; as "em breve" vão para o fim da fila (ordem oficial mantida dentro de cada grupo).
 // Ordem fixa da Home (nov/2026): Destaques, Bares & Noite, Festas, Serviços, Dicas Trip, Artistas, Beleza e 18+;
 // as demais categorias vêm depois, na ordem oficial. Só as ABERTAS_HOME abrem; as outras aparecem "Em breve" na Home.
-const ORDEM_FIXA_HOME = ['destaques', 'bares', 'festas', 'servicos', 'turismo', 'artistas', 'beleza', 'mais18'] as (typeof CATEGORIA_ORDER)[number][];
-const ABERTAS_HOME: string[] = ['destaques', 'bares', 'festas', 'servicos', 'turismo', 'artistas', 'beleza', 'mais18'];
+const ORDEM_FIXA_HOME = ['destaques', 'bares', 'festas', 'servicos', 'turismo', 'artistas', 'beleza', 'saude', 'produtos', 'mais18'] as (typeof CATEGORIA_ORDER)[number][];
+const ABERTAS_HOME: string[] = ['destaques', 'bares', 'festas', 'servicos', 'turismo', 'artistas', 'beleza', 'saude', 'produtos', 'mais18'];
 // 18+: confirmação de idade antes de abrir (vale até fechar o app).
 let idadeConfirmada = false;
 const emBreveHome = (cat: { slug: string; emBreve?: boolean }) => !!cat.emBreve || !ABERTAS_HOME.includes(cat.slug);
@@ -98,7 +98,7 @@ const LARGURA_TILE = 84;
 const ROTULO_CURTO: Record<string, string> = {
   destaques: 'Destaques', turismo: 'Dicas Trip', bares: 'Bares & Noite', festas: 'Festas', gastronomia: 'Gastronomia',
   lazer: 'Lazer', cultura: 'Cultura', saude: 'Saúde', beleza: 'Beleza', servicos: 'Serviços', educacao: 'Educação', artistas: 'Artistas',
-  produtos: 'Produtos', comunidade: 'Comunidade', mais18: '18+', lojas: 'Lojas',
+  produtos: 'Moda', comunidade: 'Comunidade', mais18: '18+', lojas: 'Lojas',
 };
 
 // Seção "Selos e benefícios" (out/2026): 3 cartões do mesmo tamanho, cada

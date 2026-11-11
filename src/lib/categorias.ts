@@ -155,8 +155,7 @@ export const CATEGORIAS: Record<CategoriaSlugUI, CategoriaConfig> = {
     label: 'Saúde & Bem-estar',
     icon: 'activity',
     color: '#4CAF7D',
-    categoriaReal: null,
-    emBreve: true,
+    categoriaReal: 'saude', // valor novo do enum (migration 089); aberta na Home em nov/2026
   },
   // Nov/2026 — categoria nova pedida pela Andrea (migration 053). Cursos, idiomas,
   // escolas, mentorias e formações inclusivas. Ativa desde o lançamento.
@@ -205,11 +204,12 @@ export const CATEGORIA_REAL_LABEL: Record<string, string> = {
   eventos: 'Festas & Eventos',
   turismo: 'Turismo',
   servicos: 'Serviços Inclusivos',
-  produtos: 'Produtos',
+  produtos: 'Moda & Acessórios',
   educacao: 'Educação',
   artistas: 'Artistas',
   beleza: 'Beleza & Estética',
   mais18: 'Espaços 18+',
+  saude: 'Saúde & Bem-estar',
 };
 
 // Rodada 66 — selo colorido de categoria nos cards (pedido da Andrea a
