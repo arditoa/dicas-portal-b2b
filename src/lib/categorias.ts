@@ -79,7 +79,7 @@ export const CATEGORIAS: Record<CategoriaSlugUI, CategoriaConfig> = {
   // Quem se apresenta (pessoa ou grupo), não o lugar; o show em si continua em Festas & Eventos.
   artistas: {
     slug: 'artistas',
-    label: 'Artistas',
+    label: 'Artistas & Entretenimento',
     icon: 'mic',
     color: '#BA68C8',
     categoriaReal: 'artistas',
@@ -206,7 +206,7 @@ export const CATEGORIA_REAL_LABEL: Record<string, string> = {
   servicos: 'Serviços Inclusivos',
   produtos: 'Moda & Acessórios',
   educacao: 'Educação',
-  artistas: 'Artistas',
+  artistas: 'Artistas & Entretenimento',
   beleza: 'Beleza & Estética',
   mais18: 'Espaços 18+',
   saude: 'Saúde & Bem-estar',

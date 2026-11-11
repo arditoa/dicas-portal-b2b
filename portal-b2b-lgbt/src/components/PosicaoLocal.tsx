@@ -25,7 +25,7 @@ const SLUG_DA_CATEGORIA: Record<string, string> = {
 };
 const NOME_CATEGORIA: Record<string, string> = {
   lugares: 'Bares & Vida Noturna', gastronomia: 'Gastronomia', cultura: 'Cultura', turismo: 'Turismo | Dicas Trip', servicos: 'Serviços', produtos: 'Moda & Acessórios',
-  educacao: 'Educação', artistas: 'Artistas', beleza: 'Beleza & Estética', mais18: 'Espaços 18+', saude: 'Saúde & Bem-estar', lazer: 'Experiências & Lazer', lojas: 'Lojas', eventos: 'Festas & Eventos',
+  educacao: 'Educação', artistas: 'Artistas & Entretenimento', beleza: 'Beleza & Estética', mais18: 'Espaços 18+', saude: 'Saúde & Bem-estar', lazer: 'Experiências & Lazer', lojas: 'Lojas', eventos: 'Festas & Eventos',
 };
 // slug do app → nome da página (inclui as páginas que não têm categoria real no banco)
 const NOME_SLUG: Record<string, string> = {

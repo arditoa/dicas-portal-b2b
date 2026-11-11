@@ -3,7 +3,7 @@ export const CATEGORIES_LIST = [
   { slug: 'bares', label: 'Bares', icon: 'coffee' },
   { slug: 'gastronomia', label: 'Gastronomia', icon: 'square' },
   { slug: 'festas', label: 'Festas & Eventos', icon: 'music' },
-  { slug: 'artistas', label: 'Artistas', icon: 'mic' },
+  { slug: 'artistas', label: 'Artistas & Entretenimento', icon: 'mic' },
   { slug: 'cultura', label: 'Cultura & Lazer', icon: 'film' },
   { slug: 'turismo', label: 'Dicas Trip (Turismo)', icon: 'map-pin' },
   { slug: 'beleza', label: 'Beleza & Bem-Estar', icon: 'scissors' },

@@ -48,7 +48,7 @@ const CATEGORIAS = [
   { value: 'servicos', label: 'Serviços', disabled: false },
   { value: 'produtos', label: 'Moda & Acessórios', disabled: false },
   { value: 'educacao', label: 'Educação', disabled: false },
-  { value: 'artistas', label: 'Artistas', disabled: false },
+  { value: 'artistas', label: 'Artistas & Entretenimento', disabled: false },
   { value: 'lazer', label: 'Lazer', disabled: true },
 ] as const;
 

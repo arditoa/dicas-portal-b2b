@@ -231,7 +231,7 @@ const CATEGORIA_CHIPS: { slug: string; label: string; categoriaReal: string | nu
   { slug: 'bares', label: 'Bares', categoriaReal: 'lugares' },
   { slug: 'gastronomia', label: 'Gastronomia', categoriaReal: 'gastronomia' },
   { slug: 'festas', label: 'Festas', categoriaReal: 'eventos' }, // Festas & Eventos: categoria própria de local (enum 'eventos'), com subcategorias; a agenda de datas fica na tabela `eventos`
-  { slug: 'artistas', label: 'Artistas', categoriaReal: 'artistas' }, // categoria nova — migration 069
+  { slug: 'artistas', label: 'Artistas & Entretenimento', categoriaReal: 'artistas' }, // categoria nova — migration 069
   { slug: 'cultura', label: 'Cultura', categoriaReal: 'cultura' },
   { slug: 'dicas_trip', label: 'Dicas Trip', categoriaReal: 'turismo' },
   { slug: 'beleza', label: 'Beleza', categoriaReal: 'beleza' },
@@ -253,7 +253,7 @@ const CATEGORIA_REAL_LABEL_ADMIN: Record<string, string> = {
   servicos: 'Serviços',
   produtos: 'Moda & Acessórios',
   educacao: 'Educação',
-  artistas: 'Artistas',
+  artistas: 'Artistas & Entretenimento',
   beleza: 'Beleza',
   mais18: 'Espaços 18+',
   saude: 'Saúde & Bem-estar',

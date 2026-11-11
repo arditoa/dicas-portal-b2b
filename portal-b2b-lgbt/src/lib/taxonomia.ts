@@ -192,10 +192,8 @@ export const GRUPOS_EVENTO: GrupoTags[] = [
     'Encontro', 'Gastronomia', 'Pool party', 'Pré-festa', 'After', 'Aula de dança',
   ] },
   { id: 'musica', titulo: 'Estilo musical', tags: [
-    'Divas do POP', 'Brasilidades', 'Anos 2000/2010', 'Flash Back anos 80/90', 'Hits do Momento', 'Open Format',
-    'Tribal', 'Tribal House', 'Eletrônica', 'Pop', 'Funk', 'Samba/Pagode', 'Sertanejo', 'MPB', 'Pop Rock',
-    'Disco House', 'Hip-hop e Rap', 'Música Latina', 'Axé', 'Brega e Tecnobrega', 'Rock and Roll', 'Jazz',
-    'Burlesco', 'K-Pop', 'Ritmos Nordestinos', 'Ritmos Nortistas',
+    'Pop e Divas', 'Eletrônica', 'Funk', 'Sertanejo', 'Samba e Pagode', 'MPB e Brasilidades', 'Rock',
+    'Música Latina', 'Flashback', 'Ritmos regionais',
   ] },
   { id: 'publico', titulo: 'Tipo de público', tags: [
     'Para eles', 'Para elas', 'Para Todes', 'Festas Queer', 'Público Hétero e Queer',
@@ -226,6 +224,49 @@ export const GRUPOS_EVENTO: GrupoTags[] = [
   { id: 'classificacao', titulo: 'Classificação', tags: ['Livre', '16+', '18+', 'Parceiro Fundador', 'Verificado pelo Dicas'] },
 ];
 
+// ── Festas: o MESMO vocabulário no cadastro (portal) e nos filtros (app) ──
+// Tipo de evento (obrigatório; escolha única). `slug` é a tag gravada; `musica` = pede estilo musical.
+export const TIPOS_EVENTO_CADASTRO = [
+  { slug: 'festa', rotulo: 'Festas e baladas', musica: true },
+  { slug: 'show', rotulo: 'Shows', musica: true },
+  { slug: 'drag_show', rotulo: 'Drag shows', musica: false },
+  { slug: 'teatro', rotulo: 'Teatro', musica: false },
+  { slug: 'aula_de_danca', rotulo: 'Aulas de dança', musica: false },
+  { slug: 'encontro', rotulo: 'Cultura e encontros', musica: false },
+] as const;
+
+// Para quem é a festa (obrigatório; escolha única). É exatamente a subcategoria da aba Eventos.
+export const PUBLICO_FESTA_CADASTRO = [
+  { slug: 'predominancia_lesbica', rotulo: 'Predominância Lésbica' },
+  { slug: 'predominancia_gay', rotulo: 'Predominância Gay' },
+  { slug: 'para_todes', rotulo: 'Todos' },
+] as const;
+
+// Formato (opcional): bate com o filtro "Formato" do app.
+export const FORMATOS_CADASTRO = [
+  { slug: 'open_bar', rotulo: 'Open bar' },
+  { slug: 'sunset_parties', rotulo: 'Sunset' },
+  { slug: 'pool_party', rotulo: 'Pool party' },
+  { slug: 'pre_festa', rotulo: 'Pré-festa' },
+  { slug: 'after', rotulo: 'After' },
+  { slug: 'karaoke', rotulo: 'Karaokê' },
+  { slug: 'gogo_dancer', rotulo: 'Gogo dancer' },
+] as const;
+
+export const ESTILOS_MAX_CADASTRO = 3;
+
+// Estilos antigos que contam dentro de cada estilo novo (eventos já cadastrados continuam aparecendo no filtro).
+export const ESTILO_ALIAS: Record<string, string[]> = {
+  pop_e_divas: ['divas_do_pop', 'pop', 'hits_do_momento'],
+  eletronica: ['tribal', 'tribal_house', 'disco_house', 'house', 'techno', 'disco'],
+  samba_e_pagode: ['samba_pagode', 'samba', 'pagode'],
+  mpb_e_brasilidades: ['mpb', 'brasilidades'],
+  rock: ['rock_and_roll', 'pop_rock', 'rock_doido'],
+  musica_latina: ['reggaeton'],
+  flashback: ['flash_back_anos_80_90', 'anos_2000_2010'],
+  ritmos_regionais: ['axe', 'brega_e_tecnobrega', 'forro', 'ritmos_nordestinos', 'ritmos_nortistas', 'tecnomelody'],
+};
+
 // Emoji de cada tag de Experiência (só enfeite no cadastro; o dado gravado é o slug).
 export const EMOJI_EXPERIENCIA: Record<string, string> = {
   musica: '🎧', drinks_e_bebidas: '🍸', open_bar: '🥃', gastronomia: '🍽', arte: '🎭', karaoke: '🎤',
@@ -241,7 +282,11 @@ export const TAGS_EVENTO_AUTOMATICAS = ['hoje', 'amanha', 'fim_de_semana'];
 export const LEGADO_EVENTO: Record<string, string[]> = {
   funk: ['funk'],
   pop: ['pop_eletronica'],
-  eletronica: ['pop_eletronica'],
+  eletronica: ['pop_eletronica', 'techno_house'],
+  pop_e_divas: ['pop_eletronica'],
+  samba_e_pagode: ['mpb_samba'],
+  mpb_e_brasilidades: ['mpb_samba'],
+  ritmos_regionais: ['forro'],
   sertanejo: ['sertanejo'],
   drag_show: ['drag_cabare', 'drag'],
   mpb: ['mpb_samba'],
@@ -280,6 +325,10 @@ for (const t of [
   '50+', 'Jovens', 'Famílias', 'Aliados', 'Turistas', 'Todos os públicos',
   'House', 'Techno', 'Disco', 'Rock Doido', 'Tecnomelody', 'Rock', 'Reggaeton', 'Trap', 'Forró', 'Pagode',
   'Samba', 'Música ao vivo', 'DJ', 'Open format',
+  'Divas do POP', 'Brasilidades', 'Anos 2000/2010', 'Flash Back anos 80/90', 'Hits do Momento', 'Open Format', 'Tribal',
+  'Tribal House', 'Pop', 'Disco House', 'Samba/Pagode', 'MPB', 'Pop Rock', 'Hip-hop e Rap', 'Axé', 'Brega e Tecnobrega',
+  'Rock and Roll', 'Jazz', 'Burlesco', 'K-Pop', 'Ritmos Nordestinos', 'Ritmos Nortistas',
+  'Para eles', 'Para elas', 'Para Todes', 'Festas Queer', 'Público Hétero e Queer', 'Predominância lésbica', 'Predominância gay',
 ]) ROTULOS[slugTag(t)] = t;
 for (const lista of [GRUPOS_HOSPEDAGEM, GRUPOS_DESTINO, GRUPOS_EVENTO]) {
   for (const g of lista) for (const t of g.tags) ROTULOS[slugTag(t)] = t;

@@ -457,7 +457,7 @@ const es: Dic = {
   'cat.saude': 'Salud y Bienestar',
   'cat.comunidade': 'Comunidad y Apoyo',
   'cat.educacao': 'Educación',
-  'cat.artistas': 'Artistas',
+  'cat.artistas': 'Artistas & Entretenimento',
   'cat.mais18': 'Espacios 18+',
 
   'home.voceEstaEm': 'Estás en',

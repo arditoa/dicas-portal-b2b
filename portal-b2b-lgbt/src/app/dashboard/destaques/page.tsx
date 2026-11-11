@@ -20,7 +20,7 @@ type Com = { headline: string; texto: string; oferta: string; cta: string; desti
 type Patro = { categoria: string; tag: string; titulo: string; subtitulo: string; cta: string; destino: string; cor1: string; cor2: string };
 
 // O que cada plano dá ao parceiro — texto simples, sem jargão (mostrado no topo da tela).
-const NOME_CATEGORIA_APP: Record<string, string> = { bares: 'Bares & Vida Noturna', festas: 'Festas & Eventos', servicos: 'Serviços', turismo: 'Dicas Trip', artistas: 'Artistas', beleza: 'Beleza & Estética', mais18: 'Espaços 18+', gastronomia: 'Gastronomia', cultura: 'Cultura', educacao: 'Educação', produtos: 'Compras & Produtos', lazer: 'Experiências & Lazer', destaques: 'Destaques' };
+const NOME_CATEGORIA_APP: Record<string, string> = { bares: 'Bares & Vida Noturna', festas: 'Festas & Eventos', servicos: 'Serviços', turismo: 'Dicas Trip', artistas: 'Artistas & Entretenimento', beleza: 'Beleza & Estética', mais18: 'Espaços 18+', gastronomia: 'Gastronomia', cultura: 'Cultura', educacao: 'Educação', produtos: 'Compras & Produtos', lazer: 'Experiências & Lazer', destaques: 'Destaques' };
 const PLANO_TEXTO: Record<string, { nome: string; cor: string; itens: string[] }> = {
   fundador: { nome: 'Membro Fundador', cor: '#FFD54F', itens: [
     'Seu banner roda nos Destaques e na Home do app, com o selo dourado de Membro Fundador.',

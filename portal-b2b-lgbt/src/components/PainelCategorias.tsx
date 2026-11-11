@@ -28,7 +28,7 @@ const CATS: Cat[] = [
   { slug: 'festas', nome: 'Festas & Eventos', real: 'eventos', aberta: true },
   { slug: 'servicos', nome: 'Serviços', real: 'servicos', aberta: true },
   { slug: 'turismo', nome: 'Turismo | Dicas Trip', real: 'turismo', aberta: true },
-  { slug: 'artistas', nome: 'Artistas', real: 'artistas', aberta: true },
+  { slug: 'artistas', nome: 'Artistas & Entretenimento', real: 'artistas', aberta: true },
   { slug: 'beleza', nome: 'Beleza & Estética', real: 'beleza', aberta: true },
   { slug: 'mais18', nome: 'Espaços 18+', real: 'mais18', aberta: true },
   { slug: 'gastronomia', nome: 'Gastronomia', real: 'gastronomia', aberta: false },

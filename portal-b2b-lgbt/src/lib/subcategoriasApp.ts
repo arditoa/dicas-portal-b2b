@@ -60,7 +60,7 @@ export const SUBCATEGORIAS_APP: Record<string, { titulo: string; itens: { chave:
     ],
   },
   artistas: {
-    titulo: 'Artistas',
+    titulo: 'Artistas & Entretenimento',
     itens: [
       { chave: 'banda', rotulo: 'Banda' },
       { chave: 'solo', rotulo: 'Solo' },

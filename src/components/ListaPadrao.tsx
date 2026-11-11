@@ -79,7 +79,7 @@ export const GRUPO_CATEGORIA: Record<string, string> = {
   lojas: 'Lojas',
   produtos: 'Produtos',
   educacao: 'Educação',
-  artistas: 'Artistas',
+  artistas: 'Artistas & Entretenimento',
   mais18: '18+',
   lazer: 'Lazer',
 };

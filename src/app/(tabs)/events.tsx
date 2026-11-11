@@ -27,7 +27,7 @@ import { useAuth } from '../../lib/authContext';
 import { CATEGORIAS, SUBTITULO_CATEGORIA } from '../../lib/categorias';
 import { deveExibirGlow, estaFixadoEm } from '../../lib/destaque';
 import { supabase } from '../../lib/supabase';
-import { GRUPOS_EVENTO, LEGADO_EVENTO, TAGS_EVENTO_AUTOMATICAS, rotuloTag, slugTag } from '../../lib/taxonomia';
+import { ESTILO_ALIAS, GRUPOS_EVENTO, LEGADO_EVENTO, TAGS_EVENTO_AUTOMATICAS, rotuloTag, slugTag } from '../../lib/taxonomia';
 import { useRastrearTela } from '../../lib/usoTelas';
 
 const COLORS = {
@@ -61,6 +61,7 @@ const TIPOS_EVENTO_CHIPS: { id: string; rotulo: string; tags: string[]; musica: 
 
 function eventoTem(ev: { tags?: string[] | null; estilos_musicais?: string[] | null; publico_tags?: string[] | null; listaVipAtiva?: any }, slug: string): boolean {
   if (ev.tags?.includes(slug)) return true;
+  if ((ESTILO_ALIAS[slug] || []).some((a) => ev.tags?.includes(a))) return true;
   if (slug === 'lista_vip' && ev.listaVipAtiva) return true;
   const legado = LEGADO_EVENTO[slug];
   return !!legado && legado.some((l) => ev.estilos_musicais?.includes(l) || ev.publico_tags?.includes(l));
@@ -377,6 +378,13 @@ export default function EventsScreen() {
     if (chipId !== 'festas') return false;
     return !TIPOS_EVENTO_CHIPS.some((c) => c.tags.some((t) => eventoTem(ev, t)));
   };
+  // Ícones de subcategoria de festa: cada evento entra nas que combinam com título, tags, estilos e público.
+  const defsFestas = SUBCATEGORIAS.festas;
+  const subsDoEvento = (ev: EventItem): string[] => {
+    const texto = normTxt([ev.titulo, ...(ev.tags || []).map(rotuloTag), ...(ev.estilos_musicais || []), ...(ev.publico_tags || [])].join(' '));
+    const partes = texto.split(/[^a-z0-9]+/).filter(Boolean);
+    return defsFestas.filter((d) => d.palavras.some((p) => (p.includes(' ') ? texto.includes(p) : partes.includes(p)))).map((d) => d.chave);
+  };
   const diasSemana = diasDaSemanaAteDomingo();
   const chavesSemana = diasSemana.map(chaveDia);
   const filteredEvents = events
@@ -401,13 +409,6 @@ export default function EventsScreen() {
       return aFixado === bFixado ? 0 : aFixado ? -1 : 1;
     });
 
-  // Ícones de subcategoria de festa: cada evento entra nas que combinam com título, tags, estilos e público.
-  const defsFestas = SUBCATEGORIAS.festas;
-  const subsDoEvento = (ev: EventItem): string[] => {
-    const texto = normTxt([ev.titulo, ...(ev.tags || []).map(rotuloTag), ...(ev.estilos_musicais || []), ...(ev.publico_tags || [])].join(' '));
-    const partes = texto.split(/[^a-z0-9]+/).filter(Boolean);
-    return defsFestas.filter((d) => d.palavras.some((p) => (p.includes(' ') ? texto.includes(p) : partes.includes(p)))).map((d) => d.chave);
-  };
   // Festas pagas (divulgação avulsa, R$ 89): rodam do começo do dia anterior até 6h depois do fim. Máx. 24.
   const festasPagas = useMemo(() => {
     const agora = Date.now();

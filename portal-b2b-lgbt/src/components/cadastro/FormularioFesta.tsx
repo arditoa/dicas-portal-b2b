@@ -9,7 +9,17 @@ import { formatarNome } from '../../lib/texto';
 import { telefoneParecCurto } from '../../lib/parceiroAuth';
 import { erroFotoNaoSuportada, TAMANHO_MAXIMO_FOTO_MB } from '../../lib/validarFoto';
 import { CLASSIFICACOES_LGBT } from '../../lib/classificacaoLgbt';
-import { EMOJI_EXPERIENCIA, GRUPOS_EVENTO, LEGADO_EVENTO, TAGS_EVENTO_AUTOMATICAS, TAGS_RESERVADAS, slugTag } from '../../lib/taxonomia';
+import {
+  ESTILOS_MAX_CADASTRO,
+  FORMATOS_CADASTRO,
+  GRUPOS_EVENTO,
+  LEGADO_EVENTO,
+  PUBLICO_FESTA_CADASTRO,
+  TAGS_EVENTO_AUTOMATICAS,
+  TAGS_RESERVADAS,
+  TIPOS_EVENTO_CADASTRO,
+  slugTag,
+} from '../../lib/taxonomia';
 
 // Rodada 49 — pedido direto da Andrea: dar a opção de já subir o flier
 // aqui no cadastro público (antes só existia depois de aprovado, via
@@ -198,6 +208,21 @@ export default function FormularioFesta({
     }
     if (!classificacaoLgbt) {
       setErrorMsg('Escolha a relação do evento com a comunidade LGBT+.');
+      return;
+    }
+    // Mesmas regras do filtro do app: tipo e público são obrigatórios; estilo musical vale para festas e shows.
+    const tipoEscolhido = TIPOS_EVENTO_CADASTRO.find((t) => tagsEvento.includes(t.slug));
+    if (!tipoEscolhido) {
+      setErrorMsg('Escolha o tipo de evento (festa, show, drag show, teatro, aula de dança ou cultura).');
+      return;
+    }
+    if (!PUBLICO_FESTA_CADASTRO.some((p) => tagsEvento.includes(p.slug))) {
+      setErrorMsg('Escolha para quem é a festa: Predominância Lésbica, Predominância Gay ou Todos.');
+      return;
+    }
+    const estilosEscolhidos = (GRUPOS_EVENTO.find((g) => g.id === 'musica')?.tags || []).map(slugTag).filter((t) => tagsEvento.includes(t));
+    if (tipoEscolhido.musica && estilosEscolhidos.length === 0) {
+      setErrorMsg('Escolha de 1 a 3 estilos musicais.');
       return;
     }
     const docDigitos = documento.replace(/\D/g, '');
@@ -427,44 +452,105 @@ export default function FormularioFesta({
 
             {/* Rodada 63 — tags oficiais (src/lib/taxonomia.ts). Tipo, estilo
                 musical e público ficam abertos; o resto em "mais detalhes". */}
-            {GRUPOS_EVENTO.map((g, i) => {
-              const opcoes = g.tags.map((t) => ({ t, s: slugTag(t) })).filter((o) => !TAGS_EVENTO_AUTOMATICAS.includes(o.s) && !TAGS_RESERVADAS.includes(o.s));
-              const chips = (
-                <div className="flex flex-wrap gap-2">
-                  {opcoes.map(({ t, s }) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => setTagsEvento((prev) => toggleValue(prev, s))}
-                      disabled={loading}
-                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${
-                        tagsEvento.includes(s)
-                          ? 'bg-purple-600 border-purple-600 text-white'
-                          : 'bg-transparent border-[#232230] text-[#A0A0B2] hover:border-purple-500/50'
-                      }`}
-                    >
-                      {EMOJI_EXPERIENCIA[s] ? `${EMOJI_EXPERIENCIA[s]} ` : ''}{t}
-                    </button>
-                  ))}
-                </div>
-              );
-              if (['tipo', 'musica', 'publico', 'experiencia'].includes(g.id)) {
-                return (
-                  <div key={g.id}>
-                    <label className={labelClass}>{g.titulo}</label>
-                    {chips}
-                  </div>
-                );
-              }
+            {(() => {
+              const chip = (ativo: boolean) =>
+                `px-3 py-1.5 rounded-full text-xs font-medium border transition ${
+                  ativo ? 'bg-purple-600 border-purple-600 text-white' : 'bg-transparent border-[#232230] text-[#A0A0B2] hover:border-purple-500/50'
+                }`;
+              const slugsTipo: string[] = TIPOS_EVENTO_CADASTRO.map((t) => t.slug);
+              const slugsPublico: string[] = PUBLICO_FESTA_CADASTRO.map((t) => t.slug);
+              const estilos = (GRUPOS_EVENTO.find((g) => g.id === 'musica')?.tags || []).map((t) => ({ t, s: slugTag(t) }));
+              const slugsEstilo = estilos.map((e) => e.s);
+              const tipoAtual = TIPOS_EVENTO_CADASTRO.find((t) => tagsEvento.includes(t.slug));
+              const qtdEstilos = tagsEvento.filter((t) => slugsEstilo.includes(t)).length;
+              // Escolha única: trocar a opção tira a anterior do mesmo grupo.
+              const escolherUnica = (grupo: string[], s: string) =>
+                setTagsEvento((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev.filter((x) => !grupo.includes(x)), s]));
+              const alternarEstilo = (s: string) =>
+                setTagsEvento((prev) => {
+                  if (prev.includes(s)) return prev.filter((x) => x !== s);
+                  return prev.filter((x) => slugsEstilo.includes(x)).length >= ESTILOS_MAX_CADASTRO ? prev : [...prev, s];
+                });
               return (
-                <details key={g.id} className="group">
-                  <summary className={`${labelClass} cursor-pointer select-none`}>
-                    {g.titulo} {opcoes.some((o) => tagsEvento.includes(o.s)) ? '•' : '(opcional)'}
-                  </summary>
-                  <div className="mt-2">{chips}</div>
-                </details>
+                <>
+                  <div>
+                    <label className={labelClass}>Tipo de evento *</label>
+                    <div className="flex flex-wrap gap-2">
+                      {TIPOS_EVENTO_CADASTRO.map((t) => (
+                        <button key={t.slug} type="button" disabled={loading} onClick={() => escolherUnica(slugsTipo, t.slug)} className={chip(tagsEvento.includes(t.slug))}>
+                          {t.rotulo}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className={labelClass}>Para quem é a festa *</label>
+                    <div className="flex flex-wrap gap-2">
+                      {PUBLICO_FESTA_CADASTRO.map((p) => (
+                        <button key={p.slug} type="button" disabled={loading} onClick={() => escolherUnica(slugsPublico, p.slug)} className={chip(tagsEvento.includes(p.slug))}>
+                          {p.rotulo}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-[#626274] mt-2">É o que define em qual ícone da aba Eventos a festa aparece no app.</p>
+                  </div>
+
+                  {(!tipoAtual || tipoAtual.musica) && (
+                    <div>
+                      <label className={labelClass}>
+                        Estilo musical {tipoAtual ? '*' : '(para festas e shows)'} <span className="text-[#626274] font-normal">· até {ESTILOS_MAX_CADASTRO}</span>
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {estilos.map(({ t, s }) => (
+                          <button
+                            key={s}
+                            type="button"
+                            disabled={loading || (!tagsEvento.includes(s) && qtdEstilos >= ESTILOS_MAX_CADASTRO)}
+                            onClick={() => alternarEstilo(s)}
+                            className={`${chip(tagsEvento.includes(s))} disabled:opacity-40`}
+                          >
+                            {t}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <details className="group">
+                    <summary className={`${labelClass} cursor-pointer select-none`}>
+                      Formato {FORMATOS_CADASTRO.some((f) => tagsEvento.includes(f.slug)) ? '•' : '(opcional)'}
+                    </summary>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {FORMATOS_CADASTRO.map((f) => (
+                        <button key={f.slug} type="button" disabled={loading} onClick={() => setTagsEvento((prev) => toggleValue(prev, f.slug))} className={chip(tagsEvento.includes(f.slug))}>
+                          {f.rotulo}
+                        </button>
+                      ))}
+                    </div>
+                  </details>
+
+                  {/* Demais grupos (entrada, estrutura, ambiente, classificação): opcionais, recolhidos. */}
+                  {GRUPOS_EVENTO.filter((g) => ['ingresso', 'estrutura', 'ambiente', 'classificacao'].includes(g.id)).map((g) => {
+                    const opcoes = g.tags.map((t) => ({ t, s: slugTag(t) })).filter((o) => !TAGS_EVENTO_AUTOMATICAS.includes(o.s) && !TAGS_RESERVADAS.includes(o.s));
+                    return (
+                      <details key={g.id} className="group">
+                        <summary className={`${labelClass} cursor-pointer select-none`}>
+                          {g.titulo} {opcoes.some((o) => tagsEvento.includes(o.s)) ? '•' : '(opcional)'}
+                        </summary>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {opcoes.map(({ t, s }) => (
+                            <button key={s} type="button" disabled={loading} onClick={() => setTagsEvento((prev) => toggleValue(prev, s))} className={chip(tagsEvento.includes(s))}>
+                              {t}
+                            </button>
+                          ))}
+                        </div>
+                      </details>
+                    );
+                  })}
+                </>
               );
-            })}
+            })()}
           </div>
 
           <div className="bg-[#12121A] border border-[#232230] rounded-2xl p-6 space-y-4">
