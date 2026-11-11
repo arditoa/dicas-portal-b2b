@@ -15,6 +15,7 @@ import PainelBanners from '../../components/PainelBanners';
 import PainelVitrine from '../../components/PainelVitrine';
 import PainelCategorias from '../../components/PainelCategorias';
 import PosicaoLocal from '../../components/PosicaoLocal';
+import BannerDestaqueAdmin from '../../components/BannerDestaqueAdmin';
 import SubcategoriaAdmin from '../../components/SubcategoriaAdmin';
 import { SUBCATEGORIAS_APP } from '../../lib/subcategoriasApp';
 import PainelPush from '../../components/PainelPush';
@@ -2546,6 +2547,20 @@ Dicas LGBT+`;
                       );
                     })}
                   </div>
+                );
+              })()}
+
+              {(() => {
+                const planoBanner = l.fundador || ((l.plano_comercial === 'premium' || l.plano_comercial === 'fundador') && (l.plano_comercial_status || 'ativo') === 'ativo');
+                const cat = CATEGORIA_REAL_LABEL_ADMIN[l.categoria] || l.categoria;
+                return (
+                  <BannerDestaqueAdmin
+                    localId={l.id}
+                    nome={l.nome}
+                    etiqueta={l.subcategoria || l.nome}
+                    temBanner={planoBanner}
+                    ondeAparece={l.fundador ? `no topo da categoria ${cat}, na categoria Destaques e na Home (Membros Fundadores)` : `no topo da categoria ${cat}`}
+                  />
                 );
               })()}
 
