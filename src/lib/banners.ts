@@ -62,9 +62,10 @@ const ROTULO_PARCERIA: Record<string, Record<string, string>> = {
   institucional: { pt: 'PARCEIRO INSTITUCIONAL', en: 'INSTITUTIONAL PARTNER', es: 'SOCIO INSTITUCIONAL' },
 };
 
-/** Devolve a lista de anúncios da tela ('home' | 'trip') ou null (usar a lista do código). */
+/** Devolve a lista de anúncios da tela ('home' | 'trip' | 'cat:<slug da categoria>') ou null (usar a lista do código). */
+// Rodada 139 — os banners de parceiros/campanhas também podem aparecer nas categorias ('cat:bares', 'cat:festas'…).
 export function useAnunciosApp(
-  tela: 'home' | 'trip',
+  tela: string,
   extras?: { custom?: Record<string, Anuncio['custom']> }
 ): { anuncios: Anuncio[] | null; aoExibir: (id: string) => void } {
   const router = useRouter();

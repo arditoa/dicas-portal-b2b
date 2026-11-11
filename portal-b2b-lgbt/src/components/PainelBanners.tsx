@@ -5,6 +5,27 @@
 import { Loader2, Pause, Pencil, Play, Plus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { erroFotoNaoSuportada } from '../lib/validarFoto';
+
+// Rodada 139 — onde o banner pode aparecer: Home, Trip e as páginas de categoria do app ('cat:<slug>').
+const TELAS_BANNER: { v: string; rotulo: string }[] = [
+  { v: 'home', rotulo: 'Tela inicial' },
+  { v: 'trip', rotulo: 'Aba Trip' },
+  { v: 'cat:destaques', rotulo: 'Destaques (Fundadores)' },
+  { v: 'cat:bares', rotulo: 'Bares & Noite' },
+  { v: 'cat:festas', rotulo: 'Festas' },
+  { v: 'cat:servicos', rotulo: 'Serviços' },
+  { v: 'cat:turismo', rotulo: 'Dicas Trip (categoria)' },
+  { v: 'cat:artistas', rotulo: 'Artistas' },
+  { v: 'cat:beleza', rotulo: 'Beleza' },
+  { v: 'cat:saude', rotulo: 'Saúde & Bem-estar' },
+  { v: 'cat:produtos', rotulo: 'Moda & Acessórios' },
+  { v: 'cat:gastronomia', rotulo: 'Gastronomia' },
+  { v: 'cat:cultura', rotulo: 'Cultura' },
+  { v: 'cat:educacao', rotulo: 'Educação' },
+  { v: 'cat:mais18', rotulo: 'Espaços 18+' },
+];
+const rotuloTela = (t: string) => TELAS_BANNER.find((x) => x.v === t)?.rotulo || t;
 
 type Banner = {
   id: string;
@@ -51,7 +72,21 @@ function estado(b: Banner): { texto: string; cor: string } {
 const paraInput = (iso: string | null) => (iso ? new Date(iso).toISOString().slice(0, 16) : '');
 const daInput = (v: string) => (v ? new Date(v).toISOString() : null);
 
-export default function PainelBanners() {
+export default function PainelBanners({ onIrPara }: { onIrPara?: (aba: string) => void } = {}) {
+  const [enviandoLogo, setEnviandoLogo] = useState(false);
+  async function subirLogo(arquivo: File | undefined) {
+    if (!arquivo) return;
+    const problema = erroFotoNaoSuportada(arquivo);
+    if (problema) { setMsg({ ok: false, texto: problema }); return; }
+    setEnviandoLogo(true);
+    const ext = (arquivo.name.split('.').pop() || 'png').toLowerCase();
+    const caminho = `banners/${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from('fotos-destinos').upload(caminho, arquivo, { cacheControl: '3600', upsert: false });
+    setEnviandoLogo(false);
+    if (error) { setMsg({ ok: false, texto: `Não deu para enviar: ${error.message}` }); return; }
+    setEditando((x) => (x ? { ...x, logo_url: supabase.storage.from('fotos-destinos').getPublicUrl(caminho).data.publicUrl } : x));
+    setMsg({ ok: true, texto: 'Imagem enviada. Clique em "Salvar banner" para publicar.' });
+  }
   const [lista, setLista] = useState<Banner[]>([]);
   const [metricas, setMetricas] = useState<Record<string, Metrica>>({});
   const [carregando, setCarregando] = useState(true);
@@ -174,8 +209,15 @@ export default function PainelBanners() {
               </select>
             </div>
             <div>
-              <label className="text-xs font-bold text-[#A0A0B2]">Endereço do logo (opcional, https://)</label>
-              <input className={`${campo} mt-1.5`} value={e.logo_url || ''} onChange={(x) => set({ logo_url: x.target.value })} placeholder="https://..." />
+              <label className="text-xs font-bold text-[#A0A0B2]">Logo do parceiro (opcional)</label>
+              <div className="flex items-center gap-3 mt-2">
+                <label className="text-xs font-bold text-[#E1306C] cursor-pointer hover:underline">
+                  {enviandoLogo ? 'Enviando...' : e.logo_url ? 'Trocar logo' : 'Subir logo'}
+                  <input type="file" accept="image/*" className="hidden" disabled={enviandoLogo} onChange={(x) => { subirLogo(x.target.files?.[0]); x.target.value = ''; }} />
+                </label>
+                {e.logo_url && <button type="button" onClick={() => set({ logo_url: null })} className="text-xs font-bold text-[#A0A0B2] hover:underline">Tirar</button>}
+              </div>
+              <p className="text-[11px] text-[#626274] mt-1">Fica no quadrado branco da faixa colorida, à direita. Use o logo com fundo branco ou transparente.</p>
             </div>
           </div>
           <div>
@@ -186,11 +228,12 @@ export default function PainelBanners() {
 
           <div>
             <label className="text-xs font-bold text-[#A0A0B2]">Onde aparece</label>
-            <div className="flex gap-4 mt-2">
-              {(['home', 'trip'] as const).map((t) => (
-                <label key={t} className="flex items-center gap-2 text-sm cursor-pointer">
-                  <input type="checkbox" checked={e.telas.includes(t)} onChange={(x) => set({ telas: x.target.checked ? [...e.telas, t] : e.telas.filter((y) => y !== t) })} />
-                  {t === 'home' ? 'Tela inicial' : 'Aba Trip'}
+            <p className="text-[11px] text-[#626274] mt-0.5">Nas categorias, o cartão entra no carrossel do topo, depois dos banners de Fundador e Premium.</p>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 mt-2">
+              {TELAS_BANNER.map((t) => (
+                <label key={t.v} className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="checkbox" checked={e.telas.includes(t.v)} onChange={(x) => set({ telas: x.target.checked ? [...e.telas, t.v] : e.telas.filter((y) => y !== t.v) })} />
+                  {t.rotulo}
                 </label>
               ))}
             </div>
@@ -272,9 +315,29 @@ export default function PainelBanners() {
 
   return (
     <div>
+      <div className="bg-[#161520] border border-[#232230] rounded-2xl p-4 mb-5">
+        <p className="text-sm font-bold mb-2">Mapa dos banners do app: onde edita cada um</p>
+        <div className="grid md:grid-cols-3 gap-3 text-xs">
+          <div className="rounded-xl border border-[#E1306C]/60 bg-[#E1306C]/10 p-3">
+            <p className="font-bold text-white">1. Parceiros e campanhas</p>
+            <p className="text-[#A0A0B2] mt-1">Embratur, Câmara LGBT, Copa, Museu, campanhas do Dicas. Cartão com faixa colorida e logo. Na Home, na Trip e nas categorias que você marcar.</p>
+            <p className="text-[#E1306C] font-bold mt-2">É aqui, nesta tela.</p>
+          </div>
+          <div className="rounded-xl border border-[#232230] p-3">
+            <p className="font-bold text-white">2. Fundadores e Premium</p>
+            <p className="text-[#A0A0B2] mt-1">Cartão em degradê com a frase do local e foto opcional (metade frase, metade foto). Gira na Home (Fundador) e no topo da categoria.</p>
+            <button type="button" onClick={() => onIrPara?.('fundador')} className="text-[#E1306C] font-bold mt-2 hover:underline">Membros Fundadores &gt; Editar banner</button>
+          </div>
+          <div className="rounded-xl border border-[#232230] p-3">
+            <p className="font-bold text-white">3. Patrocínio Master</p>
+            <p className="text-[#A0A0B2] mt-1">O banner fixo, com foto de fundo, no alto de cada categoria (ex.: &quot;Bares by Vezpa&quot;). Um por categoria.</p>
+            <button type="button" onClick={() => onIrPara?.('categorias')} className="text-[#E1306C] font-bold mt-2 hover:underline">Categorias e vagas</button>
+          </div>
+        </div>
+      </div>
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <p className="text-xs text-[#A0A0B2] max-w-xl">
-          Os cartões giram sozinhos na tela inicial e na aba Trip (no máximo 4 por vez). A ordem é sorteada com o peso: quem tem peso maior abre na frente com mais frequência.
+          Banners de parceiros e campanhas: giram sozinhos (no máximo 4 por vez em cada tela). A ordem é sorteada com o peso: quem tem peso maior abre na frente com mais frequência.
         </p>
         <button type="button" onClick={() => { setMsg(null); setEditando({ ...VAZIO }); }} className="bg-[#E1306C] hover:bg-[#c42760] font-bold text-sm px-4 py-2.5 rounded-xl flex items-center gap-2">
           <Plus size={16} /> Novo banner
@@ -293,7 +356,7 @@ export default function PainelBanners() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${st.cor}`}>{st.texto}</span>
-                  <span className="text-[10px] font-bold text-[#A0A0B2]">{b.telas.map((t) => (t === 'home' ? 'Tela inicial' : 'Trip')).join(' + ')}</span>
+                  <span className="text-[10px] font-bold text-[#A0A0B2]">{b.telas.map(rotuloTela).join(' · ')}</span>
                   <span className="text-[10px] text-[#626274]">· {PARCERIAS.find((p) => p.v === b.parceria)?.rotulo}</span>
                 </div>
                 <p className="text-[11px] font-bold text-[#B39DDB] mt-1.5 truncate">{b.tag}</p>
