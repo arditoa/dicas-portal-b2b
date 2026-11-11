@@ -14,7 +14,7 @@ import { textoLocalizacao } from '../lib/localizacao';
 import { formatarNome } from '../lib/texto';
 import { useLocation } from '../hooks/useLocation';
 import { distanciaKm, PUBLICOS, RAIOS_KM } from '../lib/filtrosLocais';
-import CabecalhoTela, { OpcaoTitulo } from './CabecalhoTela';
+import CabecalhoTela, { BotaoMenuTela, OpcaoTitulo } from './CabecalhoTela';
 import FiltrosPilulas, { FiltroDef } from './FiltrosPilulas';
 import IconesCategoria, { IconeFiltro, iconesPadraoCategorias } from './IconesCategoria';
 
@@ -260,6 +260,7 @@ export default function ListaPadrao({ titulo, subtitulo, itens, carregando, vazi
               value={busca}
               onChangeText={setBusca}
             />
+            <BotaoMenuTela opcoes={opcoesTitulo} valor={valorTitulo} onEscolher={onTrocarTitulo} tituloMenu={tituloSeletor} />
           </View>
         )}
 

@@ -710,15 +710,17 @@ export default function BusinessDetailScreen() {
               </View>
             )}
 
-            <TouchableOpacity style={styles.actionBtn} onPress={handleAbrirInstagram}>
-              <Feather name="instagram" size={18} color="#FFF" style={{ marginRight: 8 }} />
-              <Text style={styles.actionBtnText}>Ver no Instagram</Text>
-            </TouchableOpacity>
+            <View style={styles.acoesRow}>
+              <TouchableOpacity style={[styles.actionBtn, styles.acaoMeia]} onPress={handleAbrirInstagram}>
+                <Feather name="instagram" size={17} color="#FFF" style={{ marginRight: 8 }} />
+                <Text style={styles.actionBtnText}>Instagram</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.actionBtn, styles.mapBtn]} onPress={handleAbrirMapa}>
-              <Feather name="map-pin" size={18} color="#FFF" style={{ marginRight: 8 }} />
-              <Text style={styles.actionBtnText}>Ver no Mapa</Text>
-            </TouchableOpacity>
+              <TouchableOpacity style={[styles.actionBtn, styles.mapBtn, styles.acaoMeia]} onPress={handleAbrirMapa}>
+                <Feather name="map-pin" size={17} color="#FFF" style={{ marginRight: 8 }} />
+                <Text style={styles.actionBtnText}>Ver no mapa</Text>
+              </TouchableOpacity>
+            </View>
 
             {local.classificacao_lgbt && (() => {
               const classificacao = CLASSIFICACOES_LGBT.find((c) => c.value === local.classificacao_lgbt);
@@ -927,29 +929,22 @@ export default function BusinessDetailScreen() {
               );
             })}
 
-            {publicaRecursosPremium(local) && local.tags && local.tags.length > 0 && (
-              <View style={styles.cardSecao}>
-                <SecaoTitulo icone="hash" titulo="O que você encontra aqui" />
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                  {local.tags.map((tag, idx) => (
-                    <View key={idx} style={styles.tagExperienciaChip}>
-                      <Text style={styles.tagExperienciaTexto}>{tag}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            )}
-
             {publicaRecursosPremium(local) && local.galeria_fotos && local.galeria_fotos.length > 0 && (
               <View style={styles.cardSecao}>
                 <SecaoTitulo icone="image" titulo="Fotos" direita={<Text style={styles.secaoContagem}>{local.galeria_fotos.length}</Text>} />
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
-                  {local.galeria_fotos.map((url, idx) => (
-                    <TouchableOpacity key={idx} activeOpacity={0.9} onPress={() => setFotoZoom(url)}>
-                      <Image source={{ uri: url }} style={styles.galeriaFoto} resizeMode="cover" />
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
+                {local.galeria_fotos.length === 1 ? (
+                  <TouchableOpacity activeOpacity={0.9} onPress={() => setFotoZoom(local.galeria_fotos![0])}>
+                    <Image source={{ uri: local.galeria_fotos[0] }} style={styles.galeriaFotoUnica} resizeMode="cover" />
+                  </TouchableOpacity>
+                ) : (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+                    {local.galeria_fotos.map((url, idx) => (
+                      <TouchableOpacity key={idx} activeOpacity={0.9} onPress={() => setFotoZoom(url)}>
+                        <Image source={{ uri: url }} style={styles.galeriaFoto} resizeMode="cover" />
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                )}
               </View>
             )}
 
@@ -1008,16 +1003,16 @@ export default function BusinessDetailScreen() {
                           {hoje && <Text style={styles.horarioHojeTag}>HOJE</Text>}
                         </View>
                         {aberto ? (
-                          <View style={{ alignItems: 'flex-end', flexShrink: 1 }}>
-                            <Text style={[styles.horarioValor, hoje && { color: '#FFF', fontWeight: '700' }]}>
-                              {dia.abre && dia.fecha ? `${dia.abre} – ${dia.fecha}` : 'Aberto'}
-                            </Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 }}>
                             {!!dia.musica_ao_vivo && (
                               <View style={styles.musicaPill}>
                                 <Feather name="music" size={10} color="#E1306C" />
                                 <Text style={styles.musicaTxt}>ao vivo {dia.musica_ao_vivo}</Text>
                               </View>
                             )}
+                            <Text style={[styles.horarioValor, hoje && { color: '#FFF', fontWeight: '700' }]}>
+                              {dia.abre && dia.fecha ? `${dia.abre} – ${dia.fecha}` : 'Aberto'}
+                            </Text>
                           </View>
                         ) : (
                           <Text style={[styles.horarioValor, { color: '#626274' }]}>Fechado</Text>
@@ -1029,30 +1024,29 @@ export default function BusinessDetailScreen() {
               );
             })()}
 
-            {/* AVALIAÇÕES */}
-            <View style={styles.reviewsHeader}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <View style={styles.secaoIcone}>
-                  <Feather name="star" size={14} color="#E1306C" />
-                </View>
-                <Text style={styles.secaoTitulo}>Avaliações</Text>
-                {local.rating_total > 0 && <Text style={styles.secaoContagem}>{local.rating_total}</Text>}
-              </View>
-              <TouchableOpacity onPress={handleAbrirReview} activeOpacity={0.8}>
-                <Text style={styles.reviewCta}>
-                  {minhaAvaliacao ? 'Editar minha avaliação' : 'Avaliar este local'}
-                </Text>
-              </TouchableOpacity>
-            </View>
+            {/* AVALIAÇÕES — mesmo cartão e título das demais seções */}
+            <View style={styles.cardSecao}>
+              <SecaoTitulo
+                icone="star"
+                titulo="Avaliações"
+                direita={
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    {local.rating_total > 0 && <Text style={styles.secaoContagem}>{local.rating_total}</Text>}
+                    <TouchableOpacity onPress={handleAbrirReview} activeOpacity={0.8} style={styles.reviewCta}>
+                      <Text style={styles.reviewCtaTxt}>{minhaAvaliacao ? 'Editar avaliação' : 'Avaliar'}</Text>
+                    </TouchableOpacity>
+                  </View>
+                }
+              />
 
-            {avaliacoes.length === 0 ? (
-              <View style={styles.emptyReviewsBox}>
-                <Feather name="message-circle" size={20} color="#626274" />
-                <Text style={styles.emptyReviewsText}>
-                  Ainda não há avaliações. Seja a primeira pessoa a avaliar!
-                </Text>
-              </View>
-            ) : (
+              {avaliacoes.length === 0 ? (
+                <View style={styles.emptyReviewsBox}>
+                  <Feather name="message-circle" size={20} color="#626274" />
+                  <Text style={styles.emptyReviewsText}>
+                    Ainda não há avaliações. Seja a primeira pessoa a avaliar!
+                  </Text>
+                </View>
+              ) : (
               avaliacoes.map((av) => (
                 <View key={av.id} style={styles.reviewCard}>
                   <View style={styles.reviewCardHeader}>
@@ -1084,7 +1078,8 @@ export default function BusinessDetailScreen() {
                   {av.comentario && <Text style={styles.reviewComment}>{av.comentario}</Text>}
                 </View>
               ))
-            )}
+              )}
+            </View>
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -1192,10 +1187,10 @@ const styles = StyleSheet.create({
   actionBtn: { flexDirection: 'row', height: 48, backgroundColor: '#E1306C', borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
   mapBtn: { backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230' },
   // Rodada 59 (parte 8) — card de cupom ativo/check-in.
-  cupomCard: { backgroundColor: '#161520', borderWidth: 1, borderColor: '#FFD54F30', borderRadius: 16, padding: 16, marginBottom: 18 },
+  cupomCard: { backgroundColor: '#161520', borderWidth: 1, borderColor: '#FFD54F30', borderRadius: 18, padding: 16, marginTop: 14 },
   // Rodada 60 — selo de classificação da relação com a comunidade LGBT+
   // (Câmara de Comércio LGBT+), pedido pra ficar visível perto do cupom.
-  classificacaoCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: '#161520', borderWidth: 1, borderColor: '#7E57C230', borderRadius: 14, padding: 12, marginBottom: 18 },
+  classificacaoCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: '#161520', borderWidth: 1, borderColor: '#7E57C230', borderRadius: 18, padding: 16, marginTop: 14 },
   classificacaoEmoji: { fontSize: 17 },
   classificacaoLabel: { fontSize: 12, fontWeight: '800', color: '#FFF' },
   classificacaoDescricao: { fontSize: 11, color: '#A0A0B2', marginTop: 2, lineHeight: 15 },
@@ -1213,13 +1208,14 @@ const styles = StyleSheet.create({
   videoBtn: { backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230' },
   actionBtnText: { color: '#FFF', fontSize: 13, fontWeight: '700' },
 
-  galeriaFoto: { width: 170, height: 124, borderRadius: 14, backgroundColor: '#161520' },
+  galeriaFoto: { width: 210, height: 150, borderRadius: 14, backgroundColor: '#0B0B0E' },
+  galeriaFotoUnica: { width: '100%', height: 190, borderRadius: 14, backgroundColor: '#0B0B0E' },
+  acoesRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
+  acaoMeia: { flex: 1, marginBottom: 0, paddingHorizontal: 8 },
 
-  tagExperienciaChip: { backgroundColor: '#E1306C14', borderWidth: 1, borderColor: '#E1306C40', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
-  tagExperienciaTexto: { color: '#D0D0E0', fontSize: 12, fontWeight: '700' },
 
 
-  cardSecao: { marginTop: 16, backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230', borderRadius: 18, padding: 16 },
+  cardSecao: { marginTop: 14, backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230', borderRadius: 18, padding: 16 },
   secaoHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   secaoIcone: { width: 26, height: 26, borderRadius: 13, backgroundColor: '#E1306C1A', alignItems: 'center', justifyContent: 'center' },
   secaoTitulo: { fontSize: 15, fontWeight: '800', color: '#FFF' },
@@ -1233,7 +1229,7 @@ const styles = StyleSheet.create({
   progLinha: { flexDirection: 'row', gap: 10, paddingVertical: 7, borderBottomWidth: 1, borderBottomColor: '#232230' },
   progDia: { width: 74, fontSize: 12, fontWeight: '800', color: '#E1306C', textTransform: 'uppercase' },
   progTexto: { flex: 1, fontSize: 13, color: '#D0D0E0', lineHeight: 18 },
-  fidCard: { backgroundColor: '#161520', borderWidth: 1, borderColor: '#FFD54F30', borderRadius: 16, padding: 16, marginBottom: 18 },
+  fidCard: { backgroundColor: '#161520', borderWidth: 1, borderColor: '#FFD54F30', borderRadius: 18, padding: 16, marginTop: 14 },
   fidRegra: { fontSize: 15, fontWeight: '800', color: '#FFF', lineHeight: 21, marginBottom: 4 },
   fidBolinhas: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12, marginBottom: 4 },
   fidBolinha: { width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, borderColor: '#3A3950', alignItems: 'center', justifyContent: 'center' },
@@ -1248,7 +1244,7 @@ const styles = StyleSheet.create({
   fidVipTexto: { flex: 1, color: '#FFD54F', fontSize: 12, fontWeight: '700' },
   fidAtualizar: { fontSize: 11, fontWeight: '700', color: '#E1306C', marginTop: 10, textDecorationLine: 'underline' },
 
-  videoCard: { marginTop: 16, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230', borderRadius: 18, padding: 14 },
+  videoCard: { marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230', borderRadius: 18, padding: 16 },
   videoPlay: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#E1306C', alignItems: 'center', justifyContent: 'center' },
   videoTitulo: { fontSize: 14, fontWeight: '800', color: '#FFF' },
   videoSub: { fontSize: 11, color: '#A0A0B2', marginTop: 2 },
@@ -1263,21 +1259,21 @@ const styles = StyleSheet.create({
   horarioHojeTag: { fontSize: 9, fontWeight: '900', color: '#E1306C', letterSpacing: 0.5 },
   horarioDia: { fontSize: 13, fontWeight: '700', color: '#D0D0E0' },
   horarioValor: { fontSize: 13, color: '#A0A0B2' },
-  musicaPill: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3, backgroundColor: '#E1306C14', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
+  musicaPill: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#E1306C14', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
   musicaTxt: { fontSize: 10, fontWeight: '700', color: '#E1306C' },
 
   zoomOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', justifyContent: 'center', alignItems: 'center' },
   zoomImagem: { width: '100%', height: '85%' },
   zoomFechar: { position: 'absolute', top: 54, right: 20, width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
 
-  reviewsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, marginBottom: 12 },
   sectionTitle: { fontSize: 15, fontWeight: '800', color: '#FFF' },
-  reviewCta: { fontSize: 12, fontWeight: '700', color: '#7E57C2' },
+  reviewCta: { borderWidth: 1, borderColor: '#E1306C66', backgroundColor: '#E1306C14', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 },
+  reviewCtaTxt: { fontSize: 12, fontWeight: '800', color: '#E1306C' },
 
-  emptyReviewsBox: { alignItems: 'center', gap: 8, backgroundColor: '#161520', borderRadius: 16, borderWidth: 1, borderColor: '#232230', padding: 24 },
+  emptyReviewsBox: { alignItems: 'center', gap: 8, backgroundColor: '#0B0B0E', borderRadius: 14, paddingVertical: 22, paddingHorizontal: 16 },
   emptyReviewsText: { fontSize: 12, color: '#A0A0B2', textAlign: 'center' },
 
-  reviewCard: { backgroundColor: '#161520', borderRadius: 14, borderWidth: 1, borderColor: '#232230', padding: 12, marginBottom: 8 },
+  reviewCard: { borderTopWidth: 1, borderTopColor: '#232230', paddingVertical: 12 },
   reviewCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   reviewAuthor: { fontSize: 12, fontWeight: '700', color: '#FFF' },
   reviewComment: { fontSize: 12, color: '#A0A0B2', lineHeight: 18 },

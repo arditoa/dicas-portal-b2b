@@ -20,7 +20,8 @@ import { useAuth } from '../../lib/authContext';
 import ContaAtividade from '../../components/ContaAtividade';
 import { PassoGostos, PassoSobreVoce, aplicarPendente, guardarPendente, salvarExtras } from '../../components/CadastroExtras';
 import { EXTRAS_VAZIO, ExtrasCadastro } from '../../lib/perfilOpcoes';
-import { BotaoVoltar, TituloTela } from '../../components/CabecalhoTela';
+import { TituloTela } from '../../components/CabecalhoTela';
+import TopoApp from '../../components/TopoApp';
 import MarcaApp from '../../components/MarcaApp';
 import FundoCaixaDegrade from '../../components/FundoCaixaDegrade';
 import { AvatarEditavel, StatusRelacionamento } from '../../components/PerfilFotoStatus';
@@ -371,14 +372,7 @@ export default function ProfileScreen() {
       <SafeAreaView style={[styles.safeArea, { paddingTop: insets.top }]}>
         
         {/* Cabeçalho no mesmo padrão de Início/Eventos/Trip */}
-        <View style={styles.header}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <BotaoVoltar />
-            <View>
-              <MarcaApp />
-            </View>
-          </View>
-        </View>
+        <TopoApp comInsets={false} />
         <TituloTela
           titulo={t('conta.titulo')}
           tituloMenu="Ir para"

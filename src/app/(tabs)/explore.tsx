@@ -1,4 +1,5 @@
-import { BotaoVoltar, TituloTela } from '../../components/CabecalhoTela';
+import { BotaoMenuTela } from '../../components/CabecalhoTela';
+import TopoApp from '../../components/TopoApp';
 import MarcaApp from '../../components/MarcaApp';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -211,36 +212,7 @@ export default function ExploreScreen() {
   return (
     <View style={styles.container}>
       {/* 1. HEADER FIXO */}
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <BotaoVoltar />
-          <View style={styles.headerEsquerda}>
-            <MarcaApp />
-          </View>
-        </View>
-        <TouchableOpacity
-          style={styles.profileBtn}
-          onPress={() => router.push('/(tabs)/profile')}
-          activeOpacity={0.8}
-        >
-          <Feather name="user" size={18} color="#D0D0E0" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Título da aba no mesmo padrão das demais; o ∨ leva às listas por categoria */}
-      <TituloTela
-        titulo="Explorar"
-        subtitulo="Lugares que acolhem, perto de você"
-        tituloMenu="Ver lista de"
-        opcoes={[
-          { id: 'todos', label: 'Todos os lugares', icone: 'map-pin' },
-          { id: 'bares', label: 'Bares & Noite', icone: 'moon' },
-          { id: 'gastronomia', label: 'Gastronomia', icone: 'coffee' },
-          { id: 'cultura', label: 'Cultura', icone: 'book-open' },
-          { id: 'turismo', label: 'Turismo', icone: 'compass' },
-        ]}
-        onEscolher={(id) => router.push({ pathname: `/category/${id}` as any, params: { title: encodeURIComponent(id === 'todos' ? 'Todos os Locais' : id === 'bares' ? 'Bares & Noite' : id === 'gastronomia' ? 'Gastronomia' : id === 'cultura' ? 'Cultura' : 'Turismo') } })}
-      />
+      <TopoApp />
 
       {/* 2. BARRA DE BUSCA E BOTÃO DE FILTROS */}
       <View style={styles.controlsContainer}>
@@ -249,7 +221,7 @@ export default function ExploreScreen() {
           <TextInput
             value={search}
             onChangeText={setSearch}
-            placeholder="Buscar por nome ou bairro..."
+            placeholder="Buscar em Mapa..."
             placeholderTextColor={COLORS.textSecondary}
             style={styles.searchInput}
           />
@@ -258,6 +230,17 @@ export default function ExploreScreen() {
               <Feather name="x" size={18} color={COLORS.textMuted} />
             </TouchableOpacity>
           )}
+          <BotaoMenuTela
+            tituloMenu="Ver lista de"
+            opcoes={[
+              { id: 'todos', label: 'Todos os lugares', icone: 'map-pin' },
+              { id: 'bares', label: 'Bares & Noite', icone: 'moon' },
+              { id: 'gastronomia', label: 'Gastronomia', icone: 'coffee' },
+              { id: 'cultura', label: 'Cultura', icone: 'book-open' },
+              { id: 'turismo', label: 'Turismo', icone: 'compass' },
+            ]}
+            onEscolher={(id) => router.push({ pathname: `/category/${id}` as any, params: { title: encodeURIComponent(id === 'todos' ? 'Todos os Locais' : id === 'bares' ? 'Bares & Noite' : id === 'gastronomia' ? 'Gastronomia' : id === 'cultura' ? 'Cultura' : 'Turismo') } })}
+          />
         </View>
 
         <View style={styles.filtrosRow}>

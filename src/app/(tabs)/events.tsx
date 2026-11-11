@@ -1,4 +1,5 @@
-import { BotaoVoltar, TituloTela } from '../../components/CabecalhoTela';
+import { BotaoMenuTela } from '../../components/CabecalhoTela';
+import TopoApp from '../../components/TopoApp';
 import SubcategoriaBanners, { GrupoSub } from '../../components/SubcategoriaBanners';
 import VitrineCategoria, { LocalVitrine } from '../../components/VitrineCategoria';
 import { CAMPOS_LOCAL } from '../../components/ListaPadrao';
@@ -6,7 +7,9 @@ import { normTxt, SUBCATEGORIAS } from '../../lib/subcategorias';
 import { EstadoSubcategorias, buscarEstadoSubcategorias, buscarSubcategoriasDesligadas, buscarVagas } from '../../lib/vitrine';
 import MarcaApp from '../../components/MarcaApp';
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import FiltrosPilulas from '../../components/FiltrosPilulas';
+import { useLocation } from '../../hooks/useLocation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -58,6 +61,16 @@ const TIPOS_EVENTO_CHIPS: { id: string; rotulo: string; tags: string[]; musica: 
   { id: 'danca', rotulo: 'Aulas de dança', tags: ['aula_de_danca', 'workshop'], musica: false },
   { id: 'cultura', rotulo: 'Cultura e encontros', tags: ['exposicao', 'cinema', 'feira', 'parada', 'encontro', 'networking', 'congresso', 'conferencia', 'gastronomia'], musica: false },
 ];
+
+// Filtro "Perto" da entrada (mesmos raios das categorias).
+const RAIOS_KM: Record<string, number> = { 'Até 1 km': 1, 'Até 3 km': 3, 'Até 5 km': 5, 'Até 10 km': 10, 'Até 25 km': 25 };
+function distanciaKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 function eventoTem(ev: { tags?: string[] | null; estilos_musicais?: string[] | null; publico_tags?: string[] | null; listaVipAtiva?: any }, slug: string): boolean {
   if (ev.tags?.includes(slug)) return true;
@@ -180,7 +193,7 @@ interface EventoRow {
   destaque_secoes: string[] | null;
   destaque_ate: string | null;
   local_id: string | null;
-  locais: { nome: string; bairro: string | null; cidade: string } | null;
+  locais: { nome: string; bairro: string | null; cidade: string; lat?: number | null; lng?: number | null } | null;
   listas_vip: ListaVip[] | null;
 }
 
@@ -234,7 +247,14 @@ export default function EventsScreen() {
   const [filtrosExtras, setFiltrosExtras] = useState<string[]>([]);
   const [busca, setBusca] = useState('');
   const [selectedBairro, setSelectedBairro] = useState<string | null>(null);
-  const [selectedSub, setSelectedSub] = useState<string | null>(null);
+  // Página do tipo (/eventos/[tipo]): abre ao tocar num ícone da aba Eventos, igual à Dicas Trip. Aqui ficam os filtros.
+  const { tipo: tipoParam } = useLocalSearchParams<{ tipo?: string }>();
+  const modoTipo = !!tipoParam;
+  // Filtro "Perto" da entrada (aba principal): raio escolhido; o GPS só é pedido quando a pessoa escolhe um raio.
+  const [pertoSel, setPertoSel] = useState<string | undefined>(undefined);
+  const maxDistancia = pertoSel ? RAIOS_KM[pertoSel] ?? 999 : 999;
+  const { coords, loading: carregandoLocal } = useLocation(maxDistancia !== 999);
+  const [selectedSub, setSelectedSub] = useState<string | null>(tipoParam ? decodeURIComponent(String(tipoParam)) : null);
   // Locais de festa/noite: alimentam o banner rotativo Premium da vitrine.
   const [locaisVitrine, setLocaisVitrine] = useState<LocalVitrine[]>([]);
   const [subDesligadas, setSubDesligadas] = useState<Set<string>>(new Set());
@@ -305,7 +325,7 @@ export default function EventsScreen() {
       inicioHoje.setHours(0, 0, 0, 0);
 
       const CAMPOS =
-        'id, titulo, descricao, data_inicio, data_fim, estilos_musicais, publico_tags, foto_capa_url, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, local_id, locais(nome, bairro, cidade), listas_vip(id, titulo, vagas_limite, vagas_ocupadas, ativa)';
+        'id, titulo, descricao, data_inicio, data_fim, estilos_musicais, publico_tags, foto_capa_url, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, local_id, locais(nome, bairro, cidade, lat, lng), listas_vip(id, titulo, vagas_limite, vagas_ocupadas, ativa)';
       const consultar = (campos: string) =>
         supabase
           .from('eventos')
@@ -399,6 +419,10 @@ export default function EventsScreen() {
       if (selectedMusic && !eventoTem(ev, selectedMusic)) return false;
       if (selectedPublic && !eventoTem(ev, selectedPublic)) return false;
       if (selectedBairro && ev.locais?.bairro !== selectedBairro) return false;
+      if (maxDistancia !== 999 && coords) {
+        const la = ev.locais?.lat, lo = ev.locais?.lng;
+        if (la == null || lo == null || distanciaKm(coords.latitude, coords.longitude, la, lo) > maxDistancia) return false;
+      }
       if (selectedSub && !subsDoEvento(ev).includes(selectedSub)) return false;
       const q = busca.trim().toLowerCase();
       if (q && ![ev.titulo, ev.locais?.nome, ev.locais?.bairro, ev.locais?.cidade].some((t) => (t || '').toLowerCase().includes(q))) return false;
@@ -425,6 +449,9 @@ export default function EventsScreen() {
       .sort((a, b) => new Date(a.data_inicio).getTime() - new Date(b.data_inicio).getTime())
       .slice(0, 24);
   }, [events]);
+
+  // A faixa de festas pagas acompanha o ícone escolhido (só as desse tipo).
+  const festasPaginadas = selectedSub ? festasPagas.filter((ev) => subsDoEvento(ev).includes(selectedSub)) : festasPagas;
 
   const gruposSub = useMemo<GrupoSub[]>(
     () => defsFestas
@@ -753,53 +780,53 @@ export default function EventsScreen() {
     );
   };
 
+  const faixaPagas = (
+    <>
+                  {festasPaginadas.length > 0 && !subDesligadas.has('__festas') && (
+                    <View style={{ marginTop: 14 }}>
+                      <Text style={styles.festasPagasTitulo}>Festas em destaque</Text>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                        {festasPaginadas.map((ev) => (
+                          <TouchableOpacity key={ev.id} activeOpacity={0.9} style={styles.festaPagaCard} onPress={() => router.push(`/evento/${ev.id}` as any)} accessibilityRole="button" accessibilityLabel={ev.titulo}>
+                            {!!ev.foto_capa_url && <Image source={{ uri: ev.foto_capa_url }} style={StyleSheet.absoluteFill} resizeMode="cover" />}
+                            <View style={styles.festaPagaVeu} />
+                            <Text style={styles.festaPagaData}>{formatarDataEvento(ev.data_inicio, ev.dateTag)}</Text>
+                            <Text style={styles.festaPagaNome} numberOfLines={3}>{ev.titulo}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+    </>
+  );
   return (
     <View style={styles.container}>
-      {/* HEADER */}
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <BotaoVoltar />
-          <View style={styles.headerEsquerda}>
-            <MarcaApp />
-          </View>
-        </View>
-        <TouchableOpacity
-          style={styles.profileBtn}
-          onPress={() => router.push('/(tabs)/profile')}
-          activeOpacity={0.8}
-        >
-          <Feather name="user" size={18} color="#D0D0E0" />
-        </TouchableOpacity>
-      </View>
+      <TopoApp />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-
-        {/* TÍTULO + FRASE (mesmo modelo das categorias) */}
-        <View style={styles.titleArea}>
-          <TituloTela
-            semMargem
-            titulo="Eventos"
-            subtitulo={SUBTITULO_CATEGORIA.festas}
-            tituloMenu="Quando?"
-            opcoes={CALENDAR_DATES.map((d) => ({ id: d.id, label: d.label }))}
-            valor={dateFilter}
-            onEscolher={(id) => setDateFilter(id as FiltroData)}
-          />
-        </View>
 
         {/* BUSCA — pílula igual à da Home */}
         <View style={styles.searchContainer}>
           <Feather name="search" size={20} color={COLORS.textPrimary} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Buscar em Eventos..."
+            placeholder={`Buscar em ${modoTipo ? (SUBCATEGORIAS.festas.find((d) => d.chave === selectedSub)?.rotulo || 'Eventos') : 'Eventos'}...`}
             placeholderTextColor={COLORS.textSecondary}
             value={busca}
             onChangeText={setBusca}
           />
+          {modoTipo && (
+            <BotaoMenuTela
+              tituloMenu="Tipo de evento"
+              opcoes={defsFestas.map((d) => ({ id: d.chave, label: d.rotulo }))}
+              valor={selectedSub || undefined}
+              onEscolher={(id) => router.replace({ pathname: '/eventos/[tipo]' as any, params: { tipo: id } })}
+            />
+          )}
         </View>
 
-        {/* QUANDO: Hoje / Fim de semana / calendário + Mais filtros */}
+        {/* QUANDO + FILTROS (só dentro do tipo, como na Dicas Trip): Hoje / Essa semana / calendário / Filtros numa linha só */}
+        {modoTipo && (
         <View style={styles.dateSelectorRow}>
           <TouchableOpacity
             style={[styles.dateBtn, dateFilter === 'hoje' && styles.dateBtnActive]}
@@ -820,25 +847,25 @@ export default function EventsScreen() {
           <TouchableOpacity style={styles.calendarIconBtn} onPress={() => setShowCalendarModal(true)} activeOpacity={0.8} accessibilityLabel="Escolher data">
             <Feather name="calendar" size={16} color={COLORS.pink} />
           </TouchableOpacity>
-        </View>
 
-        {/* Um botão só: Filtrar (estilo, formato, bairro). "Para quem" é a fileira de ícones logo abaixo. */}
-        <View style={styles.filtrarLinha}>
-          <TouchableOpacity style={[styles.filtrarBtn, totalFiltros > 0 && { backgroundColor: COLORS.pink, borderColor: COLORS.pink }]} onPress={() => setShowFiltrar(true)} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Filtros">
+          <TouchableOpacity style={[styles.filtrarBtn, { marginLeft: 'auto' }, totalFiltros > 0 && { backgroundColor: COLORS.pink, borderColor: COLORS.pink }]} onPress={() => setShowFiltrar(true)} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Filtros">
             <Feather name="sliders" size={14} color={totalFiltros > 0 ? '#FFF' : COLORS.pink} />
             <Text style={[styles.filtrarTxt, totalFiltros > 0 && { color: '#FFF' }]}>{totalFiltros > 0 ? `Filtros · ${totalFiltros}` : 'Filtros'}</Text>
           </TouchableOpacity>
-          {(totalFiltros > 0 || selectedSub) && (
-            <TouchableOpacity onPress={() => { setSelectedSub(null); setSelectedBairro(null); setSelectedTipo(null); setSelectedMusic(null); setSelectedPublic(null); setTipoChip(null); }} accessibilityRole="button">
-              <Text style={styles.filtrarLimpar}>Limpar</Text>
-            </TouchableOpacity>
-          )}
         </View>
+        )}
 
         <Modal visible={showFiltrar} transparent animationType="fade" onRequestClose={() => setShowFiltrar(false)}>
           <TouchableOpacity style={styles.filtrarOverlay} activeOpacity={1} onPress={() => setShowFiltrar(false)}>
             <TouchableOpacity activeOpacity={1} style={styles.filtrarSheet}>
-              <Text style={styles.filtrarTitulo}>Mais filtros</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text style={styles.filtrarTitulo}>Mais filtros</Text>
+                {totalFiltros > 0 && (
+                  <TouchableOpacity onPress={() => { setSelectedBairro(null); setSelectedTipo(null); setSelectedMusic(null); setSelectedPublic(null); }} accessibilityRole="button">
+                    <Text style={styles.filtrarLimpar}>Limpar</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
               <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
                 <Text style={styles.filtrarSecao}>Para quem</Text>
                 <View style={styles.filtrarChips}>
@@ -888,7 +915,29 @@ export default function EventsScreen() {
         </Modal>
 
         {/* VITRINE (mesma lógica das categorias): patrocinador master, banner Premium rotativo, subcategorias em ícones e até 6 ofertas. */}
-        {!busca.trim() && (
+        {!modoTipo && (
+          <View style={{ marginBottom: 6 }}>
+            <FiltrosPilulas
+              compacto
+              filtros={[
+                { id: 'perto', label: 'Perto de mim', curto: 'Perto', icone: 'navigation', opcoes: Object.keys(RAIOS_KM), valor: pertoSel },
+                { id: 'publico', label: 'Público', titulo: 'Predominância de público', icone: 'users', opcoes: PUBLICO_FESTA_CADASTRO.map((p) => p.rotulo), valor: PUBLICO_FESTA_CADASTRO.find((p) => p.slug === selectedPublic)?.rotulo },
+              ]}
+              onSelecionar={(id, v) => {
+                if (id === 'perto') setPertoSel(v);
+                else setSelectedPublic(PUBLICO_FESTA_CADASTRO.find((p) => p.rotulo === v)?.slug ?? null);
+              }}
+              onLimpar={() => { setPertoSel(undefined); setSelectedPublic(null); }}
+            />
+            {carregandoLocal && maxDistancia !== 999 && <ActivityIndicator size="small" color={COLORS.pink} style={{ marginTop: 6 }} />}
+          </View>
+        )}
+        {modoTipo && (
+          <View style={{ paddingHorizontal: 16 }}>
+            {faixaPagas}
+          </View>
+        )}
+        {!modoTipo && !busca.trim() && (
           <View style={{ paddingHorizontal: 16 }}>
             <VitrineCategoria
               slug="festas"
@@ -904,27 +953,13 @@ export default function EventsScreen() {
                       grupos={gruposSub}
                       defs={defsFestas}
                       estado={estadoSub}
-                      selecionada={selectedSub}
+                      selecionada={null}
                       compacto
                       cor={CATEGORIAS.festas.color}
-                      onAbrir={(chave) => setSelectedSub((atual) => (atual === chave ? null : chave))}
+                      onAbrir={(chave) => router.push({ pathname: '/eventos/[tipo]' as any, params: { tipo: chave } })}
                     />
                   )}
-                  {festasPagas.length > 0 && !subDesligadas.has('__festas') && (
-                    <View style={{ marginTop: 14 }}>
-                      <Text style={styles.festasPagasTitulo}>Festas em destaque</Text>
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-                        {festasPagas.map((ev) => (
-                          <TouchableOpacity key={ev.id} activeOpacity={0.9} style={styles.festaPagaCard} onPress={() => router.push(`/evento/${ev.id}` as any)} accessibilityRole="button" accessibilityLabel={ev.titulo}>
-                            {!!ev.foto_capa_url && <Image source={{ uri: ev.foto_capa_url }} style={StyleSheet.absoluteFill} resizeMode="cover" />}
-                            <View style={styles.festaPagaVeu} />
-                            <Text style={styles.festaPagaData}>{formatarDataEvento(ev.data_inicio, ev.dateTag)}</Text>
-                            <Text style={styles.festaPagaNome} numberOfLines={3}>{ev.titulo}</Text>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
-                    </View>
-                  )}
+                  {faixaPagas}
                 </View>
               }
             />
@@ -934,10 +969,16 @@ export default function EventsScreen() {
         {/* LISTA DE EVENTOS */}
         <View style={styles.listArea}>
           <View style={styles.listHeaderRow}>
-            <Text style={styles.sectionTitle}>
-              {(CALENDAR_DATES.find((d) => d.id === dateFilter)?.label) || 'Próximos Eventos'}
+            {!modoTipo && (
+              <Text style={styles.sectionTitle}>
+                {(CALENDAR_DATES.find((d) => d.id === dateFilter)?.label) || 'Próximos Eventos'}
+              </Text>
+            )}
+            <Text style={styles.eventCount}>
+              {dateFilter === 'semana'
+                ? `${totalSemana} ${totalSemana === 1 ? 'programação' : 'programações'}`
+                : `${filteredEvents.length} ${filteredEvents.length === 1 ? 'evento' : 'eventos'}`}
             </Text>
-            <Text style={styles.eventCount}>{dateFilter === 'semana' ? `${totalSemana} programações` : `${filteredEvents.length} eventos`}</Text>
           </View>
 
           {loadingEvents ? (

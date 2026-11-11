@@ -338,7 +338,7 @@ function resumoSecoesLocal(l: LocalDestaque): string {
   if (automatico && !manualEmAlta) partes.push('Em Alta (automático — plano pago)');
   else if (manualEmAlta) partes.push('Em Alta');
   if (estaFixadoParaHoje(l)) partes.push('O que Fazer Hoje');
-  if (estaFixadoEm(l, 'turismo')) partes.push('Dicas Trip');
+  if (l.categoria === 'turismo' && deveIncluirEm(l, 'dicas_trip')) partes.push('Dicas Trip');
   if (estaFixadoEm(l, 'patrocinado')) partes.push('Patrocinado');
   if (l.destaque_secoes.includes('selo_dicas')) partes.push('Selo Dicas LGBT+');
   if (l.destaque_secoes.includes('destaque')) partes.push('Destaque da Semana');
@@ -1682,7 +1682,7 @@ Dicas LGBT+`;
     if (l.fundador && l.plano_comercial === 'fundador' && l.plano_comercial_status !== 'ativo') e.push({ texto: 'Selo sem plano ativo', cls: ALERTA });
     if (deveIncluirEm(l, 'em_alta')) e.push({ texto: 'Em Alta', cls: ROSA });
     if (estaFixadoParaHoje(l)) e.push({ texto: 'Hoje', cls: ROSA });
-    if (deveIncluirEm(l, 'turismo')) e.push({ texto: 'Dicas Trip', cls: ROSA });
+    if (l.categoria === 'turismo' && deveIncluirEm(l, 'dicas_trip')) e.push({ texto: 'Dicas Trip', cls: ROSA });
     if (estaFixadoEm(l, 'patrocinado')) e.push({ texto: 'Patrocinado', cls: ROXO });
     if (l.destaque_secoes.includes('selo_dicas')) e.push({ texto: 'Selo Dicas', cls: ROXO });
     if (l.destaque_secoes.includes('destaque')) e.push({ texto: 'Destaque da semana', cls: ROXO });

@@ -633,6 +633,11 @@ export default function DashboardEventosPage() {
 
                   {aberto && (
                     <div className="mt-3 space-y-3">
+                      {lista && (
+                        <Link href="/dashboard/porta" className="inline-block text-[11px] font-bold text-[#E1306C] underline">
+                          Abrir modo porta (check-in e resumo da festa)
+                        </Link>
+                      )}
                       {erroLista && (
                         <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-2.5 rounded-lg text-[11px]">
                           {erroLista}

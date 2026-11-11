@@ -9,7 +9,7 @@ import { useI18n } from '../lib/i18n';
 export const LOGO_LARGURA = 140;
 export const LOGO_ALTURA = Math.round((LOGO_LARGURA * 160) / 1500); // 15
 
-export default function MarcaApp() {
+export default function MarcaApp({ semFrase = false }: { semFrase?: boolean }) {
   const { t } = useI18n();
   return (
     <View style={s.raiz}>
@@ -19,7 +19,7 @@ export default function MarcaApp() {
         resizeMode="contain"
         accessibilityLabel="Dicas LGBT+"
       />
-      <Text style={s.frase} numberOfLines={1}>{t('app.subtitulo')}</Text>
+      {!semFrase && <Text style={s.frase} numberOfLines={1}>{t('app.subtitulo')}</Text>}
     </View>
   );
 }

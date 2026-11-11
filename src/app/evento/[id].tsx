@@ -4,8 +4,9 @@
 // pra aba Eventos inteira ou abria direto o modal da Lista VIP. Agora abre
 // esta página: flier grande, selo FESTA, data e horário, local (com link
 // pra página do local e "Como chegar"), descrição, tags e a Lista VIP com o
-// mesmo fluxo de antes (enviar nome, acompanhar status, check-in na
-// portaria, cancelar, avaliar o local depois).
+// mesmo fluxo de antes (enviar nome, acompanhar status, cancelar, avaliar o local
+// depois). Nov/2026: o check-in deixou de ser autodeclarado — o aprovado mostra um QR/código
+// e a casa confirma a entrada no Modo porta do portal.
 //
 // A descrição cadastrada pelo portal traz no final "Contato: nome —
 // WhatsApp" do organizador (uso interno da equipe) — essas linhas são
@@ -14,6 +15,7 @@ import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Linking, Platform, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '../../lib/authContext';
@@ -42,7 +44,7 @@ const STATUS_LABEL: Record<string, { texto: string; cor: string; icone: string }
   aprovada: { texto: 'Aprovado! Seu nome está confirmado na lista', cor: C.green, icone: 'check-circle' },
   rejeitada: { texto: 'Solicitação não aprovada', cor: C.pink, icone: 'x-circle' },
   cancelada: { texto: 'Solicitação cancelada', cor: C.dim, icone: 'slash' },
-  check_in: { texto: 'Check-in feito na portaria. Boa festa!', cor: C.green, icone: 'check-circle' },
+  check_in: { texto: 'Entrada confirmada na portaria. Boa festa!', cor: C.green, icone: 'check-circle' },
 };
 
 const DIAS = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
@@ -113,6 +115,7 @@ export default function EventoScreen() {
   const [carregando, setCarregando] = useState(true);
   const [ev, setEv] = useState<Evento | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [solicitacaoId, setSolicitacaoId] = useState<string | null>(null);
   const [acompanhantes, setAcompanhantes] = useState(0);
   const [enviando, setEnviando] = useState(false);
 
@@ -131,13 +134,15 @@ export default function EventoScreen() {
       if (user?.id && listaAtiva) {
         const { data: minha } = await supabase
           .from('listas_vip_solicitacoes')
-          .select('status')
+          .select('id, status')
           .eq('lista_vip_id', listaAtiva.id)
           .eq('user_id', user.id)
           .maybeSingle();
         setStatus((minha as any)?.status || null);
+        setSolicitacaoId((minha as any)?.id || null);
       } else {
         setStatus(null);
+        setSolicitacaoId(null);
       }
     } finally {
       setCarregando(false);
@@ -147,6 +152,24 @@ export default function EventoScreen() {
   useEffect(() => {
     carregar();
   }, [carregar]);
+
+  // Com o QR na tela, o app percebe sozinho quando a casa confirma a entrada (ou aprova o pedido):
+  // consulta só o status a cada 10 s, sem recarregar a página toda.
+  const listaIdAtiva = lista?.id;
+  useEffect(() => {
+    if (!listaIdAtiva || !user?.id || (status !== 'solicitada' && status !== 'aprovada')) return;
+    const t = setInterval(async () => {
+      const { data } = await supabase
+        .from('listas_vip_solicitacoes')
+        .select('status')
+        .eq('lista_vip_id', listaIdAtiva)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      const novo = (data as any)?.status || null;
+      if (novo && novo !== status) setStatus(novo);
+    }, 10000);
+    return () => clearInterval(t);
+  }, [listaIdAtiva, user?.id, status]);
 
   const exigirLogin = () => {
     Alert.alert('Entre na sua conta', 'Crie sua conta ou entre no app para colocar seu nome na lista VIP.', [
@@ -171,15 +194,11 @@ export default function EventoScreen() {
     }
   };
 
-  const atualizarStatus = async (acao: 'cancelar' | 'checkin') => {
+  const cancelarNome = async () => {
     if (!lista || !user) return;
     setEnviando(true);
     try {
-      const q = supabase.from('listas_vip_solicitacoes');
-      const { error } =
-        acao === 'cancelar'
-          ? await q.delete().eq('lista_vip_id', lista.id).eq('user_id', user.id)
-          : await q.update({ status: 'check_in' }).eq('lista_vip_id', lista.id).eq('user_id', user.id);
+      const { error } = await supabase.from('listas_vip_solicitacoes').delete().eq('lista_vip_id', lista.id).eq('user_id', user.id);
       if (error) throw error;
       await carregar();
     } catch (err: any) {
@@ -331,10 +350,14 @@ export default function EventoScreen() {
                     <Feather name={st.icone as any} size={16} color={st.cor} />
                     <Text style={[styles.statusTxt, { color: st.cor }]}>{st.texto}</Text>
                   </View>
-                  {status === 'aprovada' && (
-                    <TouchableOpacity style={styles.btnPrincipal} onPress={() => atualizarStatus('checkin')} disabled={enviando}>
-                      <Text style={styles.btnPrincipalTxt}>{enviando ? 'Confirmando...' : 'Cheguei — confirmar check-in'}</Text>
-                    </TouchableOpacity>
+                  {status === 'aprovada' && solicitacaoId && (
+                    <View style={styles.qrCaixa}>
+                      <View style={styles.qrFundo}>
+                        <QRCode value={`dicasvip:${solicitacaoId}`} size={176} backgroundColor="#FFFFFF" color="#000000" />
+                      </View>
+                      <Text style={styles.qrCodigo}>{solicitacaoId.replace(/-/g, '').slice(0, 6).toUpperCase()}</Text>
+                      <Text style={styles.qrDica}>Mostre este QR (ou o código) na portaria, junto com um documento com foto.</Text>
+                    </View>
                   )}
                   {status === 'check_in' && ev.local_id && (
                     <TouchableOpacity style={styles.btnPrincipal} onPress={() => router.push(`/business/${ev.local_id}` as any)}>
@@ -342,7 +365,7 @@ export default function EventoScreen() {
                     </TouchableOpacity>
                   )}
                   {(status === 'solicitada' || status === 'aprovada') && (
-                    <TouchableOpacity style={styles.btnSecundario} onPress={() => atualizarStatus('cancelar')} disabled={enviando}>
+                    <TouchableOpacity style={styles.btnSecundario} onPress={cancelarNome} disabled={enviando}>
                       <Text style={styles.btnSecundarioTxt}>{enviando ? 'Cancelando...' : 'Cancelar meu nome'}</Text>
                     </TouchableOpacity>
                   )}
@@ -431,6 +454,10 @@ const styles = StyleSheet.create({
   stepBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#232230', alignItems: 'center', justifyContent: 'center' },
   stepValor: { color: C.text, fontSize: 16, fontWeight: '800', minWidth: 16, textAlign: 'center' },
   btnPrincipal: { flexDirection: 'row', gap: 8, height: 50, borderRadius: 14, backgroundColor: C.pink, alignItems: 'center', justifyContent: 'center' },
+  qrCaixa: { alignItems: 'center', gap: 8, paddingVertical: 4 },
+  qrFundo: { backgroundColor: '#FFFFFF', padding: 12, borderRadius: 16 },
+  qrCodigo: { color: C.text, fontSize: 26, fontWeight: '900', letterSpacing: 6 },
+  qrDica: { color: C.dim, fontSize: 12, textAlign: 'center', lineHeight: 17, paddingHorizontal: 12 },
   btnPrincipalTxt: { color: '#FFF', fontSize: 14, fontWeight: '800' },
   btnSecundario: { height: 46, borderRadius: 14, borderWidth: 1, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },
   btnSecundarioTxt: { color: C.dim, fontSize: 13, fontWeight: '700' },

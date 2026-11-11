@@ -118,7 +118,9 @@ function dentroDoPrazo(item: ItemComDestaque): boolean {
 // aparece, e destaque_secoes só pinça a ordem via compararDestaque.
 export function deveIncluirEm(item: ItemComDestaque, secao: string): boolean {
   if (!SECOES_CURADAS.has(secao)) return true;
-  const incluidoManualmente = secoesDoItem(item).includes(secao) && dentroDoPrazo(item);
+  // O controle rápido do /admin grava 'turismo' para Dicas Trip; a seção curada se chama 'dicas_trip'. Vale os dois.
+  const alvos = secao === 'dicas_trip' ? ['dicas_trip', 'turismo'] : [secao];
+  const incluidoManualmente = secoesDoItem(item).some((x) => alvos.includes(x)) && dentroDoPrazo(item);
   return pagaPlanoComDireitoADestaque(item) || incluidoManualmente;
 }
 

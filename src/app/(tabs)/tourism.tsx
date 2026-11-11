@@ -13,7 +13,8 @@
 import { Feather } from '@expo/vector-icons';
 import CarrosselAnuncios from '../../components/CarrosselAnuncios';
 import FundoCaixaDegrade from '../../components/FundoCaixaDegrade';
-import { BotaoVoltar, TituloTela } from '../../components/CabecalhoTela';
+import { BotaoMenuTela } from '../../components/CabecalhoTela';
+import TopoApp from '../../components/TopoApp';
 import BannerMaster from '../../components/BannerMaster';
 import MarcaApp from '../../components/MarcaApp';
 import { useRouter } from 'expo-router';
@@ -180,38 +181,7 @@ export default function TripScreen() {
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
         {/* Cabeçalho igual ao de Início/Eventos/Conta: logo + frase à esquerda,
             idioma à direita; título da tela logo abaixo (mesmo tamanho de "Eventos"). */}
-        <View style={styles.header}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <BotaoVoltar />
-            <View>
-              <MarcaApp />
-            </View>
-          </View>
-          <TouchableOpacity
-            style={styles.idiomaBtn}
-            onPress={proximoIdioma}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityLabel={`${t('conta.idioma')}: ${idiomaAtual.nome}`}
-          >
-            <Feather name="globe" size={14} color={C.text} />
-            <Text style={styles.idiomaTxt}>{idiomaAtual.sigla}</Text>
-          </TouchableOpacity>
-        </View>
-        <View style={styles.tituloArea}>
-          <TituloTela
-            semMargem
-            titulo={t('trip.titulo')}
-            subtitulo={t('trip.sub')}
-            tituloMenu="Ir para"
-            opcoes={SERVICOS.map((s) => ({ id: s.chave, label: t(s.chave), icone: s.icone }))}
-            onEscolher={(id) => {
-              const s = SERVICOS.find((x) => x.chave === id);
-              if (s) abrirServico(s);
-            }}
-          />
-        </View>
-
+        <TopoApp comInsets={false} />
         {/* Busca */}
         <View style={styles.busca}>
           <Feather name="search" size={20} color={C.text} />
@@ -220,10 +190,18 @@ export default function TripScreen() {
             onChangeText={setBusca}
             onSubmitEditing={buscar}
             returnKeyType="search"
-            placeholder={t('trip.busca')}
+            placeholder={`${t('trip.titulo')}: ${t('trip.busca')}`}
             placeholderTextColor={C.dim}
             style={styles.buscaInput}
             accessibilityLabel={t('trip.busca')}
+          />
+          <BotaoMenuTela
+            tituloMenu="Ir para"
+            opcoes={SERVICOS.map((s) => ({ id: s.chave, label: t(s.chave), icone: s.icone }))}
+            onEscolher={(id) => {
+              const s = SERVICOS.find((x) => x.chave === id);
+              if (s) abrirServico(s);
+            }}
           />
         </View>
 

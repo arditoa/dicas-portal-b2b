@@ -276,8 +276,9 @@ export default function ListaVipPage() {
                 <h2 className="text-sm font-bold flex items-center gap-2">
                   <Users size={15} className="text-[#E1306C]" /> {lista.titulo}
                 </h2>
-                <span className="text-xs text-[#A0A0B2]">
+                <span className="text-xs text-[#A0A0B2] flex items-center gap-3">
                   {lista.vagas_ocupadas}{lista.vagas_limite ? ` / ${lista.vagas_limite}` : ''} vagas
+                  <Link href="/dashboard/porta" className="text-[#E1306C] font-bold underline">Abrir modo porta</Link>
                 </span>
               </div>
 
