@@ -82,16 +82,17 @@ export const SUBCATEGORIAS: Record<string, SubDef[]> = {
     def('Cursos de Tecnologia & Programação', 'Tecnologia e Programação', 'code', ['tecnologia', 'programacao', 'programador', 'dados', 'ciencia de dados', 'desenvolvimento web', 'ti', 'bootcamp']),
     def('Artes, Música & Dança', 'Artes, Música e Dança', 'music', ['arte', 'artes', 'musica', 'danca', 'canto', 'violao', 'teatro', 'instrumento', 'aula de musica']),
   ],
-  // Compras & Produtos
+  // Moda & Acessórios
   produtos: [
-    def('Moda & Vestuário', 'Moda', 'shopping-bag', ['moda', 'vestuario', 'roupa', 'roupas', 'confeccao', 'lojas e moda', 'feminina', 'masculina', 'infantil', 'brecho', 'moda lgbt']),
-    def('Calçados & Acessórios', 'Calçados e Acessórios', 'watch', ['calcado', 'calcados', 'sapato', 'sapatos', 'tenis', 'bolsa', 'bolsas', 'joia', 'joias', 'semijoia', 'relogio', 'acessorio', 'acessorios', 'bijuteria']),
-    def('Eletrônicos, Informática & Gadgets', 'Eletrônicos', 'cpu', ['eletronico', 'eletronicos', 'informatica', 'gadget', 'gadgets', 'celular', 'computador', 'games']),
-    def('Casa, Decoração & Utilidades', 'Casa e Decoração', 'home', ['casa', 'decoracao', 'utilidades', 'moveis', 'cama mesa e banho', 'utensilios']),
-    def('Supermercados, Mercearias & Hortifrúti', 'Mercado', 'shopping-cart', ['supermercado', 'supermercados', 'mercearia', 'mercearias', 'hortifruti', 'emporio', 'mercado', 'quitanda', 'feira livre']),
-    def('Pet Shop & Artigos Veterinários', 'Pet Shop', 'heart', ['pet', 'pet shop', 'petshop', 'veterinario', 'veterinaria', 'racao', 'banho e tosa']),
-    def('Livraria, Papelaria & Brinquedos', 'Livros e Brinquedos', 'gift', ['livraria', 'papelaria', 'brinquedo', 'brinquedos', 'presente', 'presentes', 'lojas de presentes']),
-    def('Esportes, Camping & Lazer', 'Esportes e Camping', 'activity', ['esporte', 'esportes', 'camping', 'lazer', 'academia', 'bicicleta', 'pesca', 'artigos esportivos']),
+    // Nov/2026: a categoria 'produtos' passou a se chamar Moda & Acessórios (o valor interno continua 'produtos').
+    def('Moda Feminina', 'Moda\nFeminina', 'shopping-bag', ['moda feminina', 'feminina', 'vestido', 'vestidos', 'blusa', 'blusas', 'moda mulher', 'roupa feminina', 'roupas femininas', 'moda', 'vestuario', 'roupa', 'roupas', 'confeccao']),
+    def('Moda Masculina', 'Moda\nMasculina', 'user', ['moda masculina', 'masculina', 'camisa', 'camisas', 'moda homem', 'roupa masculina', 'roupas masculinas', 'alfaiataria']),
+    def('Moda Sem Gênero & Pride', 'Sem Gênero\ne Pride', 'heart', ['moda sem genero', 'sem genero', 'genderless', 'unissex', 'pride', 'moda lgbt', 'moda lgbtqia', 'camiseta lgbt', 'bandeira', 'bandeiras', 'customizacao', 'estampas']),
+    def('Calçados', 'Calçados', 'chevrons-up', ['calcado', 'calcados', 'sapato', 'sapatos', 'tenis', 'sandalia', 'sandalias', 'salto', 'bota', 'botas']),
+    def('Bolsas, Óculos & Relógios', 'Bolsas, Óculos\ne Relógios', 'briefcase', ['bolsa', 'bolsas', 'mochila', 'mochilas', 'carteira', 'oculos', 'relogio', 'relogios', 'acessorio', 'acessorios', 'cinto', 'chapeu']),
+    def('Joias, Semijoias & Bijuterias', 'Joias e Bijuterias', 'star', ['joia', 'joias', 'semijoia', 'semijoias', 'bijuteria', 'bijuterias', 'brinco', 'colar', 'pulseira', 'anel', 'prata']),
+    def('Brechós & Moda Sustentável', 'Brechós', 'refresh-cw', ['brecho', 'brechos', 'sebo de roupas', 'moda sustentavel', 'segunda mao', 'vintage', 'upcycling', 'reuso']),
+    def('Lingerie, Moda Íntima & Praia', 'Lingerie e Praia', 'sun', ['lingerie', 'moda intima', 'intima', 'cueca', 'cuecas', 'sutia', 'moda praia', 'praia', 'biquini', 'maio', 'sunga', 'pijama']),
   ],
   // Saúde & Bem-estar
   saude: [

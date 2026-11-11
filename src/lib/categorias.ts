@@ -133,8 +133,8 @@ export const CATEGORIAS: Record<CategoriaSlugUI, CategoriaConfig> = {
   },
   produtos: {
     slug: 'produtos',
-    label: 'Compras & Produtos',
-    icon: 'package',
+    label: 'Moda & Acessórios',
+    icon: 'shopping-bag',
     color: '#FFD54F',
     // Categoria nova de verdade (Rodada 61) — 'produtos' não existia no
     // enum categoria_tipo antes; ver migration 033.
@@ -178,7 +178,7 @@ export const CATEGORIAS: Record<CategoriaSlugUI, CategoriaConfig> = {
 };
 
 // Ordem oficial (out/2026, lista da Andrea). 'lojas' foi absorvida por
-// "Compras & Produtos" e não aparece mais nas listas.
+// "Moda & Acessórios" e não aparece mais nas listas.
 export const CATEGORIA_ORDER: CategoriaSlugUI[] = [
   'turismo',
   'bares',

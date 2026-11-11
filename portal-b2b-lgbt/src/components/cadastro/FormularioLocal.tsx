@@ -137,7 +137,7 @@ const CATEGORIAS = [
   { value: 'mais18', label: 'Espaços 18+', disabled: false, emBreve: false },
   { value: 'lojas', label: 'Lojas', disabled: false, emBreve: true },
   { value: 'servicos', label: 'Serviços', disabled: false, emBreve: false },
-  { value: 'produtos', label: 'Produtos', disabled: false, emBreve: false },
+  { value: 'produtos', label: 'Moda & Acessórios', disabled: false, emBreve: false },
   { value: 'educacao', label: 'Educação', disabled: false, emBreve: false },
   { value: 'artistas', label: 'Artistas', disabled: false, emBreve: false },
   { value: 'lazer', label: 'Lazer', disabled: false, emBreve: true },

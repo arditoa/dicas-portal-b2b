@@ -19,7 +19,7 @@ const botao = 'bg-[#E1306C] hover:bg-[#C2285C] disabled:opacity-50 text-white te
 
 const CATEGORIAS = [
   ['destaques', 'Destaques'], ['turismo', 'Turismo | Dicas Trip'], ['bares', 'Bares & Vida Noturna'], ['gastronomia', 'Gastronomia'],
-  ['cultura', 'Cultura'], ['servicos', 'Serviços'], ['educacao', 'Educação'], ['artistas', 'Artistas'], ['produtos', 'Produtos'], ['lazer', 'Lazer'],
+  ['cultura', 'Cultura'], ['servicos', 'Serviços'], ['educacao', 'Educação'], ['artistas', 'Artistas'], ['produtos', 'Moda & Acessórios'], ['lazer', 'Lazer'],
   ['saude', 'Saúde'], ['beleza', 'Beleza'], ['comunidade', 'Comunidade'], ['mais18', '18+'], ['todos', 'Todos os locais'],
 ] as const;
 const PLANOS = ['freemium', 'intermediario', 'premium', 'fundador'] as const;
