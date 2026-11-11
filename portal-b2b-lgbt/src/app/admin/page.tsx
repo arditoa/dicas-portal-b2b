@@ -456,6 +456,7 @@ type EventoDestaque = {
   foto_capa_url: string | null;
   // Rodada 135 — marca dona da festa (festas aparecem dentro da ficha da marca) e etiquetas do app.
   local_id: string | null;
+  data_fim: string | null;
   tags: string[] | null;
 };
 
@@ -610,7 +611,7 @@ export default function AdminPage() {
   const [filtroPrincipal, setFiltroPrincipal] = useState<string>('todas');
   // Rodada 46 — filtro só da aba Eventos: "O que Fazer Hoje" (destaque_secoes
   // contém 'hoje', mesmo mecanismo que locais já tinham) vs todos.
-  const [filtroEventos, setFiltroEventos] = useState<'todos' | 'hoje'>('todos');
+  const [filtroEventos, setFiltroEventos] = useState<'todos' | 'hoje' | 'encerradas'>('todos');
   const [buscaLocal, setBuscaLocal] = useState('');
   const [buscaEvento, setBuscaEvento] = useState('');
   // Rodada 89 — listas grandes: mostra 25 por vez ("Mostrar mais") para continuar rápido com 100+ locais.
@@ -804,9 +805,10 @@ export default function AdminPage() {
         // (abaixo) em vez do evento só sumir sem pista nenhuma.
         supabase
           .from('eventos')
-          .select('id, titulo, tipo, data_inicio, plano_destaque, destaque_secoes, destaque_ate, foto_capa_url, local_id, tags')
+          .select('id, titulo, tipo, data_inicio, data_fim, plano_destaque, destaque_secoes, destaque_ate, foto_capa_url, local_id, tags')
           .eq('status', 'aprovado')
-          .gte('data_inicio', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+          // Rodada 135 — 180 dias para trás: festa encerrada aparece (aba "Encerradas") para trocar a data.
+          .gte('data_inicio', new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString())
           .order('data_inicio', { ascending: true }),
         supabase
           .from('eventos')
@@ -1675,12 +1677,39 @@ Dicas LGBT+`;
 
   // Rodada 45 — mesma busca, agora na aba própria Eventos.
   // Rodada 46 — + filtro "O que Fazer Hoje" (destaque_secoes contém 'hoje').
+  // Rodada 135 — festa encerrada = já passou o fim (ou o início, se não tem fim). Some do app.
+  const festaEncerrada = (ev: { data_inicio: string; data_fim?: string | null }) =>
+    new Date(ev.data_fim || ev.data_inicio).getTime() < Date.now();
   const eventosFiltrados = eventosDestaque.filter((ev) => {
-    if (filtroEventos === 'hoje' && !ev.destaque_secoes.includes('hoje')) return false;
     const termo = buscaEvento.trim().toLowerCase();
-    if (!termo) return true;
-    return ev.titulo.toLowerCase().includes(termo);
-  });
+    if (termo) return ev.titulo.toLowerCase().includes(termo); // a busca procura em todas, inclusive encerradas
+    if (filtroEventos === 'encerradas') return festaEncerrada(ev);
+    if (festaEncerrada(ev)) return false;
+    if (filtroEventos === 'hoje' && !ev.destaque_secoes.includes('hoje')) return false;
+    return true;
+  }).sort((a, b) =>
+    filtroEventos === 'encerradas' && !buscaEvento.trim()
+      ? new Date(b.data_inicio).getTime() - new Date(a.data_inicio).getTime()
+      : new Date(a.data_inicio).getTime() - new Date(b.data_inicio).getTime());
+  const totalEncerradas = eventosDestaque.filter((ev) => festaEncerrada(ev)).length;
+  // Datas (datetime-local) em edição, por festa.
+  const paraCampoData = (iso: string | null) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const z = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}T${z(d.getHours())}:${z(d.getMinutes())}`;
+  };
+  const salvarDatasEvento = async (ev: EventoDestaque, inicio: string, fim: string) => {
+    if (!inicio) { setErro('Escolha a data de início.'); return; }
+    if (fim && new Date(fim) < new Date(inicio)) { setErro('O fim precisa ser depois do início.'); return; }
+    setErro('');
+    setProcessando(ev.id);
+    const patch = { data_inicio: new Date(inicio).toISOString(), data_fim: fim ? new Date(fim).toISOString() : null };
+    setEventosDestaque((a) => a.map((item) => (item.id === ev.id ? { ...item, ...patch } : item)));
+    const { error } = await supabase.from('eventos').update(patch).eq('id', ev.id);
+    if (error) { setErro(error.message); await carregarFilas(); }
+    setProcessando(null);
+  };
 
   const filtroItem = (slug: string, label: string, qtd: number, vitrine = false) => (
     <button
@@ -2460,7 +2489,7 @@ Dicas LGBT+`;
                   <div className="border-t border-[#232230] pt-3 space-y-2">
                     <p className="text-xs font-bold text-[#D0D0E0]">Festas desta marca ({festasDaMarca.length})</p>
                     <p className="text-[10px] text-[#626274]">O flier é a foto da festa: aparece no card &quot;Festas em destaque&quot; e na página da festa. A capa da marca, abaixo, não substitui o flier.</p>
-                    {festasDaMarca.length === 0 && <p className="text-xs text-[#626274]">Nenhuma festa aprovada dos últimos 7 dias para frente.</p>}
+                    {festasDaMarca.length === 0 && <p className="text-xs text-[#626274]">Nenhuma festa aprovada nos últimos 6 meses.</p>}
                     {festasDaMarca.map((ev) => {
                       const tipo = TIPOS_EVENTO_CADASTRO.find((t) => (ev.tags || []).includes(t.slug));
                       const publico = PUBLICO_FESTA_CADASTRO.find((t) => (ev.tags || []).includes(t.slug));
@@ -2476,8 +2505,10 @@ Dicas LGBT+`;
                             <p className="text-xs font-bold truncate">{ev.titulo}</p>
                             <p className="text-[11px] text-[#8888A0]">
                               {new Date(ev.data_inicio).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+                              {ev.data_fim ? ` até ${new Date(ev.data_fim).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}` : ''}
                               {' · '}{tipo?.rotulo || 'sem tipo'}{' · '}{publico?.rotulo || 'sem público'}
                             </p>
+                            {festaEncerrada(ev) && <p className="text-[11px] text-[#E1306C] font-bold">Encerrada: não aparece no app. Troque a data em &quot;Data, tipo e público&quot;.</p>}
                             {!ev.foto_capa_url && <p className="text-[11px] text-amber-300">Sem flier: aparece sem foto no app.</p>}
                           </div>
                           <label className="text-xs font-bold text-[#E1306C] cursor-pointer hover:underline">
@@ -2509,7 +2540,7 @@ Dicas LGBT+`;
                             onClick={() => { setBuscaEvento(ev.titulo); setFiltroEventos('todos'); setEventoExpandido((a) => ({ ...a, [ev.id]: true })); setAba('eventos'); }}
                             className="text-xs font-bold text-[#A0A0B2] hover:text-white"
                           >
-                            Tipo e público
+                            Data, tipo e público
                           </button>
                         </div>
                       );
@@ -2726,7 +2757,18 @@ Dicas LGBT+`;
           >
             O que Fazer Hoje
           </button>
+          <button
+            onClick={() => setFiltroEventos('encerradas')}
+            className={`text-xs font-bold px-3 py-1.5 rounded-full border transition ${
+              filtroEventos === 'encerradas'
+                ? 'bg-[#A0A0B2] border-[#A0A0B2] text-black'
+                : 'bg-[#161520] border-[#232230] text-[#A0A0B2] hover:bg-[#1D1C29]'
+            }`}
+          >
+            Encerradas ({totalEncerradas})
+          </button>
         </div>
+        <p className="text-[11px] text-[#626274] mt-2">&quot;Todos&quot; mostra só as festas que ainda vão acontecer. Festa encerrada some do app: abra em &quot;Encerradas&quot; e troque a data para a próxima edição.</p>
       </section>
 
       <section className="mb-10">
@@ -2770,7 +2812,8 @@ Dicas LGBT+`;
                   <div>
                     <h3 className="font-bold text-sm">{ev.titulo}</h3>
                     <p className="text-xs text-[#626274] mt-1">
-                      {ev.tipo} · {new Date(ev.data_inicio).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+                      {new Date(ev.data_inicio).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+                      {ev.data_fim ? ` até ${new Date(ev.data_fim).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}` : ''}
                     </p>
                     <p className="text-xs mt-1 font-bold">
                       <span className={ev.destaque_secoes.includes('patrocinado') ? 'text-[#4CAF7D]' : 'text-[#626274]'}>
@@ -2780,10 +2823,9 @@ Dicas LGBT+`;
                       {ev.destaque_secoes.includes('evento_destaque') ? <span className="text-[#4CAF7D]"> · primeira da lista</span> : null}
                       {!ev.foto_capa_url ? <span className="text-amber-300"> · sem flier</span> : null}
                     </p>
-                    {new Date(ev.data_inicio).getTime() < Date.now() && (
+                    {festaEncerrada(ev) && (
                       <p className="text-xs text-[#E1306C] mt-1 font-bold">
-                        ⚠ Data já passou — some do app mesmo aprovado e destacado. Se é uma festa
-                        recorrente, atualize a data pra próxima edição pra ele voltar a aparecer.
+                        ⚠ Encerrada: não aparece no app. Se vai ter outra edição, troque a data em &quot;Editar&quot;.
                       </p>
                     )}
                   </div>
@@ -2798,8 +2840,27 @@ Dicas LGBT+`;
                 className="flex items-center gap-1.5 text-xs font-bold text-[#A0A0B2] hover:text-white border-t border-[#232230] pt-3 w-full"
               >
                 {expandidoEv ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                {expandidoEv ? 'Fechar' : 'Editar flier, tipo, público e divulgação'}
+                {expandidoEv ? 'Fechar' : 'Editar data, flier, tipo, público e divulgação'}
               </button>
+
+              {expandidoEv && (
+              <form
+                key={`${ev.id}-${ev.data_inicio}-${ev.data_fim}`}
+                className="flex items-center gap-3 flex-wrap border-b border-[#232230] pb-3"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const f = new FormData(e.currentTarget);
+                  salvarDatasEvento(ev, String(f.get('inicio') || ''), String(f.get('fim') || ''));
+                }}
+              >
+                <label className="text-xs font-bold text-[#D0D0E0]">Começa</label>
+                <input name="inicio" type="datetime-local" defaultValue={paraCampoData(ev.data_inicio)} className="bg-[#0B0B0E] border border-[#232230] rounded-lg text-xs px-3 py-2" style={{ colorScheme: 'dark' }} />
+                <label className="text-xs font-bold text-[#D0D0E0]">Termina</label>
+                <input name="fim" type="datetime-local" defaultValue={paraCampoData(ev.data_fim)} className="bg-[#0B0B0E] border border-[#232230] rounded-lg text-xs px-3 py-2" style={{ colorScheme: 'dark' }} />
+                <button type="submit" disabled={processando === ev.id} className="bg-[#E1306C] hover:bg-[#C2285C] text-white font-bold text-xs px-3 py-2 rounded-lg disabled:opacity-40">Salvar data</button>
+                <span className="text-[10px] text-[#626274]">Festa paga entra em &quot;Festas em destaque&quot; 1 dia antes do início.</span>
+              </form>
+              )}
 
               {expandidoEv && (
               <div className="space-y-3 border-b border-[#232230] pb-3">
