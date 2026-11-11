@@ -28,17 +28,17 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="explore"
-        options={{
-          title: t('tab.mapa'),
-          tabBarIcon: ({ color }) => <Feather name="map" size={21} color={color as string} />,
-        }}
-      />
-      <Tabs.Screen
         name="events"
         options={{
           title: t('tab.eventos'),
           tabBarIcon: ({ color }) => <Feather name="calendar" size={21} color={color as string} />,
+        }}
+      />
+      <Tabs.Screen
+        name="explore"
+        options={{
+          title: t('tab.mapa'),
+          tabBarIcon: ({ color }) => <Feather name="map" size={21} color={color as string} />,
         }}
       />
       <Tabs.Screen
