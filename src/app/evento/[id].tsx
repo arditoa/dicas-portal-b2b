@@ -289,7 +289,8 @@ export default function EventoScreen() {
                 <Text style={[styles.seloTxt, { color: '#000' }]}>DESTAQUE</Text>
               </View>
             )}
-            {estaFixadoEm(ev as any, 'patrocinado') && (
+            {/* Rodada 139 — etiqueta "Patrocinado" oculta (pedido da Andrea) */}
+            {false && estaFixadoEm(ev as any, 'patrocinado') && (
               <View style={[styles.selo, { backgroundColor: C.purple }]}>
                 <Text style={[styles.seloTxt, { color: '#FFF' }]}>PATROCINADO</Text>
               </View>

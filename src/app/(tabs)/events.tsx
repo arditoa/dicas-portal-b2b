@@ -672,7 +672,8 @@ export default function EventsScreen() {
                   {/* Rodada 46 — selo novo "Patrocinado" (destaque_secoes,
                       migration 026): monetização avulsa, sem depender de
                       plano_destaque — qualquer evento pode comprar. */}
-                  {estaFixadoEm(item, 'patrocinado') && (
+                  {/* Rodada 139 — etiqueta "Patrocinado" oculta (pedido da Andrea) */}
+                  {false && estaFixadoEm(item, 'patrocinado') && (
                     <Text style={styles.patrocinadoBadge}>Patrocinado</Text>
                   )}
                 </View>
