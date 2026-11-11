@@ -27,10 +27,14 @@ export const SUBCATEGORIAS: Record<string, SubDef[]> = {
   ],
   // Festas & Eventos
   festas: [
-    // Nov/2026: subcategoria = público destinado (o tipo de evento e o estilo musical ficam nos chips da aba Eventos).
-    def('Predominância Lésbica', 'Predominância\nLésbica', 'heart', ['predominancia lesbica', 'festa lesbica', 'festas lesbicas', 'lesbica', 'lesbicas', 'para elas', 'sapphic', 'sapatao', 'festa de mulheres', 'festas de mulheres']),
-    def('Predominância Gay', 'Predominância\nGay', 'users', ['predominancia gay', 'festa gay', 'festas gay', 'festas gays', 'gay', 'gays', 'para eles', 'baile gay', 'ursos', 'bear']),
-    def('Todos', 'Todos', 'smile', ['para todes', 'todes', 'todos', 'festas queer', 'festa queer', 'queer', 'publico hetero e queer', 'festa mista', 'festas mistas', 'mista', 'mistas', 'lgbtqia']),
+    // Nov/2026: subcategoria = TIPO de evento (o mesmo do cadastro). "Para quem" (Lésbica/Gay/Todos), estilo musical e
+    // formato ficam em Filtros. Os rótulos batem com TIPOS_EVENTO_CHIPS em (tabs)/events.tsx, que faz o filtro pelas tags.
+    def('Festas e baladas', 'Festas e baladas', 'disc', []),
+    def('Shows', 'Shows', 'mic', []),
+    def('Drag shows', 'Drag shows', 'star', []),
+    def('Teatro', 'Teatro', 'film', []),
+    def('Aulas de dança', 'Aulas de dança', 'music', []),
+    def('Cultura e encontros', 'Cultura e encontros', 'users', []),
   ],
   // Artistas (nov/2026): Banda e Solo pedidos pela Andrea; as demais são sugestão. Todas abertas.
   artistas: [

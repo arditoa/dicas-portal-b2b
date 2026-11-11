@@ -17,9 +17,12 @@ export const SUBCATEGORIAS_APP: Record<string, { titulo: string; itens: { chave:
   festas: {
     titulo: 'Festas & Eventos',
     itens: [
-      { chave: 'predominancia lesbica', rotulo: 'Predominância Lésbica' },
-      { chave: 'predominancia gay', rotulo: 'Predominância Gay' },
-      { chave: 'todos', rotulo: 'Todos' },
+      { chave: 'festas e baladas', rotulo: 'Festas e baladas' },
+      { chave: 'shows', rotulo: 'Shows' },
+      { chave: 'drag shows', rotulo: 'Drag shows' },
+      { chave: 'teatro', rotulo: 'Teatro' },
+      { chave: 'aulas de danca', rotulo: 'Aulas de dança' },
+      { chave: 'cultura e encontros', rotulo: 'Cultura e encontros' },
     ],
   },
   // Categoria real 'eventos' = a mesma Festas & Eventos (a chave `festas` é o slug usado nos painéis de categoria/subcategoria).

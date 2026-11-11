@@ -1,15 +1,15 @@
-// Abertura do app (primeira vez): 5 telas leves, no mesmo visual da Home (logo no topo, caixas com
-// degradê, ícones em círculo), com a missão e o objetivo do Dicas LGBT+ e um resumo do que dá para fazer.
+// Abertura do app (primeira vez): 4 telas com foto grande da equipe (fade para o fundo escuro), logo no topo,
+// a missão e o objetivo do Dicas LGBT+ e um resumo do que dá para fazer.
 // Idioma PT/EN/ES num botão só no topo (igual à Home). Quem já viu não vê de novo
 // (chave em AsyncStorage); a Conta tem um atalho para rever.
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
-import { NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { Image, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
-import FundoCaixaDegrade from '../components/FundoCaixaDegrade';
 import FundoDegrade from '../components/FundoDegrade';
 import MarcaApp from '../components/MarcaApp';
 import { IDIOMAS, Idioma, useI18n } from '../lib/i18n';
@@ -61,18 +61,32 @@ const TEXTOS: Record<Idioma, Textos> = {
   },
 };
 
-// Degradê (os mesmos das caixas da Home), cor de destaque e ícones de cada tela.
-const META: { degrade: [string, string]; cor: string; icone: string; itens: string[]; icones: { icone: string; cor?: string }[] }[] = [
-  { degrade: ['#E1306C', '#7E57C2'], cor: '#E1306C', icone: 'heart', itens: [],
-    icones: [{ icone: 'moon', cor: '#E1306C' }, { icone: 'coffee', cor: '#FBBF24' }, { icone: 'music', cor: '#FFB74D' }, { icone: 'book-open', cor: '#38BDF8' }, { icone: 'compass', cor: '#81C784' }, { icone: 'briefcase', cor: '#60A5FA' }] },
-  { degrade: ['#C026A3', '#6D3FD1'], cor: '#E879F9', icone: 'compass', itens: ['moon', 'zap', 'map'],
-    icones: [{ icone: 'moon' }, { icone: 'coffee' }, { icone: 'music' }, { icone: 'book-open' }, { icone: 'map' }] },
-  { degrade: ['#0EA5E9', '#4338CA'], cor: '#38BDF8', icone: 'globe', itens: ['map-pin', 'home', 'info'],
-    icones: [{ icone: 'home' }, { icone: 'compass' }, { icone: 'map' }, { icone: 'briefcase' }, { icone: 'calendar' }] },
-  // Segurança: verde (cor de "espaço seguro"), diferente do azul de antes.
-  { degrade: ['#10B981', '#047857'], cor: '#34D399', icone: 'shield', itens: ['flag', 'user', 'lock'],
-    icones: [{ icone: 'shield' }, { icone: 'slash' }, { icone: 'user' }, { icone: 'lock' }, { icone: 'check-circle' }] },
+// Foto, cor de destaque e ícones de cada tela. As fotos ficam em src/assets/images/onboarding.
+const META: { foto: any; cor: string; itens: string[] }[] = [
+  { foto: require('../assets/images/onboarding/ob-1-boas-vindas.jpg'), cor: '#E1306C', itens: [] },
+  { foto: require('../assets/images/onboarding/ob-2-descubra.jpg'), cor: '#E879F9', itens: ['moon', 'zap', 'map'] },
+  { foto: require('../assets/images/onboarding/ob-3-viaje.jpg'), cor: '#38BDF8', itens: ['map-pin', 'home', 'info'] },
+  // Segurança: verde (cor de "espaço seguro").
+  { foto: require('../assets/images/onboarding/ob-4-seguranca.jpg'), cor: '#34D399', itens: ['flag', 'user', 'lock'] },
 ];
+
+const FUNDO = '#0B0B0E';
+
+// Fade vertical (SVG, sem biblioteca extra): transparente no alto, fundo escuro embaixo.
+function Fade({ w, h, de, ate, op0, op1 }: { w: number; h: number; de: string; ate?: string; op0: number; op1: number }) {
+  const id = `f-${de}-${op0}-${op1}-${h}`.replace(/[^a-zA-Z0-9-]/g, '');
+  return (
+    <Svg width={w} height={h} style={{ position: 'absolute', left: 0, right: 0 }} pointerEvents="none">
+      <Defs>
+        <LinearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={de} stopOpacity={op0} />
+          <Stop offset="1" stopColor={ate || de} stopOpacity={op1} />
+        </LinearGradient>
+      </Defs>
+      <Rect x="0" y="0" width={w} height={h} fill={`url(#${id})`} />
+    </Svg>
+  );
+}
 
 export default function Onboarding() {
   const router = useRouter();
@@ -85,6 +99,9 @@ export default function Onboarding() {
   const [atual, setAtual] = useState(0);
   const ultimo = tx.slides.length - 1;
   const cor = META[atual].cor;
+  // Bloco da foto: altura proporcional à largura; o texto começa sobre o fade.
+  const alturaFoto = Math.round(width * 1.18);
+  const alturaImg = Math.round(width * 1.34);
 
   const concluir = () => {
     AsyncStorage.setItem(CHAVE_ONBOARDING, '1').catch(() => {});
@@ -117,64 +134,46 @@ export default function Onboarding() {
 
       <ScrollView ref={ref} horizontal pagingEnabled showsHorizontalScrollIndicator={false} onMomentumScrollEnd={aoParar} style={{ flex: 1 }}>
         {tx.slides.map((s, n) => (
-          <ScrollView key={n} style={{ width }} contentContainerStyle={styles.conteudo} showsVerticalScrollIndicator={false}>
-            <Text style={[styles.titulo, n === 0 && { marginTop: 4 }]}>{s.titulo}</Text>
-
-            {/* caixa grande com degradê, como as caixas da Home */}
-            <View style={styles.hero}>
-              <FundoCaixaDegrade id={`ob-${n}`} cores={META[n].degrade} />
-              {n === 0 ? (
-                <View style={styles.heroTexto}>
-                  <Text style={styles.heroRotulo}>{tx.missaoRot}</Text>
-                  <Text style={styles.heroMissao}>{tx.missao}</Text>
-                </View>
-              ) : (
-                <>
-                  <Feather name={META[n].icone as any} size={130} color="rgba(255,255,255,0.12)" style={styles.heroMarca} />
-                  <View style={styles.heroPilula}>
-                    <Text style={styles.heroPilulaTxt}>{s.tag}</Text>
-                  </View>
-                  <View style={styles.heroIcones}>
-                    {META[n].icones.map((ic, k) => (
-                      <View key={k} style={styles.heroIconeItem}>
-                        <View style={styles.heroIconeCirculo}>
-                          <Feather name={ic.icone as any} size={19} color="#FFFFFF" />
-                        </View>
-                        <Text style={styles.heroIconeTxt} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} maxFontSizeMultiplier={1}>{s.icones[k]}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </>
-              )}
+          <ScrollView key={n} style={{ width }} contentContainerStyle={{ paddingBottom: 150 }} showsVerticalScrollIndicator={false}>
+            {/* foto da equipe, com fade para o fundo escuro (em cima e embaixo) */}
+            <View style={{ width, height: alturaFoto, overflow: 'hidden', position: 'absolute', top: 0, left: 0 }} pointerEvents="none">
+              <Image source={META[n].foto} style={{ width, height: alturaImg, marginTop: -Math.round(width * 0.04) }} resizeMode="cover" />
+              <Fade w={width} h={46} de={FUNDO} op0={1} op1={0} />
+              <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: Math.round(alturaFoto * 0.62) }}>
+                <Fade w={width} h={Math.round(alturaFoto * 0.62)} de={FUNDO} op0={0} op1={1} />
+              </View>
+              {/* um toque da cor da tela no fundo da foto */}
+              <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: Math.round(alturaFoto * 0.35), opacity: 0.22 }}>
+                <Fade w={width} h={Math.round(alturaFoto * 0.35)} de={META[n].cor} op0={0} op1={1} />
+              </View>
             </View>
 
-            {n === 0 ? (
-              <View style={styles.cartao}>
-                <Text style={[styles.rotulo, { color: cor }]}>{tx.objetivoRot}</Text>
-                <Text style={styles.corpo}>{tx.objetivo}</Text>
+            <View style={[styles.conteudo, { paddingTop: Math.round(alturaFoto * 0.58) }]}>
+              <View style={[styles.pilula, { borderColor: META[n].cor }]}>
+                <View style={[styles.pilulaPonto, { backgroundColor: META[n].cor }]} />
+                <Text style={styles.pilulaTxt}>{s.tag}</Text>
               </View>
-            ) : null}
-            {n === 0 ? (
-              <View style={styles.categoriasLinha}>
-                {META[0].icones.map((ic, k) => (
-                  <View key={k} style={styles.catItem}>
-                    <View style={styles.catCirculo}>
-                      <Feather name={ic.icone as any} size={20} color={ic.cor} />
-                    </View>
-                    <Text style={styles.catTxt} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} maxFontSizeMultiplier={1}>{s.icones[k]}</Text>
-                  </View>
-                ))}
-              </View>
-            ) : (
-              s.itens.map((t, k) => (
-                <View key={k} style={styles.item}>
-                  <View style={styles.itemCirculo}>
-                    <Feather name={META[n].itens[k] as any} size={18} color={cor} />
-                  </View>
-                  <Text style={styles.itemTxt}>{t}</Text>
+              <Text style={styles.titulo}>{s.titulo}</Text>
+
+              {n === 0 ? (
+                <View style={styles.cartao}>
+                  <Text style={[styles.rotulo, { color: META[0].cor }]}>{tx.missaoRot}</Text>
+                  <Text style={styles.missao}>{tx.missao}</Text>
+                  <View style={styles.divisor} />
+                  <Text style={[styles.rotulo, { color: META[0].cor }]}>{tx.objetivoRot}</Text>
+                  <Text style={styles.corpo}>{tx.objetivo}</Text>
                 </View>
-              ))
-            )}
+              ) : (
+                s.itens.map((txt, k) => (
+                  <View key={k} style={styles.item}>
+                    <View style={[styles.itemCirculo, { borderColor: META[n].cor }]}>
+                      <Feather name={META[n].itens[k] as any} size={18} color={META[n].cor} />
+                    </View>
+                    <Text style={styles.itemTxt}>{txt}</Text>
+                  </View>
+                ))
+              )}
+            </View>
           </ScrollView>
         ))}
       </ScrollView>
@@ -182,7 +181,7 @@ export default function Onboarding() {
       <View style={[styles.rodape, { paddingBottom: insets.bottom + 14 }]}>
         <View style={styles.pontos}>
           {tx.slides.map((_, i) => (
-            <View key={i} style={[styles.ponto, i === atual && styles.pontoAtivo]} />
+            <View key={i} style={[styles.ponto, i === atual && [styles.pontoAtivo, { backgroundColor: cor }]]} />
           ))}
         </View>
         <View style={styles.botoes}>
@@ -191,7 +190,7 @@ export default function Onboarding() {
               <Feather name="chevron-left" size={24} color="#FFFFFF" />
             </TouchableOpacity>
           )}
-          <TouchableOpacity style={styles.btnPrincipal} onPress={() => (atual < ultimo ? ir(atual + 1) : concluir())} accessibilityRole="button">
+          <TouchableOpacity style={[styles.btnPrincipal, { backgroundColor: '#E1306C' }]} onPress={() => (atual < ultimo ? ir(atual + 1) : concluir())} accessibilityRole="button">
             <Text style={styles.btnTxt}>{atual < ultimo ? tx.proximo : tx.comecar}</Text>
             <Feather name={atual < ultimo ? 'arrow-right' : 'check'} size={18} color="#FFFFFF" />
           </TouchableOpacity>
@@ -202,40 +201,29 @@ export default function Onboarding() {
 }
 
 const styles = StyleSheet.create({
-  tela: { flex: 1, backgroundColor: '#0B0B0E' },
-  topo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 8 },
+  tela: { flex: 1, backgroundColor: FUNDO },
+  topo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 8, backgroundColor: FUNDO, zIndex: 2 },
   idiomaBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 36, paddingHorizontal: 12, borderRadius: 18, backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230' },
   idiomaTxt: { fontSize: 12, fontWeight: '800', color: '#FFFFFF' },
-  conteudo: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 150 },
-  hero: { height: 170, borderRadius: 20, overflow: 'hidden', justifyContent: 'center', marginBottom: 16 },
-  heroTexto: { padding: 20, gap: 8 },
-  heroRotulo: { color: 'rgba(255,255,255,0.85)', fontSize: 12, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase' },
-  heroMissao: { color: '#FFFFFF', fontSize: 24, fontWeight: '900', lineHeight: 30 },
-  heroMarca: { position: 'absolute', right: -10, bottom: -16 },
-  heroIcone: { position: 'absolute', top: 16, left: 16, width: 54, height: 54, borderRadius: 27, backgroundColor: 'rgba(255,255,255,0.22)', alignItems: 'center', justifyContent: 'center' },
-  heroPilula: { position: 'absolute', left: 16, top: 16, backgroundColor: 'rgba(11,11,14,0.4)', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6 },
-  heroPilulaTxt: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
-  heroIcones: { position: 'absolute', left: 10, right: 10, bottom: 14, flexDirection: 'row', justifyContent: 'space-between' },
-  heroIconeItem: { flex: 1, alignItems: 'center', gap: 5 },
-  heroIconeCirculo: { width: 46, height: 46, borderRadius: 23, backgroundColor: 'rgba(255,255,255,0.22)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)', alignItems: 'center', justifyContent: 'center' },
-  heroIconeTxt: { color: '#FFFFFF', fontSize: 10, lineHeight: 12, fontWeight: '600', textAlign: 'center', alignSelf: 'stretch' },
-  categoriasLinha: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
-  catItem: { flex: 1, alignItems: 'center', gap: 5 },
-  catCirculo: { width: 46, height: 46, borderRadius: 23, backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230', alignItems: 'center', justifyContent: 'center' },
-  catTxt: { color: '#FFFFFF', fontSize: 10, lineHeight: 12, fontWeight: '600', textAlign: 'center', alignSelf: 'stretch' },
-  titulo: { color: '#FFFFFF', fontSize: 24, fontWeight: '900', lineHeight: 30, marginBottom: 14 },
-  cartao: { backgroundColor: '#1A1A22', borderRadius: 16, borderWidth: 1, borderColor: '#2E2E3D', padding: 16 },
-  rotulo: { fontSize: 12, fontWeight: '900', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 6 },
-  corpo: { color: '#E4E1F0', fontSize: 16, lineHeight: 23, fontWeight: '600' },
-  item: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#1A1A22', borderRadius: 16, borderWidth: 1, borderColor: '#2E2E3D', padding: 12, marginBottom: 10 },
-  itemCirculo: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#0B0B0E', borderWidth: 1, borderColor: '#2E2E3D', alignItems: 'center', justifyContent: 'center' },
+  conteudo: { paddingHorizontal: 16 },
+  pilula: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(11,11,14,0.72)', borderWidth: 1, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6, marginBottom: 10 },
+  pilulaPonto: { width: 7, height: 7, borderRadius: 4 },
+  pilulaTxt: { color: '#FFFFFF', fontSize: 12, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' },
+  titulo: { color: '#FFFFFF', fontSize: 30, fontWeight: '900', lineHeight: 36, marginBottom: 14, textShadowColor: 'rgba(0,0,0,0.55)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 8 },
+  cartao: { backgroundColor: 'rgba(26,26,34,0.88)', borderRadius: 18, borderWidth: 1, borderColor: '#2E2E3D', padding: 16 },
+  rotulo: { fontSize: 11, fontWeight: '900', letterSpacing: 0.9, textTransform: 'uppercase', marginBottom: 4 },
+  missao: { color: '#FFFFFF', fontSize: 17, lineHeight: 23, fontWeight: '800' },
+  divisor: { height: 1, backgroundColor: '#2E2E3D', marginVertical: 12 },
+  corpo: { color: '#E4E1F0', fontSize: 14, lineHeight: 20, fontWeight: '600' },
+  item: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(26,26,34,0.88)', borderRadius: 16, borderWidth: 1, borderColor: '#2E2E3D', padding: 12, marginBottom: 10 },
+  itemCirculo: { width: 40, height: 40, borderRadius: 20, backgroundColor: FUNDO, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   itemTxt: { flex: 1, color: '#E4E1F0', fontSize: 15, lineHeight: 21, fontWeight: '600' },
   rodape: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 16, paddingTop: 12, backgroundColor: 'rgba(11,11,14,0.94)' },
   pontos: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginBottom: 12 },
   ponto: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#35354A' },
-  pontoAtivo: { width: 18, backgroundColor: '#E1306C' },
+  pontoAtivo: { width: 18 },
   botoes: { flexDirection: 'row', gap: 10 },
   btnVoltar: { width: 54, height: 52, borderRadius: 16, borderWidth: 1, borderColor: '#2E2E3D', backgroundColor: '#1A1A22', alignItems: 'center', justifyContent: 'center' },
-  btnPrincipal: { flex: 1, height: 52, borderRadius: 16, backgroundColor: '#E1306C', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  btnPrincipal: { flex: 1, height: 52, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   btnTxt: { color: '#FFFFFF', fontSize: 16, fontWeight: '900' },
 });

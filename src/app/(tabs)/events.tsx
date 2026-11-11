@@ -27,7 +27,7 @@ import { useAuth } from '../../lib/authContext';
 import { CATEGORIAS, SUBTITULO_CATEGORIA } from '../../lib/categorias';
 import { deveExibirGlow, estaFixadoEm } from '../../lib/destaque';
 import { supabase } from '../../lib/supabase';
-import { ESTILO_ALIAS, GRUPOS_EVENTO, LEGADO_EVENTO, TAGS_EVENTO_AUTOMATICAS, rotuloTag, slugTag } from '../../lib/taxonomia';
+import { ESTILO_ALIAS, GRUPOS_EVENTO, LEGADO_EVENTO, PUBLICO_FESTA_CADASTRO, TAGS_EVENTO_AUTOMATICAS, rotuloTag, slugTag } from '../../lib/taxonomia';
 import { useRastrearTela } from '../../lib/usoTelas';
 
 const COLORS = {
@@ -378,13 +378,15 @@ export default function EventsScreen() {
     if (chipId !== 'festas') return false;
     return !TIPOS_EVENTO_CHIPS.some((c) => c.tags.some((t) => eventoTem(ev, t)));
   };
-  // Ícones de subcategoria de festa: cada evento entra nas que combinam com título, tags, estilos e público.
+  // Ícones de subcategoria de festa = tipo de evento (mesmos chips do cadastro). Cada evento entra no(s) tipo(s) das suas tags.
   const defsFestas = SUBCATEGORIAS.festas;
-  const subsDoEvento = (ev: EventItem): string[] => {
-    const texto = normTxt([ev.titulo, ...(ev.tags || []).map(rotuloTag), ...(ev.estilos_musicais || []), ...(ev.publico_tags || [])].join(' '));
-    const partes = texto.split(/[^a-z0-9]+/).filter(Boolean);
-    return defsFestas.filter((d) => d.palavras.some((p) => (p.includes(' ') ? texto.includes(p) : partes.includes(p)))).map((d) => d.chave);
-  };
+  const subsDoEvento = (ev: EventItem): string[] =>
+    defsFestas
+      .filter((d) => {
+        const chip = TIPOS_EVENTO_CHIPS.find((c) => normTxt(c.rotulo) === d.chave);
+        return !!chip && eventoDoTipoChip(ev, chip.id);
+      })
+      .map((d) => d.chave);
   const diasSemana = diasDaSemanaAteDomingo();
   const chavesSemana = diasSemana.map(chaveDia);
   const filteredEvents = events
@@ -444,7 +446,7 @@ export default function EventsScreen() {
     const bairros = Array.from(new Set(events.map((ev) => ev.locais?.bairro).filter(Boolean) as string[])).sort((x, y) => x.localeCompare(y, 'pt-BR'));
     return { estilos, formatos, bairros };
   }, [events]);
-  const totalFiltros = (tipoChip ? 1 : 0) + (selectedMusic ? 1 : 0) + (selectedTipo ? 1 : 0) + (selectedBairro ? 1 : 0);
+  const totalFiltros = (tipoChip ? 1 : 0) + (selectedPublic ? 1 : 0) + (selectedMusic ? 1 : 0) + (selectedTipo ? 1 : 0) + (selectedBairro ? 1 : 0);
 
   const handleEventClick = (eventItem: EventItem) => {
     if (!eventItem.listaVipAtiva) {
@@ -843,6 +845,15 @@ export default function EventsScreen() {
                   {TIPOS_EVENTO_CHIPS.map((c) => (
                     <TouchableOpacity key={c.id} style={[styles.chip, tipoChip === c.id && styles.chipAtivo]} onPress={() => { setTipoChip((a) => (a === c.id ? null : c.id)); setSelectedMusic(null); }}>
                       <Text style={[styles.chipTxt, tipoChip === c.id && { color: '#FFF' }]}>{c.rotulo}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Text style={styles.filtrarSecao}>Para quem</Text>
+                <View style={styles.filtrarChips}>
+                  {PUBLICO_FESTA_CADASTRO.map((p) => (
+                    <TouchableOpacity key={p.slug} style={[styles.chip, selectedPublic === p.slug && styles.chipAtivo]} onPress={() => setSelectedPublic((a) => (a === p.slug ? null : p.slug))}>
+                      <Text style={[styles.chipTxt, selectedPublic === p.slug && { color: '#FFF' }]}>{p.rotulo}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
