@@ -6,6 +6,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import EditorTopoInstitucional from './EditorTopoInstitucional';
+import EditorCaixasHome from './EditorCaixasHome';
 
 type Parte = { n: number; nome: string; mostra: string; regra: string; aba: string; botao: string; agora?: string[] };
 
@@ -32,8 +33,10 @@ export default function PainelMapaApp({ onIrPara }: { onIrPara: (aba: string) =>
     { n: 2, nome: 'Carrossel logo abaixo', mostra: 'Parceiros e campanhas: Copa, Embratur, Câmara LGBT…', regra: 'Até 4. A ordem é sorteada a cada abertura: chance 2 abre na frente o dobro de vezes que chance 1. Todos aparecem.', aba: 'banners', botao: 'Banners e parceiros', agora: parceirosHome },
     { n: 3, nome: 'Ícones das categorias', mostra: 'Destaques, Bares & Noite, Festas, Serviços, Dicas Trip…', regra: 'Ordem fixa.', aba: 'categorias', botao: 'Categorias e vagas' },
     { n: 4, nome: 'Bloco "Destaques"', mostra: '1 parceiro pago (Fundador ou Premium) com foto e oferta.', regra: 'Troca a cada hora. Só plano pago.', aba: 'rodizio', botao: 'Rodízio e Destaques' },
-    { n: 5, nome: 'Caixas', mostra: 'Em Alta, Recomendados, O que fazer hoje, Top da semana, Experiências, Serviços.', regra: 'Em Alta e O que fazer hoje aceitam locais escolhidos pela equipe (também sem plano). Recomendados = Selo Dicas.', aba: 'locais', botao: 'Locais e marcas > Caixas da Home' },
-    { n: 6, nome: 'Rodapé', mostra: 'Logos dos Membros Fundadores passando devagar.', regra: 'Usa o logo da ficha do local.', aba: 'fundador', botao: 'Membros Fundadores' },
+    { n: 5, nome: 'Caixas', mostra: 'Em Alta, Recomendados, O que fazer hoje, Top da semana, Experiências, Serviços.', regra: 'Em Alta e O que fazer hoje aceitam locais escolhidos pela equipe (também sem plano). Recomendados = Selo Dicas.', aba: 'mapa', botao: 'nomes, ordem e caixas novas: Caixas da Home, nesta tela · locais de cada caixa: ficha do local' },
+    { n: 6, nome: '3º carrossel', mostra: 'Banners marcados como "Home · 3º carrossel". Abaixo das caixas.', regra: 'Só aparece quando tem banner.', aba: 'banners', botao: 'Banners e parceiros' },
+    { n: 7, nome: '4º carrossel', mostra: 'Banners marcados como "Home · 4º carrossel". Antes do rodapé dos Fundadores.', regra: 'Só aparece quando tem banner.', aba: 'banners', botao: 'Banners e parceiros' },
+    { n: 8, nome: 'Rodapé', mostra: 'Logos dos Membros Fundadores passando devagar.', regra: 'Usa o logo da ficha do local.', aba: 'fundador', botao: 'Membros Fundadores' },
   ];
   const categoria: Parte[] = [
     { n: 1, nome: 'Patrocínio Master', mostra: 'Faixa fixa com foto de fundo (ex.: "Bares by Vezpa"). 1 por categoria.', regra: 'Sempre no topo.', aba: 'categorias', botao: 'Categorias e vagas', agora: masters },
@@ -80,7 +83,10 @@ export default function PainelMapaApp({ onIrPara }: { onIrPara: (aba: string) =>
 
   return (
     <div className="space-y-3">
-      <EditorTopoInstitucional />
+      <div className="grid xl:grid-cols-2 gap-3 items-start">
+        <EditorTopoInstitucional />
+        <EditorCaixasHome />
+      </div>
       <div className="grid lg:grid-cols-2 gap-3">
         {coluna('Home, de cima para baixo', home, 'h')}
         {coluna('Página de categoria, de cima para baixo', categoria, 'c')}

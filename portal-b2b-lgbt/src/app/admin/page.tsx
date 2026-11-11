@@ -13,6 +13,7 @@ import BuscaGlobal from '../../components/BuscaGlobal';
 import AdminMfa from '../../components/AdminMfa';
 import PainelBanners from '../../components/PainelBanners';
 import PainelMapaApp from '../../components/PainelMapaApp';
+import { CaixasCuradoriaLocal } from '../../components/EditorCaixasHome';
 import PainelVitrine from '../../components/PainelVitrine';
 import PainelCategorias from '../../components/PainelCategorias';
 import PosicaoLocal from '../../components/PosicaoLocal';
@@ -2467,6 +2468,8 @@ Dicas LGBT+`;
                     />
                     <span>Caixa Recomendados<span className="block text-[10px] text-[#626274]">Selo Dicas LGBT+: curadoria da equipe, nunca venda</span></span>
                   </label>
+                  {/* Rodada 144 — caixas criadas pela equipe no Mapa do app */}
+                  <CaixasCuradoriaLocal secoes={l.destaque_secoes} disabled={processando === l.id} onAlternar={(secao, marcar) => alternarSecaoInstantanea(l, secao, marcar)} />
                 </div>
               </div>
 

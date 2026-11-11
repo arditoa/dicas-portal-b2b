@@ -339,6 +339,9 @@ export default function HomeScreen() {
   const { user, session } = useAuth();
   const { t, idioma, proximoIdioma } = useI18n();
   const { anuncios: anunciosApp, aoExibir: aoExibirBanner } = useAnunciosApp('home');
+  // Rodada 144 — carrosséis extras da Home, criados em Banners e parceiros (só aparecem quando têm banner).
+  const { anuncios: anunciosC3, aoExibir: aoExibirC3 } = useAnunciosApp('home_c3');
+  const { anuncios: anunciosC4, aoExibir: aoExibirC4 } = useAnunciosApp('home_c4');
   const idiomaAtual = IDIOMAS.find((i) => i.code === idioma) || IDIOMAS[0];
   const { width: larguraTela } = useWindowDimensions();
   // 6 categorias cabem inteiras e a 7ª aparece pela metade (+ seta): fica claro que há mais ao lado.
@@ -520,6 +523,42 @@ export default function HomeScreen() {
   // Fundadores girando — cada fundador com a frase que a equipe de comunicação escreveu para ele.
   // Institucionais que também são Membros Fundadores: o Museu da Diversidade e o "Viaje pelo Brasil" (Dicas Trip).
   // Ficam sempre no começo do banner do topo.
+  // Rodada 144 — Caixas da Home editáveis no /admin (tabela home_caixas, migration 097): nome, ícone, cores, ordem,
+  // ocultar e caixas novas (curadoria: locais com 'caixa:<chave>' em destaque_secoes; link: categoria, rota ou site).
+  // Sem a tabela (ou vazia), ficam as 6 caixas de sempre.
+  type CaixaDB = { chave: string; titulo: string; icone: string; cor1: string; cor2: string; ordem: number; ativo: boolean; tipo: 'padrao' | 'curadoria' | 'link'; destino: string | null; traducoes: Record<string, { titulo?: string }> | null };
+  const [caixasDB, setCaixasDB] = useState<CaixaDB[] | null>(null);
+  useEffect(() => {
+    supabase.from('home_caixas').select('chave, titulo, icone, cor1, cor2, ordem, ativo, tipo, destino, traducoes')
+      .then(({ data, error }) => setCaixasDB(error || !data || data.length === 0 ? null : (data as CaixaDB[])), () => setCaixasDB(null));
+  }, []);
+  const TITULO_PADRAO_PT: Record<string, string> = { 'em-alta': 'Em Alta', recomendados: 'Recomendados', hoje: 'O que fazer hoje', semana: 'Top da semana', experiencia: 'Experiências', servicos: 'Serviços' };
+  type CaixaHome = { tipo: string; titulo: string; icone: string; degrade: [string, string]; qtd: number; rota: string };
+  const montarCaixas = (padrao: CaixaHome[]): CaixaHome[] => {
+    if (!caixasDB) return padrao;
+    const rotaDe = (c: CaixaDB) => {
+      if (c.tipo === 'curadoria') return `/secao/caixa-${c.chave}`;
+      const d = (c.destino || '').trim();
+      if (d.startsWith('categoria:')) return `/category/${d.slice(10)}`;
+      return d || '/(tabs)';
+    };
+    return caixasDB
+      .filter((c) => c.ativo)
+      .sort((x, y) => x.ordem - y.ordem)
+      .map((c) => {
+        const base = padrao.find((p) => p.tipo === c.chave);
+        if (c.tipo === 'padrao' && !base) return null; // ex.: Serviços sem nenhum serviço cadastrado
+        const tr = idioma !== 'pt' ? c.traducoes?.[idioma]?.titulo : undefined;
+        const titulo = tr || (base && idioma !== 'pt' && c.titulo === TITULO_PADRAO_PT[c.chave] ? base.titulo : c.titulo);
+        return {
+          tipo: c.chave, titulo, icone: c.icone || base?.icone || 'star',
+          degrade: [c.cor1, c.cor2] as [string, string], qtd: base?.qtd ?? 0,
+          rota: c.tipo === 'padrao' && base ? base.rota : rotaDe(c),
+        };
+      })
+      .filter(Boolean) as CaixaHome[];
+  };
+
   // Rodada 143 — cartões institucionais do topo editáveis no /admin (Mapa do app → Topo da Home): adicionar, editar,
   // ordenar e excluir. Ficam em banners_app com a tela 'home_topo' (ordem = campo peso). Sem nenhum cartão salvo, o app
   // mostra os dois padrões (Museu e Dicas Trip).
@@ -1096,7 +1135,7 @@ export default function HomeScreen() {
             relacionados (src/app/secao/[tipo].tsx). Na Home fica só o atalho
             com a contagem; as listas completas ficam nas páginas. */}
         <View style={styles.gradeSecoes}>
-          {[
+          {montarCaixas([
             { tipo: 'em-alta', titulo: t('home.tile.emAlta'), icone: 'trending-up', degrade: ['#CC7A0A', '#9A4A0A'] as [string, string], qtd: emAlta.length, rota: '/secao/em-alta' },
             { tipo: 'recomendados', titulo: t('home.tile.recomendados'), icone: 'check-circle', degrade: ['#0DA372', '#0E7490'] as [string, string], qtd: 0, rota: '/experience/Selo%20Dicas%20LGBT%2B' },
             { tipo: 'hoje', titulo: t('home.tile.hoje'), icone: 'zap', degrade: ['#C026A3', '#6D3FD1'] as [string, string], qtd: agendaHoje.length + locaisHoje.length + abertosAgora.length, rota: '/secao/hoje' },
@@ -1105,12 +1144,12 @@ export default function HomeScreen() {
             ...(servicosPool.length > 0
               ? [{ tipo: 'servicos', titulo: t('home.tile.servicos'), icone: 'briefcase', degrade: ['#0F9F90', '#5558E3'] as [string, string], qtd: servicosPool.length, rota: '/secao/servicos' }]
               : []),
-          ].map((b) => (
+          ]).map((b) => (
             <TouchableOpacity
               key={b.tipo}
               style={styles.secaoBoxTouch}
               activeOpacity={0.85}
-              onPress={() => router.push(b.rota as any)}
+              onPress={() => (b.rota.startsWith('http') ? Linking.openURL(b.rota).catch(() => {}) : router.push(b.rota as any))}
               accessibilityRole="button"
               accessibilityLabel={b.titulo}
             >
@@ -1122,6 +1161,13 @@ export default function HomeScreen() {
             </TouchableOpacity>
           ))}
         </View>
+
+        {/* 3º CARROSSEL — abaixo das caixas (Banners e parceiros → "Home · 3º carrossel") */}
+        {!!anunciosC3 && anunciosC3.length > 0 && (
+          <View style={{ marginTop: 18 }}>
+            <CarrosselAnuncios onExibir={aoExibirC3} anuncios={anunciosC3} />
+          </View>
+        )}
 
         {/* RODAPÉ — canais oficiais */}
         <View style={styles.rodape}>
@@ -1138,6 +1184,12 @@ export default function HomeScreen() {
             </TouchableOpacity>
           ))}
         </View>
+        {/* 4º CARROSSEL — fim da Home, antes dos Membros Fundadores */}
+        {!!anunciosC4 && anunciosC4.length > 0 && (
+          <View style={{ marginTop: 18 }}>
+            <CarrosselAnuncios onExibir={aoExibirC4} anuncios={anunciosC4} />
+          </View>
+        )}
         {/* MEMBROS FUNDADORES — logos passando devagar, no fim da Home, logo abaixo de "Seja um parceiro" (só fundadores).
             Só aparece com 3 ou mais fundadores com imagem. */}
         {fundadoresFaixa.length >= 3 && (

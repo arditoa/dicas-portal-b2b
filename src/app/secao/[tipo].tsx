@@ -105,7 +105,56 @@ const CONFIG: Record<Tipo, { titulo: string; sub: string; icone: string }> = {
   experiencia: { titulo: 'home.experiencia', sub: 'secao.subExperiencia', icone: 'heart' },
 };
 
+// Rodada 144 — caixa criada pela equipe no /admin (home_caixas, tipo curadoria): /secao/caixa-<chave>.
+// Mostra os locais marcados na ficha do local (destaque_secoes contém 'caixa:<chave>').
+function SecaoCaixa({ chave }: { chave: string }) {
+  useRastrearTela('secao', { detalheParam: 'tipo' });
+  const { t, idioma } = useI18n();
+  const [titulo, setTitulo] = useState('');
+  const [sub, setSub] = useState('');
+  const [icone, setIcone] = useState('star');
+  const [itens, setItens] = useState<ItemLista[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      const [c, l] = await Promise.all([
+        supabase.from('home_caixas').select('titulo, subtitulo, icone, traducoes').eq('chave', chave).maybeSingle(),
+        supabase.from('locais').select(CAMPOS_LOCAL).eq('status', 'aprovado').contains('destaque_secoes', [`caixa:${chave}`]).limit(500),
+      ]);
+      if (!vivo) return;
+      const cx: any = c.data;
+      setTitulo((idioma !== 'pt' && cx?.traducoes?.[idioma]?.titulo) || cx?.titulo || '');
+      setSub(cx?.subtitulo || '');
+      setIcone(cx?.icone || 'star');
+      const lista = (((l.data as any[]) || []) as any[]).slice().sort(compararDestaque('em_alta'));
+      setItens(lista.map((i) => localParaItem(i, { destaque: deveExibirGlow(i) })));
+      setCarregando(false);
+    })();
+    return () => { vivo = false; };
+  }, [chave, idioma]);
+  return (
+    <ListaPadrao
+      titulo={titulo}
+      subtitulo={sub || undefined}
+      itens={itens}
+      carregando={carregando}
+      vazioTexto={t('secao.vazio')}
+      vazioIcone={icone}
+      modoHome
+      patrocinado={null}
+      patrocinadoRotulo={t('home.patrocinado')}
+    />
+  );
+}
+
 export default function SecaoScreen() {
+  const { tipo } = useLocalSearchParams<{ tipo: string }>();
+  if (typeof tipo === 'string' && tipo.startsWith('caixa-')) return <SecaoCaixa chave={tipo.slice(6)} />;
+  return <SecaoPadrao />;
+}
+
+function SecaoPadrao() {
   useRastrearTela('secao', { detalheParam: 'tipo' });
   const router = useRouter();
   const insets = useSafeAreaInsets();

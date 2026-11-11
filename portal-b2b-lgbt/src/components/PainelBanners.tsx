@@ -9,7 +9,9 @@ import { erroFotoNaoSuportada } from '../lib/validarFoto';
 
 // Rodada 139 — onde o banner pode aparecer: Home, Trip e as páginas de categoria do app ('cat:<slug>').
 const TELAS_BANNER: { v: string; rotulo: string }[] = [
-  { v: 'home', rotulo: 'Tela inicial' },
+  { v: 'home', rotulo: 'Home · 2º carrossel' },
+  { v: 'home_c3', rotulo: 'Home · 3º carrossel' },
+  { v: 'home_c4', rotulo: 'Home · 4º carrossel' },
   { v: 'trip', rotulo: 'Aba Trip' },
   { v: 'cat:destaques', rotulo: 'Destaques (Fundadores)' },
   { v: 'cat:bares', rotulo: 'Bares & Noite' },
@@ -88,6 +90,7 @@ export default function PainelBanners({ onIrPara }: { onIrPara?: (aba: string) =
     setMsg({ ok: true, texto: 'Imagem enviada. Clique em "Salvar banner" para publicar.' });
   }
   const [lista, setLista] = useState<Banner[]>([]);
+  const [filtroCarrossel, setFiltroCarrossel] = useState<string>('todos');
   const [metricas, setMetricas] = useState<Record<string, Metrica>>({});
   const [carregando, setCarregando] = useState(true);
   const [editando, setEditando] = useState<Banner | null>(null);
@@ -103,7 +106,8 @@ export default function PainelBanners({ onIrPara }: { onIrPara?: (aba: string) =
     if (b.error) {
       setMsg({ ok: false, texto: 'Não consegui carregar. Rode a migration 050_banners_app.sql no SQL Editor do Supabase.' });
     } else {
-      setLista((b.data as Banner[]) || []);
+      // Os cartões do topo (1º carrossel) são editados em Mapa do app → Topo da Home.
+      setLista(((b.data as Banner[]) || []).filter((x) => !(x.telas || []).includes('home_topo')));
     }
     const mapa: Record<string, Metrica> = {};
     for (const x of ((m.data as Metrica[]) || [])) mapa[x.banner_id] = x;
@@ -315,38 +319,43 @@ export default function PainelBanners({ onIrPara }: { onIrPara?: (aba: string) =
 
   return (
     <div>
-      <div className="bg-[#161520] border border-[#232230] rounded-2xl p-4 mb-5">
-        <p className="text-sm font-bold mb-2">Mapa dos banners do app: onde edita cada um</p>
-        <div className="grid md:grid-cols-3 gap-3 text-xs">
-          <div className="rounded-xl border border-[#E1306C]/60 bg-[#E1306C]/10 p-3">
-            <p className="font-bold text-white">1. Parceiros e campanhas</p>
-            <p className="text-[#A0A0B2] mt-1">Embratur, Câmara LGBT, Copa, Museu, campanhas do Dicas. Cartão com faixa colorida e logo. Na Home, na Trip e nas categorias que você marcar.</p>
-            <p className="text-[#E1306C] font-bold mt-2">É aqui, nesta tela.</p>
-          </div>
-          <div className="rounded-xl border border-[#232230] p-3">
-            <p className="font-bold text-white">2. Fundadores e Premium</p>
-            <p className="text-[#A0A0B2] mt-1">Cartão em degradê com a frase do local e foto opcional (metade frase, metade foto). Gira na Home (Fundador) e no topo da categoria.</p>
-            <button type="button" onClick={() => onIrPara?.('fundador')} className="text-[#E1306C] font-bold mt-2 hover:underline">Membros Fundadores &gt; Editar banner</button>
-          </div>
-          <div className="rounded-xl border border-[#232230] p-3">
-            <p className="font-bold text-white">3. Patrocínio Master</p>
-            <p className="text-[#A0A0B2] mt-1">O banner fixo, com foto de fundo, no alto de cada categoria (ex.: &quot;Bares by Vezpa&quot;). Um por categoria.</p>
-            <button type="button" onClick={() => onIrPara?.('categorias')} className="text-[#E1306C] font-bold mt-2 hover:underline">Categorias e vagas</button>
-          </div>
+      {/* Rodada 144 — carrosséis da Home, de cima para baixo. Clicar filtra a lista. */}
+      <div className="bg-[#161520] border border-[#232230] rounded-xl p-3 mb-4">
+        <div className="flex items-center justify-between gap-3 mb-2">
+          <p className="text-xs font-bold text-[#A0A0B2] uppercase tracking-wide">Carrosséis da Home, de cima para baixo</p>
+          <button type="button" onClick={() => { setMsg(null); setEditando({ ...VAZIO, telas: filtroCarrossel.startsWith('home') ? [filtroCarrossel] : VAZIO.telas }); }} className="bg-[#E1306C] hover:bg-[#c42760] font-bold text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+            <Plus size={13} /> Novo banner
+          </button>
         </div>
-      </div>
-      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-        <p className="text-xs text-[#A0A0B2] max-w-xl">
-          Na Home, estes cartões ficam no <b>2º carrossel</b> (logo abaixo do carrossel dos Fundadores, Museu e &quot;Viaje pelo Brasil&quot;). Até 4 por tela; a ordem é sorteada a cada abertura pela <b>chance</b>: chance 2 abre na frente o dobro de vezes que chance 1. Veja tudo em ordem em Vitrine do app &gt; Mapa do app.
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+          <button type="button" onClick={() => onIrPara?.('mapa')} className="text-left rounded-lg border border-[#232230] p-2.5 hover:border-[#E1306C]/50">
+            <p className="text-xs font-bold">1º · Topo</p>
+            <p className="text-[10px] text-[#8888A0] mt-0.5">Cartões do topo (Museu, Trip…) + Membros Fundadores</p>
+            <p className="text-[10px] font-bold text-[#E1306C] mt-1">Editar em Mapa do app →</p>
+          </button>
+          {([['home', '2º · Logo abaixo', 'Parceiros e campanhas'], ['home_c3', '3º · Abaixo das caixas', 'Aparece quando tiver banner'], ['home_c4', '4º · Fim da Home', 'Antes dos Membros Fundadores']] as const).map(([v, n, d]) => {
+            const qtd = lista.filter((x) => x.telas.includes(v)).length;
+            return (
+              <button key={v} type="button" onClick={() => setFiltroCarrossel(filtroCarrossel === v ? 'todos' : v)} className={`text-left rounded-lg border p-2.5 transition ${filtroCarrossel === v ? 'border-[#E1306C] bg-[#E1306C]/10' : 'border-[#232230] hover:border-[#E1306C]/50'}`}>
+                <p className="text-xs font-bold">{n} <span className="text-[#8888A0] font-semibold">({qtd})</span></p>
+                <p className="text-[10px] text-[#8888A0] mt-0.5">{qtd === 0 ? 'Vazio: não aparece no app' : d}</p>
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-[10px] text-[#626274] mt-2">
+          Os mesmos banners podem ir para a aba Trip e para o carrossel das categorias (marque em &quot;Onde aparece&quot;). Banner dos Fundadores: <button type="button" onClick={() => onIrPara?.('fundador')} className="text-[#E1306C] font-bold">Membros Fundadores</button>. Faixa fixa de categoria: <button type="button" onClick={() => onIrPara?.('categorias')} className="text-[#E1306C] font-bold">Categorias e vagas</button>. Chance 2 abre na frente o dobro de vezes que chance 1.
         </p>
-        <button type="button" onClick={() => { setMsg(null); setEditando({ ...VAZIO }); }} className="bg-[#E1306C] hover:bg-[#c42760] font-bold text-sm px-3 py-2 rounded-lg flex items-center gap-2">
-          <Plus size={16} /> Novo banner
-        </button>
+      </div>
+      <div className="flex gap-1.5 mb-3 flex-wrap">
+        {([['todos', 'Todos'], ['home', '2º carrossel'], ['home_c3', '3º carrossel'], ['home_c4', '4º carrossel'], ['trip', 'Aba Trip'], ['cat', 'Categorias']] as const).map(([v, r]) => (
+          <button key={v} type="button" onClick={() => setFiltroCarrossel(v)} className={`text-[11px] font-bold px-3 py-1 rounded-full border ${filtroCarrossel === v ? 'bg-[#E1306C] border-[#E1306C] text-white' : 'border-[#232230] text-[#A0A0B2] hover:text-white'}`}>{r}</button>
+        ))}
       </div>
       {msg && <p role="alert" className={`text-sm mb-3 ${msg.ok ? 'text-[#4CAF7D]' : 'text-red-400'}`}>{msg.texto}</p>}
       {carregando && <Loader2 className="animate-spin text-[#A0A0B2]" />}
       <div className="grid gap-3">
-        {lista.map((b) => {
+        {lista.filter((b) => filtroCarrossel === 'todos' || (filtroCarrossel === 'cat' ? b.telas.some((t) => t.startsWith('cat:')) : b.telas.includes(filtroCarrossel))).map((b) => {
           const st = estado(b);
           const m = metricas[b.id];
           const ctr = m && m.exibicoes > 0 ? ((m.cliques / m.exibicoes) * 100).toFixed(1) : '—';
