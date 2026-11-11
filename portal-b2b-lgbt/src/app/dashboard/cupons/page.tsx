@@ -6,6 +6,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { idsMarcaAtiva } from '../../../lib/marcaAtiva';
 import { NOMES_DIAS, textoJanela } from '../../../lib/janelaCupom';
+import { useParceiro } from '../../../components/parceiro/ParceiroContext';
+import { recursosDaLocal } from '../../../lib/parceiro';
 
 // Cupons são 100% do dono do local — a policy `cupons_write_dono_ou_admin`
 // (001_migrar_para_locais.sql) já deixa o dono criar/editar/apagar cupom
@@ -30,6 +32,7 @@ type Cupom = {
 };
 
 export default function CupomPage() {
+  const parceiro = useParceiro();
   const router = useRouter();
   const [carregando, setCarregando] = useState(true);
   const [localId, setLocalId] = useState<string | null>(null);
@@ -190,7 +193,7 @@ export default function CupomPage() {
 
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-2xl font-black">Cupons</h1>
+          <h1 className="text-2xl font-black">{parceiro && recursosDaLocal(parceiro.local).cupom === 'desconto' ? 'Cupom de desconto' : 'Cupons'}</h1>
           <p className="text-[#A0A0B2] text-xs mt-1">Cupons de desconto que aparecem no perfil do seu local no app.</p>
         </div>
         <button

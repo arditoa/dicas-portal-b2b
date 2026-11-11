@@ -43,7 +43,7 @@ import {
   CAMPOS_LOCAL,
   PLANO_INFO,
   adiarLembrete,
-  categoriaComAgenda,
+  recursosDaLocal,
   diagnosticar,
   ehContaWhatsApp,
   lerAdiados,
@@ -63,6 +63,8 @@ type ItemMenu = {
   rotulo: string;
   icone: LucideIcon;
   visivel?: (l: LocalParceiro, podePacotes: boolean | null) => boolean;
+  /** Rótulo que depende da categoria (ex.: Cupons × Cupom de desconto). */
+  rotuloPara?: (l: LocalParceiro) => string;
   /** Texto do cadeado quando o plano atual ainda não libera o recurso. */
   bloqueio?: (plano: ReturnType<typeof planoEfetivo>, local: LocalParceiro) => string | null;
 };
@@ -76,12 +78,13 @@ const GRUPOS: { titulo: string | null; itens: ItemMenu[] }[] = [
         href: '/dashboard/cupons',
         rotulo: 'Cupons',
         icone: Ticket,
-        visivel: (l) => l.categoria !== 'eventos', // Em Festas & Eventos não há faixa de cupons
+        visivel: (l) => !!recursosDaLocal(l).cupom, // Em Festas & Eventos não há faixa de cupons
+        rotuloPara: (l) => (recursosDaLocal(l).cupom === 'desconto' ? 'Cupom de desconto' : 'Cupons'),
         bloqueio: (p) => (p === 'freemium' ? 'Cupons chegam com o plano Intermediário ou superior.' : null),
       },
-      { href: '/dashboard/agenda', rotulo: 'Agenda da semana', icone: CalendarDays, visivel: (l) => categoriaComAgenda(l.categoria) && l.categoria !== 'eventos' },
-      { href: '/dashboard/eventos', rotulo: 'Meus eventos', icone: PartyPopper, visivel: (l) => categoriaComAgenda(l.categoria) },
-      { href: '/dashboard/lista-vip', rotulo: 'Lista VIP', icone: Users, visivel: (l) => categoriaComAgenda(l.categoria) },
+      { href: '/dashboard/agenda', rotulo: 'Agenda da semana', icone: CalendarDays, visivel: (l) => recursosDaLocal(l).agenda },
+      { href: '/dashboard/eventos', rotulo: 'Meus eventos', icone: PartyPopper, visivel: (l) => recursosDaLocal(l).eventos },
+      { href: '/dashboard/lista-vip', rotulo: 'Lista VIP', icone: Users, visivel: (l) => recursosDaLocal(l).listaVip },
       { href: '/dashboard/destaques', rotulo: 'Destaques e resultados', icone: TrendingUp },
       { href: '/dashboard/pacotes', rotulo: 'Pacotes e roteiros', icone: Plane, visivel: (l, pp) => (pp ?? l.categoria === 'turismo') },
       { href: '/dashboard/produtos', rotulo: 'Catálogo de produtos', icone: Package, visivel: (l) => l.categoria === 'produtos' },
@@ -91,14 +94,8 @@ const GRUPOS: { titulo: string | null; itens: ItemMenu[] }[] = [
   {
     titulo: 'Fidelizar',
     itens: [
-      { href: '/dashboard/checkins', rotulo: 'Check-ins', icone: ClipboardCheck, visivel: (l) => l.categoria !== 'eventos' },
-      {
-        href: '/dashboard/fidelidade',
-        rotulo: 'Fidelidade',
-        icone: Gift,
-        // Festa não tem cliente recorrente de uma "casa": o cartão fidelidade é para bares, cafés e lojas.
-        bloqueio: (_p, l) => (l.categoria === 'eventos' ? 'Fidelidade é para casas com clientes que voltam. Em Festas & Eventos não se aplica.' : null),
-      },
+      { href: '/dashboard/checkins', rotulo: 'Check-ins', icone: ClipboardCheck, visivel: (l) => recursosDaLocal(l).checkins },
+      { href: '/dashboard/fidelidade', rotulo: 'Fidelidade', icone: Gift, visivel: (l) => recursosDaLocal(l).fidelidade },
     ],
   },
   {
@@ -289,7 +286,7 @@ export default function ParceiroShell({ children }: { children: React.ReactNode 
                   }`}
                 >
                   <Icone size={16} className={on ? 'text-[#E1306C]' : ''} />
-                  <span className="flex-1 truncate">{it.rotulo}</span>
+                  <span className="flex-1 truncate">{it.rotuloPara ? it.rotuloPara(local) : it.rotulo}</span>
                   {bloqueio && <Lock size={12} className="text-[#8888A0]" aria-label="Plano necessário" />}
                   {!bloqueio && hrefComPendencia.has(it.href) && (
                     <span className="h-2 w-2 rounded-full bg-amber-400" aria-label="Tem algo para fazer aqui" />

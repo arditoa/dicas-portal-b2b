@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { idsMarcaAtiva } from '../../../lib/marcaAtiva';
 import { useParceiro } from '../../../components/parceiro/ParceiroContext';
+import { recursosDaLocal } from '../../../lib/parceiro';
 
 // Plano de fidelidade da casa (migrations 010 + 074).
 // A casa define: quantas visitas, o que o cliente ganha e se a contagem é por mês.
@@ -500,14 +501,14 @@ function FidelidadeConteudo() {
 // Em Festas & Eventos o cartão fidelidade fica travado (a tela existe, mas não se aplica a festa).
 export default function FidelidadePage() {
   const parceiro = useParceiro();
-  if (parceiro?.local.categoria === 'eventos') {
+  if (parceiro && !recursosDaLocal(parceiro.local).fidelidade) {
     return (
       <div className="mx-auto max-w-xl p-8 text-center">
         <Gift className="mx-auto mb-3 text-[#626274]" size={32} />
-        <h1 className="text-lg font-black text-white">Fidelidade não se aplica a festas</h1>
+        <h1 className="text-lg font-black text-white">Fidelidade não se aplica à sua categoria</h1>
         <p className="mt-2 text-sm text-[#A0A0B2]">
-          O cartão fidelidade é para casas com clientes que voltam várias vezes, como bares, cafés e lojas. Para festas,
-          use a Lista VIP e divulgue cada edição em Meus eventos.
+          O cartão fidelidade é para casas com clientes que voltam várias vezes, como bares, cafés e lojas. Em Festas &
+          Eventos use a Lista VIP e divulgue cada edição em Meus eventos.
         </p>
         <Link href="/dashboard/lista-vip" className="mt-5 inline-block text-sm font-bold text-[#E1306C] hover:underline">
           Ir para a Lista VIP

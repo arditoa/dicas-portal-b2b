@@ -9,6 +9,7 @@ export type LocalParceiro = {
   id: string;
   nome: string;
   categoria: string;
+  subcategoria?: string | null;
   status: 'pendente' | 'aprovado' | 'rejeitado';
   plano_comercial: string;
   plano_comercial_status: string;
@@ -24,7 +25,7 @@ export type LocalParceiro = {
 };
 
 export const CAMPOS_LOCAL =
-  'id, nome, categoria, status, plano_comercial, plano_comercial_status, rating_media, rating_total, safe_space, descricao, foto_capa_url, logo_url, galeria_fotos, instagram, horario_funcionamento';
+  'id, nome, categoria, subcategoria, status, plano_comercial, plano_comercial_status, rating_media, rating_total, safe_space, descricao, foto_capa_url, logo_url, galeria_fotos, instagram, horario_funcionamento';
 
 export type PlanoSlug = 'freemium' | 'intermediario' | 'premium' | 'fundador';
 
@@ -44,9 +45,48 @@ export function planoEfetivo(local: Pick<LocalParceiro, 'plano_comercial' | 'pla
   return p === 'intermediario' || p === 'premium' || p === 'fundador' ? p : 'freemium';
 }
 
-// Lista VIP, Meus eventos e Agenda da semana são conceitos de bar/festa.
-const CATEGORIAS_SEM_AGENDA = ['servicos', 'turismo', 'produtos'];
-export const categoriaComAgenda = (categoria: string) => !CATEGORIAS_SEM_AGENDA.includes(categoria);
+// ---------- o que cada categoria usa no portal ----------
+// Regra: o portal só mostra o que faz sentido para o tipo de negócio. Esta é a ÚNICA tabela a ajustar.
+//  - cupom: 'cupom' (oferta de casa: bares, restaurantes...), 'desconto' (psicólogo, loja, moda: cupom de desconto), false (não há).
+//  - agenda: "Agenda da semana" (programação de casa); eventos/listaVip: festas, shows e Lista VIP.
+//  - checkins/fidelidade: visita presencial recorrente (cartão fidelidade, check-in por localização).
+//  - pedeHorario: pede horário de funcionamento na página.
+export type Recursos = {
+  cupom: 'cupom' | 'desconto' | false;
+  agenda: boolean;
+  eventos: boolean;
+  listaVip: boolean;
+  checkins: boolean;
+  fidelidade: boolean;
+  pedeHorario: boolean;
+  pedePagina: boolean; // false = não cobrar "completar a página" (festa avulsa)
+};
+
+const PADRAO: Recursos = { cupom: 'cupom', agenda: true, eventos: true, listaVip: true, checkins: true, fidelidade: true, pedeHorario: true, pedePagina: true };
+
+const POR_CATEGORIA: Record<string, Partial<Recursos>> = {
+  // Festas & Eventos: festa não tem cupom, agenda de casa, check-in nem cartão fidelidade; tem Meus eventos e Lista VIP.
+  eventos: { cupom: false, agenda: false, checkins: false, fidelidade: false, pedeHorario: false },
+  // Saúde: cupom de desconto; sem agenda de casa, eventos, Lista VIP, check-in nem fidelidade.
+  saude: { cupom: 'desconto', agenda: false, eventos: false, listaVip: false, checkins: false, fidelidade: false },
+  // Lojas e Moda: cupom de desconto; sem agenda, eventos nem Lista VIP.
+  lojas: { cupom: 'desconto', agenda: false, eventos: false, listaVip: false },
+  produtos: { cupom: 'desconto', agenda: false, eventos: false, listaVip: false, pedeHorario: false },
+  // Beleza: cupom de desconto; sem agenda, eventos nem Lista VIP.
+  beleza: { cupom: 'desconto', agenda: false, eventos: false, listaVip: false },
+  servicos: { cupom: 'desconto', agenda: false, eventos: false, listaVip: false, pedeHorario: false },
+  turismo: { agenda: false, eventos: false, listaVip: false, pedeHorario: false },
+};
+
+export function recursosDaLocal(l: { categoria: string; subcategoria?: string | null }): Recursos {
+  const r = { ...PADRAO, ...(POR_CATEGORIA[l.categoria] ?? {}) };
+  // Festa avulsa: o organizador só quer divulgar a festa; não cobramos página completa.
+  if (l.categoria === 'eventos' && (l.subcategoria || '').trim().toLowerCase() === 'festa avulsa') r.pedePagina = false;
+  return r;
+}
+
+// Mantido por compatibilidade (tela de Ajuda): "tem agenda/eventos/Lista VIP".
+export const categoriaComAgenda = (categoria: string) => recursosDaLocal({ categoria }).eventos || recursosDaLocal({ categoria }).agenda;
 
 export const ehContaWhatsApp = (user: User | null | undefined) => !!user?.email?.endsWith('@login.vezpabar.app');
 
@@ -87,10 +127,12 @@ export type Diagnostico = {
 function perfilFaltando(local: LocalParceiro): string[] {
   const falta: string[] = [];
   const temFoto = !!local.foto_capa_url || !!local.logo_url || (local.galeria_fotos?.length ?? 0) > 0;
+  const r = recursosDaLocal(local);
+  if (!r.pedePagina) return falta;
   if (!temFoto) falta.push('foto');
   if ((local.descricao || '').trim().length < 20) falta.push('descrição');
   if (!(local.instagram || '').trim()) falta.push('Instagram');
-  if (categoriaComAgenda(local.categoria) && local.categoria !== 'eventos') {
+  if (r.pedeHorario) {
     const h = local.horario_funcionamento || {};
     if (!Object.values(h).some((d) => d?.aberto)) falta.push('horário de funcionamento');
   }
@@ -104,7 +146,8 @@ export async function diagnosticar(
   agora: Date = new Date()
 ): Promise<Diagnostico> {
   const plano = planoEfetivo(local);
-  const comAgenda = categoriaComAgenda(local.categoria) && local.categoria !== 'eventos';
+  const rec = recursosDaLocal(local);
+  const comAgenda = rec.agenda;
   const ehFesta = local.categoria === 'eventos';
   const segunda = segundaDaSemana(agora);
   const domingo = somarDias(segunda, 6);
@@ -210,6 +253,7 @@ const dataCurta = (iso: string) =>
 export function montarLembretes(local: LocalParceiro, d: Diagnostico, agora: Date = new Date()): Lembrete[] {
   const plano = planoEfetivo(local);
   const ehFesta = local.categoria === 'eventos';
+  const rec = recursosDaLocal(local);
   const l: Lembrete[] = [];
 
   if (local.status === 'pendente') {
@@ -247,7 +291,7 @@ export function montarLembretes(local: LocalParceiro, d: Diagnostico, agora: Dat
     });
   }
 
-  if (d.perfilFaltando.length > 0) {
+  if (rec.pedePagina && d.perfilFaltando.length > 0) {
     const essencial = d.perfilFaltando.includes('foto') || d.perfilFaltando.includes('descrição');
     l.push({
       id: 'perfil',
@@ -284,7 +328,7 @@ export function montarLembretes(local: LocalParceiro, d: Diagnostico, agora: Dat
     }
   }
 
-  if (categoriaComAgenda(local.categoria) && !ehFesta) {
+  if (rec.agenda) {
     if (d.agendaEstaSemana === false) {
       l.push({
         id: 'agenda-semana',
@@ -306,14 +350,15 @@ export function montarLembretes(local: LocalParceiro, d: Diagnostico, agora: Dat
     }
   }
 
-  if (ehFesta) {
-    // Em Festas & Eventos não há cupom: nada de lembrete de cupom.
+  const nomeCupom = rec.cupom === 'desconto' ? 'cupom de desconto' : 'cupom';
+  if (!rec.cupom) {
+    // Sem cupom nesta categoria (ex.: Festas & Eventos): nada de lembrete de cupom.
   } else if (plano === 'freemium') {
     l.push({
       id: 'plano-cupom',
       nivel: 'dica',
-      titulo: 'Cupons chegam com o plano Intermediário',
-      texto: 'Com plano ativo, seu cupom entra na faixa de cupons da categoria no app. Veja o que cada plano libera.',
+      titulo: rec.cupom === 'desconto' ? 'Cupom de desconto chega com o plano Intermediário' : 'Cupons chegam com o plano Intermediário',
+      texto: `Com plano ativo, seu ${nomeCupom} entra na faixa de cupons da categoria no app. Veja o que cada plano libera.`,
       href: '/planos',
       acao: 'Conhecer os planos',
     });
@@ -363,7 +408,7 @@ export function montarLembretes(local: LocalParceiro, d: Diagnostico, agora: Dat
     }
   }
 
-  if (d.fidelidade && !ehFesta) {
+  if (d.fidelidade && rec.fidelidade) {
     if (!d.fidelidade.existe) {
       l.push({
         id: 'fidelidade',
@@ -394,6 +439,7 @@ export type PassoChecklist = { id: string; titulo: string; texto: string; feito:
 export function montarChecklist(local: LocalParceiro, d: Diagnostico, contaWhatsApp: boolean): PassoChecklist[] {
   const plano = planoEfetivo(local);
   const ehFesta = local.categoria === 'eventos';
+  const rec = recursosDaLocal(local);
   const p: PassoChecklist[] = [];
   if (contaWhatsApp) {
     p.push({
@@ -405,10 +451,10 @@ export function montarChecklist(local: LocalParceiro, d: Diagnostico, contaWhats
       acao: 'Trocar senha',
     });
   }
-  p.push({
+  if (rec.pedePagina) p.push({
     id: 'perfil',
     titulo: 'Completar a página do espaço',
-    texto: 'Foto, descrição' + (categoriaComAgenda(local.categoria) && !ehFesta ? ', horário' : '') + ' e Instagram.',
+    texto: 'Foto, descrição' + (rec.pedeHorario ? ', horário' : '') + ' e Instagram.',
     feito: d.perfilFaltando.length === 0,
     href: '/dashboard/perfil',
     acao: 'Abrir minha página',
@@ -431,7 +477,7 @@ export function montarChecklist(local: LocalParceiro, d: Diagnostico, contaWhats
       acao: 'Ver como destacar',
     });
   }
-  if (categoriaComAgenda(local.categoria) && !ehFesta && d.agendaEstaSemana !== null) {
+  if (rec.agenda && d.agendaEstaSemana !== null) {
     p.push({
       id: 'agenda',
       titulo: 'Subir a agenda da semana',
@@ -441,17 +487,17 @@ export function montarChecklist(local: LocalParceiro, d: Diagnostico, contaWhats
       acao: 'Montar agenda',
     });
   }
-  if (!ehFesta && plano !== 'freemium' && d.cuponsTotal !== null) {
+  if (rec.cupom && plano !== 'freemium' && d.cuponsTotal !== null) {
     p.push({
       id: 'cupom',
-      titulo: 'Publicar o primeiro cupom',
+      titulo: rec.cupom === 'desconto' ? 'Publicar o primeiro cupom de desconto' : 'Publicar o primeiro cupom',
       texto: 'Entra na faixa de cupons da sua categoria.',
       feito: d.cuponsTotal > 0,
       href: '/dashboard/cupons',
       acao: 'Criar cupom',
     });
   }
-  if (d.fidelidade && !ehFesta) {
+  if (d.fidelidade && rec.fidelidade) {
     p.push({
       id: 'fidelidade',
       titulo: 'Criar o cartão fidelidade',

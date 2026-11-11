@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { ListaLembretes } from '../../components/parceiro/ParceiroShell';
 import { useParceiro } from '../../components/parceiro/ParceiroContext';
-import { PLANO_INFO } from '../../lib/parceiro';
+import { PLANO_INFO, recursosDaLocal } from '../../lib/parceiro';
 import { supabase } from '../../lib/supabase';
 
 type Evento = { id: string; titulo: string; data_inicio: string; listas_vip: { vagas_limite: number | null; vagas_ocupadas: number }[] };
@@ -148,7 +148,7 @@ export default function InicioPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Cartao icone={Eye} rotulo="Visualizações do perfil" valor={analytics ? String(analytics.visualizacao_perfil) : '—'} nota={analytics ? 'vezes que sua página foi aberta' : 'ainda sem dados'} />
           <Cartao icone={Instagram} rotulo="Cliques no Instagram" valor={analytics ? String(analytics.clique_instagram) : '—'} nota="a partir da sua página" />
-          {local.categoria !== 'eventos' && <Cartao icone={Ticket} rotulo="Cliques em cupom" valor={analytics ? String(analytics.clique_cupom) : '—'} nota="interesse nos seus cupons" />}
+          {recursosDaLocal(local).cupom && <Cartao icone={Ticket} rotulo="Cliques em cupom" valor={analytics ? String(analytics.clique_cupom) : '—'} nota="interesse nos seus cupons" />}
           <Cartao icone={Star} rotulo="Avaliação média" valor={local.rating_total > 0 ? local.rating_media.toFixed(1) : '—'} nota={local.rating_total > 0 ? `${local.rating_total} avaliações` : 'ainda sem avaliações'} />
         </div>
       </section>

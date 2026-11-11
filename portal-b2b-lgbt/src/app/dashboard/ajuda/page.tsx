@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { AJUDA_PAGINAS, FAQ } from '../../../lib/ajudaPaginas';
 import { linkWhatsappEquipe } from '../../../lib/equipe';
 import { useParceiro } from '../../../components/parceiro/ParceiroContext';
-import { categoriaComAgenda } from '../../../lib/parceiro';
+import { recursosDaLocal } from '../../../lib/parceiro';
 
 export default function AjudaPage() {
   const p = useParceiro();
@@ -19,7 +19,13 @@ export default function AjudaPage() {
   const telas = Object.entries(AJUDA_PAGINAS).filter(([caminho]) => {
     if (!p) return true;
     const c = p.local.categoria;
-    if (['/dashboard/agenda', '/dashboard/eventos', '/dashboard/lista-vip'].includes(caminho)) return categoriaComAgenda(c);
+    const r = recursosDaLocal(p.local);
+    if (caminho === '/dashboard/agenda') return r.agenda;
+    if (caminho === '/dashboard/eventos') return r.eventos;
+    if (caminho === '/dashboard/lista-vip') return r.listaVip;
+    if (caminho === '/dashboard/cupons') return !!r.cupom;
+    if (caminho === '/dashboard/checkins') return r.checkins;
+    if (caminho === '/dashboard/fidelidade') return r.fidelidade;
     if (caminho === '/dashboard/produtos') return c === 'produtos';
     if (caminho === '/dashboard/hospedagem') return c === 'turismo';
     if (caminho === '/dashboard/pacotes') return (p.podePacotes ?? c === 'turismo');
