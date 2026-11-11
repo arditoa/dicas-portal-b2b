@@ -520,6 +520,40 @@ export default function HomeScreen() {
   // Fundadores girando — cada fundador com a frase que a equipe de comunicação escreveu para ele.
   // Institucionais que também são Membros Fundadores: o Museu da Diversidade e o "Viaje pelo Brasil" (Dicas Trip).
   // Ficam sempre no começo do banner do topo.
+  // Rodada 142 — Museu e Dicas Trip do topo agora são editáveis no /admin (Mapa do app → Topo da Home).
+  // Guardados em banners_app com chave 'topo_museu' / 'topo_trip' e tela 'home_topo'. Sem linha no banco, vale o texto padrão.
+  type TopoEditado = { chave: string; tag: string | null; titulo: string | null; cta: string | null; cor: string | null; destino: string | null; ativo: boolean; traducoes: Record<string, { tag?: string; titulo?: string; cta?: string }> | null };
+  const [topoEditado, setTopoEditado] = useState<Record<string, TopoEditado>>({});
+  useEffect(() => {
+    supabase.from('banners_app').select('chave, tag, titulo, cta, cor, destino, ativo, traducoes').in('chave', ['topo_museu', 'topo_trip'])
+      .then(({ data }) => {
+        const m: Record<string, TopoEditado> = {};
+        for (const r of (data as TopoEditado[]) || []) m[r.chave.replace('topo_', '')] = r;
+        setTopoEditado(m);
+      }, () => {});
+  }, []);
+  const abrirDestinoTopo = (d: string, padrao: string) => {
+    const x = (d || '').trim();
+    if (x.startsWith('http')) Linking.openURL(x).catch(() => {});
+    else if (x.startsWith('local:')) router.push(`/business/${x.slice(6)}` as any);
+    else router.push((x.startsWith('/') ? x : padrao) as any);
+  };
+  const aplicarTopo = (base: Anuncio): Anuncio | null => {
+    const e = topoEditado[base.chave as string];
+    if (!e) return base;
+    if (!e.ativo) return null;
+    const tr = (idioma !== 'pt' && e.traducoes?.[idioma]) || {};
+    const cor = e.cor || base.cor;
+    return {
+      ...base,
+      tag: tr.tag || e.tag || base.tag,
+      titulo: tr.titulo || e.titulo || base.titulo,
+      cta: tr.cta || e.cta || base.cta,
+      cor,
+      degrade: e.cor ? ([e.cor, base.degrade?.[1] || e.cor] as [string, string]) : base.degrade,
+      onPress: e.destino ? () => abrirDestinoTopo(e.destino as string, base.chave === 'trip' ? '/(tabs)/tourism' : '/apoiador/museu-diversidade') : base.onPress,
+    };
+  };
   const anunciosInstitucionais = useMemo<Anuncio[]>(
     () => [
       {
@@ -530,9 +564,9 @@ export default function HomeScreen() {
         id: 'trip', chave: 'trip', tag: t('home.anuncioTripTag'), titulo: t('home.anuncioTripTitulo'), cta: t('home.anuncioTripCta'),
         icone: 'compass', cor: '#10B981', degrade: ['#10B981', '#0E7490'], onPress: () => router.push('/(tabs)/tourism' as any),
       },
-    ],
+    ].map(aplicarTopo).filter(Boolean) as Anuncio[],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t]
+    [t, topoEditado, idioma]
   );
 
   // Banners dos Fundadores na Home: 12 vagas, 4 por vez, a janela avança a cada hora. Vaga sem fundador aparece escrita

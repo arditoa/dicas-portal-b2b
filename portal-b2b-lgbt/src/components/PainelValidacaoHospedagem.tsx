@@ -93,7 +93,7 @@ export default function PainelValidacaoHospedagem() {
   }
 
   return (
-    <div className="bg-[#161520] border border-[#232230] rounded-2xl p-5 mb-8">
+    <div className="bg-[#161520] border border-[#232230] rounded-xl p-4 mb-8">
       <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
         <h2 className="text-sm font-bold flex items-center gap-2">
           <Hotel size={14} className="text-[#E1306C]" /> Hospedagens para validar ({linhas.length})

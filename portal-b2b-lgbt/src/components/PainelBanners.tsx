@@ -339,7 +339,7 @@ export default function PainelBanners({ onIrPara }: { onIrPara?: (aba: string) =
         <p className="text-xs text-[#A0A0B2] max-w-xl">
           Na Home, estes cartões ficam no <b>2º carrossel</b> (logo abaixo do carrossel dos Fundadores, Museu e &quot;Viaje pelo Brasil&quot;). Até 4 por tela; a ordem é sorteada a cada abertura pela <b>chance</b>: chance 2 abre na frente o dobro de vezes que chance 1. Veja tudo em ordem em Vitrine do app &gt; Mapa do app.
         </p>
-        <button type="button" onClick={() => { setMsg(null); setEditando({ ...VAZIO }); }} className="bg-[#E1306C] hover:bg-[#c42760] font-bold text-sm px-4 py-2.5 rounded-xl flex items-center gap-2">
+        <button type="button" onClick={() => { setMsg(null); setEditando({ ...VAZIO }); }} className="bg-[#E1306C] hover:bg-[#c42760] font-bold text-sm px-3 py-2 rounded-lg flex items-center gap-2">
           <Plus size={16} /> Novo banner
         </button>
       </div>

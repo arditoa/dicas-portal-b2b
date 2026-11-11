@@ -34,8 +34,8 @@ type Destino = {
 const UFS = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'];
 const LIMITE_FOTO_MB = 8;
 
-const input = 'w-full bg-[#0B0B0E] border border-[#232230] rounded-xl py-2.5 px-3 text-white text-sm focus:outline-none focus:border-[#E1306C]';
-const label = 'text-[11px] font-bold text-[#A0A0B2] uppercase block mb-1.5';
+const input = 'w-full bg-[#0B0B0E] border border-[#232230] rounded-lg py-2 px-3 text-white text-xs focus:outline-none focus:border-[#E1306C]';
+const label = 'text-[10px] font-bold text-[#A0A0B2] uppercase tracking-wide block mb-1';
 
 function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
   return (

@@ -14,11 +14,11 @@ import { erroFotoNaoSuportada } from '../lib/validarFoto';
 import { SUBCATEGORIAS_APP } from '../lib/subcategoriasApp';
 import QuadroCliques from './QuadroCliques';
 
-const input = 'w-full bg-[#0B0B0E] border border-[#232230] rounded-xl py-2.5 px-3 text-white text-sm focus:outline-none focus:border-[#E1306C]';
-const label = 'text-[11px] font-bold text-[#A0A0B2] uppercase block mb-1.5';
-const card = 'bg-[#161520] border border-[#232230] rounded-2xl p-5 mb-6';
-const botao = 'bg-[#E1306C] hover:bg-[#C2285C] disabled:opacity-50 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition inline-flex items-center gap-2';
-const botaoCinza = 'bg-[#232230] hover:bg-[#2D2B3D] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition inline-flex items-center gap-2';
+const input = 'w-full bg-[#0B0B0E] border border-[#232230] rounded-lg py-2 px-3 text-white text-xs focus:outline-none focus:border-[#E1306C]';
+const label = 'text-[10px] font-bold text-[#A0A0B2] uppercase tracking-wide block mb-1';
+const card = 'bg-[#161520] border border-[#232230] rounded-xl p-4 mb-4';
+const botao = 'bg-[#E1306C] hover:bg-[#C2285C] disabled:opacity-50 text-white text-xs font-bold px-3 py-2 rounded-lg transition inline-flex items-center gap-2';
+const botaoCinza = 'bg-[#232230] hover:bg-[#2D2B3D] text-white text-xs font-bold px-3 py-2 rounded-lg transition inline-flex items-center gap-2';
 
 type Cat = { slug: string; nome: string; real: string | null; aberta: boolean; fundadores?: boolean };
 // "aberta" = já aparece aberta na Home do app (as outras aparecem "em breve" lá, mas já podem ser preparadas aqui).
@@ -143,7 +143,7 @@ function DetalheCategoria({ cat, onVoltar }: { cat: Cat; onVoltar: () => void })
   return (
     <div>
       <button onClick={onVoltar} className="inline-flex items-center gap-2 text-[#A0A0B2] text-xs hover:text-white transition mb-4"><ArrowLeft size={14} /> Todas as categorias</button>
-      <h2 className="text-xl font-black mb-1">{cat.nome}</h2>
+      <h2 className="text-lg font-black mb-1">{cat.nome}</h2>
       <p className="text-[#A0A0B2] text-xs mb-5">Está na ordem em que aparece no app. Tudo o que você salvar aqui já vale no app.</p>
       {erro && <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl text-xs mb-4">{erro}</div>}
       {aviso && <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-3 rounded-xl text-xs mb-4 flex items-center gap-2"><Check size={14} /> {aviso}</div>}
@@ -222,40 +222,48 @@ function MasterCategoria({ cat, ok, falha }: Props) {
       {!p.ativo ? (
         <p className="text-xs text-[#626274]">Desligado — não aparece no app. Marque &ldquo;Aparece no app&rdquo; quando houver patrocinador.</p>
       ) : (<>
-      <p className="text-xs text-[#A0A0B2] mb-4">A faixa grande no topo da categoria, abaixo do título. Pense nela como o &ldquo;nome da casa&rdquo; da categoria: uma marca forte (ex.: uma cervejaria em Bares).</p>
-      <div className="rounded-2xl p-4 mb-4 min-h-[88px] relative overflow-hidden" style={{ background: p.imagem_url ? `linear-gradient(135deg, ${p.cor1}CC, ${p.cor2}CC), url(${p.imagem_url}) center/cover` : `linear-gradient(135deg, ${p.cor1}, ${p.cor2})` }}>
-        <p className="text-[10px] font-black tracking-wider opacity-80">{p.tag || 'PATROCÍNIO MASTER'}</p>
-        <p className="text-base font-black">{p.titulo || 'Os dizeres da faixa aparecem aqui'}</p>
-        {p.subtitulo && <p className="text-xs opacity-90">{p.subtitulo}</p>}
-        <span className="inline-block mt-2 text-[11px] font-bold bg-black/30 rounded-full px-3 py-1">{p.cta || 'Saiba mais'}</span>
-      </div>
-      <div className="grid md:grid-cols-2 gap-3 mb-3">
-        <div><label className={label}>Etiqueta pequena</label><input className={input} maxLength={40} value={p.tag} onChange={(e) => setP({ ...p, tag: e.target.value })} /></div>
-        <div><label className={label}>Texto do botão</label><input className={input} maxLength={24} value={p.cta} onChange={(e) => setP({ ...p, cta: e.target.value })} /></div>
-      </div>
-      <div className="space-y-3">
-        <div><label className={label}>Título (os dizeres principais)</label><input className={input} maxLength={90} value={p.titulo} onChange={(e) => setP({ ...p, titulo: e.target.value })} /></div>
-        <div><label className={label}>Frase de apoio (opcional)</label><input className={input} maxLength={120} value={p.subtitulo} onChange={(e) => setP({ ...p, subtitulo: e.target.value })} /></div>
-        <div className="grid md:grid-cols-3 gap-3">
-          <div><label className={label}>Cor 1</label><input type="color" className="w-full h-10 bg-transparent" value={p.cor1} onChange={(e) => setP({ ...p, cor1: e.target.value })} /></div>
-          <div><label className={label}>Cor 2</label><input type="color" className="w-full h-10 bg-transparent" value={p.cor2} onChange={(e) => setP({ ...p, cor2: e.target.value })} /></div>
-          <div><label className={label}>Arte (imagem de fundo, opcional)</label>
-            <input type="file" accept="image/*" className="text-xs" onChange={(e) => { subirImagem(e.target.files?.[0]); e.target.value = ''; }} />
-            {p.imagem_url && <button className="text-[10px] text-[#E1306C] mt-1" onClick={() => setP({ ...p, imagem_url: '' })}>tirar arte</button>}
+      <p className="text-[11px] text-[#A0A0B2] mb-3">A faixa grande no topo da categoria: o &ldquo;nome da casa&rdquo; (ex.: uma cervejaria em Bares).</p>
+      {/* Rodada 142 — prévia à esquerda e campos compactos à direita (pedido da Andrea: menor e mais profissional). */}
+      <div className="grid lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] gap-4 items-start">
+        <div className="space-y-2 lg:sticky lg:top-4">
+          <div className="rounded-xl p-3 min-h-[76px] relative overflow-hidden" style={{ background: p.imagem_url ? `linear-gradient(135deg, ${p.cor1}CC, ${p.cor2}CC), url(${p.imagem_url}) center/cover` : `linear-gradient(135deg, ${p.cor1}, ${p.cor2})` }}>
+            <p className="text-[9px] font-black tracking-wider opacity-80">{p.tag || 'PATROCÍNIO MASTER'}</p>
+            <p className="text-sm font-black leading-tight">{p.titulo || 'Os dizeres da faixa aparecem aqui'}</p>
+            {p.subtitulo && <p className="text-[11px] opacity-90">{p.subtitulo}</p>}
+            <span className="inline-block mt-1.5 text-[10px] font-bold bg-black/30 rounded-full px-2.5 py-0.5">{p.cta || 'Saiba mais'}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-1.5 text-[11px] text-[#A0A0B2]">Cor 1 <input type="color" className="w-7 h-7 bg-transparent rounded cursor-pointer" value={p.cor1} onChange={(e) => setP({ ...p, cor1: e.target.value })} /></label>
+            <label className="flex items-center gap-1.5 text-[11px] text-[#A0A0B2]">Cor 2 <input type="color" className="w-7 h-7 bg-transparent rounded cursor-pointer" value={p.cor2} onChange={(e) => setP({ ...p, cor2: e.target.value })} /></label>
+            <label className="ml-auto text-[11px] font-bold text-[#E1306C] cursor-pointer">
+              {p.imagem_url ? 'Trocar arte' : 'Enviar arte'}
+              <input type="file" accept="image/*" className="hidden" onChange={(e) => { subirImagem(e.target.files?.[0]); e.target.value = ''; }} />
+            </label>
+            {p.imagem_url && <button className="text-[11px] text-[#A0A0B2] hover:text-white" onClick={() => setP({ ...p, imagem_url: '' })}>tirar</button>}
           </div>
         </div>
-        <div>
-          <label className={label}>Quem patrocina (o dono do local pode ajustar os dizeres pelo portal dele)</label>
-          {p.local_id ? (
-            <div className="flex items-center gap-3 text-sm"><b>{patrocinador || 'Local escolhido'}</b><button className="text-[11px] text-[#E1306C]" onClick={() => { setP({ ...p, local_id: null }); setPatrocinador(''); }}>trocar</button></div>
-          ) : (
-            <BuscaLocal categoria={cat.slug === 'festas' ? 'eventos' : undefined} onEscolher={(l) => { setP({ ...p, local_id: l.id, destino: p.destino || `local:${l.id}` }); setPatrocinador(l.nome); }} />
-          )}
-        </div>
-        <div><label className={label}>Para onde o botão leva</label><input className={input} placeholder="local:ID, /rota do app ou https://…" value={p.destino} onChange={(e) => setP({ ...p, destino: e.target.value })} /><p className="text-[10px] text-[#626274] mt-1">Ao escolher o patrocinador acima, o botão já abre a página dele.</p></div>
-        <div className="flex gap-2">
-          <button onClick={salvar} disabled={salvando} className={botao}>{salvando ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Salvar Patrocínio Master</button>
-          {existe && <button onClick={remover} className={botaoCinza}><Trash2 size={14} /> Remover</button>}
+        <div className="space-y-2.5">
+          <div className="grid grid-cols-2 gap-2.5">
+            <div><label className={label}>Etiqueta pequena</label><input className={input} maxLength={40} value={p.tag} onChange={(e) => setP({ ...p, tag: e.target.value })} /></div>
+            <div><label className={label}>Texto do botão</label><input className={input} maxLength={24} value={p.cta} onChange={(e) => setP({ ...p, cta: e.target.value })} /></div>
+          </div>
+          <div><label className={label}>Título (os dizeres)</label><input className={input} maxLength={90} value={p.titulo} onChange={(e) => setP({ ...p, titulo: e.target.value })} /></div>
+          <div><label className={label}>Frase de apoio (opcional)</label><input className={input} maxLength={120} value={p.subtitulo} onChange={(e) => setP({ ...p, subtitulo: e.target.value })} /></div>
+          <div className="grid grid-cols-2 gap-2.5">
+            <div>
+              <label className={label}>Quem patrocina</label>
+              {p.local_id ? (
+                <div className="flex items-center gap-2 text-xs h-[34px]"><b className="truncate">{patrocinador || 'Local escolhido'}</b><button className="text-[11px] text-[#E1306C]" onClick={() => { setP({ ...p, local_id: null }); setPatrocinador(''); }}>trocar</button></div>
+              ) : (
+                <BuscaLocal categoria={cat.slug === 'festas' ? 'eventos' : undefined} onEscolher={(l) => { setP({ ...p, local_id: l.id, destino: p.destino || `local:${l.id}` }); setPatrocinador(l.nome); }} />
+              )}
+            </div>
+            <div><label className={label}>Botão leva para</label><input className={input} placeholder="local:ID, /rota ou https://…" value={p.destino} onChange={(e) => setP({ ...p, destino: e.target.value })} /></div>
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button onClick={salvar} disabled={salvando} className={botao}>{salvando ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />} Salvar</button>
+            {existe && <button onClick={remover} className={botaoCinza}><Trash2 size={13} /> Remover</button>}
+          </div>
         </div>
       </div>
       </>)}

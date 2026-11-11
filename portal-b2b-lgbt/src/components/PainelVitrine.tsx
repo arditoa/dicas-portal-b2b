@@ -12,10 +12,10 @@ import { supabase } from '../lib/supabase';
 import { erroFotoNaoSuportada } from '../lib/validarFoto';
 import { SUBCATEGORIAS_APP } from '../lib/subcategoriasApp';
 
-const input = 'w-full bg-[#0B0B0E] border border-[#232230] rounded-xl py-2.5 px-3 text-white text-sm focus:outline-none focus:border-[#E1306C]';
-const label = 'text-[11px] font-bold text-[#A0A0B2] uppercase block mb-1.5';
-const card = 'bg-[#161520] border border-[#232230] rounded-2xl p-5 mb-6';
-const botao = 'bg-[#E1306C] hover:bg-[#C2285C] disabled:opacity-50 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition inline-flex items-center gap-2';
+const input = 'w-full bg-[#0B0B0E] border border-[#232230] rounded-lg py-2 px-3 text-white text-xs focus:outline-none focus:border-[#E1306C]';
+const label = 'text-[10px] font-bold text-[#A0A0B2] uppercase tracking-wide block mb-1';
+const card = 'bg-[#161520] border border-[#232230] rounded-xl p-4 mb-4';
+const botao = 'bg-[#E1306C] hover:bg-[#C2285C] disabled:opacity-50 text-white text-xs font-bold px-3 py-2 rounded-lg transition inline-flex items-center gap-2';
 
 const CATEGORIAS = [
   ['destaques', 'Destaques'], ['turismo', 'Turismo | Dicas Trip'], ['bares', 'Bares & Vida Noturna'], ['gastronomia', 'Gastronomia'],

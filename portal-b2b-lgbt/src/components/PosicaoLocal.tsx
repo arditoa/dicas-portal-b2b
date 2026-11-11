@@ -14,8 +14,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { SUBCATEGORIAS_APP } from '../lib/subcategoriasApp';
 
-const input = 'w-full bg-[#0B0B0E] border border-[#232230] rounded-xl py-2.5 px-3 text-white text-sm focus:outline-none focus:border-[#E1306C]';
-const label = 'text-[11px] font-bold text-[#A0A0B2] uppercase block mb-1.5';
+const input = 'w-full bg-[#0B0B0E] border border-[#232230] rounded-lg py-2 px-3 text-white text-xs focus:outline-none focus:border-[#E1306C]';
+const label = 'text-[10px] font-bold text-[#A0A0B2] uppercase tracking-wide block mb-1';
 const sec = 'border border-[#232230] rounded-xl p-4 mb-4';
 
 // categoria REAL do banco → slug da categoria no app (chave das vagas e do Patrocínio Master)
@@ -350,8 +350,8 @@ export default function PosicaoLocal({ localId, onFechar, onSalvo }: { localId: 
             </div>
 
             <div className="flex justify-end gap-2">
-              <button onClick={onFechar} className="bg-[#232230] hover:bg-[#2D2B3D] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition">Fechar</button>
-              <button onClick={salvar} disabled={salvando} className="bg-[#E1306C] hover:bg-[#C2285C] disabled:opacity-50 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition inline-flex items-center gap-2">
+              <button onClick={onFechar} className="bg-[#232230] hover:bg-[#2D2B3D] text-white text-xs font-bold px-3 py-2 rounded-lg transition">Fechar</button>
+              <button onClick={salvar} disabled={salvando} className="bg-[#E1306C] hover:bg-[#C2285C] disabled:opacity-50 text-white text-xs font-bold px-3 py-2 rounded-lg transition inline-flex items-center gap-2">
                 {salvando ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Salvar posição
               </button>
             </div>

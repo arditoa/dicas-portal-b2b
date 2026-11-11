@@ -4,6 +4,7 @@
 // categoria de cima para baixo, o que está no ar agora em cada parte e o botão para editar.
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import EditorTopoInstitucional from './EditorTopoInstitucional';
 
 type Parte = { n: number; nome: string; mostra: string; regra: string; aba: string; botao: string; agora?: string[] };
 
@@ -26,7 +27,7 @@ export default function PainelMapaApp({ onIrPara }: { onIrPara: (aba: string) =>
   }, []);
 
   const home: Parte[] = [
-    { n: 1, nome: 'Carrossel do topo', mostra: 'Museu da Diversidade e "Viaje pelo Brasil" (sempre os primeiros) + os banners dos Membros Fundadores.', regra: 'Passa sozinho a cada 5 s. Dos Fundadores, 4 aparecem por vez e o grupo troca no rodízio.', aba: 'fundador', botao: 'Membros Fundadores > Editar banner', agora: fundadores },
+    { n: 1, nome: 'Carrossel do topo', mostra: 'Museu da Diversidade e "Viaje pelo Brasil" (sempre os primeiros) + os banners dos Membros Fundadores.', regra: 'Passa sozinho a cada 5 s. Dos Fundadores, 4 aparecem por vez e o grupo troca no rodízio.', aba: 'mapa', botao: 'Museu e Trip: logo abaixo, nesta tela · Fundadores: Membros Fundadores > Editar banner', agora: fundadores },
     { n: 2, nome: 'Carrossel logo abaixo', mostra: 'Parceiros e campanhas: Copa, Embratur, Câmara LGBT…', regra: 'Até 4. A ordem é sorteada a cada abertura: chance 2 abre na frente o dobro de vezes que chance 1. Todos aparecem.', aba: 'banners', botao: 'Banners e parceiros', agora: parceirosHome },
     { n: 3, nome: 'Ícones das categorias', mostra: 'Destaques, Bares & Noite, Festas, Serviços, Dicas Trip…', regra: 'Ordem fixa.', aba: 'categorias', botao: 'Categorias e vagas' },
     { n: 4, nome: 'Bloco "Destaques"', mostra: '1 parceiro pago (Fundador ou Premium) com foto e oferta.', regra: 'Troca a cada hora. Só plano pago.', aba: 'rodizio', botao: 'Rodízio e Destaques' },
@@ -43,7 +44,7 @@ export default function PainelMapaApp({ onIrPara }: { onIrPara: (aba: string) =>
   ];
 
   const coluna = (titulo: string, partes: Parte[]) => (
-    <div className="bg-[#161520] border border-[#232230] rounded-2xl p-4">
+    <div className="bg-[#161520] border border-[#232230] rounded-xl p-4">
       <p className="text-sm font-bold mb-3">{titulo}</p>
       <ol className="space-y-2">
         {partes.map((p) => (
@@ -66,11 +67,12 @@ export default function PainelMapaApp({ onIrPara }: { onIrPara: (aba: string) =>
 
   return (
     <div className="space-y-4">
-      <div className="bg-[#E1306C]/10 border border-[#E1306C]/40 rounded-2xl p-4 text-xs text-[#F3C6D6]">
+      <div className="bg-[#E1306C]/10 border border-[#E1306C]/40 rounded-xl p-4 text-xs text-[#F3C6D6]">
         <p className="font-bold text-white text-sm mb-1">Como ler este mapa</p>
         Cada bloco é uma parte da tela do app, na ordem em que aparece de cima para baixo. O botão leva direto para onde se edita.
         {' '}<b>Chance</b> (antes &quot;peso&quot;): vale só para os banners de parceiros. Chance 2 abre na frente o dobro de vezes que chance 1; todos aparecem, a chance só muda quem vem primeiro.
       </div>
+      <EditorTopoInstitucional />
       <div className="grid lg:grid-cols-2 gap-4">
         {coluna('Tela inicial (Home)', home)}
         {coluna('Página de uma categoria (ex.: Bares, Festas)', categoria)}

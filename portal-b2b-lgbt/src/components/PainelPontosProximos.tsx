@@ -70,7 +70,7 @@ export default function PainelPontosProximos() {
   if (!pontos || pontos.length === 0) return null;
 
   return (
-    <div className="bg-[#161520] border border-[#232230] rounded-2xl p-5 mb-8">
+    <div className="bg-[#161520] border border-[#232230] rounded-xl p-4 mb-8">
       <h2 className="text-sm font-bold flex items-center gap-2 mb-1">
         <MapPin size={14} className="text-[#E1306C]" /> Locais próximos para validar ({pontos.length})
       </h2>

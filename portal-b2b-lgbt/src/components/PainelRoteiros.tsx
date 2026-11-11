@@ -48,8 +48,8 @@ type Parada = {
 };
 type Destino = { slug: string; cidade: string; uf: string };
 
-const input = 'w-full bg-[#0B0B0E] border border-[#232230] rounded-xl py-2.5 px-3 text-white text-sm focus:outline-none focus:border-[#E1306C]';
-const label = 'text-[11px] font-bold text-[#A0A0B2] uppercase block mb-1.5';
+const input = 'w-full bg-[#0B0B0E] border border-[#232230] rounded-lg py-2 px-3 text-white text-xs focus:outline-none focus:border-[#E1306C]';
+const label = 'text-[10px] font-bold text-[#A0A0B2] uppercase tracking-wide block mb-1';
 const alternar = (l: string[], v: string) => (l.includes(v) ? l.filter((x) => x !== v) : [...l, v]);
 
 async function subirFoto(pasta: string, arquivo: File): Promise<string> {
