@@ -2338,18 +2338,19 @@ Dicas LGBT+`;
 
       <div className="min-w-0">
       <section className="mb-10">
-        <h2 className="text-base font-bold mb-3">
-          Estabelecimentos ({locaisFiltrados.length}{locaisFiltrados.length !== locaisDestaque.length ? ` de ${locaisDestaque.length}` : ''})
-        </h2>
-        <details className="mb-4 text-xs text-[#8888A0] bg-[#161520] border border-[#232230] rounded-lg px-3 py-2">
-          <summary className="cursor-pointer font-bold text-[#A0A0B2]">Como as vitrines funcionam</summary>
-          <ul className="mt-2 space-y-1.5 list-disc list-inside">
-            <li><b className="text-[#D0D0E0]">O plano decide a posição</b> (Fundador, Premium, Intermediário, Master): escolha em &quot;Posição no app&quot;.</li>
-            <li><b className="text-[#D0D0E0]">Caixas da Home</b> (Em Alta, Recomendados, O que fazer hoje) são escolha da equipe e servem também para quem não paga. O bloco Destaques da Home é só de plano pago.</li>
-            <li><b className="text-[#D0D0E0]">Selo Dicas LGBT+</b> é curadoria da equipe, nunca venda.</li>
-            <li><b className="text-[#D0D0E0]">Marcas de festa</b> (categoria Festas) mostram as festas delas dentro da ficha, com o flier.</li>
-          </ul>
-        </details>
+        {/* Rodada 143 — contador discreto + explicação recolhida num "?" */}
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <p className="text-[11px] text-[#8888A0]"><b className="text-[#D0D0E0]">{locaisFiltrados.length}</b>{locaisFiltrados.length !== locaisDestaque.length ? ` de ${locaisDestaque.length}` : ''} {locaisFiltrados.length === 1 ? 'local' : 'locais'}</p>
+          <details className="relative text-[11px] text-[#8888A0] shrink-0">
+            <summary className="cursor-pointer font-bold text-[#A0A0B2] hover:text-white list-none">? Como as vitrines funcionam</summary>
+            <ul className="absolute right-0 z-20 mt-2 w-[380px] bg-[#0B0B0E] border border-[#232230] rounded-lg p-3 space-y-1.5 list-disc list-inside shadow-xl">
+              <li><b className="text-[#D0D0E0]">O plano decide a posição</b> (Fundador, Premium, Intermediário, Master): escolha em &quot;Posição no app&quot;.</li>
+              <li><b className="text-[#D0D0E0]">Caixas da Home</b> (Em Alta, Recomendados, O que fazer hoje) são escolha da equipe, também para quem não paga. O bloco Destaques é só de plano pago.</li>
+              <li><b className="text-[#D0D0E0]">Selo Dicas LGBT+</b> é curadoria da equipe, nunca venda.</li>
+              <li><b className="text-[#D0D0E0]">Marcas de festa</b> mostram as festas delas dentro da ficha, com o flier.</li>
+            </ul>
+          </details>
+        </div>
         {totalSeloDicas > 0 && (
           <p className={`text-xs mb-3 ${totalSeloDicas > 8 ? 'text-amber-400' : 'text-[#A0A0B2]'}`}>
             <b className={totalSeloDicas > 8 ? 'text-amber-300' : 'text-[#D0D0E0]'}>Selo Dicas LGBT+</b>:{' '}
@@ -2766,65 +2767,54 @@ Dicas LGBT+`;
       {/* Rodada 46 — pedido direto da Andrea: filtro "O que Fazer Hoje"
           vs "Todos os Eventos" dentro da aba própria de Eventos, mesma
           ideia que Locais já tinha (filtroPrincipal). */}
-      <section className="mb-6">
-        <div className="flex items-center gap-2 mb-3">
+      {/* Rodada 143 — barra única no topo: busca + filtros; explicação recolhida num "?" (pedido da Andrea: menos texto solto). */}
+      <div className="bg-[#161520] border border-[#232230] rounded-xl p-3 mb-4 space-y-2.5">
+        <div className="flex items-center gap-2 flex-wrap">
           <Search size={14} className="text-[#626274]" />
           <input
             type="text"
             value={buscaEvento}
             onChange={(e) => setBuscaEvento(e.target.value)}
-            placeholder="Buscar evento por nome..."
-            className="flex-1 bg-[#161520] border border-[#232230] rounded-lg text-xs px-3 py-2"
+            placeholder="Buscar festa por nome..."
+            className="flex-1 min-w-[180px] bg-[#0B0B0E] border border-[#232230] rounded-lg text-xs px-3 py-2"
           />
-        </div>
-        <div className="flex flex-wrap gap-1.5">
           <button
             onClick={() => setFiltroEventos('todos')}
-            className={`text-xs font-bold px-3 py-1.5 rounded-full border transition ${
-              filtroEventos === 'todos'
-                ? 'bg-[#E1306C] border-[#E1306C] text-white'
-                : 'bg-[#161520] border-[#232230] text-[#A0A0B2] hover:bg-[#1D1C29]'
-            }`}
+            className={`text-[11px] font-bold px-3 py-1.5 rounded-full border transition ${filtroEventos === 'todos' ? 'bg-[#E1306C] border-[#E1306C] text-white' : 'bg-[#0B0B0E] border-[#232230] text-[#A0A0B2] hover:text-white'}`}
           >
-            Todos os Eventos
+            Próximas
           </button>
           <button
             onClick={() => setFiltroEventos('hoje')}
-            className={`text-xs font-bold px-3 py-1.5 rounded-full border transition ${
-              filtroEventos === 'hoje'
-                ? 'bg-[#FFD54F] border-[#FFD54F] text-black'
-                : 'bg-[#161520] border-[#232230] text-[#FFD54F] hover:bg-[#1D1C29]'
-            }`}
+            className={`text-[11px] font-bold px-3 py-1.5 rounded-full border transition ${filtroEventos === 'hoje' ? 'bg-[#FFD54F] border-[#FFD54F] text-black' : 'bg-[#0B0B0E] border-[#232230] text-[#FFD54F] hover:text-white'}`}
           >
-            O que Fazer Hoje
+            Hoje
           </button>
           <button
             onClick={() => setFiltroEventos('encerradas')}
-            className={`text-xs font-bold px-3 py-1.5 rounded-full border transition ${
-              filtroEventos === 'encerradas'
-                ? 'bg-[#A0A0B2] border-[#A0A0B2] text-black'
-                : 'bg-[#161520] border-[#232230] text-[#A0A0B2] hover:bg-[#1D1C29]'
-            }`}
+            className={`text-[11px] font-bold px-3 py-1.5 rounded-full border transition ${filtroEventos === 'encerradas' ? 'bg-[#A0A0B2] border-[#A0A0B2] text-black' : 'bg-[#0B0B0E] border-[#232230] text-[#A0A0B2] hover:text-white'}`}
           >
             Encerradas ({totalEncerradas})
           </button>
         </div>
-        <p className="text-[11px] text-[#626274] mt-2">&quot;Todos&quot; mostra só as festas que ainda vão acontecer. Festa encerrada some do app: abra em &quot;Encerradas&quot; e troque a data para a próxima edição.</p>
-      </section>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[11px] text-[#8888A0]">
+            <b className="text-[#D0D0E0]">{eventosFiltrados.length}</b> {eventosFiltrados.length === 1 ? 'festa' : 'festas'}
+            {filtroEventos === 'encerradas' ? ' encerradas: troque a data para a próxima edição e ela volta ao app.' : filtroEventos === 'hoje' ? ' em O que fazer hoje.' : ' que ainda vão acontecer.'}
+          </p>
+          <details className="relative text-[11px] text-[#8888A0] shrink-0">
+            <summary className="cursor-pointer font-bold text-[#A0A0B2] hover:text-white list-none">? Como aparecem no app</summary>
+            <ul className="absolute right-0 z-20 mt-2 w-[360px] bg-[#0B0B0E] border border-[#232230] rounded-lg p-3 space-y-1.5 list-disc list-inside shadow-xl">
+              <li><b className="text-[#D0D0E0]">Flier</b>: a foto da festa, no card &quot;Festas em destaque&quot; e na página da festa.</li>
+              <li><b className="text-[#D0D0E0]">Tipo</b> decide o ícone na aba Eventos. <b className="text-[#D0D0E0]">Para quem</b> e <b className="text-[#D0D0E0]">estilo</b> viram filtros.</li>
+              <li><b className="text-[#D0D0E0]">R$ 89</b>: entra em &quot;Festas em destaque&quot; 1 dia antes e no dia. <b className="text-[#D0D0E0]">Festa do plano</b> (Fundador/Premium): todo dia até a festa.</li>
+              <li>Festa com data passada some do app. Também aparece na ficha da marca, em Locais e marcas.</li>
+            </ul>
+          </details>
+        </div>
+      </div>
 
       <section className="mb-10">
-        <h2 className="text-base font-bold mb-3">
-          Festas e eventos ({eventosFiltrados.length}{eventosFiltrados.length !== eventosDestaque.length ? ` de ${eventosDestaque.length}` : ''})
-        </h2>
-        <details className="mb-4 text-xs text-[#8888A0] bg-[#161520] border border-[#232230] rounded-lg px-3 py-2">
-          <summary className="cursor-pointer font-bold text-[#A0A0B2]">Como as festas aparecem no app</summary>
-          <ul className="mt-2 space-y-1.5 list-disc list-inside">
-            <li><b className="text-[#D0D0E0]">Flier</b>: a foto da festa (card &quot;Festas em destaque&quot; e página da festa). O texto do card fica embaixo do flier, sem cobrir.</li>
-            <li><b className="text-[#D0D0E0]">Tipo</b> decide o ícone da aba Eventos (Festas e baladas, Shows, Drag shows...). <b className="text-[#D0D0E0]">Para quem</b> e <b className="text-[#D0D0E0]">estilo musical</b> ficam em Filtros.</li>
-            <li><b className="text-[#D0D0E0]">Divulgação paga R$89</b>: a festa entra em &quot;Festas em destaque&quot; 1 dia antes e no dia (até 24 por vez).</li>
-            <li>Festa com data passada some do app. Festas desta lista também aparecem dentro da ficha da marca, em Locais e marcas.</li>
-          </ul>
-        </details>
         <div className="space-y-2">
           {eventosFiltrados.length === 0 && (
             <p className="text-xs text-[#626274]">Nenhum evento aprovado encontrado com esse filtro/busca.</p>

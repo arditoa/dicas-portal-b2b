@@ -111,6 +111,8 @@ export default function PainelRodizio() {
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [msgCur, setMsgCur] = useState<{ ok: boolean; texto: string } | null>(null);
   const [mostrarTodos, setMostrarTodos] = useState(false);
+  // Rodada 143 — regras numa barra no topo e o resto em 3 abas (pedido da Andrea: mais intuitivo).
+  const [abaR, setAbaR] = useState<'agora' | 'proximas' | 'curadoria'>('agora');
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -267,50 +269,53 @@ export default function PainelRodizio() {
   }, [locais, busca, filtro]);
   const listaVisivel = mostrarTodos ? listaCuradoria : listaCuradoria.slice(0, 40);
 
-  const campo = 'bg-[#12121A] border border-[#232230] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#E1306C]';
+  const campo = 'bg-[#12121A] border border-[#232230] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#E1306C]';
 
   if (carregando) return <Loader2 className="w-5 h-5 animate-spin text-[#A0A0B2]" />;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-      <div className="bg-[#161520] border border-[#232230] rounded-2xl p-6 flex flex-col gap-4 h-fit">
-        <h3 className="font-bold text-sm">Regras da Home</h3>
-        <label className="text-xs text-[#A0A0B2] flex flex-col gap-1.5">
-          Vagas do bloco fixo de Fundadores (1 a 12)
-          <input type="number" min={1} max={12} className={campo} value={fundMax} onChange={(e) => setFundMax(Math.min(12, Math.max(1, Number(e.target.value) || 1)))} />
-        </label>
-        <label className="text-xs text-[#A0A0B2] flex flex-col gap-1.5">
-          Locais por vez em Em Alta (1 a 12)
-          <input type="number" min={1} max={12} className={campo} value={tamanho} onChange={(e) => setTamanho(Math.min(12, Math.max(1, Number(e.target.value) || 1)))} />
-        </label>
-        <label className="text-xs text-[#A0A0B2] flex flex-col gap-1.5">
-          Trocar a cada
-          <select className={campo} value={intervalo} onChange={(e) => setIntervalo(Number(e.target.value))}>
-            {[10, 15, 30, 60, 120, 240].map((m) => <option key={m} value={m}>{m < 60 ? `${m} minutos` : `${m / 60} hora${m > 60 ? 's' : ''}`}</option>)}
-          </select>
-        </label>
-        <label className="text-xs text-[#D0D0E0] flex items-start gap-2 cursor-pointer border-t border-[#232230] pt-3">
-          <input type="checkbox" className="accent-[#E1306C] mt-0.5" checked={completar} onChange={(e) => setCompletar(e.target.checked)} />
-          <span>
-            <b className="text-white">Completar vagas de Em Alta com locais não pagos</b>
-            <span className="block text-[#A0A0B2] mt-1 leading-relaxed">
-              Ligado: quem paga ou foi fixado vem primeiro e as vagas que sobram são preenchidas com locais que tenham foto e nome fantasia (nunca razão social/CNPJ). Desligado: Em Alta mostra só quem paga ou foi fixado.
-            </span>
-          </span>
-        </label>
-        <button type="button" onClick={salvar} disabled={salvando} className="bg-[#E1306C] hover:opacity-90 disabled:opacity-60 text-white font-bold text-sm px-4 py-2.5 rounded-xl">
-          {salvando ? 'Salvando…' : 'Salvar regras'}
-        </button>
-        {msg && <p role="alert" className={`text-xs ${msg.ok ? 'text-[#4CAF7D]' : 'text-red-400'}`}>{msg.texto}</p>}
-        <div className="text-[11px] text-[#A0A0B2] leading-relaxed border-t border-[#232230] pt-3">
-          <p><b className="text-white">{premium.length}</b> local(is) premium elegível(is) para a faixa da Home (plano Premium/Fundador ativo ou fixado em Em Alta, com logo ou foto, fora do topo fixo).</p>
-          <p className="mt-1">A faixa (avatares passando sozinhos, sem texto, abaixo dos ícones) mostra até {FAIXA_PREMIUM_MAX} locais por vez e só aparece com {FAIXA_PREMIUM_MIN} ou mais. {mostraFaixa ? 'Hoje ela aparece na Home.' : 'Hoje ela está escondida: no lugar aparece uma faixa fina com o que acontece hoje.'}</p>
-          <p className="mt-1">Com mais de {FAIXA_PREMIUM_MAX} premium o grupo gira no intervalo escolhido acima; a ordem do ciclo muda uma vez por semana.</p>
+    <div className="flex flex-col gap-4">
+      {/* REGRAS — barra compacta no topo */}
+      <div className="bg-[#161520] border border-[#232230] rounded-xl p-3">
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="text-[10px] font-bold uppercase tracking-wide text-[#A0A0B2] flex flex-col gap-1">
+            Vagas de Fundadores
+            <input type="number" min={1} max={12} className={`${campo} w-20`} value={fundMax} onChange={(e) => setFundMax(Math.min(12, Math.max(1, Number(e.target.value) || 1)))} />
+          </label>
+          <label className="text-[10px] font-bold uppercase tracking-wide text-[#A0A0B2] flex flex-col gap-1">
+            Em Alta por vez
+            <input type="number" min={1} max={12} className={`${campo} w-20`} value={tamanho} onChange={(e) => setTamanho(Math.min(12, Math.max(1, Number(e.target.value) || 1)))} />
+          </label>
+          <label className="text-[10px] font-bold uppercase tracking-wide text-[#A0A0B2] flex flex-col gap-1">
+            Trocar a cada
+            <select className={campo} value={intervalo} onChange={(e) => setIntervalo(Number(e.target.value))}>
+              {[10, 15, 30, 60, 120, 240].map((m) => <option key={m} value={m}>{m < 60 ? `${m} min` : `${m / 60} h`}</option>)}
+            </select>
+          </label>
+          <label className="text-xs text-[#D0D0E0] flex items-center gap-2 cursor-pointer pb-1.5" title="Ligado: quem paga ou foi fixado vem primeiro e as vagas que sobram são preenchidas com locais com foto e nome fantasia. Desligado: Em Alta mostra só quem paga ou foi fixado.">
+            <input type="checkbox" className="accent-[#E1306C]" checked={completar} onChange={(e) => setCompletar(e.target.checked)} />
+            Completar Em Alta com locais não pagos
+          </label>
+          <button type="button" onClick={salvar} disabled={salvando} className="ml-auto bg-[#E1306C] hover:opacity-90 disabled:opacity-60 text-white font-bold text-xs px-3 py-2 rounded-lg">
+            {salvando ? 'Salvando…' : 'Salvar regras'}
+          </button>
         </div>
+        {msg && <p role="alert" className={`text-xs mt-2 ${msg.ok ? 'text-[#4CAF7D]' : 'text-red-400'}`}>{msg.texto}</p>}
+        <p className="text-[11px] text-[#8888A0] mt-2">
+          <b className="text-white">{premium.length}</b> premium na faixa da Home (até {FAIXA_PREMIUM_MAX} por vez, aparece com {FAIXA_PREMIUM_MIN} ou mais). {mostraFaixa ? 'Hoje ela aparece.' : 'Hoje está escondida.'}
+        </p>
       </div>
 
-      <div className="flex flex-col gap-6">
-        <div className="bg-[#161520] border border-[#232230] rounded-2xl p-6">
+      {/* ABAS */}
+      <div className="flex gap-1.5">
+        {([['agora', 'Agora na Home'], ['proximas', 'Próximas horas'], ['curadoria', 'Fixar em Em Alta']] as const).map(([v, r]) => (
+          <button key={v} type="button" onClick={() => setAbaR(v)} className={`text-xs font-bold px-3 py-1.5 rounded-full border transition ${abaR === v ? 'bg-[#E1306C] border-[#E1306C] text-white' : 'bg-[#161520] border-[#232230] text-[#A0A0B2] hover:text-white'}`}>{r}</button>
+        ))}
+      </div>
+
+      <div className="flex flex-col gap-4">
+        {abaR === 'agora' && (
+        <div className="bg-[#161520] border border-[#232230] rounded-xl p-4">
           <h3 className="font-bold text-sm mb-1">Topo fixo da Home (hoje)</h3>
           <p className="text-[11px] text-[#626274] mb-3">
             Fundadores sempre aparecem; a ordem muda uma vez por dia. {fundadoresL.length > fundMax ? `Há ${fundadoresL.length} fundadores e só ${fundMax} vagas: o grupo avança a cada dia.` : `${fundadoresL.length} fundador(es) de ${fundMax} vaga(s).`}
@@ -322,13 +327,16 @@ export default function PainelRodizio() {
           </p>
         </div>
 
-        <div className="bg-[#161520] border border-[#232230] rounded-2xl p-6">
-          <h3 className="font-bold text-sm mb-1">Em Alta na Home agora</h3>
+        )}
+
+        {abaR !== 'curadoria' && (
+        <div className="bg-[#161520] border border-[#232230] rounded-xl p-4">
+          <h3 className="font-bold text-sm mb-1">{abaR === 'agora' ? 'Em Alta na Home agora' : 'Em Alta nas próximas horas'}</h3>
           <p className="text-[11px] text-[#626274] mb-4">
             É a fileira de cartões com foto. Destaques primeiro, depois a rotação da hora; quem já está no topo fixo não se repete. Horário de Brasília.
           </p>
           <ul className="flex flex-col gap-3">
-            {linhasEmAlta.map((ln, k) => (
+            {(abaR === 'agora' ? linhasEmAlta.slice(0, 1) : linhasEmAlta.slice(1)).map((ln, k0) => { const k = abaR === 'agora' ? k0 : k0 + 1; return (
               <li key={ln.slot} className={`text-xs rounded-xl p-3 border ${k === 0 ? 'border-[#FFD54F] bg-[#FFD54F]/5' : 'border-[#232230]'}`}>
                 <p className="font-bold mb-2">{k === 0 ? 'Agora · ' : ''}{fmtHora(ln.inicio)}</p>
                 {ln.cartoes.length === 0 && (
@@ -365,11 +373,13 @@ export default function PainelRodizio() {
                   </p>
                 )}
               </li>
-            ))}
+            ); })}
           </ul>
         </div>
+        )}
 
-        <div className="bg-[#161520] border border-[#232230] rounded-2xl p-6">
+        {abaR === 'proximas' && (
+        <div className="bg-[#161520] border border-[#232230] rounded-xl p-4">
           <h3 className="font-bold text-sm mb-1">Faixa premium da Home: quem aparece agora e nas próximas horas</h3>
           <p className="text-[11px] text-[#626274] mb-4">Prévia pela regra, no horário de Brasília.</p>
           <ul className="flex flex-col gap-3">
@@ -393,7 +403,10 @@ export default function PainelRodizio() {
           </ul>
         </div>
 
-        <div className="bg-[#161520] border border-[#232230] rounded-2xl p-6">
+        )}
+
+        {abaR === 'curadoria' && (
+        <div className="bg-[#161520] border border-[#232230] rounded-xl p-4">
           <h3 className="font-bold text-sm mb-1">Curadoria de Em Alta</h3>
           <p className="text-[11px] text-[#626274] mb-4 leading-relaxed">
             Fixar um local o coloca em Em Alta e na faixa premium (se tiver foto ou logo) sem criar plano pago nem cobrança. Quem tem plano pago ativo entra sozinho. O prazo vale para todas as marcações manuais do local (Em Alta, Hoje, Destaque da semana...).
@@ -473,6 +486,7 @@ export default function PainelRodizio() {
             </button>
           )}
         </div>
+        )}
       </div>
     </div>
   );
