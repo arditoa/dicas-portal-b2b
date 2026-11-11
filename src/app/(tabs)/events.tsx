@@ -788,10 +788,18 @@ export default function EventsScreen() {
                       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
                         {festasPaginadas.map((ev) => (
                           <TouchableOpacity key={ev.id} activeOpacity={0.9} style={styles.festaPagaCard} onPress={() => router.push(`/evento/${ev.id}` as any)} accessibilityRole="button" accessibilityLabel={ev.titulo}>
-                            {!!ev.foto_capa_url && <Image source={{ uri: ev.foto_capa_url }} style={StyleSheet.absoluteFill} resizeMode="cover" />}
-                            <View style={styles.festaPagaVeu} />
-                            <Text style={styles.festaPagaData}>{formatarDataEvento(ev.data_inicio, ev.dateTag)}</Text>
-                            <Text style={styles.festaPagaNome} numberOfLines={3}>{ev.titulo}</Text>
+                            {/* Rodada 135 — o flier fica em cima e o texto embaixo, em faixa sólida: um não cobre o outro. */}
+                            <View style={styles.festaPagaFoto}>
+                              {ev.foto_capa_url ? (
+                                <Image source={{ uri: ev.foto_capa_url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                              ) : (
+                                <Feather name="music" size={26} color="rgba(255,255,255,0.35)" />
+                              )}
+                            </View>
+                            <View style={styles.festaPagaTexto}>
+                              <Text style={styles.festaPagaData} numberOfLines={1}>{formatarDataEvento(ev.data_inicio, ev.dateTag)}</Text>
+                              <Text style={styles.festaPagaNome} numberOfLines={2}>{ev.titulo}</Text>
+                            </View>
                           </TouchableOpacity>
                         ))}
                       </ScrollView>
@@ -1287,8 +1295,9 @@ const styles = StyleSheet.create({
   eventLocationLink: { textDecorationLine: 'underline', color: COLORS.pink },
   eventPrice: { fontSize: 11, fontWeight: '700', color: COLORS.gold, marginTop: 4 },
   festasPagasTitulo: { fontSize: 14, fontWeight: '800', color: '#FFFFFF', marginBottom: 8 },
-  festaPagaCard: { width: 118, height: 118, borderRadius: 14, overflow: 'hidden', backgroundColor: '#2A1B3D', justifyContent: 'flex-end', padding: 8, gap: 2 },
-  festaPagaVeu: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8,6,16,0.5)' },
+  festaPagaCard: { width: 132, borderRadius: 14, overflow: 'hidden', backgroundColor: '#1C1726' },
+  festaPagaFoto: { width: 132, height: 132, backgroundColor: '#2A1B3D', alignItems: 'center', justifyContent: 'center' },
+  festaPagaTexto: { paddingHorizontal: 8, paddingVertical: 7, gap: 2, minHeight: 52 },
   festaPagaData: { fontSize: 10, fontWeight: '800', color: '#F6C453' },
   festaPagaNome: { fontSize: 12, fontWeight: '800', color: '#FFFFFF' },
   filtrarLinha: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingBottom: 12 },

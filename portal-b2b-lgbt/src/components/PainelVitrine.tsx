@@ -24,6 +24,21 @@ const CATEGORIAS = [
 ] as const;
 const PLANOS = ['freemium', 'intermediario', 'premium', 'fundador'] as const;
 
+// Rodada 135 — onde cada oferta aparece no app. A faixa de ofertas de uma categoria usa a categoria PRINCIPAL do
+// local (src/lib/vitrine.ts, buscarOfertas); quem é Membro Fundador também aparece em Destaques. A aba Festas não tem
+// faixa de ofertas (semOfertas): festa paga aparece em "Festas em destaque" (divulgação de R$89), não como oferta.
+const ROTULO_CATEGORIA_OFERTA: Record<string, string> = {
+  lugares: 'Bares', eventos: 'Festas', gastronomia: 'Gastronomia', cultura: 'Cultura', turismo: 'Dicas Trip', servicos: 'Serviços',
+  produtos: 'Moda & Acessórios', educacao: 'Educação', artistas: 'Artistas', beleza: 'Beleza', mais18: 'Espaços 18+',
+  saude: 'Saúde & Bem-estar', lojas: 'Lojas', lazer: 'Lazer',
+};
+function ondeAparece(categoria: string | null | undefined, fundador: boolean): { lugares: string[]; aviso: string } {
+  if (categoria === 'eventos') return { lugares: fundador ? ['Destaques'] : [], aviso: 'A aba Festas não mostra ofertas. Para festa, use a divulgação de R$89.' };
+  const lugares = [ROTULO_CATEGORIA_OFERTA[categoria || ''] || categoria || 'sem categoria'];
+  if (fundador) lugares.push('Destaques');
+  return { lugares, aviso: '' };
+}
+
 type Patrocinio = {
   id?: string;
   categoria: string;
@@ -133,24 +148,32 @@ export default function PainelVitrine() {
   };
 
   // ---- 2b) Ofertas da equipe em qualquer local (carrossel lateral de ofertas das categorias)
-  type OfertaEq = { id: string; titulo: string; ativo: boolean; valido_ate: string | null; nome: string; imagem_url: string };
+  type OfertaEq = { id: string; titulo: string; ativo: boolean; valido_ate: string | null; nome: string; imagem_url: string; local_id: string; categoria: string; equipe: boolean };
+  type FestaPaga = { id: string; titulo: string; data_inicio: string; foto_capa_url: string | null; marca: string };
+  const [festasPagas, setFestasPagas] = useState<FestaPaga[]>([]);
+  const [filtroCatOferta, setFiltroCatOferta] = useState('todas');
+  const [soEquipe, setSoEquipe] = useState(false);
   const [ofertasEq, setOfertasEq] = useState<OfertaEq[]>([]);
   const [oeTitulo, setOeTitulo] = useState('');
   const [oeAte, setOeAte] = useState('');
   const [oeBusca, setOeBusca] = useState('');
-  const [oeAchados, setOeAchados] = useState<{ id: string; nome: string }[]>([]);
+  const [oeAchados, setOeAchados] = useState<{ id: string; nome: string; categoria?: string }[]>([]);
   const [oeImg, setOeImg] = useState('');
-  const [oeLocal, setOeLocal] = useState<{ id: string; nome: string } | null>(null);
+  const [oeLocal, setOeLocal] = useState<{ id: string; nome: string; categoria?: string } | null>(null);
   const carregarOfertasEq = useCallback(async () => {
-    const { data, error } = await supabase.from('cupons').select('id, titulo, ativo, valido_ate, imagem_url, locais(nome)').eq('criado_pela_equipe', true).order('created_at', { ascending: false }).limit(60);
+    // Rodada 135 — todas as ofertas (da equipe e dos parceiros), com a categoria do local, para saber onde aparecem.
+    const { data, error } = await supabase.from('cupons').select('id, titulo, ativo, valido_ate, imagem_url, local_id, criado_pela_equipe, locais(nome, categoria)').order('created_at', { ascending: false }).limit(200);
     if (error) return;
-    setOfertasEq(((data as any[]) || []).map((r) => ({ id: r.id, titulo: r.titulo, ativo: r.ativo, valido_ate: r.valido_ate, nome: r.locais?.nome || '', imagem_url: r.imagem_url || '' })));
+    setOfertasEq(((data as any[]) || []).map((r) => ({ id: r.id, titulo: r.titulo, ativo: r.ativo, valido_ate: r.valido_ate, nome: r.locais?.nome || '', imagem_url: r.imagem_url || '', local_id: r.local_id, categoria: r.locais?.categoria || '', equipe: !!r.criado_pela_equipe })));
+    const ontem = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+    const { data: fs } = await supabase.from('eventos').select('id, titulo, data_inicio, foto_capa_url, locais(nome)').eq('status', 'aprovado').contains('destaque_secoes', ['patrocinado']).gte('data_inicio', ontem).order('data_inicio');
+    setFestasPagas(((fs as any[]) || []).map((f) => ({ id: f.id, titulo: f.titulo, data_inicio: f.data_inicio, foto_capa_url: f.foto_capa_url, marca: f.locais?.nome || '' })));
   }, []);
   useEffect(() => { carregarOfertasEq(); }, [carregarOfertasEq]);
   useEffect(() => {
     const t = setTimeout(async () => {
       if (oeBusca.trim().length < 2) { setOeAchados([]); return; }
-      const { data } = await supabase.from('locais').select('id, nome').eq('status', 'aprovado').ilike('nome', `%${oeBusca.trim()}%`).limit(6);
+      const { data } = await supabase.from('locais').select('id, nome, categoria').eq('status', 'aprovado').ilike('nome', `%${oeBusca.trim()}%`).limit(6);
       setOeAchados((data as any[]) || []);
     }, 250);
     return () => clearTimeout(t);
@@ -552,7 +575,7 @@ export default function PainelVitrine() {
 
       {/* 2b) OFERTAS DA EQUIPE */}
       <div className={card}>
-        <h2 className="text-sm font-black mb-1">Ofertas da equipe (carrossel de ofertas)</h2>
+        <h2 className="text-sm font-black mb-1">Ofertas (carrossel de ofertas das categorias)</h2>
         <p className="text-[#A0A0B2] text-xs mb-4">Os quadradinhos que passam de lado nas categorias mostram só o texto da oferta — ex.: &ldquo;2 caipirinhas por R$ 49&rdquo;, &ldquo;Entrada free&rdquo;, &ldquo;Tome 3 pague 2&rdquo;. O local só aparece quando a pessoa toca. Aqui a equipe cria ofertas em qualquer local, sem limite mensal.</p>
         <div className="grid md:grid-cols-[1fr_1fr_190px_auto] gap-3 mb-4 items-end">
           <div>
@@ -560,10 +583,17 @@ export default function PainelVitrine() {
             <input className={input} placeholder={oeLocal ? oeLocal.nome : 'Digite 2+ letras'} value={oeBusca} onChange={(e) => setOeBusca(e.target.value)} />
             {oeAchados.length > 0 && (
               <div className="mt-1 bg-[#0B0B0E] border border-[#232230] rounded-xl overflow-hidden">
-                {oeAchados.map((a) => (<button key={a.id} className="block w-full text-left text-xs px-3 py-2 hover:bg-[#1D1C29]" onClick={() => { setOeLocal(a); setOeBusca(''); setOeAchados([]); }}>{a.nome}</button>))}
+                {oeAchados.map((a) => (<button key={a.id} className="block w-full text-left text-xs px-3 py-2 hover:bg-[#1D1C29]" onClick={() => { setOeLocal(a); setOeBusca(''); setOeAchados([]); }}>{a.nome} <span className="text-[#626274]">· {ROTULO_CATEGORIA_OFERTA[a.categoria || ''] || a.categoria}</span></button>))}
               </div>
             )}
-            {oeLocal && <p className="text-[11px] text-emerald-400 mt-1">Local: {oeLocal.nome}</p>}
+            {oeLocal && (() => {
+              const onde = ondeAparece(oeLocal.categoria, fundadores.some((f) => f.id === oeLocal.id));
+              return (
+                <p className={`text-[11px] mt-1 ${onde.aviso ? 'text-amber-300' : 'text-emerald-400'}`}>
+                  {oeLocal.nome} · {onde.lugares.length ? `vai aparecer em ${onde.lugares.join(' e ')}` : 'não vai aparecer em nenhuma faixa'}{onde.aviso ? `. ${onde.aviso}` : ''}
+                </p>
+              );
+            })()}
           </div>
           <div><label className={label}>Texto da oferta</label><input className={input} maxLength={60} value={oeTitulo} onChange={(e) => setOeTitulo(e.target.value)} placeholder="2 caipirinhas por R$ 49" /></div>
           <div><label className={label}>Vale até (opcional)</label><input type="datetime-local" className={input} value={oeAte} onChange={(e) => setOeAte(e.target.value)} /></div>
@@ -574,17 +604,77 @@ export default function PainelVitrine() {
           <input type="file" accept="image/*" className="text-xs" onChange={async (e) => { const u = await subirFotoOferta(e.target.files?.[0]); if (u) setOeImg(u); }} />
           {oeImg && <p className="text-[11px] text-emerald-400 mt-1">Foto enviada — será usada ao criar.</p>}
         </div>
+        {(() => {
+          const ehFundador = (id: string) => fundadores.some((f) => f.id === id);
+          const base = ofertasEq.filter((o) => !soEquipe || o.equipe);
+          const contagem = new Map<string, number>();
+          base.forEach((o) => ondeAparece(o.categoria, ehFundador(o.local_id)).lugares.concat(o.categoria === 'eventos' ? ['Festas (não aparece)'] : []).forEach((l) => contagem.set(l, (contagem.get(l) || 0) + 1)));
+          return (
+            <div className="flex flex-wrap items-center gap-1.5 mb-3">
+              <span className="text-[11px] font-bold text-[#A0A0B2] mr-1">Onde aparecem:</span>
+              {[['todas', base.length] as [string, number], ...Array.from(contagem.entries()).sort((x, y) => y[1] - x[1])].map(([c, n]) => (
+                <button key={c} onClick={() => setFiltroCatOferta(c)} className={`text-[11px] font-bold px-2.5 py-1 rounded-full border ${filtroCatOferta === c ? 'bg-[#E1306C] border-[#E1306C] text-white' : 'bg-[#0B0B0E] border-[#232230] text-[#A0A0B2]'}`}>
+                  {c === 'todas' ? 'Todas' : c} ({n})
+                </button>
+              ))}
+              <label className="ml-auto flex items-center gap-1 text-[11px] text-[#A0A0B2]"><input type="checkbox" checked={soEquipe} onChange={(e) => setSoEquipe(e.target.checked)} /> só da equipe</label>
+            </div>
+          );
+        })()}
         <div className="space-y-2">
-          {ofertasEq.length === 0 && <p className="text-xs text-[#626274]">Nenhuma oferta da equipe ainda.</p>}
-          {ofertasEq.map((o) => (
+          {ofertasEq.length === 0 && <p className="text-xs text-[#626274]">Nenhuma oferta ainda.</p>}
+          {ofertasEq.filter((o) => {
+            if (soEquipe && !o.equipe) return false;
+            if (filtroCatOferta === 'todas') return true;
+            const onde = ondeAparece(o.categoria, fundadores.some((f) => f.id === o.local_id));
+            return filtroCatOferta === 'Festas (não aparece)' ? o.categoria === 'eventos' : onde.lugares.includes(filtroCatOferta);
+          }).map((o) => (
             <div key={o.id} className="flex items-center gap-3 bg-[#0B0B0E] border border-[#232230] rounded-xl p-3">
               {o.imagem_url ? <img src={o.imagem_url} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" /> : <div className="w-10 h-10 rounded-lg bg-[#232230] shrink-0" />}
-              <div className="flex-1 min-w-0"><p className="text-sm font-bold truncate">{o.titulo}</p><p className="text-[11px] text-[#8888A0]">{o.nome}{o.valido_ate ? ` · até ${o.valido_ate.slice(0, 10)}` : ''}</p></div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold truncate">{o.titulo}</p>
+                <p className="text-[11px] text-[#8888A0]">{o.nome} · {o.equipe ? 'escrita pela equipe' : 'do parceiro'}{o.valido_ate ? ` · até ${o.valido_ate.slice(0, 10)}` : ''}{o.valido_ate && new Date(o.valido_ate).getTime() < Date.now() ? ' (vencida)' : ''}</p>
+                {(() => {
+                  const onde = ondeAparece(o.categoria, fundadores.some((f) => f.id === o.local_id));
+                  return (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {onde.lugares.map((l) => <span key={l} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#7E57C2]/20 text-[#C9B6F2]">{l}</span>)}
+                      {onde.aviso && <span className="text-[10px] text-amber-300">{onde.aviso}</span>}
+                    </div>
+                  );
+                })()}
+              </div>
               <label className="text-[11px] font-bold text-[#E1306C] cursor-pointer">{o.imagem_url ? 'Trocar foto' : 'Subir foto'}<input type="file" accept="image/*" className="hidden" onChange={(e) => trocarFotoOferta(o.id, e.target.files?.[0])} /></label>
               <label className="flex items-center gap-1 text-[11px]"><input type="checkbox" checked={o.ativo} onChange={() => alternarOferta(o)} /> ativa</label>
-              <button className="text-[#626274] hover:text-red-400" onClick={() => apagarOferta(o.id)} aria-label="Apagar"><Trash2 size={15} /></button>
+              {o.equipe && <button className="text-[#626274] hover:text-red-400" onClick={() => apagarOferta(o.id)} aria-label="Apagar"><Trash2 size={15} /></button>}
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* 2b') FESTAS PAGAS (R$89) — não são ofertas, mas o parceiro pergunta onde aparecem */}
+      <div className={card}>
+        <h2 className="text-sm font-black mb-1">Festas com divulgação paga (R$89)</h2>
+        <p className="text-[#A0A0B2] text-xs mb-4">Aparecem na aba Eventos, faixa &ldquo;Festas em destaque&rdquo;, 1 dia antes e no dia da festa (até 24 por vez). Não entram na faixa de ofertas. Para ligar ou desligar, vá em Festas e eventos.</p>
+        <div className="space-y-2">
+          {festasPagas.length === 0 && <p className="text-xs text-[#626274]">Nenhuma festa paga de ontem em diante.</p>}
+          {festasPagas.map((f) => {
+            const ini = new Date(f.data_inicio);
+            const abre = new Date(ini.getFullYear(), ini.getMonth(), ini.getDate() - 1);
+            const noAr = Date.now() >= abre.getTime();
+            return (
+              <div key={f.id} className="flex items-center gap-3 bg-[#0B0B0E] border border-[#232230] rounded-xl p-3">
+                {f.foto_capa_url ? <img src={f.foto_capa_url} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" /> : <div className="w-10 h-10 rounded-lg border border-dashed border-amber-500/50 shrink-0" />}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold truncate">{f.titulo}</p>
+                  <p className="text-[11px] text-[#8888A0]">{f.marca ? `${f.marca} · ` : ''}{ini.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}{!f.foto_capa_url ? ' · sem flier' : ''}</p>
+                </div>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${noAr ? 'bg-emerald-500/20 text-emerald-300' : 'bg-[#232230] text-[#A0A0B2]'}`}>
+                  {noAr ? 'No ar: Eventos > Festas em destaque' : `Entra em ${abre.toLocaleDateString('pt-BR')}`}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
 

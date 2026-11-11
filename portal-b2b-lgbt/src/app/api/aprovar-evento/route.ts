@@ -248,7 +248,7 @@ export async function POST(req: NextRequest) {
       const base: Record<string, unknown> = {
         nome: evento.titulo,
         categoria: 'eventos',
-        subcategoria: 'Festa avulsa',
+        subcategoria: 'Festas e baladas', // Rodada 135: mesma lista do app (antes 'Festa avulsa' caía em Outros)
         cidade: 'São Paulo',
         contato_nome: evento.contato_nome || null,
         contato_telefone: evento.contato_whatsapp || null,

@@ -24,6 +24,7 @@ import PainelVisaoGeral from '../../components/PainelVisaoGeral';
 import { deveIncluirEm, estaFixadoEm, estaFixadoParaHoje, pagaPlanoComDireitoADestaque } from '../../lib/destaque';
 import PainelOcorrencias from '../../components/PainelOcorrencias';
 import { CLASSIFICACOES_LGBT } from '../../lib/classificacaoLgbt';
+import { GRUPOS_EVENTO, PUBLICO_FESTA_CADASTRO, TIPOS_EVENTO_CADASTRO, slugTag } from '../../lib/taxonomia';
 
 const URL_PORTAL = 'https://dicas-portal-b2b-dun.vercel.app'; // ajuste aqui quando o domínio definitivo (ex.: portal.vezpabar.com) estiver configurado
 
@@ -403,12 +404,12 @@ function resumoExperienciasLocal(l: LocalDestaque): string {
 // além de quem já paga premium/fundador, e a seção ficaria vazia a
 // maior parte do tempo. Reaproveita o mesmo `destaque_secoes: ['destaque']`
 // de sempre (nada mudou no banco, só o controle voltou a existir).
-const OPCOES_SECAO_LOCAL_RAPIDA: { value: string; label: string }[] = [
-  { value: 'em_alta', label: 'Em Alta' },
-  { value: 'hoje', label: 'O que Fazer Hoje' },
-  { value: 'turismo', label: 'Dicas Trip' },
-  { value: 'patrocinado', label: 'Patrocinado' },
-  { value: 'destaque', label: 'Destaque da Semana' },
+// Rodada 135 — sobraram só os ajustes manuais que o app ainda lê. Posição paga vem do plano
+// (botão "Posição no app"); Dicas Trip é automático pela categoria; Patrocinado e Destaque da
+// Semana saíram (migration 092 limpa os valores antigos).
+const OPCOES_SECAO_LOCAL_RAPIDA: { value: string; label: string; ajuda: string }[] = [
+  { value: 'em_alta', label: 'Fixar em Em Alta', ajuda: 'Home, faixa Em Alta, mesmo sem plano' },
+  { value: 'hoje', label: 'Fixar em O que fazer hoje', ajuda: 'Home, seção O que fazer hoje' },
 ];
 
 // Rodada 46 — a Andrea reportou "eventos não sobem": a causa real era
@@ -417,11 +418,12 @@ const OPCOES_SECAO_LOCAL_RAPIDA: { value: string; label: string }[] = [
 // não cobria festa recorrente/marcada com antecedência. Somado 'hoje' e
 // 'patrocinado' (mesma ideia de locais, acima) — migration 026 libera os
 // dois valores novos na constraint do banco.
+// Rodada 135 — rótulos dizem onde a festa aparece. 'patrocinado' = divulgação paga (R$89),
+// que liga a faixa "Festas em destaque" da aba Eventos (1 dia antes e no dia).
 const OPCOES_SECAO_EVENTO: { value: string; label: string }[] = [
-  { value: 'evento_destaque', label: 'Topo da aba Eventos' },
-  { value: 'destaque', label: 'Destaque (selo no card)' },
-  { value: 'hoje', label: 'O que Fazer Hoje' },
-  { value: 'patrocinado', label: 'Patrocinado' },
+  { value: 'patrocinado', label: 'Divulgação paga R$89 (Festas em destaque)' },
+  { value: 'hoje', label: 'Fixar em O que fazer hoje (Home)' },
+  { value: 'evento_destaque', label: 'Primeira da lista na aba Eventos' },
 ];
 
 // Rodada 38 — pedido direto da Andrea: organizador de evento paga uma
@@ -452,6 +454,9 @@ type EventoDestaque = {
   destaque_secoes: string[];
   destaque_ate: string | null;
   foto_capa_url: string | null;
+  // Rodada 135 — marca dona da festa (festas aparecem dentro da ficha da marca) e etiquetas do app.
+  local_id: string | null;
+  tags: string[] | null;
 };
 
 // Rodada 39 — mesma ideia do bloco "Locais aprovados — enviar/reenviar
@@ -491,9 +496,9 @@ type ItemSub = { id: SubAprov; rotulo: string; badge?: number };
 type ItemMenu = { subs?: ItemSub[]; id: 'visao' | 'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos' | 'roteiros' | 'push' | 'rodizio' | 'banners' | 'vitrine' | 'categorias' | 'denuncias'; rotulo: string; icone: typeof Store; badge?: number; alerta?: boolean };
 function MENU_ADMIN(pendentes: number, locais: number, eventos: number, fundadores: number, filas: { interesse: number; locais: number; eventos: number; vinculos: number; leads: number; acesso: number }): { grupo: string; itens: ItemMenu[] }[] {
   return [
-    { grupo: 'Início', itens: [{ id: 'visao', rotulo: 'Visão geral', icone: LayoutDashboard }] },
-    // Ordem pensada no dia a dia: 1) o que precisa de resposta, 2) o cadastro, 3) o que aparece no app, 4) avisos.
-    { grupo: 'Operação', itens: [
+    // Rodada 135 — 5 grupos: o que precisa de resposta, parceiros, vitrine, Trip e comunicação.
+    { grupo: 'Hoje', itens: [
+      { id: 'visao', rotulo: 'Visão geral', icone: LayoutDashboard },
       {
         id: 'aprovacoes', rotulo: 'Aprovações', icone: ClipboardCheck, badge: pendentes, alerta: true,
         subs: [
@@ -509,12 +514,10 @@ function MENU_ADMIN(pendentes: number, locais: number, eventos: number, fundador
       { id: 'denuncias', rotulo: 'Denúncias', icone: ShieldAlert },
     ] },
     {
-      grupo: 'Catálogo',
+      grupo: 'Parceiros',
       itens: [
-        { id: 'locais', rotulo: 'Locais', icone: Store, badge: locais },
-        { id: 'eventos', rotulo: 'Eventos', icone: CalendarDays, badge: eventos },
-        { id: 'destinos', rotulo: 'Destinos (Trip)', icone: Compass },
-        { id: 'roteiros', rotulo: 'Roteiros', icone: RouteIcon },
+        { id: 'locais', rotulo: 'Locais e marcas', icone: Store, badge: locais },
+        { id: 'eventos', rotulo: 'Festas e eventos', icone: CalendarDays, badge: eventos },
       ],
     },
     {
@@ -525,6 +528,13 @@ function MENU_ADMIN(pendentes: number, locais: number, eventos: number, fundador
         { id: 'rodizio', rotulo: 'Rodízio e Destaques', icone: Sparkles },
         { id: 'fundador', rotulo: 'Membros Fundadores', icone: Star, badge: fundadores },
         { id: 'vitrine', rotulo: 'Frases e desempenho', icone: BarChart3 },
+      ],
+    },
+    {
+      grupo: 'Trip',
+      itens: [
+        { id: 'destinos', rotulo: 'Destinos', icone: Compass },
+        { id: 'roteiros', rotulo: 'Roteiros', icone: RouteIcon },
       ],
     },
     { grupo: 'Comunicação', itens: [{ id: 'push', rotulo: 'Avisos (push)', icone: Bell }] },
@@ -547,8 +557,8 @@ const TITULO_SUB: Record<SubAprov, string> = {
 const TITULO_ABA: Record<ItemMenu['id'], string> = {
   visao: 'Visão geral',
   aprovacoes: 'Aprovações',
-  locais: 'Locais',
-  eventos: 'Eventos',
+  locais: 'Locais e marcas',
+  eventos: 'Festas e eventos',
   fundador: 'Membros Fundadores',
   destinos: 'Destinos (Dicas Trip)',
   roteiros: 'Roteiros',
@@ -562,8 +572,8 @@ const TITULO_ABA: Record<ItemMenu['id'], string> = {
 const SUBTITULO_ABA: Record<ItemMenu['id'], string> = {
   visao: 'Como o app e a carteira de parceiros estão indo: cadastros, uso das telas e desempenho dos locais.',
   aprovacoes: 'Aprovações manuais — cadastros, vínculos de conta e leads institucionais.',
-  locais: 'Busque e filtre locais por categoria, e marque selos/destaques de cada estabelecimento.',
-  eventos: 'Busque e filtre eventos/festas, e marque em quais seções do app cada um aparece.',
+  locais: 'Cada parceiro em uma ficha: identidade, fotos (com o lugar onde cada uma aparece), festas da marca e ajustes da equipe. Plano e vaga ficam em "Posição no app".',
+  eventos: 'Cada festa: flier, tipo, público e estilo (os mesmos do app) e a divulgação paga.',
   fundador: 'Quem aparece no topo e no pé da Home como Membro Fundador. O plano Fundador ativo liga o selo sozinho; aqui você também pode conceder de cortesia. Logo e arte do banner ficam abaixo.',
   destinos: 'Cidades do Dicas Trip: foto de capa, frase, tags, melhor época e roteiro em destaque.',
   roteiros: 'Roteiros e experiências do Dicas Trip: foto, tags (até 8 principais), paradas e publicação.',
@@ -794,7 +804,7 @@ export default function AdminPage() {
         // (abaixo) em vez do evento só sumir sem pista nenhuma.
         supabase
           .from('eventos')
-          .select('id, titulo, tipo, data_inicio, plano_destaque, destaque_secoes, destaque_ate, foto_capa_url')
+          .select('id, titulo, tipo, data_inicio, plano_destaque, destaque_secoes, destaque_ate, foto_capa_url, local_id, tags')
           .eq('status', 'aprovado')
           .gte('data_inicio', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
           .order('data_inicio', { ascending: true }),
@@ -856,14 +866,7 @@ export default function AdminPage() {
       const { data: pp, error: ePP } = await supabase.from('locais').select('id').eq('pode_subir_pacotes', true);
       if (!ePP) setIdsPodemPacotes(new Set(((pp as { id: string }[]) || []).map((x) => x.id)));
     }
-    {
-      const { data: ar, error: eAr } = await supabase.from('locais').select('id, arte_destaque_url').not('arte_destaque_url', 'is', null);
-      if (!eAr) {
-        const mapa: Record<string, string> = {};
-        ((ar as { id: string; arte_destaque_url: string }[]) || []).forEach((x) => { mapa[x.id] = x.arte_destaque_url; });
-        setArtesDestaque(mapa);
-      }
-    }
+    // Rodada 135 — arte de destaque 1080×540 removida (o app não usava; coluna apagada na 092).
     setEventosDestaque((eventosDestaqueData as EventoDestaque[]) || []);
     setEventosComOrganizador(ordenarPorTitulo((eventosComOrganizadorData as EventoComOrganizador[]) || []));
     const configMap: Record<string, string | null> = {};
@@ -1508,6 +1511,27 @@ Dicas LGBT+`;
   // bucket fotos-eventos (já existe desde a Rodada 9, RLS já libera
   // is_admin(), sem migration nova). Mesmo limite de 5MB que o portal do
   // parceiro já usa (dashboard/eventos/page.tsx).
+  // Rodada 135 — etiquetas da festa com o MESMO vocabulário do app (tipo, para quem, estilo).
+  // Troca só as etiquetas desses três grupos e preserva as outras (formato, lista VIP etc.).
+  const ESTILOS_FESTA = (GRUPOS_EVENTO.find((g) => g.id === 'musica')?.tags || []).map((r) => ({ slug: slugTag(r), rotulo: r }));
+  const salvarEtiquetasEvento = async (ev: EventoDestaque, grupo: 'tipo' | 'publico' | 'estilo', valor: string, marcar = true) => {
+    const atuais = ev.tags || [];
+    const doGrupo: string[] =
+      grupo === 'tipo' ? TIPOS_EVENTO_CADASTRO.map((t) => t.slug) : grupo === 'publico' ? PUBLICO_FESTA_CADASTRO.map((t) => t.slug) : ESTILOS_FESTA.map((t) => t.slug);
+    let novas: string[];
+    if (grupo === 'estilo') {
+      const estilos = atuais.filter((t) => doGrupo.includes(t));
+      if (marcar && estilos.length >= 3) { setErro('Até 3 estilos musicais por festa.'); return; }
+      novas = marcar ? [...atuais, valor] : atuais.filter((t) => t !== valor);
+    } else {
+      novas = [...atuais.filter((t) => !doGrupo.includes(t)), ...(valor ? [valor] : [])];
+    }
+    setErro('');
+    setEventosDestaque((a) => a.map((item) => (item.id === ev.id ? { ...item, tags: novas } : item)));
+    const { error } = await supabase.from('eventos').update({ tags: novas }).eq('id', ev.id);
+    if (error) { setErro(error.message); await carregarFilas(); }
+  };
+
   const enviarFlierEvento = async (ev: EventoDestaque, arquivo: File) => {
     // Rodada 49 — mesmo guard de enviarFotoLocal acima (ver validarFoto.ts):
     // bloqueia HEIC/HEIF antes de gastar upload, já que o app não consegue
@@ -1549,9 +1573,9 @@ Dicas LGBT+`;
   // vê e marca tudo numa lista só, mas por baixo cada coisa continua
   // gravando onde sempre gravou, sem duplicar estado.
   const alternarExperiencia = async (l: LocalDestaque, opcao: OpcaoExperiencia, marcar: boolean) => {
-    const selecaoAtual = selecaoAtualExperiencia(l);
-    if (marcar && selecaoAtual.length >= 3) {
-      setErro('Só é possível marcar até 3 itens em "Escolha pela experiência" por local. Desmarque um antes de marcar outro.');
+    const selecaoAtual = l.experiencias || [];
+    if (marcar && opcao.destino === 'experiencias' && selecaoAtual.length >= 3) {
+      setErro('Só é possível marcar até 3 experiências por local. Desmarque uma antes de marcar outra.');
       return;
     }
     setErro('');
@@ -2246,7 +2270,6 @@ Dicas LGBT+`;
           <p className="px-1 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-[#626274]">Vitrines do app</p>
           {filtroItem('em_alta', 'Em Alta', locaisDestaque.filter((l) => localCombinaComFiltroPrincipal(l, 'em_alta')).length, true)}
           {filtroItem('hoje', 'O que Fazer Hoje', locaisDestaque.filter((l) => localCombinaComFiltroPrincipal(l, 'hoje')).length, true)}
-          {filtroItem('patrocinado', 'Patrocinados', locaisDestaque.filter((l) => localCombinaComFiltroPrincipal(l, 'patrocinado')).length, true)}
           {filtroItem('selo_dicas', 'Selo Dicas LGBT+', locaisDestaque.filter((l) => l.destaque_secoes.includes('selo_dicas')).length, true)}
           {filtroItem('fundador', 'Membros Fundadores', locaisDestaque.filter((l) => l.fundador).length, true)}
         </div>
@@ -2277,10 +2300,10 @@ Dicas LGBT+`;
         <details className="mb-4 text-xs text-[#8888A0] bg-[#161520] border border-[#232230] rounded-lg px-3 py-2">
           <summary className="cursor-pointer font-bold text-[#A0A0B2]">Como as vitrines funcionam</summary>
           <ul className="mt-2 space-y-1.5 list-disc list-inside">
-            <li><b className="text-[#D0D0E0]">Plano Premium ou Fundador ativo</b> entra sozinho em Em Alta e Dicas Trip; o plano Fundador também liga o selo Membro Fundador.</li>
-            <li>As caixas marcadas à mão servem para direcionar qualquer outro local (inclusive quem não paga) quando uma seção estiver vazia. Marcações com prazo vencido deixam de valer no app.</li>
-            <li>A prioridade (Básica/Destaque/VIP) só desempata dentro da mesma seção; não decide quem entra.</li>
-            <li>Selo Dicas LGBT+ é curadoria sua, nunca venda.</li>
+            <li><b className="text-[#D0D0E0]">O plano decide a posição</b> (Fundador, Premium, Intermediário, Master): escolha em &quot;Posição no app&quot;.</li>
+            <li><b className="text-[#D0D0E0]">Ajustes da equipe</b> (fixar em Em Alta ou em O que fazer hoje) servem para completar a Home com quem não paga.</li>
+            <li><b className="text-[#D0D0E0]">Selo Dicas LGBT+</b> é curadoria da equipe, nunca venda.</li>
+            <li><b className="text-[#D0D0E0]">Marcas de festa</b> (categoria Festas) mostram as festas delas dentro da ficha, com o flier.</li>
           </ul>
         </details>
         {totalSeloDicas > 0 && (
@@ -2314,18 +2337,6 @@ Dicas LGBT+`;
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <select
-                    value={l.plano_destaque}
-                    onChange={(e) => atualizarDestaque(l.id, e.target.value as 'basico' | 'destaque' | 'vip')}
-                    disabled={processando === l.id}
-                    className="bg-[#0B0B0E] border border-[#232230] rounded-lg text-xs font-bold px-2.5 py-2 disabled:opacity-40"
-                    title="Prioridade de ordenação (desempate dentro da mesma seção)"
-                    aria-label="Prioridade"
-                  >
-                    <option value="basico">Prioridade: Básica</option>
-                    <option value="destaque">Prioridade: Destaque</option>
-                    <option value="vip">Prioridade: VIP</option>
-                  </select>
                   <button
                     onClick={() => setPosicaoLocalId(l.id)}
                     className="flex items-center gap-1 text-xs font-bold px-3 py-2 rounded-lg border border-[#E1306C]/50 text-[#E1306C] hover:bg-[#E1306C]/10"
@@ -2385,38 +2396,52 @@ Dicas LGBT+`;
                   <span className="text-[11px] text-[#626274]">Agências e operadoras liberadas veem “Pacotes e roteiros” no portal e aparecem na tela Pacotes do app.</span>
                 </div>
               )}
-              <div className="flex items-center gap-3 flex-wrap border-t border-[#232230] pt-3">
-                {OPCOES_SECAO_LOCAL_RAPIDA.map((o) => (
-                  <label key={o.value} className="flex items-center gap-1.5 text-xs text-[#D0D0E0] cursor-pointer">
+              <div className="border-t border-[#232230] pt-3">
+                <p className="text-xs font-bold text-[#D0D0E0] mb-2">Ajustes da equipe</p>
+                <div className="flex items-start gap-4 flex-wrap">
+                  {OPCOES_SECAO_LOCAL_RAPIDA.map((o) => (
+                    <label key={o.value} className="flex items-start gap-1.5 text-xs text-[#D0D0E0] cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={l.destaque_secoes.includes(o.value)}
+                        disabled={processando === l.id}
+                        onChange={(e) => alternarSecaoInstantanea(l, o.value, e.target.checked)}
+                        className="accent-[#E1306C] mt-0.5"
+                      />
+                      <span>{o.label}<span className="block text-[10px] text-[#626274]">{o.ajuda}</span></span>
+                    </label>
+                  ))}
+                  <label className="flex items-start gap-1.5 text-xs text-[#D0D0E0] cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={l.destaque_secoes.includes(o.value)}
+                      checked={l.destaque_secoes.includes('selo_dicas')}
                       disabled={processando === l.id}
-                      onChange={(e) => alternarSecaoInstantanea(l, o.value, e.target.checked)}
-                      className="accent-[#E1306C]"
+                      onChange={(e) => alternarSecaoInstantanea(l, 'selo_dicas', e.target.checked)}
+                      className="accent-[#7E57C2] mt-0.5"
                     />
-                    {o.label}
+                    <span>Selo Dicas LGBT+<span className="block text-[10px] text-[#626274]">Curadoria da equipe, nunca venda</span></span>
                   </label>
-                ))}
+                </div>
               </div>
 
+              {l.categoria !== 'eventos' && (
               <div className="border-t border-[#232230] pt-3">
-                <label className="flex items-center gap-1.5 text-xs font-bold text-[#D0D0E0] cursor-pointer w-fit">
-                  <input
-                    type="checkbox"
-                    checked={aberto}
-                    onChange={() => setExperienciaAberta((atual) => ({ ...atual, [l.id]: !aberto }))}
-                  />
-                  Escolha pela Experiência {selecaoExperiencia.length > 0 ? `(${selecaoExperiencia.length}/3)` : ''}
+                <button
+                  type="button"
+                  onClick={() => setExperienciaAberta((atual) => ({ ...atual, [l.id]: !aberto }))}
+                  className="flex items-center gap-1.5 text-xs font-bold text-[#D0D0E0]"
+                >
+                  Experiências do local {(l.experiencias || []).length > 0 ? `(${(l.experiencias || []).length}/3)` : ''}
                   {aberto ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                </label>
+                </button>
+                <p className="text-[10px] text-[#626274] mt-0.5">Ícones de &quot;O que fazer hoje&quot; e filtro &quot;Experiência&quot; das categorias no app. Até 3.</p>
                 {aberto && (
                   <div className="flex flex-wrap gap-3 mt-2">
-                    {OPCOES_EXPERIENCIA.map((o) => (
+                    {OPCOES_EXPERIENCIA.filter((o) => o.destino === 'experiencias').map((o) => (
                       <label key={o.slug} className="flex items-center gap-1.5 text-xs text-[#D0D0E0] cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={selecaoExperiencia.includes(o.slug)}
+                          checked={(l.experiencias || []).includes(o.slug)}
                           disabled={processando === l.id}
                           onChange={(e) => alternarExperiencia(l, o, e.target.checked)}
                           className="accent-[#7E57C2]"
@@ -2427,12 +2452,78 @@ Dicas LGBT+`;
                   </div>
                 )}
               </div>
+              )}
+
+              {l.categoria === 'eventos' && (() => {
+                const festasDaMarca = eventosDestaque.filter((ev) => ev.local_id === l.id);
+                return (
+                  <div className="border-t border-[#232230] pt-3 space-y-2">
+                    <p className="text-xs font-bold text-[#D0D0E0]">Festas desta marca ({festasDaMarca.length})</p>
+                    <p className="text-[10px] text-[#626274]">O flier é a foto da festa: aparece no card &quot;Festas em destaque&quot; e na página da festa. A capa da marca, abaixo, não substitui o flier.</p>
+                    {festasDaMarca.length === 0 && <p className="text-xs text-[#626274]">Nenhuma festa aprovada dos últimos 7 dias para frente.</p>}
+                    {festasDaMarca.map((ev) => {
+                      const tipo = TIPOS_EVENTO_CADASTRO.find((t) => (ev.tags || []).includes(t.slug));
+                      const publico = PUBLICO_FESTA_CADASTRO.find((t) => (ev.tags || []).includes(t.slug));
+                      return (
+                        <div key={ev.id} className={`flex items-center gap-3 flex-wrap rounded-lg border px-3 py-2 ${ev.foto_capa_url ? 'border-[#232230]' : 'border-amber-500/50'}`}>
+                          {ev.foto_capa_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={ev.foto_capa_url} alt={ev.titulo} className="w-12 h-12 rounded-lg object-cover border border-[#232230] shrink-0" />
+                          ) : (
+                            <div className="w-12 h-12 rounded-lg bg-[#0B0B0E] border border-dashed border-amber-500/50 flex items-center justify-center text-[8px] text-amber-300 text-center px-1 shrink-0">sem flier</div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold truncate">{ev.titulo}</p>
+                            <p className="text-[11px] text-[#8888A0]">
+                              {new Date(ev.data_inicio).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+                              {' · '}{tipo?.rotulo || 'sem tipo'}{' · '}{publico?.rotulo || 'sem público'}
+                            </p>
+                            {!ev.foto_capa_url && <p className="text-[11px] text-amber-300">Sem flier: aparece sem foto no app.</p>}
+                          </div>
+                          <label className="text-xs font-bold text-[#E1306C] cursor-pointer hover:underline">
+                            {enviandoFlierId === ev.id ? 'Enviando...' : ev.foto_capa_url ? 'Trocar flier' : 'Subir flier'}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              disabled={enviandoFlierId === ev.id}
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) enviarFlierEvento(ev, f);
+                                e.target.value = '';
+                              }}
+                            />
+                          </label>
+                          <label className="flex items-center gap-1.5 text-xs text-[#D0D0E0] cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={ev.destaque_secoes.includes('patrocinado')}
+                              disabled={processando === ev.id}
+                              onChange={(e) => alternarSecaoInstantaneaEvento(ev, 'patrocinado', e.target.checked)}
+                              className="accent-[#E1306C]"
+                            />
+                            Divulgação paga R$89
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => { setBuscaEvento(ev.titulo); setFiltroEventos('todos'); setEventoExpandido((a) => ({ ...a, [ev.id]: true })); setAba('eventos'); }}
+                            className="text-xs font-bold text-[#A0A0B2] hover:text-white"
+                          >
+                            Tipo e público
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
 
               <div className="border-t border-[#232230] pt-3 space-y-3">
-                <p className="text-xs font-bold text-[#D0D0E0]">Conteúdo do local (o que aparece no app)</p>
+                <p className="text-xs font-bold text-[#D0D0E0]">Fotos e textos {l.categoria === 'eventos' ? 'da marca' : 'do local'} (o que aparece no app)</p>
                 <div className="flex items-start gap-4 flex-wrap">
                   <div className="shrink-0">
-                    <p className="text-[10px] text-[#626274] mb-1">Foto de capa</p>
+                    <p className="text-[10px] font-bold text-[#D0D0E0]">Capa</p>
+                    <p className="text-[10px] text-[#626274] mb-1 max-w-[9rem]">Cards, mapa e topo da página</p>
                     {l.foto_capa_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={l.foto_capa_url} alt={l.nome} className="w-16 h-16 rounded-lg object-cover border border-[#232230]" />
@@ -2465,7 +2556,8 @@ Dicas LGBT+`;
                       de verdade, separado: logo_url, usado pelos avatares
                       redondos do banner "Membro Fundador" na Home. */}
                   <div className="shrink-0">
-                    <p className="text-[10px] text-[#626274] mb-1">Logo (Membro Fundador)</p>
+                    <p className="text-[10px] font-bold text-[#D0D0E0]">Logo</p>
+                    <p className="text-[10px] text-[#626274] mb-1 max-w-[9rem]">Bolinha dos Membros Fundadores</p>
                     {l.logo_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={l.logo_url} alt={l.nome} className="w-16 h-16 rounded-full object-cover border border-[#232230]" />
@@ -2491,40 +2583,8 @@ Dicas LGBT+`;
                   </div>
 
                   <div className="shrink-0">
-                    <p className="text-[10px] text-[#626274] mb-1">Arte de destaque da Home (1080×540)</p>
-                    {artesDestaque[l.id] ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={artesDestaque[l.id]} alt={`Arte de ${l.nome}`} className="w-40 h-20 rounded-lg object-cover border border-[#232230]" />
-                    ) : (
-                      <div className="w-40 h-20 rounded-lg bg-[#0B0B0E] border border-dashed border-[#232230] flex items-center justify-center text-[9px] text-[#626274] text-center px-2">
-                        sem arte: o app mostra a foto do local
-                      </div>
-                    )}
-                    <div className="flex items-center gap-3 mt-1">
-                      <label className="text-[10px] font-bold text-[#E1306C] cursor-pointer hover:underline">
-                        {enviandoFoto === l.id ? 'Enviando...' : artesDestaque[l.id] ? 'Trocar' : 'Subir arte'}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          disabled={enviandoFoto === l.id}
-                          onChange={(e) => {
-                            const f = e.target.files?.[0];
-                            if (f) enviarArteDestaque(l, f);
-                            e.target.value = '';
-                          }}
-                        />
-                      </label>
-                      {artesDestaque[l.id] && (
-                        <button type="button" className="text-[10px] font-bold text-[#A0A0B2] hover:underline" onClick={() => enviarArteDestaque(l, null)}>
-                          Remover
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="shrink-0">
-                    <p className="text-[10px] text-[#626274] mb-1">Galeria de fotos ({l.galeria_fotos.length})</p>
+                    <p className="text-[10px] font-bold text-[#D0D0E0]">Galeria ({l.galeria_fotos.length})</p>
+                    <p className="text-[10px] text-[#626274] mb-1">Carrossel da página; só aparece com plano pago</p>
                     <div className="flex items-center gap-1.5 flex-wrap max-w-xs">
                       {l.galeria_fotos.map((url) => (
                         <div key={url} className="relative">
@@ -2671,19 +2731,17 @@ Dicas LGBT+`;
 
       <section className="mb-10">
         <h2 className="text-base font-bold mb-3">
-          ⭐ Destaque manual dos eventos ({eventosFiltrados.length}{eventosFiltrados.length !== eventosDestaque.length ? ` de ${eventosDestaque.length}` : ''})
+          Festas e eventos ({eventosFiltrados.length}{eventosFiltrados.length !== eventosDestaque.length ? ` de ${eventosDestaque.length}` : ''})
         </h2>
-        <p className="text-xs text-[#626274] mb-3">
-          Taxa única de R$69 por evento (cobrança manual por Pix/WhatsApp, igual ao fluxo de
-          plano pago dos bares) — depois de confirmar o pagamento, marca aqui como
-          &quot;Destaque&quot; ou &quot;VIP&quot;. Lista eventos já aprovados dos últimos 7 dias
-          pra frente (evento passado ainda aparece aqui por um tempo, com aviso, pra você
-          entender por que ele saiu do app). &quot;Topo da aba Eventos&quot; só muda a ORDEM
-          dentro do mesmo filtro de data que o usuário já escolher no app (Hoje/Amanhã/Fim de
-          semana...) — não faz o evento aparecer fora da data real dele. &quot;O que Fazer
-          Hoje&quot; fixa o evento manualmente nessa seção da tela inicial, independente da
-          data (útil pra festa recorrente ou pra promover uma festa antes do dia).
-        </p>
+        <details className="mb-4 text-xs text-[#8888A0] bg-[#161520] border border-[#232230] rounded-lg px-3 py-2">
+          <summary className="cursor-pointer font-bold text-[#A0A0B2]">Como as festas aparecem no app</summary>
+          <ul className="mt-2 space-y-1.5 list-disc list-inside">
+            <li><b className="text-[#D0D0E0]">Flier</b>: a foto da festa (card &quot;Festas em destaque&quot; e página da festa). O texto do card fica embaixo do flier, sem cobrir.</li>
+            <li><b className="text-[#D0D0E0]">Tipo</b> decide o ícone da aba Eventos (Festas e baladas, Shows, Drag shows...). <b className="text-[#D0D0E0]">Para quem</b> e <b className="text-[#D0D0E0]">estilo musical</b> ficam em Filtros.</li>
+            <li><b className="text-[#D0D0E0]">Divulgação paga R$89</b>: a festa entra em &quot;Festas em destaque&quot; 1 dia antes e no dia (até 24 por vez).</li>
+            <li>Festa com data passada some do app. Festas desta lista também aparecem dentro da ficha da marca, em Locais e marcas.</li>
+          </ul>
+        </details>
         <div className="space-y-2">
           {eventosFiltrados.length === 0 && (
             <p className="text-xs text-[#626274]">Nenhum evento aprovado encontrado com esse filtro/busca.</p>
@@ -2714,13 +2772,13 @@ Dicas LGBT+`;
                     <p className="text-xs text-[#626274] mt-1">
                       {ev.tipo} · {new Date(ev.data_inicio).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
                     </p>
-                    <p className="text-xs text-[#4CAF7D] mt-1 font-bold">
-                      {ev.plano_destaque !== 'basico' || ev.destaque_secoes.includes('destaque')
-                        ? '✓ Selo "Evento em destaque" aparece no card'
-                        : 'Sem selo de destaque no card ainda'}
-                      {ev.destaque_secoes.includes('evento_destaque') ? ' · fixado no topo da aba Eventos' : ''}
-                      {ev.destaque_secoes.includes('hoje') ? ' · aparece em O Que Fazer Hoje' : ''}
-                      {ev.destaque_secoes.includes('patrocinado') ? ' · Patrocinado' : ''}
+                    <p className="text-xs mt-1 font-bold">
+                      <span className={ev.destaque_secoes.includes('patrocinado') ? 'text-[#4CAF7D]' : 'text-[#626274]'}>
+                        {ev.destaque_secoes.includes('patrocinado') ? '✓ Divulgação paga (Festas em destaque)' : 'Sem divulgação paga'}
+                      </span>
+                      {ev.destaque_secoes.includes('hoje') ? <span className="text-[#4CAF7D]"> · O que fazer hoje</span> : null}
+                      {ev.destaque_secoes.includes('evento_destaque') ? <span className="text-[#4CAF7D]"> · primeira da lista</span> : null}
+                      {!ev.foto_capa_url ? <span className="text-amber-300"> · sem flier</span> : null}
                     </p>
                     {new Date(ev.data_inicio).getTime() < Date.now() && (
                       <p className="text-xs text-[#E1306C] mt-1 font-bold">
@@ -2730,16 +2788,6 @@ Dicas LGBT+`;
                     )}
                   </div>
                 </div>
-                <select
-                  value={ev.plano_destaque}
-                  onChange={(e) => atualizarDestaqueEvento(ev.id, e.target.value as 'basico' | 'destaque' | 'vip')}
-                  disabled={processando === ev.id}
-                  className="bg-[#0B0B0E] border border-[#232230] rounded-lg text-xs font-bold px-3 py-2 shrink-0 disabled:opacity-40"
-                >
-                  <option value="basico">Básico</option>
-                  <option value="destaque">Destaque (R$69)</option>
-                  <option value="vip">VIP</option>
-                </select>
               </div>
 
               {/* Rodada 48 — mesmo padrão de expandir/recolher que os
@@ -2750,8 +2798,51 @@ Dicas LGBT+`;
                 className="flex items-center gap-1.5 text-xs font-bold text-[#A0A0B2] hover:text-white border-t border-[#232230] pt-3 w-full"
               >
                 {expandidoEv ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                {expandidoEv ? 'Ocultar detalhes e edição' : 'Ver detalhes e editar (seções, prazo, flier...)'}
+                {expandidoEv ? 'Fechar' : 'Editar flier, tipo, público e divulgação'}
               </button>
+
+              {expandidoEv && (
+              <div className="space-y-3 border-b border-[#232230] pb-3">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <label className="text-xs font-bold text-[#D0D0E0]">Tipo</label>
+                  <select
+                    value={TIPOS_EVENTO_CADASTRO.find((t) => (ev.tags || []).includes(t.slug))?.slug || ''}
+                    onChange={(e) => salvarEtiquetasEvento(ev, 'tipo', e.target.value)}
+                    className="bg-[#0B0B0E] border border-[#232230] rounded-lg text-xs px-2.5 py-2"
+                  >
+                    <option value="">Escolha o tipo</option>
+                    {TIPOS_EVENTO_CADASTRO.map((t) => <option key={t.slug} value={t.slug}>{t.rotulo}</option>)}
+                  </select>
+                  <label className="text-xs font-bold text-[#D0D0E0]">Para quem</label>
+                  <select
+                    value={PUBLICO_FESTA_CADASTRO.find((t) => (ev.tags || []).includes(t.slug))?.slug || ''}
+                    onChange={(e) => salvarEtiquetasEvento(ev, 'publico', e.target.value)}
+                    className="bg-[#0B0B0E] border border-[#232230] rounded-lg text-xs px-2.5 py-2"
+                  >
+                    <option value="">Escolha o público</option>
+                    {PUBLICO_FESTA_CADASTRO.map((t) => <option key={t.slug} value={t.slug}>{t.rotulo}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-[#D0D0E0] mb-1.5">Estilo musical (até 3)</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {ESTILOS_FESTA.map((t) => {
+                      const ligado = (ev.tags || []).includes(t.slug);
+                      return (
+                        <button
+                          key={t.slug}
+                          type="button"
+                          onClick={() => salvarEtiquetasEvento(ev, 'estilo', t.slug, !ligado)}
+                          className={`text-[11px] font-bold px-2.5 py-1 rounded-full border ${ligado ? 'bg-[#E1306C] border-[#E1306C] text-white' : 'bg-[#161520] border-[#232230] text-[#A0A0B2]'}`}
+                        >
+                          {t.rotulo}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+              )}
 
               {expandidoEv && (
               <div className="flex items-center gap-3 flex-wrap">
@@ -2785,7 +2876,7 @@ Dicas LGBT+`;
                 </button>
                 {ev.destaque_secoes.length > 0 && (
                   <span className="text-xs text-[#4CAF7D]">
-                    ✓ {ev.destaque_secoes.join(', ')}
+                    ✓ {ev.destaque_secoes.map((v) => OPCOES_SECAO_EVENTO.find((o) => o.value === v)?.label || v).join(', ')}
                     {ev.destaque_ate ? ` até ${new Date(ev.destaque_ate).toLocaleDateString('pt-BR')}` : ''}
                   </span>
                 )}
