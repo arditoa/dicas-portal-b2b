@@ -52,9 +52,10 @@ const GRUPOS_EXTRAS = ['ingresso', 'quando', 'estrutura', 'ambiente', 'classific
 // Chips de TIPO de evento no topo da aba (pedido do time, nov/2026). Cada chip junta tags do cadastro.
 const TIPOS_EVENTO_CHIPS: { id: string; rotulo: string; tags: string[]; musica: boolean }[] = [
   { id: 'festas', rotulo: 'Festas e baladas', tags: ['festa', 'balada', 'pool_party', 'pre_festa', 'after', 'bloco', 'carnaval'], musica: true },
+  { id: 'shows', rotulo: 'Shows', tags: ['show', 'festival'], musica: true },
+  { id: 'drag', rotulo: 'Drag shows', tags: ['drag_show'], musica: false },
   { id: 'teatro', rotulo: 'Teatro', tags: ['teatro', 'stand_up', 'performance'], musica: false },
   { id: 'danca', rotulo: 'Aulas de dança', tags: ['aula_de_danca', 'workshop'], musica: false },
-  { id: 'shows', rotulo: 'Shows', tags: ['show', 'drag_show', 'festival'], musica: true },
   { id: 'cultura', rotulo: 'Cultura e encontros', tags: ['exposicao', 'cinema', 'feira', 'parada', 'encontro', 'networking', 'congresso', 'conferencia', 'gastronomia'], musica: false },
 ];
 
@@ -434,13 +435,15 @@ export default function EventsScreen() {
   const [showFiltrar, setShowFiltrar] = useState(false);
   const opcoesFiltrar = useMemo(() => {
     const tem = (t: string) => events.some((ev) => eventoTem(ev, t));
-    const estilos = GRUPO('musica').tags.map(slugTag).filter(tem);
-    const FORMATOS = ['open_bar', 'sunset_parties', 'pool_party', 'pre_festa', 'after', 'balada', 'drag_show', 'karaoke', 'gogo_dancer'];
+    const todosEstilos = GRUPO('musica').tags.map(slugTag);
+    const comEvento = todosEstilos.filter(tem);
+    const estilos = [...comEvento, ...todosEstilos.filter((t) => !comEvento.includes(t))];
+    const FORMATOS = ['open_bar', 'sunset_parties', 'pool_party', 'pre_festa', 'after', 'karaoke', 'gogo_dancer'];
     const formatos = FORMATOS.filter(tem);
     const bairros = Array.from(new Set(events.map((ev) => ev.locais?.bairro).filter(Boolean) as string[])).sort((x, y) => x.localeCompare(y, 'pt-BR'));
     return { estilos, formatos, bairros };
   }, [events]);
-  const totalFiltros = (selectedTipo ? 1 : 0) + (selectedBairro ? 1 : 0);
+  const totalFiltros = (tipoChip ? 1 : 0) + (selectedMusic ? 1 : 0) + (selectedTipo ? 1 : 0) + (selectedBairro ? 1 : 0);
 
   const handleEventClick = (eventItem: EventItem) => {
     if (!eventItem.listaVipAtiva) {
@@ -817,34 +820,42 @@ export default function EventsScreen() {
         </View>
 
         {/* Um botão só: Filtrar (estilo, formato, bairro). "Para quem" é a fileira de ícones logo abaixo. */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtrarLinha} style={{ flexGrow: 0 }}>
-          <TouchableOpacity style={[styles.filtrarBtn, totalFiltros > 0 && { backgroundColor: COLORS.pink, borderColor: COLORS.pink }]} onPress={() => setShowFiltrar(true)} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Mais filtros">
+        <View style={styles.filtrarLinha}>
+          <TouchableOpacity style={[styles.filtrarBtn, totalFiltros > 0 && { backgroundColor: COLORS.pink, borderColor: COLORS.pink }]} onPress={() => setShowFiltrar(true)} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Filtros">
             <Feather name="sliders" size={14} color={totalFiltros > 0 ? '#FFF' : COLORS.pink} />
             <Text style={[styles.filtrarTxt, totalFiltros > 0 && { color: '#FFF' }]}>{totalFiltros > 0 ? `Filtros · ${totalFiltros}` : 'Filtros'}</Text>
           </TouchableOpacity>
-          {[{ id: null as string | null, rotulo: 'Todos' }, ...TIPOS_EVENTO_CHIPS].map((c) => {
-            const ativo = tipoChip === c.id;
-            return (
-              <TouchableOpacity key={c.id || 'todos'} style={[styles.chip, ativo && styles.chipAtivo]} onPress={() => { setTipoChip(c.id); setSelectedMusic(null); }} accessibilityRole="button">
-                <Text style={[styles.chipTxt, ativo && { color: '#FFF' }]}>{c.rotulo}</Text>
-              </TouchableOpacity>
-            );
-          })}
-          {(totalFiltros > 0 || selectedSub || tipoChip) && (
-            <TouchableOpacity onPress={() => { setSelectedSub(null); setSelectedBairro(null); setSelectedTipo(null); setSelectedMusic(null); setSelectedPublic(null); setTipoChip(null); }} accessibilityRole="button" style={{ justifyContent: 'center' }}>
+          {(totalFiltros > 0 || selectedSub) && (
+            <TouchableOpacity onPress={() => { setSelectedSub(null); setSelectedBairro(null); setSelectedTipo(null); setSelectedMusic(null); setSelectedPublic(null); setTipoChip(null); }} accessibilityRole="button">
               <Text style={styles.filtrarLimpar}>Limpar</Text>
             </TouchableOpacity>
           )}
-        </ScrollView>
+        </View>
 
         <Modal visible={showFiltrar} transparent animationType="fade" onRequestClose={() => setShowFiltrar(false)}>
           <TouchableOpacity style={styles.filtrarOverlay} activeOpacity={1} onPress={() => setShowFiltrar(false)}>
             <TouchableOpacity activeOpacity={1} style={styles.filtrarSheet}>
               <Text style={styles.filtrarTitulo}>Mais filtros</Text>
               <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
-                {opcoesFiltrar.formatos.length + opcoesFiltrar.bairros.length === 0 && (
-                  <Text style={styles.filtrarVazio}>Ainda não há o que filtrar. As opções aparecem conforme as festas forem cadastradas.</Text>
-                )}
+                <Text style={styles.filtrarSecao}>Tipo de evento</Text>
+                <View style={styles.filtrarChips}>
+                  {TIPOS_EVENTO_CHIPS.map((c) => (
+                    <TouchableOpacity key={c.id} style={[styles.chip, tipoChip === c.id && styles.chipAtivo]} onPress={() => { setTipoChip((a) => (a === c.id ? null : c.id)); setSelectedMusic(null); }}>
+                      <Text style={[styles.chipTxt, tipoChip === c.id && { color: '#FFF' }]}>{c.rotulo}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {(!tipoChip || TIPOS_EVENTO_CHIPS.find((c) => c.id === tipoChip)?.musica) && (<>
+                  <Text style={styles.filtrarSecao}>Estilo musical</Text>
+                  <View style={styles.filtrarChips}>
+                    {opcoesFiltrar.estilos.map((t) => (
+                      <TouchableOpacity key={t} style={[styles.chip, selectedMusic === t && styles.chipAtivo]} onPress={() => setSelectedMusic((a) => (a === t ? null : t))}>
+                        <Text style={[styles.chipTxt, selectedMusic === t && { color: '#FFF' }]}>{rotuloTag(t)}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>)}
                 {opcoesFiltrar.formatos.length > 0 && (<>
                   <Text style={styles.filtrarSecao}>Formato</Text>
                   <View style={styles.filtrarChips}>
@@ -895,18 +906,6 @@ export default function EventsScreen() {
                       cor={CATEGORIAS.festas.color}
                       onAbrir={(chave) => setSelectedSub((atual) => (atual === chave ? null : chave))}
                     />
-                  )}
-                  {opcoesFiltrar.estilos.length > 0 && (!tipoChip || TIPOS_EVENTO_CHIPS.find((c) => c.id === tipoChip)?.musica) && (
-                    <View style={{ marginTop: 12 }}>
-                      <Text style={styles.festasPagasTitulo}>Estilo musical</Text>
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-                        {opcoesFiltrar.estilos.map((t) => (
-                          <TouchableOpacity key={t} style={[styles.chip, selectedMusic === t && styles.chipAtivo]} onPress={() => setSelectedMusic((a) => (a === t ? null : t))}>
-                            <Text style={[styles.chipTxt, selectedMusic === t && { color: '#FFF' }]}>{rotuloTag(t)}</Text>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
-                    </View>
                   )}
                   {festasPagas.length > 0 && !subDesligadas.has('__festas') && (
                     <View style={{ marginTop: 14 }}>
