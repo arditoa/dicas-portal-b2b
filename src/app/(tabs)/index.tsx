@@ -145,9 +145,9 @@ const BANNERS_PRINCIPAIS = [
 const TOPO_TILE = 148;
 const TOPO_GAP = 10;
 
-const AVATAR = 54;
-const AVATAR_ANEL = 62;
-const AVATAR_GAP = 12;
+const AVATAR = 36;
+const AVATAR_ANEL = 42;
+const AVATAR_GAP = 10;
 const VELOCIDADE_PX_S = 28;
 
 // Rodada 79 — faixa de locais premium: avatares redondos com anel dourado
@@ -1091,23 +1091,6 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        {/* MEMBROS FUNDADORES — logos passando devagar, no pé da Home (reforço do topo).
-            Só aparece com 3 ou mais fundadores com imagem. */}
-        {fundadoresFaixa.length >= 3 && (
-          <View style={styles.secaoBloco}>
-            <TouchableOpacity
-              style={styles.fundadoresCabecalho}
-              activeOpacity={0.8}
-              onPress={() => router.push('/experience/Membro%20Fundador' as any)}
-              accessibilityRole="button"
-              accessibilityLabel={t('banner.fundadorTitulo')}
-            >
-              <Text style={styles.tituloSecaoHomeInline}>{t('banner.fundadorTitulo')}</Text>
-              <Text style={styles.fundadoresVer}>{t('banner.fundadorCta')} →</Text>
-            </TouchableOpacity>
-            <FaixaPremium itens={fundadoresFaixa} onAbrir={(id) => router.push(`/business/${id}` as any)} />
-          </View>
-        )}
         {/* RODAPÉ — canais oficiais */}
         <View style={styles.rodape}>
           {[
@@ -1122,8 +1105,25 @@ export default function HomeScreen() {
               <Feather name="external-link" size={13} color={COLORS.textMuted} />
             </TouchableOpacity>
           ))}
-          <Text style={styles.rodapeAssinatura}>Dicas LGBT+ · Vezpa Bar</Text>
         </View>
+        {/* MEMBROS FUNDADORES — logos passando devagar, no fim da Home, logo abaixo de "Seja um parceiro" (só fundadores).
+            Só aparece com 3 ou mais fundadores com imagem. */}
+        {fundadoresFaixa.length >= 3 && (
+          <View style={[styles.secaoBloco, { marginTop: 28, marginBottom: 0 }]}>
+            <TouchableOpacity
+              style={[styles.fundadoresCabecalho, { marginBottom: 4 }]}
+              activeOpacity={0.8}
+              onPress={() => router.push('/experience/Membro%20Fundador' as any)}
+              accessibilityRole="button"
+              accessibilityLabel={t('banner.fundadorTitulo')}
+            >
+              <Text style={[styles.tituloSecaoHomeInline, { fontSize: 12, letterSpacing: 1.4, textTransform: 'uppercase', color: COLORS.gold }]}>{t('banner.fundadorTitulo')}</Text>
+              <Text style={[styles.fundadoresVer, { fontSize: 12, color: COLORS.textSecondary }]}>{t('banner.fundadorCta')} →</Text>
+            </TouchableOpacity>
+            <FaixaPremium itens={fundadoresFaixa} onAbrir={(id) => router.push(`/business/${id}` as any)} />
+          </View>
+        )}
+        <Text style={styles.rodapeAssinatura}>Dicas LGBT+ · Vezpa Bar</Text>
       </ScrollView>
     </View>
   );
@@ -1198,7 +1198,7 @@ const styles = StyleSheet.create({
   pontoAtivo: { width: 18, backgroundColor: COLORS.pink },
   altaBox: { width: 112 },
   emAltaCabecalho: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, marginBottom: 8 },
-  faixaPremiumFundo: { marginBottom: 16, paddingVertical: 14, overflow: 'hidden' },
+  faixaPremiumFundo: { marginBottom: 2, paddingVertical: 8, overflow: 'hidden' },
   avatarAnel: { width: AVATAR_ANEL, height: AVATAR_ANEL, borderRadius: AVATAR_ANEL / 2, borderWidth: 2, borderColor: COLORS.gold, alignItems: 'center', justifyContent: 'center', marginRight: AVATAR_GAP },
   avatarMiolo: { width: AVATAR, height: AVATAR, borderRadius: AVATAR / 2, backgroundColor: COLORS.card, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   faixaHoje: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 16, marginBottom: 16, paddingHorizontal: 14, height: 44, borderRadius: 22, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
@@ -1227,7 +1227,7 @@ const styles = StyleSheet.create({
   rodape: { marginTop: 8, marginHorizontal: 16, paddingTop: 8 },
   rodapeLink: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11 },
   rodapeTexto: { flex: 1, fontSize: 13, fontWeight: '600', color: COLORS.textPrimary },
-  rodapeAssinatura: { fontSize: 11, color: COLORS.textMuted, textAlign: 'center', marginTop: 12 },
+  rodapeAssinatura: { fontSize: 11, color: COLORS.textMuted, textAlign: 'center', marginTop: 4 },
   gradeSecoes: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, marginBottom: 18 },
   secaoBoxTouch: { width: '31.5%' },
   secaoBox: { height: 92, borderRadius: 14, overflow: 'hidden', backgroundColor: COLORS.card, alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 6 },
