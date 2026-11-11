@@ -1,5 +1,4 @@
 import { BotaoVoltar, TituloTela } from '../../components/CabecalhoTela';
-import FiltrosPilulas, { FiltroDef } from '../../components/FiltrosPilulas';
 import SubcategoriaBanners, { GrupoSub } from '../../components/SubcategoriaBanners';
 import VitrineCategoria, { LocalVitrine } from '../../components/VitrineCategoria';
 import { CAMPOS_LOCAL } from '../../components/ListaPadrao';
@@ -412,21 +411,17 @@ export default function EventsScreen() {
     [events, subDesligadas]
   );
 
-  // Filtros em pílulas (mesmo modelo das categorias): só aparecem as opções que existem nos eventos carregados.
-  const filtrosPilulas = useMemo<FiltroDef[]>(() => {
-    const doGrupo = (grupo: string) => GRUPO(grupo).tags.map(slugTag).filter((t) => t !== 'todos_os_publicos' && events.some((ev) => eventoTem(ev, t)));
-    const bairros = Array.from(new Set(events.map((ev) => ev.locais?.bairro).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-    // Público fica sempre visível (catálogo completo); quem tem evento carregado vem primeiro.
-    const todosPublicos = GRUPO('publico').tags.map(slugTag).filter((t) => t !== 'todos_os_publicos');
-    const comEvento = todosPublicos.filter((t) => events.some((ev) => eventoTem(ev, t)));
-    const publicos = [...comEvento, ...todosPublicos.filter((t) => !comEvento.includes(t))];
-    return [
-      { id: 'publico', label: 'Tipo de público', curto: 'Público', titulo: 'Tipo de público', icone: 'users', opcoes: publicos.map(rotuloTag), valor: selectedPublic ? rotuloTag(selectedPublic) : undefined },
-      { id: 'bairro', label: 'Bairro', icone: 'map-pin', opcoes: bairros, valor: selectedBairro || undefined },
-      { id: 'tipo', label: 'Tipo de evento', curto: 'Tipo', icone: 'layers', opcoes: doGrupo('tipo').map(rotuloTag), valor: selectedTipo ? rotuloTag(selectedTipo) : undefined },
-      { id: 'musica', label: 'Estilo musical', curto: 'Estilo', icone: 'music', opcoes: doGrupo('musica').map(rotuloTag), valor: selectedMusic ? rotuloTag(selectedMusic) : undefined },
-    ];
-  }, [events, selectedBairro, selectedTipo, selectedMusic, selectedPublic]);
+  // Botão único "Filtrar": estilo musical, formato (open bar, sunset...) e bairro. Só aparecem opções que têm evento carregado.
+  const [showFiltrar, setShowFiltrar] = useState(false);
+  const opcoesFiltrar = useMemo(() => {
+    const tem = (t: string) => events.some((ev) => eventoTem(ev, t));
+    const estilos = GRUPO('musica').tags.map(slugTag).filter(tem);
+    const FORMATOS = ['open_bar', 'sunset_parties', 'pool_party', 'pre_festa', 'after', 'balada', 'drag_show', 'karaoke', 'gogo_dancer'];
+    const formatos = FORMATOS.filter(tem);
+    const bairros = Array.from(new Set(events.map((ev) => ev.locais?.bairro).filter(Boolean) as string[])).sort((x, y) => x.localeCompare(y, 'pt-BR'));
+    return { estilos, formatos, bairros };
+  }, [events]);
+  const totalFiltros = (selectedMusic ? 1 : 0) + (selectedTipo ? 1 : 0) + (selectedBairro ? 1 : 0);
 
   const handleEventClick = (eventItem: EventItem) => {
     if (!eventItem.listaVipAtiva) {
@@ -802,21 +797,64 @@ export default function EventsScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Filtros em pílulas: Bairro, Tipo, Estilo e Público (tags oficiais; só aparecem as que têm evento). */}
-        <View style={{ marginBottom: 12 }}>
-          <FiltrosPilulas
-            compacto
-            filtros={filtrosPilulas}
-            onSelecionar={(id, valor) => {
-              const slug = valor ? slugTag(valor) : null;
-              if (id === 'bairro') setSelectedBairro(valor || null);
-              else if (id === 'tipo') setSelectedTipo(slug);
-              else if (id === 'musica') setSelectedMusic(slug);
-              else if (id === 'publico') setSelectedPublic(slug);
-            }}
-            onLimpar={() => { setSelectedSub(null); setSelectedBairro(null); setSelectedTipo(null); setSelectedMusic(null); setSelectedPublic(null); }}
-          />
+        {/* Um botão só: Filtrar (estilo, formato, bairro). "Para quem" é a fileira de ícones logo abaixo. */}
+        <View style={styles.filtrarLinha}>
+          <TouchableOpacity style={[styles.filtrarBtn, totalFiltros > 0 && { backgroundColor: COLORS.pink, borderColor: COLORS.pink }]} onPress={() => setShowFiltrar(true)} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Filtrar">
+            <Feather name="sliders" size={14} color={totalFiltros > 0 ? '#FFF' : COLORS.pink} />
+            <Text style={[styles.filtrarTxt, totalFiltros > 0 && { color: '#FFF' }]}>{totalFiltros > 0 ? `Filtrar · ${totalFiltros}` : 'Filtrar'}</Text>
+          </TouchableOpacity>
+          {(totalFiltros > 0 || selectedSub) && (
+            <TouchableOpacity onPress={() => { setSelectedSub(null); setSelectedBairro(null); setSelectedTipo(null); setSelectedMusic(null); setSelectedPublic(null); }} accessibilityRole="button">
+              <Text style={styles.filtrarLimpar}>Limpar</Text>
+            </TouchableOpacity>
+          )}
         </View>
+
+        <Modal visible={showFiltrar} transparent animationType="fade" onRequestClose={() => setShowFiltrar(false)}>
+          <TouchableOpacity style={styles.filtrarOverlay} activeOpacity={1} onPress={() => setShowFiltrar(false)}>
+            <TouchableOpacity activeOpacity={1} style={styles.filtrarSheet}>
+              <Text style={styles.filtrarTitulo}>Filtrar festas</Text>
+              <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
+                {opcoesFiltrar.estilos.length + opcoesFiltrar.formatos.length + opcoesFiltrar.bairros.length === 0 && (
+                  <Text style={styles.filtrarVazio}>Ainda não há o que filtrar. As opções aparecem conforme as festas forem cadastradas.</Text>
+                )}
+                {opcoesFiltrar.estilos.length > 0 && (<>
+                  <Text style={styles.filtrarSecao}>Estilo musical</Text>
+                  <View style={styles.filtrarChips}>
+                    {opcoesFiltrar.estilos.map((t) => (
+                      <TouchableOpacity key={t} style={[styles.chip, selectedMusic === t && styles.chipAtivo]} onPress={() => setSelectedMusic((a) => (a === t ? null : t))}>
+                        <Text style={[styles.chipTxt, selectedMusic === t && { color: '#FFF' }]}>{rotuloTag(t)}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>)}
+                {opcoesFiltrar.formatos.length > 0 && (<>
+                  <Text style={styles.filtrarSecao}>Formato</Text>
+                  <View style={styles.filtrarChips}>
+                    {opcoesFiltrar.formatos.map((t) => (
+                      <TouchableOpacity key={t} style={[styles.chip, selectedTipo === t && styles.chipAtivo]} onPress={() => setSelectedTipo((a) => (a === t ? null : t))}>
+                        <Text style={[styles.chipTxt, selectedTipo === t && { color: '#FFF' }]}>{rotuloTag(t)}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>)}
+                {opcoesFiltrar.bairros.length > 0 && (<>
+                  <Text style={styles.filtrarSecao}>Bairro</Text>
+                  <View style={styles.filtrarChips}>
+                    {opcoesFiltrar.bairros.map((b) => (
+                      <TouchableOpacity key={b} style={[styles.chip, selectedBairro === b && styles.chipAtivo]} onPress={() => setSelectedBairro((a) => (a === b ? null : b))}>
+                        <Text style={[styles.chipTxt, selectedBairro === b && { color: '#FFF' }]}>{b}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>)}
+              </ScrollView>
+              <TouchableOpacity style={styles.filtrarOk} onPress={() => setShowFiltrar(false)} activeOpacity={0.9}>
+                <Text style={styles.filtrarOkTxt}>Ver festas</Text>
+              </TouchableOpacity>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </Modal>
 
         {/* VITRINE (mesma lógica das categorias): patrocinador master, banner Premium rotativo, subcategorias em ícones e até 6 ofertas. */}
         {!busca.trim() && (
@@ -1181,6 +1219,21 @@ const styles = StyleSheet.create({
   festaPagaVeu: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8,6,16,0.5)' },
   festaPagaData: { fontSize: 10, fontWeight: '800', color: '#F6C453' },
   festaPagaNome: { fontSize: 12, fontWeight: '800', color: '#FFFFFF' },
+  filtrarLinha: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, marginBottom: 12 },
+  filtrarBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.card, borderRadius: 12, paddingHorizontal: 12, height: 32 },
+  filtrarTxt: { color: COLORS.textPrimary, fontSize: 12, fontWeight: '700' },
+  filtrarLimpar: { color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' },
+  filtrarOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+  filtrarSheet: { backgroundColor: COLORS.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 16, paddingBottom: 32 },
+  filtrarTitulo: { color: COLORS.textPrimary, fontSize: 16, fontWeight: '800', marginBottom: 4 },
+  filtrarSecao: { color: COLORS.textSecondary, fontSize: 11, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase', marginTop: 14, marginBottom: 8 },
+  filtrarChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  filtrarVazio: { color: COLORS.textSecondary, fontSize: 13, lineHeight: 19, marginTop: 10 },
+  chip: { borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#0B0B0E', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
+  chipAtivo: { backgroundColor: COLORS.pink, borderColor: COLORS.pink },
+  chipTxt: { color: COLORS.textPrimary, fontSize: 12, fontWeight: '700' },
+  filtrarOk: { marginTop: 16, backgroundColor: COLORS.pink, borderRadius: 14, height: 46, alignItems: 'center', justifyContent: 'center' },
+  filtrarOkTxt: { color: '#FFF', fontSize: 14, fontWeight: '800' },
   patrocinadoBadge: { fontSize: 10, fontWeight: '700', color: COLORS.purple, marginTop: 2 },
 
   emptyBox: { padding: 30, alignItems: 'center', gap: 10, backgroundColor: COLORS.card, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, marginTop: 10 },

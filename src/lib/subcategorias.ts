@@ -27,12 +27,10 @@ export const SUBCATEGORIAS: Record<string, SubDef[]> = {
   ],
   // Festas & Eventos
   festas: [
-    def('Festas Gay', 'Festas\nGay', 'users', ['festa gay', 'festas gay', 'festas gays', 'gay', 'gays', 'festa lgbt', 'festas lgbt', 'lgbt', 'lgbtqia', 'baile gay', 'ursos', 'bear']),
-    def('Festas Lésbicas', 'Festas\nLésbicas', 'heart', ['festa lesbica', 'festas lesbicas', 'lesbica', 'lesbicas', 'sapphic', 'sapatao', 'festa de mulheres', 'festas de mulheres']),
-    def('Festas Eletrônicas', 'Eletrônicas', 'zap', ['eletronica', 'eletronicas', 'festa eletronica', 'festas eletronicas', 'rave', 'raves', 'techno', 'house', 'edm', 'dj']),
-    def('Open Bar', 'Open Bar', 'droplet', ['open bar', 'openbar', 'open bar gay', 'festa open bar']),
-    def('Sunset Parties', 'Sunset Parties', 'sunset', ['sunset', 'sunset party', 'sunset parties', 'por do sol', 'day party', 'day parties', 'pool party', 'pool parties', 'piscina']),
-    def('Festa Temática', 'Festa Temática', 'gift', ['festa tematica', 'festas tematicas', 'tematica', 'tematicas', 'festa pop', 'festas pop', 'pop', 'pop party', 'anos 2000', 'flashback', 'hits', 'diva', 'itinerante']),
+    // Nov/2026: Festas = "para quem é a festa" (estilo musical e formato ficam no botão Filtrar da aba Eventos).
+    def('Festas Gay', 'Festas\nGay', 'users', ['festa gay', 'festas gay', 'festas gays', 'gay', 'gays', 'para eles', 'baile gay', 'ursos', 'bear']),
+    def('Festas Lésbicas', 'Festas\nLésbicas', 'heart', ['festa lesbica', 'festas lesbicas', 'lesbica', 'lesbicas', 'para elas', 'sapphic', 'sapatao', 'festa de mulheres', 'festas de mulheres']),
+    def('Festas Para Todes', 'Para\nTodes', 'smile', ['para todes', 'todes', 'festas queer', 'festa queer', 'queer', 'publico hetero e queer', 'festa mista', 'festas mistas', 'mista', 'mistas', 'festa lgbt', 'festas lgbt', 'lgbtqia']),
   ],
   // Artistas (nov/2026): Banda e Solo pedidos pela Andrea; as demais são sugestão. Todas abertas.
   artistas: [
