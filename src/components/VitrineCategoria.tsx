@@ -503,7 +503,7 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
 
 const s = StyleSheet.create({
   raiz: { paddingTop: 4, paddingBottom: 6 },
-  secao: { fontSize: 16, fontWeight: '800', color: C.text, marginBottom: 10 },
+  secao: { fontSize: 12, fontWeight: '700', letterSpacing: 1.4, textTransform: 'uppercase', color: '#B9B6CC', marginBottom: 10 }, // Rodada 143 — título discreto
   linha: { gap: 10, paddingHorizontal: 16 },
   cardDestaque: { height: 205, borderRadius: 18, overflow: 'hidden', backgroundColor: C.card, justifyContent: 'flex-end' },
   veu: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8,6,16,0.45)' },

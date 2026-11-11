@@ -2,6 +2,7 @@
 // Rodada 141 — "Mapa do app" (1ª tela de Vitrine do app no /admin). Pedido da Andrea: "como saber qual roda logo no
 // início com os fundadores e logo abaixo? ... deixe o portal adm o menos confuso". Mostra a Home e a página de uma
 // categoria de cima para baixo, o que está no ar agora em cada parte e o botão para editar.
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import EditorTopoInstitucional from './EditorTopoInstitucional';
@@ -27,7 +28,7 @@ export default function PainelMapaApp({ onIrPara }: { onIrPara: (aba: string) =>
   }, []);
 
   const home: Parte[] = [
-    { n: 1, nome: 'Carrossel do topo', mostra: 'Museu da Diversidade e "Viaje pelo Brasil" (sempre os primeiros) + os banners dos Membros Fundadores.', regra: 'Passa sozinho a cada 5 s. Dos Fundadores, 4 aparecem por vez e o grupo troca no rodízio.', aba: 'mapa', botao: 'Museu e Trip: logo abaixo, nesta tela · Fundadores: Membros Fundadores > Editar banner', agora: fundadores },
+    { n: 1, nome: 'Carrossel do topo', mostra: 'Os cartões do "Topo da Home" (acima, nesta tela) + os banners dos Membros Fundadores.', regra: 'Passa sozinho a cada 5 s. Dos Fundadores, 4 aparecem por vez e o grupo troca no rodízio.', aba: 'fundador', botao: 'Membros Fundadores', agora: fundadores },
     { n: 2, nome: 'Carrossel logo abaixo', mostra: 'Parceiros e campanhas: Copa, Embratur, Câmara LGBT…', regra: 'Até 4. A ordem é sorteada a cada abertura: chance 2 abre na frente o dobro de vezes que chance 1. Todos aparecem.', aba: 'banners', botao: 'Banners e parceiros', agora: parceirosHome },
     { n: 3, nome: 'Ícones das categorias', mostra: 'Destaques, Bares & Noite, Festas, Serviços, Dicas Trip…', regra: 'Ordem fixa.', aba: 'categorias', botao: 'Categorias e vagas' },
     { n: 4, nome: 'Bloco "Destaques"', mostra: '1 parceiro pago (Fundador ou Premium) com foto e oferta.', regra: 'Troca a cada hora. Só plano pago.', aba: 'rodizio', botao: 'Rodízio e Destaques' },
@@ -43,40 +44,48 @@ export default function PainelMapaApp({ onIrPara }: { onIrPara: (aba: string) =>
     { n: 6, nome: 'Lista de locais', mostra: 'Todos os locais da categoria. Fundador com borda de arco-íris.', regra: 'Ordem pelo plano.', aba: 'locais', botao: 'Locais e marcas' },
   ];
 
-  const coluna = (titulo: string, partes: Parte[]) => (
-    <div className="bg-[#161520] border border-[#232230] rounded-xl p-4">
-      <p className="text-sm font-bold mb-3">{titulo}</p>
-      <ol className="space-y-2">
-        {partes.map((p) => (
-          <li key={p.n} className="flex gap-3 rounded-xl border border-[#232230] p-3">
-            <span className="shrink-0 w-6 h-6 rounded-full bg-[#E1306C] text-white text-xs font-black flex items-center justify-center">{p.n}</span>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold">{p.nome}</p>
-              <p className="text-xs text-[#C9C9D6] mt-0.5">{p.mostra}</p>
-              <p className="text-[11px] text-[#8888A0] mt-0.5">{p.regra}</p>
-              {p.agora && p.agora.length > 0 && (
-                <p className="text-[11px] text-emerald-300 mt-1">No ar agora: {p.agora.join(' · ')}</p>
+  // Rodada 143 — mapa enxuto: uma linha por parte (número, nome, quantos no ar, Editar). O detalhe abre ao clicar.
+  const [aberta, setAberta] = useState<string | null>(null);
+  const coluna = (titulo: string, partes: Parte[], prefixo: string) => (
+    <div className="bg-[#161520] border border-[#232230] rounded-xl p-3">
+      <p className="text-xs font-bold text-[#A0A0B2] uppercase tracking-wide mb-2 px-1">{titulo}</p>
+      <ol className="divide-y divide-[#232230]">
+        {partes.map((p) => {
+          const k = `${prefixo}-${p.n}`;
+          const ab = aberta === k;
+          return (
+            <li key={k} className="py-1.5">
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => setAberta(ab ? null : k)} className="flex items-center gap-2 min-w-0 flex-1 text-left">
+                  <span className="shrink-0 w-5 h-5 rounded-full bg-[#E1306C] text-white text-[10px] font-black flex items-center justify-center">{p.n}</span>
+                  <span className="text-xs font-bold truncate">{p.nome}</span>
+                  {p.agora && p.agora.length > 0 && <span className="shrink-0 text-[10px] font-bold text-emerald-300 bg-emerald-500/10 rounded px-1.5 py-0.5">{p.agora.length} no ar</span>}
+                  {ab ? <ChevronDown size={12} className="text-[#626274] shrink-0" /> : <ChevronRight size={12} className="text-[#626274] shrink-0" />}
+                </button>
+                <button type="button" onClick={() => onIrPara(p.aba)} className="shrink-0 text-[11px] font-bold text-[#E1306C] hover:underline">Editar →</button>
+              </div>
+              {ab && (
+                <div className="pl-7 pr-2 pt-1 space-y-0.5">
+                  <p className="text-[11px] text-[#C9C9D6]">{p.mostra}</p>
+                  <p className="text-[11px] text-[#8888A0]">{p.regra} Edita em: {p.botao}.</p>
+                  {p.agora && p.agora.length > 0 && <p className="text-[11px] text-emerald-300">No ar: {p.agora.join(' · ')}</p>}
+                </div>
               )}
-              <button type="button" onClick={() => onIrPara(p.aba)} className="text-[11px] font-bold text-[#E1306C] mt-1.5 hover:underline">Editar em: {p.botao} →</button>
-            </div>
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ol>
     </div>
   );
 
   return (
-    <div className="space-y-4">
-      <div className="bg-[#E1306C]/10 border border-[#E1306C]/40 rounded-xl p-4 text-xs text-[#F3C6D6]">
-        <p className="font-bold text-white text-sm mb-1">Como ler este mapa</p>
-        Cada bloco é uma parte da tela do app, na ordem em que aparece de cima para baixo. O botão leva direto para onde se edita.
-        {' '}<b>Chance</b> (antes &quot;peso&quot;): vale só para os banners de parceiros. Chance 2 abre na frente o dobro de vezes que chance 1; todos aparecem, a chance só muda quem vem primeiro.
-      </div>
+    <div className="space-y-3">
       <EditorTopoInstitucional />
-      <div className="grid lg:grid-cols-2 gap-4">
-        {coluna('Tela inicial (Home)', home)}
-        {coluna('Página de uma categoria (ex.: Bares, Festas)', categoria)}
+      <div className="grid lg:grid-cols-2 gap-3">
+        {coluna('Home, de cima para baixo', home, 'h')}
+        {coluna('Página de categoria, de cima para baixo', categoria, 'c')}
       </div>
+      <p className="text-[11px] text-[#626274]">Toque no nome para ver o que aparece e a regra. <b className="text-[#A0A0B2]">Chance</b> (banners de parceiros): chance 2 abre na frente o dobro de vezes que chance 1; todos aparecem.</p>
     </div>
   );
 }

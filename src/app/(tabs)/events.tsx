@@ -1295,7 +1295,8 @@ const styles = StyleSheet.create({
 
   listArea: { paddingHorizontal: 16, marginTop: 8 },
   listHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  sectionTitle: { fontSize: 15, fontWeight: '800', color: COLORS.textPrimary },
+  // Rodada 143 — títulos de seção discretos, iguais ao "Membros Fundadores" da Home.
+  sectionTitle: { fontSize: 12, fontWeight: '700', letterSpacing: 1.4, textTransform: 'uppercase', color: '#B9B6CC' },
   eventCount: { fontSize: 12, color: COLORS.textSecondary, fontWeight: '600' },
 
   eventCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.card, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 14, gap: 12, marginBottom: 8 },
@@ -1319,7 +1320,7 @@ const styles = StyleSheet.create({
   eventLocation: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
   eventLocationLink: { textDecorationLine: 'underline', color: COLORS.pink },
   eventPrice: { fontSize: 11, fontWeight: '700', color: COLORS.gold, marginTop: 4 },
-  festasPagasTitulo: { fontSize: 14, fontWeight: '800', color: '#FFFFFF', marginBottom: 8 },
+  festasPagasTitulo: { fontSize: 12, fontWeight: '700', letterSpacing: 1.4, textTransform: 'uppercase', color: '#B9B6CC', marginBottom: 8 },
   festasGrade: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   festasVerTodas: { fontSize: 12, fontWeight: '800', color: '#E1306C' },
   // Rodada 142 — flier em pé (4:5), como as festas fazem: nada cortado.

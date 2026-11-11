@@ -520,42 +520,23 @@ export default function HomeScreen() {
   // Fundadores girando — cada fundador com a frase que a equipe de comunicação escreveu para ele.
   // Institucionais que também são Membros Fundadores: o Museu da Diversidade e o "Viaje pelo Brasil" (Dicas Trip).
   // Ficam sempre no começo do banner do topo.
-  // Rodada 142 — Museu e Dicas Trip do topo agora são editáveis no /admin (Mapa do app → Topo da Home).
-  // Guardados em banners_app com chave 'topo_museu' / 'topo_trip' e tela 'home_topo'. Sem linha no banco, vale o texto padrão.
-  type TopoEditado = { chave: string; tag: string | null; titulo: string | null; cta: string | null; cor: string | null; destino: string | null; ativo: boolean; traducoes: Record<string, { tag?: string; titulo?: string; cta?: string }> | null };
-  const [topoEditado, setTopoEditado] = useState<Record<string, TopoEditado>>({});
+  // Rodada 143 — cartões institucionais do topo editáveis no /admin (Mapa do app → Topo da Home): adicionar, editar,
+  // ordenar e excluir. Ficam em banners_app com a tela 'home_topo' (ordem = campo peso). Sem nenhum cartão salvo, o app
+  // mostra os dois padrões (Museu e Dicas Trip).
+  type TopoDB = { id: string; chave: string | null; tag: string | null; titulo: string | null; cta: string | null; cor: string | null; destino: string | null; ativo: boolean; peso: number | null; icone: string | null; traducoes: Record<string, { tag?: string; titulo?: string; cta?: string }> | null };
+  const [topoDB, setTopoDB] = useState<TopoDB[] | null>(null);
   useEffect(() => {
-    supabase.from('banners_app').select('chave, tag, titulo, cta, cor, destino, ativo, traducoes').in('chave', ['topo_museu', 'topo_trip'])
-      .then(({ data }) => {
-        const m: Record<string, TopoEditado> = {};
-        for (const r of (data as TopoEditado[]) || []) m[r.chave.replace('topo_', '')] = r;
-        setTopoEditado(m);
-      }, () => {});
+    supabase.from('banners_app').select('id, chave, tag, titulo, cta, cor, destino, ativo, peso, icone, traducoes, telas').contains('telas', ['home_topo'])
+      .then(({ data, error }) => setTopoDB(error ? null : ((data as TopoDB[]) || [])), () => setTopoDB(null));
   }, []);
-  const abrirDestinoTopo = (d: string, padrao: string) => {
+  const abrirDestinoTopo = (d: string) => {
     const x = (d || '').trim();
     if (x.startsWith('http')) Linking.openURL(x).catch(() => {});
     else if (x.startsWith('local:')) router.push(`/business/${x.slice(6)}` as any);
-    else router.push((x.startsWith('/') ? x : padrao) as any);
+    else if (x.startsWith('/')) router.push(x as any);
   };
-  const aplicarTopo = (base: Anuncio): Anuncio | null => {
-    const e = topoEditado[base.chave as string];
-    if (!e) return base;
-    if (!e.ativo) return null;
-    const tr = (idioma !== 'pt' && e.traducoes?.[idioma]) || {};
-    const cor = e.cor || base.cor;
-    return {
-      ...base,
-      tag: tr.tag || e.tag || base.tag,
-      titulo: tr.titulo || e.titulo || base.titulo,
-      cta: tr.cta || e.cta || base.cta,
-      cor,
-      degrade: e.cor ? ([e.cor, base.degrade?.[1] || e.cor] as [string, string]) : base.degrade,
-      onPress: e.destino ? () => abrirDestinoTopo(e.destino as string, base.chave === 'trip' ? '/(tabs)/tourism' : '/apoiador/museu-diversidade') : base.onPress,
-    };
-  };
-  const anunciosInstitucionais = useMemo<Anuncio[]>(
-    () => [
+  const anunciosInstitucionais = useMemo<Anuncio[]>(() => {
+    const padrao: Anuncio[] = [
       {
         id: 'museu', chave: 'museu', tag: t('home.anuncioMuseuTag'), titulo: t('home.anuncioMuseuTitulo'), cta: t('home.anuncioMuseuCta'),
         icone: 'book-open', cor: '#6D28D9', degrade: ['#6D28D9', '#DB2777'], onPress: () => router.push('/apoiador/museu-diversidade' as any),
@@ -564,10 +545,24 @@ export default function HomeScreen() {
         id: 'trip', chave: 'trip', tag: t('home.anuncioTripTag'), titulo: t('home.anuncioTripTitulo'), cta: t('home.anuncioTripCta'),
         icone: 'compass', cor: '#10B981', degrade: ['#10B981', '#0E7490'], onPress: () => router.push('/(tabs)/tourism' as any),
       },
-    ].map(aplicarTopo).filter(Boolean) as Anuncio[],
+    ];
+    if (!topoDB || topoDB.length === 0) return padrao;
+    return topoDB
+      .filter((r) => r.ativo && (r.titulo || '').trim())
+      .sort((x, y) => (x.peso ?? 0) - (y.peso ?? 0))
+      .map((r) => {
+        const tr = (idioma !== 'pt' && r.traducoes?.[idioma]) || {};
+        const cor = r.cor || '#6D28D9';
+        const segunda = r.chave === 'topo_trip' ? '#0E7490' : '#DB2777';
+        return {
+          id: `topo-${r.id}`, chave: `topo-${r.id}`,
+          tag: tr.tag || r.tag || '', titulo: tr.titulo || r.titulo || '', cta: tr.cta || r.cta || 'Conhecer',
+          icone: (r.icone || 'star') as Anuncio['icone'], cor, degrade: [cor, segunda] as [string, string],
+          onPress: () => abrirDestinoTopo(r.destino || ''),
+        } as Anuncio;
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t, topoEditado, idioma]
-  );
+  }, [t, topoDB, idioma]);
 
   // Banners dos Fundadores na Home: 12 vagas, 4 por vez, a janela avança a cada hora. Vaga sem fundador aparece escrita
   // ("Banner Fundador 5 Home") só em demonstração (lib/demo.ts).
@@ -1154,7 +1149,9 @@ export default function HomeScreen() {
               accessibilityRole="button"
               accessibilityLabel={t('banner.fundadorTitulo')}
             >
-              <Text style={styles.tituloSecaoHomeInline}>{t('banner.fundadorTitulo')}</Text>
+              {/* Rodada 143 — título discreto (pedido da Andrea: a letra grande estava feia). */}
+              <Text style={styles.tituloFundadoresRodape}>{t('banner.fundadorTitulo')}</Text>
+              <Feather name="chevron-right" size={14} color="#8E8BA3" />
             </TouchableOpacity>
             <FaixaPremium itens={fundadoresFaixa} onAbrir={(id) => router.push(`/business/${id}` as any)} />
           </View>
@@ -1225,6 +1222,7 @@ const styles = StyleSheet.create({
   slideTagTexto: { fontSize: 10, fontWeight: '800', color: '#000', letterSpacing: 0.4 },
   fundadoresCabecalho: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: 16, marginBottom: 10 },
   tituloSecaoHomeInline: { fontSize: 17, fontWeight: '800', color: COLORS.textPrimary },
+  tituloFundadoresRodape: { fontSize: 12, fontWeight: '700', letterSpacing: 1.4, textTransform: 'uppercase', color: '#B9B6CC' },
   fundadoresVer: { fontSize: 13, fontWeight: '700', color: COLORS.gold },
   tituloSecaoHome: { fontSize: 17, fontWeight: '800', color: COLORS.textPrimary, marginHorizontal: 16, marginBottom: 10 },
   slideNome: { fontSize: 14, fontWeight: '800', color: '#FFFFFF' },

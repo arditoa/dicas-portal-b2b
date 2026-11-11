@@ -1726,18 +1726,22 @@ Dicas LGBT+`;
     setProcessando(null);
   };
 
+  // Rodada 143 — filtros em chips no topo (antes coluna à esquerda). Categoria sem nenhum local não aparece.
   const filtroItem = (slug: string, label: string, qtd: number, vitrine = false) => (
+    qtd === 0 && slug !== 'todas' && filtroPrincipal !== slug ? null : (
     <button
-      onClick={() => setFiltroPrincipal(slug)}
-      className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition ${
+      key={slug}
+      onClick={() => setFiltroPrincipal(filtroPrincipal === slug && slug !== 'todas' ? 'todas' : slug)}
+      className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition ${
         filtroPrincipal === slug
-          ? vitrine ? 'bg-[#FFD54F]/15 text-[#FFD54F]' : 'bg-[#E1306C]/15 text-white'
-          : qtd === 0 ? 'text-[#626274] hover:bg-[#1D1C29]' : 'text-[#A0A0B2] hover:bg-[#1D1C29] hover:text-white'
+          ? vitrine ? 'bg-[#FFD54F]/15 border-[#FFD54F]/50 text-[#FFD54F]' : 'bg-[#E1306C] border-[#E1306C] text-white'
+          : 'border-[#232230] bg-[#161520] text-[#C9C9D6] hover:border-[#E1306C]/50 hover:text-white'
       }`}
     >
-      <span className="flex-1 text-left truncate">{label}</span>
-      <span className="text-[10px] font-bold text-[#8888A0]">{qtd}</span>
+      {label}
+      <span className={`text-[10px] font-bold ${filtroPrincipal === slug && !vitrine ? 'text-white/80' : 'text-[#8888A0]'}`}>{qtd}</span>
     </button>
+    )
   );
 
   // Etiquetas curtas de cada local (substituem a frase longa "Aparece em: ...").
@@ -2300,43 +2304,39 @@ Dicas LGBT+`;
       {/* Rodada 44 — filtro principal (categorias + Em Alta + O que Fazer
           Hoje) e busca por nome/bairro/cidade, tudo combinado numa lista
           só de estabelecimentos abaixo. */}
-      <div className="lg:flex lg:gap-6 items-start">
-      {/* FILTROS — coluna à esquerda: categorias, vitrines e plano */}
-      <aside className="lg:w-56 lg:shrink-0 mb-6 lg:mb-0 lg:sticky lg:top-6 space-y-5">
-        <div>
-          <p className="px-1 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-[#626274]">Categorias</p>
-          {filtroItem('todas', 'Todas', locaisDestaque.length)}
-          {CATEGORIA_CHIPS.filter((c) => c.categoriaReal).map((c) => (
-            <div key={c.slug}>{filtroItem(c.slug, c.label, locaisDestaque.filter((l) => localCombinaComFiltroPrincipal(l, c.slug)).length)}</div>
-          ))}
+      <div>
+      {/* FILTROS — Rodada 143: no topo, em chips (pedido da Andrea: mais visual). Busca, categorias, vitrines e plano. */}
+      <div className="bg-[#161520] border border-[#232230] rounded-xl p-3 mb-5 space-y-2.5">
+        <div className="flex items-center gap-2">
+          <Search size={14} className="text-[#626274]" />
+          <input
+            type="text"
+            value={buscaLocal}
+            onChange={(e) => setBuscaLocal(e.target.value)}
+            placeholder="Buscar por nome, bairro ou cidade..."
+            className="flex-1 bg-[#0B0B0E] border border-[#232230] rounded-lg text-xs px-3 py-2"
+          />
+          <div className="flex rounded-lg border border-[#232230] overflow-hidden shrink-0">
+            {([['todos', 'Todos'], ['pagos', 'Plano pago'], ['sem_plano', 'Sem plano']] as const).map(([v, r]) => (
+              <button key={v} onClick={() => setFiltroPlano(v)} className={`px-2.5 py-2 text-[11px] font-bold transition ${filtroPlano === v ? 'bg-[#E1306C] text-white' : 'text-[#A0A0B2] hover:text-white'}`}>{r}</button>
+            ))}
+          </div>
         </div>
-        <div>
-          <p className="px-1 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-[#626274]">Vitrines do app</p>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#626274] w-16 shrink-0">Categoria</span>
+          {filtroItem('todas', 'Todas', locaisDestaque.length)}
+          {CATEGORIA_CHIPS.filter((c) => c.categoriaReal).map((c) => filtroItem(c.slug, c.label, locaisDestaque.filter((l) => localCombinaComFiltroPrincipal(l, c.slug)).length))}
+        </div>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#626274] w-16 shrink-0">Vitrine</span>
           {filtroItem('em_alta', 'Em Alta', locaisDestaque.filter((l) => localCombinaComFiltroPrincipal(l, 'em_alta')).length, true)}
           {filtroItem('hoje', 'O que Fazer Hoje', locaisDestaque.filter((l) => localCombinaComFiltroPrincipal(l, 'hoje')).length, true)}
           {filtroItem('selo_dicas', 'Selo Dicas LGBT+', locaisDestaque.filter((l) => l.destaque_secoes.includes('selo_dicas')).length, true)}
           {filtroItem('fundador', 'Membros Fundadores', locaisDestaque.filter((l) => l.fundador).length, true)}
         </div>
-        <div>
-          <p className="px-1 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-[#626274]">Plano</p>
-          {([['todos', 'Todos'], ['pagos', 'Plano pago ativo'], ['sem_plano', 'Sem plano pago']] as const).map(([v, r]) => (
-            <button key={v} onClick={() => setFiltroPlano(v)} className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold transition ${filtroPlano === v ? 'bg-[#E1306C]/15 text-white' : 'text-[#A0A0B2] hover:bg-[#1D1C29] hover:text-white'}`}>{r}</button>
-          ))}
-        </div>
-      </aside>
-
-      <div className="flex-1 min-w-0">
-      <div className="flex items-center gap-2 mb-5">
-        <Search size={14} className="text-[#626274]" />
-        <input
-          type="text"
-          value={buscaLocal}
-          onChange={(e) => setBuscaLocal(e.target.value)}
-          placeholder="Buscar por nome, bairro ou cidade..."
-          className="flex-1 bg-[#161520] border border-[#232230] rounded-lg text-xs px-3 py-2"
-        />
       </div>
 
+      <div className="min-w-0">
       <section className="mb-10">
         <h2 className="text-base font-bold mb-3">
           Estabelecimentos ({locaisFiltrados.length}{locaisFiltrados.length !== locaisDestaque.length ? ` de ${locaisDestaque.length}` : ''})

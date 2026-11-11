@@ -1,79 +1,117 @@
 'use client';
-// Rodada 142 — Museu e "Viaje pelo Brasil" (Dicas Trip), os 2 primeiros cartões do topo da Home.
-// Antes eram fixos no código do app; agora a equipe edita aqui. Grava em banners_app com chave 'topo_museu' / 'topo_trip'
-// e tela 'home_topo' (essa tela não aparece no carrossel de parceiros). Sem registro salvo, o app usa o texto padrão.
-import { Loader2, Save } from 'lucide-react';
-import { useEffect, useState } from 'react';
+// Rodada 143 — cartões do topo da Home (antes dos Membros Fundadores): adicionar, editar, ordenar, ligar/desligar e excluir.
+// Grava em banners_app com telas = ['home_topo'] (essa tela não entra no carrossel de parceiros). Ordem = campo peso.
+import { ArrowDown, ArrowUp, Loader2, Pencil, Plus, Save, Trash2, X } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
-type Cartao = { id?: string; chave: 'topo_museu' | 'topo_trip'; tag: string; titulo: string; cta: string; cor: string; destino: string; ativo: boolean };
+type Cartao = { id?: string; chave: string | null; tag: string; titulo: string; cta: string; cor: string; destino: string; ativo: boolean; peso: number };
 
-const PADRAO: Record<Cartao['chave'], Cartao> = {
-  topo_museu: { chave: 'topo_museu', tag: 'MUSEU DA DIVERSIDADE', titulo: 'Museu da Diversidade Sexual: memória e cultura LGBT+ no centro de SP', cta: 'Conhecer', cor: '#6D28D9', destino: '/apoiador/museu-diversidade', ativo: true },
-  topo_trip: { chave: 'topo_trip', tag: 'DICAS TRIP', titulo: 'Viaje pelo Brasil com quem entende a comunidade', cta: 'Explorar a Trip', cor: '#10B981', destino: '/(tabs)/tourism', ativo: true },
-};
-const NOME: Record<Cartao['chave'], string> = { topo_museu: 'Museu da Diversidade', topo_trip: 'Dicas Trip ("Viaje pelo Brasil")' };
-const input = 'w-full bg-[#0B0B0E] border border-[#232230] rounded-lg py-2 px-3 text-white text-xs focus:outline-none focus:border-[#E1306C]';
+const NOVO: Cartao = { chave: null, tag: '', titulo: '', cta: 'Conhecer', cor: '#E1306C', destino: '', ativo: true, peso: 99 };
+const input = 'w-full bg-[#0B0B0E] border border-[#232230] rounded-lg py-1.5 px-2.5 text-white text-xs focus:outline-none focus:border-[#E1306C]';
 const label = 'text-[10px] font-bold text-[#A0A0B2] uppercase tracking-wide block mb-1';
+const segunda = (c: Cartao) => (c.chave === 'topo_trip' ? '#0E7490' : '#DB2777');
 
 export default function EditorTopoInstitucional() {
-  const [cartoes, setCartoes] = useState<Cartao[]>([PADRAO.topo_museu, PADRAO.topo_trip]);
-  const [salvando, setSalvando] = useState<string | null>(null);
+  const [lista, setLista] = useState<Cartao[]>([]);
+  const [aberto, setAberto] = useState<string | null>(null); // id em edição ou 'novo'
+  const [rascunho, setRascunho] = useState<Cartao>(NOVO);
+  const [ocupado, setOcupado] = useState(false);
   const [msg, setMsg] = useState<{ tipo: 'ok' | 'erro'; texto: string } | null>(null);
 
-  useEffect(() => {
-    supabase.from('banners_app').select('id, chave, tag, titulo, cta, cor, destino, ativo').in('chave', ['topo_museu', 'topo_trip']).then(({ data }) => {
-      const rows = (data as any[]) || [];
-      setCartoes((['topo_museu', 'topo_trip'] as const).map((k) => {
-        const r = rows.find((x) => x.chave === k);
-        return r ? { ...PADRAO[k], ...r, tag: r.tag || '', titulo: r.titulo || '', cta: r.cta || '', cor: r.cor || PADRAO[k].cor, destino: r.destino || PADRAO[k].destino } : PADRAO[k];
-      }));
-    });
+  const carregar = useCallback(async () => {
+    const { data, error } = await supabase.from('banners_app').select('id, chave, tag, titulo, cta, cor, destino, ativo, peso').contains('telas', ['home_topo']);
+    if (error) { setMsg({ tipo: 'erro', texto: error.message }); return; }
+    setLista(((data as any[]) || []).map((r) => ({ ...NOVO, ...r, tag: r.tag || '', titulo: r.titulo || '', cta: r.cta || '', cor: r.cor || '#E1306C', destino: r.destino || '', peso: r.peso ?? 0 }))
+      .sort((a, b) => a.peso - b.peso));
   }, []);
+  useEffect(() => { carregar(); }, [carregar]);
 
-  const mudar = (k: string, c: Partial<Cartao>) => setCartoes((l) => l.map((x) => (x.chave === k ? { ...x, ...c } : x)));
-  const salvar = async (c: Cartao) => {
-    if (!c.titulo.trim()) { setMsg({ tipo: 'erro', texto: 'Escreva o título.' }); return; }
-    setSalvando(c.chave); setMsg(null);
-    const dados = { chave: c.chave, tag: c.tag.trim(), titulo: c.titulo.trim(), cta: c.cta.trim() || 'Conhecer', cor: c.cor, destino: c.destino.trim(), ativo: c.ativo, telas: ['home_topo'], icone: c.chave === 'topo_trip' ? 'compass' : 'book-open', parceria: 'institucional', peso: 1 };
-    const r = c.id ? await supabase.from('banners_app').update(dados).eq('id', c.id).select('id').single() : await supabase.from('banners_app').insert(dados).select('id').single();
-    setSalvando(null);
-    if (r.error) { setMsg({ tipo: 'erro', texto: r.error.message }); return; }
-    mudar(c.chave, { id: (r.data as any).id });
-    setMsg({ tipo: 'ok', texto: `${NOME[c.chave]} salvo. Já vale no app.` });
+  const gravar = async (c: Cartao) => {
+    const dados = { chave: c.chave, tag: c.tag.trim(), titulo: c.titulo.trim(), cta: c.cta.trim() || 'Conhecer', cor: c.cor, destino: c.destino.trim(), ativo: c.ativo, peso: c.peso, telas: ['home_topo'], icone: 'star', parceria: 'institucional' };
+    return c.id ? supabase.from('banners_app').update(dados).eq('id', c.id) : supabase.from('banners_app').insert(dados);
   };
+  const salvar = async () => {
+    if (!rascunho.titulo.trim()) { setMsg({ tipo: 'erro', texto: 'Escreva o título.' }); return; }
+    setOcupado(true);
+    const c = aberto === 'novo' ? { ...rascunho, peso: (lista[lista.length - 1]?.peso ?? 0) + 1 } : rascunho;
+    const { error } = await gravar(c);
+    setOcupado(false);
+    if (error) { setMsg({ tipo: 'erro', texto: error.message }); return; }
+    setMsg({ tipo: 'ok', texto: 'Salvo. Já vale no app.' }); setAberto(null); carregar();
+  };
+  const alternar = async (c: Cartao) => {
+    const { error } = await supabase.from('banners_app').update({ ativo: !c.ativo }).eq('id', c.id!);
+    if (error) setMsg({ tipo: 'erro', texto: error.message }); else carregar();
+  };
+  const mover = async (i: number, d: -1 | 1) => {
+    const j = i + d; if (j < 0 || j >= lista.length) return;
+    const nova = [...lista]; [nova[i], nova[j]] = [nova[j], nova[i]];
+    setLista(nova);
+    await Promise.all(nova.map((c, k) => supabase.from('banners_app').update({ peso: k + 1 }).eq('id', c.id!)));
+    carregar();
+  };
+  const excluir = async (c: Cartao) => {
+    if (!confirm(`Excluir o cartão "${c.titulo}" do topo da Home?`)) return;
+    const { error } = await supabase.from('banners_app').delete().eq('id', c.id!);
+    if (error) setMsg({ tipo: 'erro', texto: error.message }); else { setMsg({ tipo: 'ok', texto: 'Excluído.' }); carregar(); }
+  };
+
+  const formulario = (
+    <div className="grid md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3 mt-2 border-t border-[#232230] pt-3">
+      <div className="rounded-lg p-3 self-start" style={{ background: `linear-gradient(135deg, ${rascunho.cor}, ${segunda(rascunho)})` }}>
+        <p className="text-[9px] font-black tracking-wider opacity-90">{rascunho.tag || 'ETIQUETA'}</p>
+        <p className="text-sm font-black leading-tight">{rascunho.titulo || 'Título do cartão'}</p>
+        <span className="inline-block mt-1.5 text-[10px] font-bold bg-white text-black rounded-full px-2.5 py-0.5">{rascunho.cta || 'Conhecer'}</span>
+      </div>
+      <div className="space-y-2">
+        <div className="grid grid-cols-[1fr_auto] gap-2">
+          <div><label className={label}>Etiqueta</label><input className={input} maxLength={40} value={rascunho.tag} onChange={(e) => setRascunho({ ...rascunho, tag: e.target.value })} /></div>
+          <div><label className={label}>Cor</label><input type="color" className="w-8 h-[30px] bg-transparent rounded cursor-pointer" value={rascunho.cor} onChange={(e) => setRascunho({ ...rascunho, cor: e.target.value })} /></div>
+        </div>
+        <div><label className={label}>Título</label><input className={input} maxLength={90} value={rascunho.titulo} onChange={(e) => setRascunho({ ...rascunho, titulo: e.target.value })} /></div>
+        <div className="grid grid-cols-2 gap-2">
+          <div><label className={label}>Botão</label><input className={input} maxLength={24} value={rascunho.cta} onChange={(e) => setRascunho({ ...rascunho, cta: e.target.value })} /></div>
+          <div><label className={label}>Leva para</label><input className={input} placeholder="https://, local:ID ou /rota" value={rascunho.destino} onChange={(e) => setRascunho({ ...rascunho, destino: e.target.value })} /></div>
+        </div>
+        <div className="flex gap-2">
+          <button type="button" onClick={salvar} disabled={ocupado} className="bg-[#E1306C] hover:bg-[#C2285C] text-white font-bold text-xs px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 disabled:opacity-40">
+            {ocupado ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Salvar
+          </button>
+          <button type="button" onClick={() => setAberto(null)} className="text-xs text-[#A0A0B2] hover:text-white inline-flex items-center gap-1"><X size={12} /> Cancelar</button>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="bg-[#161520] border border-[#232230] rounded-xl p-4">
-      <p className="text-sm font-bold">Topo da Home: Museu e Dicas Trip</p>
-      <p className="text-[11px] text-[#A0A0B2] mb-3">Os 2 primeiros cartões do carrossel do topo, antes dos Membros Fundadores. Desmarque &ldquo;Aparece no app&rdquo; para tirar um deles.</p>
-      <div className="grid lg:grid-cols-2 gap-3">
-        {cartoes.map((c) => (
-          <div key={c.chave} className="rounded-xl border border-[#232230] p-3 space-y-2">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-bold">{NOME[c.chave]}</p>
-              <label className="flex items-center gap-1.5 text-[11px] font-bold cursor-pointer"><input type="checkbox" className="accent-[#E1306C]" checked={c.ativo} onChange={(e) => mudar(c.chave, { ativo: e.target.checked })} /> Aparece no app</label>
-            </div>
-            <div className="rounded-lg p-3" style={{ background: `linear-gradient(135deg, ${c.cor}, ${c.chave === 'topo_trip' ? '#0E7490' : '#DB2777'})`, opacity: c.ativo ? 1 : 0.4 }}>
-              <p className="text-[9px] font-black tracking-wider opacity-90">{c.tag}</p>
-              <p className="text-sm font-black leading-tight">{c.titulo}</p>
-              <span className="inline-block mt-1.5 text-[10px] font-bold bg-white text-black rounded-full px-2.5 py-0.5">{c.cta}</span>
-            </div>
-            <div className="grid grid-cols-[1fr_auto] gap-2">
-              <div><label className={label}>Etiqueta</label><input className={input} maxLength={40} value={c.tag} onChange={(e) => mudar(c.chave, { tag: e.target.value })} /></div>
-              <div><label className={label}>Cor</label><input type="color" className="w-9 h-[34px] bg-transparent rounded cursor-pointer" value={c.cor} onChange={(e) => mudar(c.chave, { cor: e.target.value })} /></div>
-            </div>
-            <div><label className={label}>Título</label><input className={input} maxLength={90} value={c.titulo} onChange={(e) => mudar(c.chave, { titulo: e.target.value })} /></div>
-            <div className="grid grid-cols-2 gap-2">
-              <div><label className={label}>Botão</label><input className={input} maxLength={24} value={c.cta} onChange={(e) => mudar(c.chave, { cta: e.target.value })} /></div>
-              <div><label className={label}>Leva para</label><input className={input} placeholder="/rota, local:ID ou https://" value={c.destino} onChange={(e) => mudar(c.chave, { destino: e.target.value })} /></div>
-            </div>
-            <button type="button" onClick={() => salvar(c)} disabled={salvando === c.chave} className="bg-[#E1306C] hover:bg-[#C2285C] text-white font-bold text-xs px-3 py-2 rounded-lg inline-flex items-center gap-1.5 disabled:opacity-40">
-              {salvando === c.chave ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Salvar
-            </button>
-          </div>
-        ))}
+      <div className="flex items-center justify-between gap-3 mb-1">
+        <p className="text-sm font-bold">Topo da Home</p>
+        <button type="button" onClick={() => { setRascunho(NOVO); setAberto('novo'); }} className="text-xs font-bold text-white bg-[#E1306C] hover:bg-[#C2285C] px-3 py-1.5 rounded-lg inline-flex items-center gap-1"><Plus size={12} /> Adicionar cartão</button>
       </div>
+      <p className="text-[11px] text-[#A0A0B2] mb-3">Os primeiros cartões do carrossel do topo, nesta ordem. Depois deles giram os Membros Fundadores.</p>
+      {aberto === 'novo' && <div className="rounded-lg border border-[#E1306C]/50 p-3 mb-2"><p className="text-xs font-bold">Novo cartão</p>{formulario}</div>}
+      <ul className="space-y-1.5">
+        {lista.map((c, i) => (
+          <li key={c.id} className={`rounded-lg border ${aberto === c.id ? 'border-[#E1306C]/50' : 'border-[#232230]'} p-2`}>
+            <div className="flex items-center gap-2.5">
+              <span className="w-10 h-7 rounded shrink-0" style={{ background: `linear-gradient(135deg, ${c.cor}, ${segunda(c)})`, opacity: c.ativo ? 1 : 0.35 }} />
+              <div className="min-w-0 flex-1">
+                <p className={`text-xs font-bold truncate ${c.ativo ? '' : 'text-[#626274] line-through'}`}>{c.titulo}</p>
+                <p className="text-[10px] text-[#8888A0] truncate">{c.tag || 'sem etiqueta'} · {c.ativo ? 'no ar' : 'desligado'}</p>
+              </div>
+              <button type="button" title="Subir" onClick={() => mover(i, -1)} disabled={i === 0} className="p-1 text-[#A0A0B2] hover:text-white disabled:opacity-20"><ArrowUp size={13} /></button>
+              <button type="button" title="Descer" onClick={() => mover(i, 1)} disabled={i === lista.length - 1} className="p-1 text-[#A0A0B2] hover:text-white disabled:opacity-20"><ArrowDown size={13} /></button>
+              <label className="flex items-center gap-1 text-[10px] text-[#A0A0B2] cursor-pointer px-1"><input type="checkbox" className="accent-[#E1306C]" checked={c.ativo} onChange={() => alternar(c)} /> no ar</label>
+              <button type="button" title="Editar" onClick={() => { setRascunho(c); setAberto(aberto === c.id ? null : c.id!); }} className="p-1 text-[#A0A0B2] hover:text-white"><Pencil size={13} /></button>
+              <button type="button" title="Excluir" onClick={() => excluir(c)} className="p-1 text-[#A0A0B2] hover:text-red-400"><Trash2 size={13} /></button>
+            </div>
+            {aberto === c.id && formulario}
+          </li>
+        ))}
+        {lista.length === 0 && <li className="text-[11px] text-[#626274]">Nenhum cartão salvo: o app mostra Museu e Dicas Trip (padrão).</li>}
+      </ul>
       {msg && <p className={`text-[11px] mt-2 ${msg.tipo === 'ok' ? 'text-emerald-400' : 'text-red-400'}`}>{msg.texto}</p>}
     </div>
   );
