@@ -5,6 +5,15 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { lerMarcaAtiva } from '../../../lib/marcaAtiva';
+import {
+  ESTILOS_MAX_CADASTRO,
+  FORMATOS_CADASTRO,
+  GRUPOS_EVENTO,
+  LEGADO_EVENTO,
+  PUBLICO_FESTA_CADASTRO,
+  TIPOS_EVENTO_CADASTRO,
+  slugTag,
+} from '../../../lib/taxonomia';
 
 // Rodada 36 — pedido direto da Andrea: organizador de evento/festa
 // (aprovado com login automático via /api/aprovar-evento, ver
@@ -42,6 +51,10 @@ type EventoEditavel = {
   data_fim: string | null;
   foto_capa_url: string | null;
   local_id: string | null;
+  // Mesmas tags do cadastro (eventos.tags) — o app filtra por elas.
+  tags: string[] | null;
+  estilos_musicais: string[] | null;
+  publico_tags: string[] | null;
   status: 'pendente' | 'aprovado' | 'rejeitado' | 'cancelado';
 };
 
@@ -92,6 +105,21 @@ function paraDatetimeLocal(iso: string | null): string {
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// Mesmos enums do cadastro (public.estilo_musical / public.publico_tag) pra
+// manter os campos antigos coerentes com as tags.
+const ESTILOS_LEGADO_VALIDOS = new Set(['funk', 'pop_eletronica', 'sertanejo', 'drag_cabare', 'mpb_samba', 'techno_house', 'rock', 'forro']);
+const PUBLICOS_LEGADO_VALIDOS = new Set(['lesbica', 'gay', 'bi', 'trans', 'nao_binario', 'queer', 'ursos', 'daddy', 'leather', 'drag', 'misto_lgbt', 'aliados', 'todos']);
+const SLUGS_TIPO: string[] = TIPOS_EVENTO_CADASTRO.map((t) => t.slug);
+const SLUGS_PUBLICO: string[] = PUBLICO_FESTA_CADASTRO.map((t) => t.slug);
+const ESTILOS_TAGS = (GRUPOS_EVENTO.find((g) => g.id === 'musica')?.tags || []).map((t) => ({ t, s: slugTag(t) }));
+const SLUGS_ESTILO: string[] = ESTILOS_TAGS.map((e) => e.s);
+
+function chipClasse(ativo: boolean) {
+  return `px-3 py-1.5 rounded-full text-xs font-medium border transition ${
+    ativo ? 'bg-[#E1306C] border-[#E1306C] text-white' : 'bg-transparent border-[#232230] text-[#A0A0B2] hover:border-[#E1306C]/50'
+  }`;
 }
 
 function paraISO(datetimeLocal: string): string | null {
@@ -236,8 +264,30 @@ export default function DashboardEventosPage() {
   };
 
   const salvarEvento = async (ev: EventoEditavel) => {
-    setSalvandoId(ev.id);
     setErro('');
+    // Mesmas regras do cadastro: tipo e público obrigatórios; festa/show pedem 1–3 estilos.
+    const tags = ev.tags || [];
+    const tipoEscolhido = TIPOS_EVENTO_CADASTRO.find((t) => tags.includes(t.slug));
+    if (!tipoEscolhido) {
+      setErro('Escolha o tipo de evento (festa, show, drag show, teatro, aula de dança ou encontro).');
+      return;
+    }
+    if (!PUBLICO_FESTA_CADASTRO.some((p) => tags.includes(p.slug))) {
+      setErro('Escolha para quem é a festa: Predominância Lésbica, Predominância Gay ou Todos.');
+      return;
+    }
+    if (tipoEscolhido.musica && !tags.some((t) => SLUGS_ESTILO.includes(t))) {
+      setErro('Escolha de 1 a 3 estilos musicais.');
+      return;
+    }
+    // Tipo sem música: limpa estilos que sobraram de uma escolha anterior.
+    const tagsFinal = tipoEscolhido.musica ? tags : tags.filter((t) => !SLUGS_ESTILO.includes(t));
+    const legado = tagsFinal.flatMap((t) => LEGADO_EVENTO[t] || []);
+    const estilosFinal = Array.from(new Set(legado.filter((v) => ESTILOS_LEGADO_VALIDOS.has(v))));
+    const publicoBase = (ev.publico_tags || []).filter((v) => !['lesbica', 'gay', 'todos'].includes(v));
+    const publicoFinal = Array.from(new Set([...publicoBase, ...legado.filter((v) => PUBLICOS_LEGADO_VALIDOS.has(v) && v !== 'todos')]));
+
+    setSalvandoId(ev.id);
     const { error } = await supabase
       .from('eventos')
       .update({
@@ -246,6 +296,9 @@ export default function DashboardEventosPage() {
         data_inicio: ev.data_inicio,
         data_fim: ev.data_fim,
         foto_capa_url: ev.foto_capa_url,
+        tags: tagsFinal,
+        estilos_musicais: estilosFinal,
+        publico_tags: publicoFinal.length ? publicoFinal : ['todos'],
       })
       .eq('id', ev.id);
     if (error) {
@@ -378,7 +431,7 @@ export default function DashboardEventosPage() {
                 <AlertTriangle size={14} className="text-[#E1A93A] shrink-0 mt-0.5" />
                 <p className="text-[11px] text-[#E1A93A]">
                   Essa festa já está aprovada. Se você mudar o título ou a data, ela volta pra fila
-                  de análise antes de aparecer de novo no app — foto e descrição podem ser trocadas
+                  de análise antes de aparecer de novo no app — foto, descrição, tipo, público, estilo e formato podem ser trocadas
                   sem travar nada.
                 </p>
               </div>
@@ -460,6 +513,77 @@ export default function DashboardEventosPage() {
                 />
               </div>
             </div>
+
+            {/* Tipo, público, estilo e formato — iguais ao cadastro e ao filtro do app.
+                Não mandam a festa de volta pra análise (só título/data/local). */}
+            {(() => {
+              const tags = ev.tags || [];
+              const tipoAtual = TIPOS_EVENTO_CADASTRO.find((t) => tags.includes(t.slug));
+              const qtdEstilos = tags.filter((t) => SLUGS_ESTILO.includes(t)).length;
+              const escolherUnica = (grupo: string[], slug: string) =>
+                atualizarCampo(ev.id, { tags: tags.includes(slug) ? tags.filter((x) => x !== slug) : [...tags.filter((x) => !grupo.includes(x)), slug] });
+              const alternar = (slug: string) =>
+                atualizarCampo(ev.id, { tags: tags.includes(slug) ? tags.filter((x) => x !== slug) : [...tags, slug] });
+              const alternarEstilo = (slug: string) => {
+                if (tags.includes(slug)) return atualizarCampo(ev.id, { tags: tags.filter((x) => x !== slug) });
+                if (qtdEstilos >= ESTILOS_MAX_CADASTRO) return;
+                atualizarCampo(ev.id, { tags: [...tags, slug] });
+              };
+              return (
+                <>
+                  <div>
+                    <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">Tipo de evento *</label>
+                    <div className="flex flex-wrap gap-2">
+                      {TIPOS_EVENTO_CADASTRO.map((t) => (
+                        <button key={t.slug} type="button" onClick={() => escolherUnica(SLUGS_TIPO, t.slug)} className={chipClasse(tags.includes(t.slug))}>
+                          {t.rotulo}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">Para quem é a festa *</label>
+                    <div className="flex flex-wrap gap-2">
+                      {PUBLICO_FESTA_CADASTRO.map((p) => (
+                        <button key={p.slug} type="button" onClick={() => escolherUnica(SLUGS_PUBLICO, p.slug)} className={chipClasse(tags.includes(p.slug))}>
+                          {p.rotulo}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {(!tipoAtual || tipoAtual.musica) && (
+                    <div>
+                      <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">
+                        Estilo musical * <span className="text-[#626274] font-normal normal-case">· até {ESTILOS_MAX_CADASTRO}</span>
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {ESTILOS_TAGS.map(({ t, s }) => (
+                          <button
+                            key={s}
+                            type="button"
+                            disabled={!tags.includes(s) && qtdEstilos >= ESTILOS_MAX_CADASTRO}
+                            onClick={() => alternarEstilo(s)}
+                            className={`${chipClasse(tags.includes(s))} disabled:opacity-40`}
+                          >
+                            {t}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div>
+                    <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">Formato (opcional)</label>
+                    <div className="flex flex-wrap gap-2">
+                      {FORMATOS_CADASTRO.map((f) => (
+                        <button key={f.slug} type="button" onClick={() => alternar(f.slug)} className={chipClasse(tags.includes(f.slug))}>
+                          {f.rotulo}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
 
             <button
               onClick={() => salvarEvento(ev)}
