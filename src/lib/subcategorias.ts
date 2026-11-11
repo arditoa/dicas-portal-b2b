@@ -27,10 +27,10 @@ export const SUBCATEGORIAS: Record<string, SubDef[]> = {
   ],
   // Festas & Eventos
   festas: [
-    // Nov/2026: Festas = "para quem é a festa" (estilo musical e formato ficam no botão Filtrar da aba Eventos).
-    def('Festas Gay', 'Festas\nGay', 'users', ['festa gay', 'festas gay', 'festas gays', 'gay', 'gays', 'para eles', 'baile gay', 'ursos', 'bear']),
-    def('Festas Lésbicas', 'Festas\nLésbicas', 'heart', ['festa lesbica', 'festas lesbicas', 'lesbica', 'lesbicas', 'para elas', 'sapphic', 'sapatao', 'festa de mulheres', 'festas de mulheres']),
-    def('Festas Para Todes', 'Para\nTodes', 'smile', ['para todes', 'todes', 'festas queer', 'festa queer', 'queer', 'publico hetero e queer', 'festa mista', 'festas mistas', 'mista', 'mistas', 'festa lgbt', 'festas lgbt', 'lgbtqia']),
+    // Nov/2026: subcategoria = público destinado (o tipo de evento e o estilo musical ficam nos chips da aba Eventos).
+    def('Predominância Lésbica', 'Predominância\nLésbica', 'heart', ['predominancia lesbica', 'festa lesbica', 'festas lesbicas', 'lesbica', 'lesbicas', 'para elas', 'sapphic', 'sapatao', 'festa de mulheres', 'festas de mulheres']),
+    def('Predominância Gay', 'Predominância\nGay', 'users', ['predominancia gay', 'festa gay', 'festas gay', 'festas gays', 'gay', 'gays', 'para eles', 'baile gay', 'ursos', 'bear']),
+    def('Todos', 'Todos', 'smile', ['para todes', 'todes', 'todos', 'festas queer', 'festa queer', 'queer', 'publico hetero e queer', 'festa mista', 'festas mistas', 'mista', 'mistas', 'lgbtqia']),
   ],
   // Artistas (nov/2026): Banda e Solo pedidos pela Andrea; as demais são sugestão. Todas abertas.
   artistas: [

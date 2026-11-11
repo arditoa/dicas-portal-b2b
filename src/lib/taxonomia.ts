@@ -189,7 +189,7 @@ export const GRUPOS_EVENTO: GrupoTags[] = [
   { id: 'tipo', titulo: 'Tipo de evento', tags: [
     'Festa', 'Balada', 'Parada', 'Bloco', 'Carnaval', 'Festival', 'Show', 'Drag show', 'Teatro', 'Stand-up',
     'Performance', 'Exposição', 'Cinema', 'Feira', 'Congresso', 'Conferência', 'Workshop', 'Networking',
-    'Encontro', 'Gastronomia', 'Pool party', 'Pré-festa', 'After',
+    'Encontro', 'Gastronomia', 'Pool party', 'Pré-festa', 'After', 'Aula de dança',
   ] },
   { id: 'musica', titulo: 'Estilo musical', tags: [
     'Divas do POP', 'Brasilidades', 'Anos 2000/2010', 'Flash Back anos 80/90', 'Hits do Momento', 'Open Format',
