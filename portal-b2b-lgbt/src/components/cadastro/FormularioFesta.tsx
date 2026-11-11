@@ -135,6 +135,15 @@ const inputClass =
   'w-full bg-[#161520] border border-[#232230] rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-purple-500 disabled:opacity-60';
 const labelClass = 'text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2';
 
+// Máscara de CPF (até 11 dígitos) ou CNPJ (12 a 14), igual ao cadastro de local.
+function mascararDocumento(valor: string) {
+  const d = valor.replace(/\D/g, '').slice(0, 14);
+  if (d.length <= 11) {
+    return d.replace(/^(\d{3})(\d)/, '$1.$2').replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3').replace(/^(\d{3})\.(\d{3})\.(\d{3})(\d)/, '$1.$2.$3-$4');
+  }
+  return d.replace(/^(\d{2})(\d)/, '$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3').replace(/\.(\d{3})(\d)/, '.$1/$2').replace(/(\d{4})(\d)/, '$1-$2');
+}
+
 function toggleValue<T>(arr: T[], value: T): T[] {
   return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
 }
@@ -146,11 +155,14 @@ export default function FormularioFesta({
   onSucesso,
   organizador,
   localId,
+  inicial,
 }: {
   onSucesso: (titulo: string, whatsapp: string, listaVip: boolean) => void;
   organizador?: { nome: string; whatsapp: string };
   /** Marca (local) dona do evento, quando o cadastro é feito por dentro do portal. */
   localId?: string;
+  /** Dados já digitados no cadastro de local, quando a pessoa escolheu "Festa avulsa". */
+  inicial?: { nome: string; whatsapp: string; documento: string };
 }) {
   const [titulo, setTitulo] = useState('');
   const [descricao, setDescricao] = useState('');
@@ -163,8 +175,10 @@ export default function FormularioFesta({
   const [publicoTags] = useState<string[]>(['todos']);
   // Rodada 63 — tags oficiais da aba de festas (eventos.tags, migration 036)
   const [tagsEvento, setTagsEvento] = useState<string[]>([]);
-  const [nomeContato, setNomeContato] = useState(organizador?.nome || '');
-  const [whatsapp, setWhatsapp] = useState(organizador?.whatsapp || '');
+  const [nomeContato, setNomeContato] = useState(organizador?.nome || inicial?.nome || '');
+  const [whatsapp, setWhatsapp] = useState(organizador?.whatsapp || inicial?.whatsapp || '');
+  // CPF/CNPJ só para controle da equipe (não aparece no app). Marca com perfil (localId) já tem o documento no cadastro.
+  const [documento, setDocumento] = useState(inicial?.documento || '');
   const [flier, setFlier] = useState<File | null>(null);
   // Rodada 59 (parte 7) — Andrea pediu pra já oferecer a opção de Lista
   // VIP aqui no cadastro público, em vez de só depois no dashboard (ver
@@ -184,6 +198,11 @@ export default function FormularioFesta({
     }
     if (!classificacaoLgbt) {
       setErrorMsg('Escolha a relação do evento com a comunidade LGBT+.');
+      return;
+    }
+    const docDigitos = documento.replace(/\D/g, '');
+    if (!localId && docDigitos.length !== 11 && docDigitos.length !== 14) {
+      setErrorMsg('Informe o CPF (11 números) ou o CNPJ (14 números) do organizador.');
       return;
     }
 
@@ -258,6 +277,12 @@ export default function FormularioFesta({
       }
 
       if (error) throw error;
+
+      // CPF/CNPJ só para controle (tabela privada, só o admin lê). Não trava o cadastro se falhar.
+      if (!localId && docDigitos) {
+        const { error: erroDoc } = await supabase.rpc('cadastro_evento_definir_documento', { p_id: novoId, p_documento: docDigitos });
+        if (erroDoc) console.warn('Evento criado, mas o documento do organizador não foi salvo:', erroDoc.message);
+      }
 
       // Flier é opcional e nunca deve travar o cadastro — se o upload
       // falhar, o evento já foi criado normalmente e o flier pode ser
@@ -504,6 +529,26 @@ export default function FormularioFesta({
               </>
             )}
           </div>
+
+          {!localId && (
+            <div className="bg-[#12121A] border border-[#232230] rounded-2xl p-6 space-y-2">
+              <h2 className="text-sm font-bold text-white">CPF ou CNPJ do organizador</h2>
+              <input
+                type="text"
+                required
+                inputMode="numeric"
+                value={mascararDocumento(documento)}
+                onChange={(e) => setDocumento(e.target.value.replace(/\D/g, '').slice(0, 14))}
+                placeholder="CPF (11 números) ou CNPJ (14 números)"
+                className={inputClass}
+                disabled={loading}
+              />
+              <p className="text-xs text-[#626274]">
+                Só para controle da nossa equipe: não aparece no app nem para o público. O evento entra na agenda depois da
+                análise.
+              </p>
+            </div>
+          )}
 
           <div className="bg-[#12121A] border border-[#232230] rounded-2xl p-6">
             <label className="flex items-start gap-3 cursor-pointer">

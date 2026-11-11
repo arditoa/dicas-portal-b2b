@@ -6,12 +6,12 @@
 // Festas" (tipo de festa, estilo, público, Lista VIP). /cadastro/local,
 // /cadastro/evento e /cadastro/rapido redirecionam para cá. O card de
 // "Parceiro Institucional" (sem espaço físico, atendimento direto) fica abaixo.
-import { Building2, Calendar, CheckCircle2, Home as HomeIcon } from 'lucide-react';
+import { Building2, CheckCircle2 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import FormularioFesta from '../../components/cadastro/FormularioFesta';
-import FormularioLocal from '../../components/cadastro/FormularioLocal';
+import FormularioLocal, { type DadosFestaAvulsa } from '../../components/cadastro/FormularioLocal';
 import FundoAnimado from '../../components/FundoAnimado';
 
 export default function OnboardingPage() {
@@ -20,6 +20,7 @@ export default function OnboardingPage() {
   const [whatsappEnviado, setWhatsappEnviado] = useState('');
   const [nomeEnviado, setNomeEnviado] = useState('');
   const [listaVipPedida, setListaVipPedida] = useState(false);
+  const [dadosAvulsa, setDadosAvulsa] = useState<DadosFestaAvulsa | undefined>(undefined);
 
   // /cadastro/evento redireciona para cá com ?aba=evento.
   useEffect(() => {
@@ -52,7 +53,7 @@ export default function OnboardingPage() {
           </h1>
           {!sucesso && (
             <p className="text-gray-400 text-base">
-              Escolha o tipo de conta e preencha o cadastro abaixo. Mesmo as categorias que ainda estão “em breve” já podem se cadastrar.
+              Preencha o cadastro abaixo. Mesmo as categorias que ainda estão “em breve” já podem se cadastrar.
             </p>
           )}
         </div>
@@ -76,42 +77,28 @@ export default function OnboardingPage() {
           </div>
         ) : (
           <>
-            {/* Abas */}
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setAba('local')}
-                className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold border transition ${
-                  aba === 'local'
-                    ? 'bg-pink-600 border-pink-600 text-white'
-                    : 'bg-[#1A1B23] border-[#2A2C38] text-gray-300 hover:border-pink-500/50'
-                }`}
-              >
-                <HomeIcon className="w-4 h-4" /> Local / Comércio
-              </button>
-              <button
-                type="button"
-                onClick={() => setAba('evento')}
-                className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold border transition ${
-                  aba === 'evento'
-                    ? 'bg-purple-600 border-purple-600 text-white'
-                    : 'bg-[#1A1B23] border-[#2A2C38] text-gray-300 hover:border-purple-500/50'
-                }`}
-              >
-                <Calendar className="w-4 h-4" /> Eventos e Festas
-              </button>
-            </div>
-
-            <p className="text-gray-500 text-xs -mt-2">
-              {aba === 'local'
-                ? 'Bares, restaurantes, hotéis e outros espaços físicos. Aparece no mapa, nas categorias e pode ganhar destaque.'
-                : 'Festas, shows e eventos avulsos, com data marcada. Divulgação pontual, com opção de venda de ingresso. Tem uma casa ou espaço fixo? Cadastre em Local / Comércio.'}
-            </p>
+            {aba === 'local' ? (
+              <p className="text-gray-500 text-xs -mt-2">
+                Bares, restaurantes, hotéis, espaços, produtoras e festas. Aparece no mapa, nas categorias e pode ganhar destaque.
+                Vai divulgar só uma festa com data marcada? Escolha a categoria <b className="text-gray-300">Festas &amp; Eventos</b> e a
+                subcategoria <b className="text-gray-300">Festa avulsa</b>.
+              </p>
+            ) : (
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-3">
+                <p className="text-sm text-purple-200">
+                  <b>Festa avulsa</b>: divulgação de uma festa com data marcada, com opção de venda de ingresso.
+                </p>
+                <button type="button" onClick={() => setAba('local')} className="shrink-0 text-xs font-bold text-purple-200 underline hover:text-white">
+                  ← Voltar ao cadastro de local
+                </button>
+              </div>
+            )}
 
             <div>
               {aba === 'local' ? (
                 <FormularioLocal
                   key="local"
+                  onFestaAvulsa={(dados) => { setDadosAvulsa(dados); setAba('evento'); }}
                   onSucesso={(nome, whatsapp) => {
                     setNomeEnviado(nome);
                     setWhatsappEnviado(whatsapp);
@@ -122,6 +109,7 @@ export default function OnboardingPage() {
               ) : (
                 <FormularioFesta
                   key="evento"
+                  inicial={dadosAvulsa}
                   onSucesso={(titulo, whatsapp, listaVip) => {
                     setNomeEnviado(titulo);
                     setWhatsappEnviado(whatsapp);

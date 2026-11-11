@@ -637,6 +637,7 @@ export default function AdminPage() {
 
   const [locaisPendentes, setLocaisPendentes] = useState<LocalPendente[]>([]);
   const [eventosPendentes, setEventosPendentes] = useState<EventoPendente[]>([]);
+  const [docsEventos, setDocsEventos] = useState<Record<string, string>>({});
   const [aprovadosSemConta, setAprovadosSemConta] = useState<AprovadoSemConta[]>([]);
   const [locaisDestaque, setLocaisDestaque] = useState<LocalDestaque[]>([]);
   // Locais liberados para subir pacotes (locais.pode_subir_pacotes, migration 052).
@@ -807,6 +808,16 @@ export default function AdminPage() {
 
     setLocaisPendentes((locaisData as LocalPendente[]) || []);
     setEventosPendentes((eventosData as EventoPendente[]) || []);
+    {
+      // CPF/CNPJ do organizador (só controle; tabela privada que só o admin lê). Se a migração 087 ainda não rodou, ignora.
+      const idsEv = ((eventosData as EventoPendente[]) || []).map((e) => e.id);
+      if (idsEv.length > 0) {
+        const { data: docs } = await supabase.from('eventos_documentos').select('evento_id, documento').in('evento_id', idsEv);
+        setDocsEventos(Object.fromEntries(((docs as { evento_id: string; documento: string }[]) || []).map((d) => [d.evento_id, d.documento])));
+      } else {
+        setDocsEventos({});
+      }
+    }
     setAprovadosSemConta((aprovadosSemContaData as AprovadoSemConta[]) || []);
     setVinculosPendentes((vinculosData as unknown as VinculoPendente[]) || []);
     setLeads((leadsData as LeadInstitucional[]) || []);
@@ -2028,6 +2039,13 @@ Dicas LGBT+`;
                 </p>
                 {ev.descricao && (
                   <p className="text-xs text-[#626274] mt-1 whitespace-pre-line">{ev.descricao}</p>
+                )}
+                {docsEventos[ev.id] ? (
+                  <p className="text-xs text-[#A0A0B2] mt-1">
+                    {docsEventos[ev.id].length === 11 ? 'CPF' : 'CNPJ'} do organizador (controle): <b className="text-white">{docsEventos[ev.id]}</b>
+                  </p>
+                ) : (
+                  <p className="text-xs text-amber-400 mt-1">Sem CPF/CNPJ informado.</p>
                 )}
                 <p className={`text-xs mt-1 ${corDias(diasDesde(ev.created_at))}`}>
                   Esperando {textoDias(diasDesde(ev.created_at))}

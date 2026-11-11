@@ -129,7 +129,7 @@ async function enviarFotoCapaLocal(localId: string, arquivo: File): Promise<stri
 // "Em breve".
 const CATEGORIAS = [
   { value: 'lugares', label: 'Bares', disabled: false, emBreve: false },
-  { value: 'eventos', label: 'Festas — casa noturna, balada ou produtora (marca fixa)', disabled: false, emBreve: false }, // casa/produtora de festas — categoria própria com subcategorias (a data de cada festa continua em /cadastro/evento)
+  { value: 'eventos', label: 'Festas & Eventos (casa noturna, produtora ou festa avulsa)', disabled: false, emBreve: false }, // casa/produtora de festas — categoria própria com subcategorias (a data de cada festa continua em /cadastro/evento)
   { value: 'gastronomia', label: 'Gastronomia', disabled: false, emBreve: false },
   { value: 'cultura', label: 'Cultura', disabled: false, emBreve: false },
   { value: 'turismo', label: 'Turismo / Agências de turismo', disabled: false, emBreve: false },
@@ -216,7 +216,16 @@ function formatCep(digits: string) {
   return d.replace(/^(\d{5})(\d)/, '$1-$2');
 }
 
-export default function FormularioLocal({ onSucesso }: { onSucesso: (nome: string, whatsapp: string) => void }) {
+export type DadosFestaAvulsa = { nome: string; whatsapp: string; documento: string };
+
+export default function FormularioLocal({
+  onSucesso,
+  onFestaAvulsa,
+}: {
+  onSucesso: (nome: string, whatsapp: string) => void;
+  /** Chamado quando a pessoa escolhe a subcategoria "Festa avulsa": a tela troca para o cadastro de evento. */
+  onFestaAvulsa?: (dados: DadosFestaAvulsa) => void;
+}) {
   const [documento, setDocumento] = useState('');
   const [buscandoCnpj, setBuscandoCnpj] = useState(false);
   const [cnpjEncontrado, setCnpjEncontrado] = useState(false);
@@ -599,10 +608,9 @@ export default function FormularioLocal({ onSucesso }: { onSucesso: (nome: strin
               </select>
               {categoria === 'eventos' && (
                 <p className="mt-2 rounded-lg border border-[#E1306C]/30 bg-[#E1306C]/10 px-3 py-2 text-[11px] leading-relaxed text-[#F9A8C9]">
-                  Esta categoria é para quem tem uma <b>marca ou casa de festas fixa</b> (balada, casa noturna, produtora),
-                  com perfil próprio no app. Vai divulgar <b>uma festa com data marcada</b>? Use a aba{' '}
-                  <Link href="/onboarding?aba=evento" className="underline">Eventos e Festas</Link>. Depois de aprovado, você
-                  cadastra as próximas datas direto no portal.
+                  <b>Casa noturna, balada ou produtora</b> (marca com perfil próprio): escolha o estilo abaixo e siga com o
+                  cadastro de empresa; depois de aprovada, você cadastra as datas direto no portal. <b>Uma festa isolada, com
+                  data marcada?</b> Escolha <b>Festa avulsa</b> na subcategoria.
                 </p>
               )}
               {CATEGORIAS.find((c) => c.value === categoria)?.emBreve && (
@@ -650,9 +658,21 @@ export default function FormularioLocal({ onSucesso }: { onSucesso: (nome: strin
             {(!categoria || SUBCATEGORIAS_APP[categoria]) && (
               <div>
                 <label className={labelClass}>Subcategoria</label>
-                <select value={subcategoria} onChange={(e) => setSubcategoria(e.target.value)} className={inputClass} disabled={loading || !categoria}>
+                <select
+                  value={subcategoria}
+                  onChange={(e) => {
+                    if (e.target.value === '__festa_avulsa__' && onFestaAvulsa) {
+                      onFestaAvulsa({ nome: nomeResponsavel, whatsapp, documento });
+                      return;
+                    }
+                    setSubcategoria(e.target.value);
+                  }}
+                  className={inputClass}
+                  disabled={loading || !categoria}
+                >
                   <option value="">{categoria ? 'Escolha a que mais combina com você' : 'Escolha a categoria primeiro'}</option>
                   {(SUBCATEGORIAS_APP[categoria]?.itens ?? []).map((i) => <option key={i.chave} value={i.rotulo}>{i.rotulo}</option>)}
+                  {categoria === 'eventos' && onFestaAvulsa && <option value="__festa_avulsa__">Festa avulsa (uma festa com data marcada)</option>}
                   {categoria && <option value="__outros__">Outros (não está na lista)</option>}
                 </select>
                 {subcategoria === '__outros__' && (
