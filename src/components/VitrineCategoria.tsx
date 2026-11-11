@@ -336,18 +336,20 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
       }
       const com = comunicacao[l.id];
       const lugar = l.bairro_exibicao || l.bairro;
-      const chamada = com?.headline || com?.oferta || `Conheça ${l.subcategoria ? `um(a) ${String(l.subcategoria).toLowerCase()}` : 'um lugar especial'}${lugar ? ` em ${lugar}` : ''}`;
+      // Rodada 141 — versão do banner só desta página (ex.: 'cat:bares'), quando o parceiro escolheu uma diferente.
+      const vari = com?.variantes?.[`cat:${slug}`];
+      const chamada = vari?.chamada || com?.headline || com?.oferta || `Conheça ${l.subcategoria ? `um(a) ${String(l.subcategoria).toLowerCase()}` : 'um lugar especial'}${lugar ? ` em ${lugar}` : ''}`;
       return {
         id: `dest-${l.id}`,
         chave: `dest-${l.id}`,
         // Rodada 137 — nas categorias, o banner não mostra a subcategoria (cortava e não ajudava); só em Destaques aparece o nome.
         tag: fundadores ? formatarNome(l.nome).toUpperCase() : '',
         titulo: chamada,
-        cta: com?.cta || 'Conhecer',
+        cta: vari?.cta || com?.cta || 'Conhecer',
         // Rodada 140 — estilo escolhido no portal: degradê, foto (direita/esquerda/fundo), cor dos dizeres e palavra de impacto.
-        ...estiloDoCartao(com, cor),
+        ...estiloDoCartao(vari?.chamada ? vari : com, cor),
         icone: fundadores ? 'star' : 'map-pin',
-        cor: estiloDoCartao(com, cor).degrade[0],
+        cor: estiloDoCartao(vari?.chamada ? vari : com, cor).degrade[0],
         onPress: () => {
           registrarVitrine(l.id, `destaques:${slug}`, 'clique');
           if (com?.destino) abrirDestino(router, com.destino);

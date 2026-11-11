@@ -241,12 +241,12 @@ export default function PainelBanners({ onIrPara }: { onIrPara?: (aba: string) =
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-bold text-[#A0A0B2]">Peso no revezamento (1 a 10)</label>
+              <label className="text-xs font-bold text-[#A0A0B2]">Chance de abrir primeiro (1 a 10)</label>
               <input type="number" min={1} max={10} className={`${campo} mt-1.5`} value={e.peso} onChange={(x) => set({ peso: Math.min(10, Math.max(1, Number(x.target.value) || 1)) })} />
-              <p className="text-[11px] text-[#626274] mt-1">Maior peso = abre na frente com mais frequência.</p>
+              <p className="text-[11px] text-[#626274] mt-1">Todos aparecem; a chance só muda quem vem primeiro. Chance 2 abre na frente o dobro de vezes que chance 1.</p>
             </div>
             <div>
-              <label className="text-xs font-bold text-[#A0A0B2]">Peso extra no período (opcional)</label>
+              <label className="text-xs font-bold text-[#A0A0B2]">Chance maior num período (opcional)</label>
               <input type="number" min={1} max={10} className={`${campo} mt-1.5`} value={e.peso_periodo ?? ''} onChange={(x) => set({ peso_periodo: x.target.value ? Math.min(10, Math.max(1, Number(x.target.value))) : null })} />
               <div className="grid grid-cols-2 gap-2 mt-2">
                 <input type="date" className={campo} value={e.periodo_inicio || ''} onChange={(x) => set({ periodo_inicio: x.target.value || null })} />
@@ -337,7 +337,7 @@ export default function PainelBanners({ onIrPara }: { onIrPara?: (aba: string) =
       </div>
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <p className="text-xs text-[#A0A0B2] max-w-xl">
-          Banners de parceiros e campanhas: giram sozinhos (no máximo 4 por vez em cada tela). A ordem é sorteada com o peso: quem tem peso maior abre na frente com mais frequência.
+          Na Home, estes cartões ficam no <b>2º carrossel</b> (logo abaixo do carrossel dos Fundadores, Museu e &quot;Viaje pelo Brasil&quot;). Até 4 por tela; a ordem é sorteada a cada abertura pela <b>chance</b>: chance 2 abre na frente o dobro de vezes que chance 1. Veja tudo em ordem em Vitrine do app &gt; Mapa do app.
         </p>
         <button type="button" onClick={() => { setMsg(null); setEditando({ ...VAZIO }); }} className="bg-[#E1306C] hover:bg-[#c42760] font-bold text-sm px-4 py-2.5 rounded-xl flex items-center gap-2">
           <Plus size={16} /> Novo banner
@@ -362,7 +362,7 @@ export default function PainelBanners({ onIrPara }: { onIrPara?: (aba: string) =
                 <p className="text-[11px] font-bold text-[#B39DDB] mt-1.5 truncate">{b.tag}</p>
                 <p className="text-sm font-bold leading-snug">{b.titulo}</p>
                 <p className="text-[11px] text-[#A0A0B2] mt-1.5">
-                  Peso {b.peso}{b.peso_periodo ? ` (${b.peso_periodo} de ${b.periodo_inicio?.split('-').reverse().join('/')} a ${b.periodo_fim?.split('-').reverse().join('/')})` : ''}
+                  Chance {b.peso}{b.peso_periodo ? ` (${b.peso_periodo} de ${b.periodo_inicio?.split('-').reverse().join('/')} a ${b.periodo_fim?.split('-').reverse().join('/')})` : ''}
                   {b.fim ? ` · até ${new Date(b.fim).toLocaleDateString('pt-BR')}` : ''}
                 </p>
               </div>

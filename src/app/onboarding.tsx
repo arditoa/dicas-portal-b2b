@@ -17,44 +17,47 @@ import { IDIOMAS, Idioma, useI18n } from '../lib/i18n';
 export const CHAVE_ONBOARDING = 'dicas_onboarding_v1';
 
 type Slide = { tag: string; titulo: string; itens: string[]; icones: string[] };
-type Textos = { missaoRot: string; missao: string; objetivoRot: string; objetivo: string; proximo: string; comecar: string; voltar: string; slides: Slide[] };
+type Textos = { encontreRot: string; missaoRot: string; missao: string; objetivoRot: string; objetivo: string; proximo: string; comecar: string; voltar: string; slides: Slide[] };
 
 const TEXTOS: Record<Idioma, Textos> = {
   pt: {
+    encontreRot: 'No app você encontra',
     missaoRot: 'Nossa missão',
     missao: 'Tornar a vida LGBTQIA+ mais livre, segura e conectada.',
     objetivoRot: 'Nosso objetivo',
-    objetivo: 'Reunir lugares, eventos e destinos que acolhem de verdade e fortalecer quem apoia a causa.',
+    objetivo: 'Ser o guia da comunidade: num só app, os lugares, festas, viagens, serviços e marcas que acolhem de verdade — e dar visibilidade a quem apoia a causa.',
     proximo: 'Próximo', comecar: 'Começar', voltar: 'Voltar',
     slides: [
-      { tag: 'Bem-vinde', titulo: 'Olá! Que bom ter você aqui', itens: [], icones: ['Bares', 'Gastronomia', 'Festas', 'Cultura', 'Trip', 'Serviços'] },
-      { tag: 'Descubra', titulo: 'Tudo o que rola perto de você', itens: ['Bares, festas, gastronomia e cultura que acolhem', 'O que fazer hoje e os recomendados pela equipe', 'Mapa, agenda e busca num só lugar'], icones: ['Bares', 'Gastronomia', 'Festas', 'Cultura', 'Mapa'] },
+      { tag: 'Bem-vinde', titulo: 'Olá! Que bom ter você aqui', itens: [], icones: ['Bares', 'Gastronomia', 'Festas', 'Artistas', 'Cultura', 'Trip', 'Beleza', 'Moda', 'Lojas', 'Serviços', 'Saúde', 'Lazer', 'Educação', 'Comunidade', '18+'] },
+      { tag: 'Descubra', titulo: 'Tudo o que rola perto de você', itens: ['Bares, festas, gastronomia, cultura e artistas que acolhem', 'Beleza, moda, lojas, saúde e serviços de quem apoia a causa', 'O que fazer hoje, agenda, mapa e cupons num só lugar'], icones: ['Bares', 'Gastronomia', 'Festas', 'Cultura', 'Mapa'] },
       { tag: 'Viaje', titulo: 'Viaje com segurança', itens: ['Destinos, roteiros e pacotes para a comunidade', 'Hospedagem acolhedora e passeios', 'Guia Brasil 2027 em PT, EN e ES'], icones: ['Hospedagem', 'Passeios', 'Roteiros', 'Agências', 'Eventos'] },
       { tag: 'Você no controle', titulo: 'Sua segurança em primeiro lugar', itens: ['Denuncie e bloqueie com um toque', 'Nome social, foto e status são opcionais', 'Exclusivo para maiores de 18 anos'], icones: ['Denunciar', 'Bloquear', 'Nome social', 'Privacidade', '18+'] },
     ],
   },
   en: {
+    encontreRot: 'In the app you’ll find',
     missaoRot: 'Our mission',
     missao: 'To make LGBTQIA+ life freer, safer and more connected.',
     objetivoRot: 'Our goal',
-    objetivo: 'To bring together places, events and destinations that truly welcome us, and to strengthen those who support the cause.',
+    objetivo: 'To be the community’s guide: in one app, the places, parties, trips, services and brands that truly welcome us — giving visibility to those who support the cause.',
     proximo: 'Next', comecar: 'Get started', voltar: 'Back',
     slides: [
-      { tag: 'Welcome', titulo: 'Hi! Glad to have you here', itens: [], icones: ['Bars', 'Food', 'Parties', 'Culture', 'Trip', 'Services'] },
-      { tag: 'Discover', titulo: 'Everything happening near you', itens: ['Welcoming bars, parties, food and culture', 'What to do today and the team’s picks', 'Map, agenda and search in one place'], icones: ['Bars', 'Food', 'Parties', 'Culture', 'Map'] },
+      { tag: 'Welcome', titulo: 'Hi! Glad to have you here', itens: [], icones: ['Bars', 'Food', 'Parties', 'Artists', 'Culture', 'Trip', 'Beauty', 'Fashion', 'Shops', 'Services', 'Health', 'Leisure', 'Education', 'Community', '18+'] },
+      { tag: 'Discover', titulo: 'Everything happening near you', itens: ['Welcoming bars, parties, food, culture and artists', 'Beauty, fashion, shops, health and services from allies', 'What to do today, agenda, map and coupons in one place'], icones: ['Bars', 'Food', 'Parties', 'Culture', 'Map'] },
       { tag: 'Travel', titulo: 'Travel safely', itens: ['Destinations, itineraries and packages for the community', 'Welcoming stays and tours', 'Brazil 2027 guide in PT, EN and ES'], icones: ['Stays', 'Tours', 'Itineraries', 'Agencies', 'Events'] },
       { tag: 'You are in control', titulo: 'Your safety comes first', itens: ['Report and block with one tap', 'Chosen name, photo and status are optional', 'Only for people aged 18 or over'], icones: ['Report', 'Block', 'Chosen name', 'Privacy', '18+'] },
     ],
   },
   es: {
+    encontreRot: 'En la app encuentras',
     missaoRot: 'Nuestra misión',
     missao: 'Hacer la vida LGBTQIA+ más libre, segura y conectada.',
     objetivoRot: 'Nuestro objetivo',
-    objetivo: 'Reunir lugares, eventos y destinos que acogen de verdad y fortalecer a quienes apoyan la causa.',
+    objetivo: 'Ser la guía de la comunidad: en una sola app, los lugares, fiestas, viajes, servicios y marcas que acogen de verdad — y dar visibilidad a quienes apoyan la causa.',
     proximo: 'Siguiente', comecar: 'Empezar', voltar: 'Volver',
     slides: [
-      { tag: 'Bienvenide', titulo: '¡Hola! Qué bueno tenerte aquí', itens: [], icones: ['Bares', 'Gastronomía', 'Fiestas', 'Cultura', 'Trip', 'Servicios'] },
-      { tag: 'Descubre', titulo: 'Todo lo que pasa cerca de ti', itens: ['Bares, fiestas, gastronomía y cultura que acogen', 'Qué hacer hoy y las recomendaciones del equipo', 'Mapa, agenda y búsqueda en un solo lugar'], icones: ['Bares', 'Gastronomía', 'Fiestas', 'Cultura', 'Mapa'] },
+      { tag: 'Bienvenide', titulo: '¡Hola! Qué bueno tenerte aquí', itens: [], icones: ['Bares', 'Gastronomía', 'Fiestas', 'Artistas', 'Cultura', 'Trip', 'Belleza', 'Moda', 'Tiendas', 'Servicios', 'Salud', 'Ocio', 'Educación', 'Comunidad', '18+'] },
+      { tag: 'Descubre', titulo: 'Todo lo que pasa cerca de ti', itens: ['Bares, fiestas, gastronomía, cultura y artistas que acogen', 'Belleza, moda, tiendas, salud y servicios de quienes apoyan', 'Qué hacer hoy, agenda, mapa y cupones en un solo lugar'], icones: ['Bares', 'Gastronomía', 'Fiestas', 'Cultura', 'Mapa'] },
       { tag: 'Viaja', titulo: 'Viaja con seguridad', itens: ['Destinos, itinerarios y paquetes para la comunidad', 'Alojamiento acogedor y paseos', 'Guía Brasil 2027 en PT, EN y ES'], icones: ['Alojamiento', 'Paseos', 'Rutas', 'Agencias', 'Eventos'] },
       { tag: 'Tú tienes el control', titulo: 'Tu seguridad primero', itens: ['Denuncia y bloquea con un toque', 'Nombre social, foto y estado son opcionales', 'Solo para mayores de 18 años'], icones: ['Denunciar', 'Bloquear', 'Nombre social', 'Privacidad', '18+'] },
     ],
@@ -64,7 +67,7 @@ const TEXTOS: Record<Idioma, Textos> = {
 // Foto, cor de destaque e ícones de cada tela. As fotos ficam em src/assets/images/onboarding.
 const META: { foto: any; cor: string; itens: string[] }[] = [
   { foto: require('../assets/images/onboarding/ob-1-boas-vindas.jpg'), cor: '#E1306C', itens: [] },
-  { foto: require('../assets/images/onboarding/ob-2-descubra.jpg'), cor: '#E879F9', itens: ['moon', 'zap', 'map'] },
+  { foto: require('../assets/images/onboarding/ob-2-descubra.jpg'), cor: '#E879F9', itens: ['moon', 'shopping-bag', 'map'] },
   { foto: require('../assets/images/onboarding/ob-3-viaje.jpg'), cor: '#38BDF8', itens: ['map-pin', 'home', 'info'] },
   // Segurança: verde (cor de "espaço seguro").
   { foto: require('../assets/images/onboarding/ob-4-seguranca.jpg'), cor: '#34D399', itens: ['flag', 'user', 'lock'] },
@@ -149,10 +152,13 @@ export default function Onboarding() {
             </View>
 
             <View style={[styles.conteudo, { paddingTop: Math.round(alturaFoto * 0.58) }]}>
-              <View style={[styles.pilula, { borderColor: META[n].cor }]}>
-                <View style={[styles.pilulaPonto, { backgroundColor: META[n].cor }]} />
-                <Text style={styles.pilulaTxt}>{s.tag}</Text>
-              </View>
+              {/* Rodada 141 — sem a etiqueta "Bem-vinde" na 1ª tela (pedido da Andrea); as demais mantêm. */}
+              {n > 0 && (
+                <View style={[styles.pilula, { borderColor: META[n].cor }]}>
+                  <View style={[styles.pilulaPonto, { backgroundColor: META[n].cor }]} />
+                  <Text style={styles.pilulaTxt}>{s.tag}</Text>
+                </View>
+              )}
               <Text style={styles.titulo}>{s.titulo}</Text>
 
               {n === 0 ? (
@@ -162,6 +168,14 @@ export default function Onboarding() {
                   <View style={styles.divisor} />
                   <Text style={[styles.rotulo, { color: META[0].cor }]}>{tx.objetivoRot}</Text>
                   <Text style={styles.corpo}>{tx.objetivo}</Text>
+                  {/* Rodada 142 — todas as categorias do app, para a missão falar mais do app. */}
+                  <View style={styles.divisor} />
+                  <Text style={[styles.rotulo, { color: META[0].cor }]}>{tx.encontreRot}</Text>
+                  <View style={styles.catChips}>
+                    {s.icones.map((c) => (
+                      <View key={c} style={styles.catChip}><Text style={styles.catChipTxt}>{c}</Text></View>
+                    ))}
+                  </View>
                 </View>
               ) : (
                 s.itens.map((txt, k) => (
@@ -209,12 +223,15 @@ const styles = StyleSheet.create({
   pilula: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(11,11,14,0.72)', borderWidth: 1, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6, marginBottom: 10 },
   pilulaPonto: { width: 7, height: 7, borderRadius: 4 },
   pilulaTxt: { color: '#FFFFFF', fontSize: 12, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' },
-  titulo: { color: '#FFFFFF', fontSize: 30, fontWeight: '900', lineHeight: 36, marginBottom: 14, textShadowColor: 'rgba(0,0,0,0.55)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 8 },
+  titulo: { color: '#FFFFFF', fontSize: 26, fontWeight: '800', lineHeight: 32, letterSpacing: -0.3, marginBottom: 14, textShadowColor: 'rgba(0,0,0,0.55)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 8 },
   cartao: { backgroundColor: 'rgba(26,26,34,0.88)', borderRadius: 18, borderWidth: 1, borderColor: '#2E2E3D', padding: 16 },
   rotulo: { fontSize: 11, fontWeight: '900', letterSpacing: 0.9, textTransform: 'uppercase', marginBottom: 4 },
   missao: { color: '#FFFFFF', fontSize: 17, lineHeight: 23, fontWeight: '800' },
   divisor: { height: 1, backgroundColor: '#2E2E3D', marginVertical: 12 },
   corpo: { color: '#E4E1F0', fontSize: 14, lineHeight: 20, fontWeight: '600' },
+  catChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
+  catChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: '#0B0B0E', borderWidth: 1, borderColor: '#2E2E3D' },
+  catChipTxt: { color: '#E4E1F0', fontSize: 12, fontWeight: '600' },
   item: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(26,26,34,0.88)', borderRadius: 16, borderWidth: 1, borderColor: '#2E2E3D', padding: 12, marginBottom: 10 },
   itemCirculo: { width: 40, height: 40, borderRadius: 20, backgroundColor: FUNDO, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   itemTxt: { flex: 1, color: '#E4E1F0', fontSize: 15, lineHeight: 21, fontWeight: '600' },

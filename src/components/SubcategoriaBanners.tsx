@@ -83,7 +83,15 @@ export default function SubcategoriaBanners({ grupos, onAbrir, defs, selecionada
         onContentSizeChange={(w) => setRol((a) => ({ ...a, conteudo: w }))}
         onLayout={(e) => setRol((a) => ({ ...a, visivel: e.nativeEvent.layout.width }))}
       >
-        {grupos.map((g) => {
+        {/* Rodada 142 — sempre as abertas primeiro e as "em breve" depois (em todas as categorias). */}
+        {[...grupos]
+          .map((g, i) => {
+            const d = defs?.find((x) => x.chave === g.chave);
+            const fica = estado?.breve.has(g.chave) ? true : estado?.ativas.has(g.chave) ? false : !!d?.breve || g.qtd === 0;
+            return { g, i, fica };
+          })
+          .sort((x, y) => Number(x.fica) - Number(y.fica) || x.i - y.i)
+          .map(({ g }) => {
           const def = defs?.find((d) => d.chave === g.chave);
           const icone = def?.icone || 'more-horizontal';
           const nomeCurto = def?.curto || g.rotulo;

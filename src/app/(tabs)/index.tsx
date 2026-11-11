@@ -556,12 +556,13 @@ export default function HomeScreen() {
         id: `fund-${d.id}`,
         chave: `fund-${d.id}`,
         tag: formatarNome(d.nome).toUpperCase(),
-        titulo: com?.headline || com?.oferta || `Conheça ${formatarNome(d.nome)}`,
-        cta: com?.cta || 'Conhecer',
+        // Rodada 141 — banner próprio da Home quando o Fundador escolheu um diferente do da categoria.
+        titulo: com?.variantes?.home?.chamada || com?.headline || com?.oferta || `Conheça ${formatarNome(d.nome)}`,
+        cta: com?.variantes?.home?.cta || com?.cta || 'Conhecer',
         // Rodada 140 — estilo escolhido no portal: degradê, foto (direita/esquerda/fundo), cor dos dizeres e palavra de impacto.
-        ...estiloDoCartao(com, ['#B45309', '#9D174D'] as [string, string]),
+        ...estiloDoCartao(com?.variantes?.home?.chamada ? com.variantes!.home : com, ['#B45309', '#9D174D'] as [string, string]),
         icone: 'star',
-        cor: estiloDoCartao(com, ['#B45309', '#9D174D'] as [string, string]).degrade[0],
+        cor: estiloDoCartao(com?.variantes?.home?.chamada ? com.variantes!.home : com, ['#B45309', '#9D174D'] as [string, string]).degrade[0],
         onPress: () => {
           registrarVitrine(d.id, 'home:destaques', 'clique');
           router.push(`/business/${d.id}` as any);

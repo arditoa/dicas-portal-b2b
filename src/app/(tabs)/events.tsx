@@ -22,6 +22,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -231,6 +232,18 @@ function formatarDataEvento(dataInicioISO: string, tag: DateTag): string {
   if (tag === 'hoje') return `Hoje • ${hora}`;
   if (tag === 'amanha') return `Amanhã • ${hora}`;
   return `${DIAS_SEMANA[data.getDay()]} • ${hora}`;
+}
+
+// Rodada 142 — agenda compacta: hora grande à esquerda, dia embaixo.
+function horaCurta(iso: string): string {
+  const d = new Date(iso);
+  return d.getMinutes() ? `${d.getHours()}h${pad2(d.getMinutes())}` : `${d.getHours()}h`;
+}
+function diaCurto(iso: string, tag: DateTag): string {
+  if (tag === 'hoje') return 'hoje';
+  if (tag === 'amanha') return 'amanhã';
+  const d = new Date(iso);
+  return `${DIAS_SEMANA[d.getDay()].slice(0, 3).toLowerCase()} ${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}`;
 }
 
 export default function EventsScreen() {
@@ -479,6 +492,7 @@ export default function EventsScreen() {
     [events, subDesligadas]
   );
 
+
   // Botão único "Filtrar": estilo musical, formato (open bar, sunset...) e bairro. Só aparecem opções que têm evento carregado.
   const [showFiltrar, setShowFiltrar] = useState(false);
   const opcoesFiltrar = useMemo(() => {
@@ -616,75 +630,41 @@ export default function EventsScreen() {
     }
   };
 
-  const renderEventCard = (item: EventItem) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.eventCard}
-                // Rodada 66 — o card abre a página da festa (flier, horário,
-                // local, descrição, tags e a Lista VIP lá dentro).
-                onPress={() => router.push(`/evento/${item.id}` as any)}
-                activeOpacity={0.85}
-              >
-                <View style={styles.eventThumb}>
-                  {item.foto_capa_url ? (
-                    <Image source={{ uri: item.foto_capa_url }} style={styles.eventThumbImg} />
-                  ) : (
-                    <Feather name="calendar" size={20} color={COLORS.pink} />
-                  )}
-                </View>
-
-                <View style={{ flex: 1 }}>
-                  <View style={styles.eventHeaderRow}>
-                    <Text style={styles.eventDate}>{formatarDataEvento(item.data_inicio, item.dateTag)}</Text>
-                    {item.listaVipAtiva && (
-                      <View style={styles.guestListBadge}>
-                        <Feather name="edit-3" size={9} color={COLORS.green} />
-                        <Text style={styles.guestListBadgeText}>NOME NA LISTA</Text>
-                      </View>
-                    )}
-                  </View>
-
-                  <Text style={styles.eventTitle}>{item.titulo}</Text>
-                  {item.locais && item.local_id ? (
-                    <TouchableOpacity
-                      onPress={() => router.push(`/business/${item.local_id}` as any)}
-                      hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-                    >
-                      <Text style={[styles.eventLocation, styles.eventLocationLink]}>
-                        {item.locais.nome} • {item.locais.bairro || item.locais.cidade}
-                      </Text>
-                    </TouchableOpacity>
-                  ) : (
-                    <Text style={styles.eventLocation}>
-                      {item.locais ? `${item.locais.nome} • ${item.locais.bairro || item.locais.cidade}` : 'Local a confirmar'}
-                    </Text>
-                  )}
-                  {/* Rodada 45 — bug real reportado pela Andrea ("testei festa do
-                      founders no destaque e não foi"): o checkbox "Destaque (selo
-                      no card)" do /admin grava em destaque_secoes, mas esse selo
-                      aqui só reagia ao SELECT separado Básico/Destaque/VIP
-                      (plano_destaque) — a marcação da Andrea nunca tinha efeito
-                      visual nenhum. deveExibirGlow (mesma função que já vale pra
-                      locais) cobre os dois mecanismos. */}
-                  {(item.plano_destaque !== 'basico' || deveExibirGlow(item)) && (
-                    <Text style={styles.eventPrice}>★ Evento em destaque</Text>
-                  )}
-                  {/* Rodada 46 — selo novo "Patrocinado" (destaque_secoes,
-                      migration 026): monetização avulsa, sem depender de
-                      plano_destaque — qualquer evento pode comprar. */}
-                  {/* Rodada 139 — etiqueta "Patrocinado" oculta (pedido da Andrea) */}
-                  {false && estaFixadoEm(item, 'patrocinado') && (
-                    <Text style={styles.patrocinadoBadge}>Patrocinado</Text>
-                  )}
-                </View>
-
-                <Feather
-                  name={item.listaVipAtiva ? 'user-plus' : 'chevron-right'}
-                  size={18}
-                  color={item.listaVipAtiva ? COLORS.pink : '#606070'}
-                />
-              </TouchableOpacity>
-  );
+  // Rodada 142 — linha de agenda compacta (pedido da Andrea: categoria mais bonita).
+  // O card inteiro abre a festa; o nome do local não é mais link sublinhado.
+  const renderEventCard = (item: EventItem) => {
+    const destaque = item.plano_destaque !== 'basico' || deveExibirGlow(item);
+    return (
+      <TouchableOpacity
+        key={item.id}
+        style={[styles.eventCard, destaque && styles.eventCardDestaque]}
+        onPress={() => router.push(`/evento/${item.id}` as any)}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel={`${item.titulo}, ${formatarDataEvento(item.data_inicio, item.dateTag)}`}
+      >
+        <View style={styles.eventHora}>
+          <Text style={styles.eventHoraTxt}>{horaCurta(item.data_inicio)}</Text>
+          <Text style={styles.eventDiaTxt}>{diaCurto(item.data_inicio, item.dateTag)}</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.eventTitle} numberOfLines={1}>{item.titulo}</Text>
+          <Text style={styles.eventLocation} numberOfLines={1}>
+            {item.locais ? `${item.locais.nome} · ${item.locais.bairro || item.locais.cidade}` : 'Local a confirmar'}
+          </Text>
+        </View>
+        {item.listaVipAtiva ? (
+          <View style={styles.guestListBadge}>
+            <Text style={styles.guestListBadgeText}>lista VIP</Text>
+          </View>
+        ) : destaque ? (
+          <Feather name="star" size={14} color={COLORS.gold} />
+        ) : (
+          <Feather name="chevron-right" size={16} color="#606070" />
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   // ---- "Essa semana" ----
   const filtroSoDeEvento = !!(selectedTipo || selectedMusic || selectedPublic || selectedSub || tipoChip || filtrosExtras.length);
@@ -799,6 +779,18 @@ export default function EventsScreen() {
     );
   };
 
+  const { width: larguraTela } = useWindowDimensions();
+  const larguraFlier = Math.floor((Math.min(larguraTela, 600) - 32 - 16) / 3);
+  const tamanhoFlier = { width: larguraFlier, height: Math.round(larguraFlier * 1.25) };
+  const festasVisiveis = subDesligadas.has('__festas')
+    ? []
+    : verTodasFestas || festasPaginadas.length <= 6
+      ? festasPaginadas
+      : Array.from({ length: 6 }, (_, k) => festasPaginadas[(((slotFestas * 6) % festasPaginadas.length) + k) % festasPaginadas.length]);
+  // Rodada 142 — o que já está em "Festas em destaque" não se repete na agenda logo abaixo.
+  const idsNaVitrine = new Set(festasVisiveis.map((ev) => ev.id));
+  const eventosDaLista = filteredEvents.filter((ev) => !idsNaVitrine.has(ev.id));
+
   const faixaPagas = (
     <>
                   {festasPaginadas.length > 0 && !subDesligadas.has('__festas') && (
@@ -806,11 +798,8 @@ export default function EventsScreen() {
                       <Text style={styles.festasPagasTitulo}>Festas em destaque</Text>
                       {/* Rodada 136 — mesmo tamanho dos quadradinhos de ofertas de Bares e Trip (3 por linha), flier em cima e texto embaixo. */}
                       <View style={styles.festasGrade}>
-                        {(verTodasFestas || festasPaginadas.length <= 6
-                          ? festasPaginadas
-                          : Array.from({ length: 6 }, (_, k) => festasPaginadas[(((slotFestas * 6) % festasPaginadas.length) + k) % festasPaginadas.length])
-                        ).map((ev) => (
-                          <TouchableOpacity key={ev.id} activeOpacity={0.9} style={styles.festaPagaCard} onPress={() => router.push(`/evento/${ev.id}` as any)} accessibilityRole="button" accessibilityLabel={ev.titulo}>
+                        {festasVisiveis.map((ev) => (
+                          <TouchableOpacity key={ev.id} activeOpacity={0.9} style={[styles.festaPagaCard, tamanhoFlier]} onPress={() => router.push(`/evento/${ev.id}` as any)} accessibilityRole="button" accessibilityLabel={ev.titulo}>
                             {/* Rodada 138 — só o flier, como os quadradinhos de ofertas (pedido da Andrea: "mais bonito"). */}
                             {ev.foto_capa_url ? (
                               <Image source={{ uri: ev.foto_capa_url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
@@ -981,6 +970,7 @@ export default function EventsScreen() {
               tituloLista={null}
               aposOfertas={
                 <View>
+                  {/* Rodada 142 — ícones de subcategoria mantidos (mesmo layout das outras categorias, pedido da Andrea). */}
                   {gruposSub.length > 0 && (
                     <SubcategoriaBanners
                       grupos={gruposSub}
@@ -1004,13 +994,13 @@ export default function EventsScreen() {
           <View style={styles.listHeaderRow}>
             {!modoTipo && (
               <Text style={styles.sectionTitle}>
-                {(CALENDAR_DATES.find((d) => d.id === dateFilter)?.label) || 'Próximos Eventos'}
+                {dateFilter === 'hoje' ? 'Agenda de hoje' : (CALENDAR_DATES.find((d) => d.id === dateFilter)?.label) || 'Agenda'}
               </Text>
             )}
             <Text style={styles.eventCount}>
               {dateFilter === 'semana'
                 ? `${totalSemana} ${totalSemana === 1 ? 'programação' : 'programações'}`
-                : `${filteredEvents.length} ${filteredEvents.length === 1 ? 'evento' : 'eventos'}`}
+                : `${eventosDaLista.length} ${eventosDaLista.length === 1 ? 'evento' : 'eventos'}`}
             </Text>
           </View>
 
@@ -1020,16 +1010,17 @@ export default function EventsScreen() {
             </View>
           ) : dateFilter === 'semana' ? (
             renderSemana()
-          ) : filteredEvents.length === 0 ? (
+          ) : eventosDaLista.length === 0 ? (
             <View style={styles.emptyBox}>
               <Feather name="calendar" size={32} color={COLORS.textMuted} />
               <Text style={styles.emptyText}>
-                Nenhum evento aprovado encontrado para esse filtro ainda. Novos eventos aparecem
-                aqui assim que forem aprovados.
+                {filteredEvents.length > 0
+                  ? 'As festas desse dia estão em destaque logo acima.'
+                  : 'Nenhum evento aprovado encontrado para esse filtro ainda. Novos eventos aparecem aqui assim que forem aprovados.'}
               </Text>
             </View>
           ) : (
-            filteredEvents.map(renderEventCard)
+            eventosDaLista.map(renderEventCard)
           )}
         </View>
 
@@ -1307,14 +1298,23 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 15, fontWeight: '800', color: COLORS.textPrimary },
   eventCount: { fontSize: 12, color: COLORS.textSecondary, fontWeight: '600' },
 
-  eventCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.card, padding: 14, borderRadius: 18, borderWidth: 1, borderColor: COLORS.border, gap: 12, marginBottom: 10 },
+  eventCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.card, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 14, gap: 12, marginBottom: 8 },
+  eventCardDestaque: { borderWidth: 1, borderColor: 'rgba(246,196,83,0.35)' },
+  eventHora: { width: 52, alignItems: 'center' },
+  eventHoraTxt: { fontSize: 16, fontWeight: '800', color: COLORS.textPrimary },
+  eventDiaTxt: { fontSize: 10, fontWeight: '600', color: COLORS.textSecondary, marginTop: 1 },
+  tiposLinha: { gap: 8, paddingVertical: 10 },
+  tipoChip: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.card },
+  tipoChipAtivo: { backgroundColor: COLORS.pink, borderColor: COLORS.pink },
+  tipoChipTxt: { fontSize: 12, fontWeight: '700', color: COLORS.textPrimary },
+  tipoChipQtd: { fontSize: 11, fontWeight: '700', color: COLORS.textSecondary },
   eventCardDisabled: { opacity: 0.6 },
   eventThumb: { width: 48, height: 48, borderRadius: 14, backgroundColor: 'rgba(225, 48, 108, 0.12)', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
   eventThumbImg: { width: 48, height: 48 },
   eventHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 },
   eventDate: { fontSize: 11, fontWeight: '700', color: COLORS.pink },
   guestListBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(76, 175, 125, 0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  guestListBadgeText: { fontSize: 8, fontWeight: '800', color: COLORS.green },
+  guestListBadgeText: { fontSize: 10, fontWeight: '700', color: COLORS.green },
   eventTitle: { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary },
   eventLocation: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
   eventLocationLink: { textDecorationLine: 'underline', color: COLORS.pink },
@@ -1322,7 +1322,8 @@ const styles = StyleSheet.create({
   festasPagasTitulo: { fontSize: 14, fontWeight: '800', color: '#FFFFFF', marginBottom: 8 },
   festasGrade: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   festasVerTodas: { fontSize: 12, fontWeight: '800', color: '#E1306C' },
-  festaPagaCard: { width: '31.5%', height: 92, borderRadius: 14, overflow: 'hidden', backgroundColor: '#2A1B3D' },
+  // Rodada 142 — flier em pé (4:5), como as festas fazem: nada cortado.
+  festaPagaCard: { borderRadius: 12, overflow: 'hidden', backgroundColor: '#2A1B3D' },
   festaSemFlier: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4, paddingHorizontal: 6 },
   festaSemFlierTxt: { fontSize: 10.5, fontWeight: '800', color: '#FFFFFF', textAlign: 'center' },
   festaPagaFoto: { flex: 1, backgroundColor: '#2A1B3D', alignItems: 'center', justifyContent: 'center' },

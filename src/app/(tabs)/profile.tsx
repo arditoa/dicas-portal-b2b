@@ -51,6 +51,21 @@ const COLORS = {
 
 const WHATSAPP_PARCEIROS = '5511942942028';
 
+// Rodada 141 — telefone e nascimento legíveis na Conta: (11) 98888-3223 e 12/06/1987.
+function formatarTelefoneConta(t?: string | null): string {
+  const d = (t || '').replace(/\D/g, '');
+  if (!d) return 'WhatsApp não informado';
+  const n = d.length > 11 && d.startsWith('55') ? d.slice(2) : d;
+  if (n.length === 11) return `(${n.slice(0, 2)}) ${n.slice(2, 7)}-${n.slice(7)}`;
+  if (n.length === 10) return `(${n.slice(0, 2)}) ${n.slice(2, 6)}-${n.slice(6)}`;
+  return t as string;
+}
+function formatarDataConta(d?: string | null): string {
+  if (!d) return 'Nascimento não informado';
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : d;
+}
+
 export default function ProfileScreen() {
   useRastrearTela('conta');
   const router = useRouter();
@@ -587,10 +602,11 @@ export default function ProfileScreen() {
             </View>
           ) : (
             <View style={styles.profileCard}>
+              {/* Rodada 141 — cabeçalho em linha (foto à esquerda, nome e e-mail ao lado): mais proporcional. */}
               <View style={styles.heroTopo}>
                 <FundoCaixaDegrade id="conta-hero" cores={['#4C1D95', '#BE185D']} />
                 {user?.id ? (
-                  <AvatarEditavel userId={user.id} iniciais={(perfil?.display_name || user?.email || 'US').substring(0, 2).toUpperCase()} />
+                  <AvatarEditavel compacto userId={user.id} iniciais={(perfil?.display_name || user?.email || 'US').substring(0, 2).toUpperCase()} />
                 ) : (
                   <View style={styles.avatarCircle}>
                     <Text style={styles.avatarInitials}>
@@ -598,18 +614,23 @@ export default function ProfileScreen() {
                     </Text>
                   </View>
                 )}
-                <Text style={styles.userName}>{perfil?.display_name || 'Sem nome cadastrado'}</Text>
-                <Text style={styles.userEmail}>{user?.email}</Text>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.userName} numberOfLines={1}>{perfil?.display_name || 'Sem nome cadastrado'}</Text>
+                  <Text style={styles.userEmail} numberOfLines={1}>{user?.email}</Text>
+                  <Text style={styles.heroDica}>Toque na foto para trocar</Text>
+                </View>
               </View>
 
               <View style={styles.heroBase}>
-                <View style={styles.infoRow}>
-                  <Feather name="phone" size={14} color={COLORS.textMuted} />
-                  <Text style={styles.infoText}>WhatsApp: {perfil?.phone || 'não informado'}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Feather name="calendar" size={14} color={COLORS.textMuted} />
-                  <Text style={styles.infoText}>Nascimento: {perfil?.birth_date || 'não informado'}</Text>
+                <View style={styles.dadosLinha}>
+                  <View style={styles.dadoItem}>
+                    <Feather name="phone" size={14} color={COLORS.textMuted} />
+                    <Text style={styles.infoText} numberOfLines={1}>{formatarTelefoneConta(perfil?.phone)}</Text>
+                  </View>
+                  <View style={styles.dadoItem}>
+                    <Feather name="calendar" size={14} color={COLORS.textMuted} />
+                    <Text style={styles.infoText} numberOfLines={1}>{formatarDataConta(perfil?.birth_date)}</Text>
+                  </View>
                 </View>
                 {user?.id && (
                   <>
@@ -884,8 +905,11 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 14,
   },
-  heroTopo: { alignItems: 'center', paddingVertical: 22, paddingHorizontal: 16, gap: 2 },
-  heroBase: { padding: 16 },
+  heroTopo: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 16, gap: 14 },
+  heroBase: { paddingHorizontal: 16, paddingVertical: 12 },
+  heroDica: { fontSize: 11, color: 'rgba(255,255,255,0.7)', marginTop: 4 },
+  dadosLinha: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
+  dadoItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   avatarCircle: {
     width: 60,
     height: 60,
@@ -896,7 +920,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   avatarInitials: { fontSize: 17, fontWeight: '800', color: '#FFF' },
-  userName: { fontSize: 18, fontWeight: '800', color: '#FFFFFF', marginTop: 6 },
+  userName: { fontSize: 18, fontWeight: '800', color: '#FFFFFF' },
   userEmail: { fontSize: 12, color: 'rgba(255,255,255,0.85)', marginTop: 2 },
   infoDivider: { height: 1, backgroundColor: COLORS.border, width: '100%', marginVertical: 12 },
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },

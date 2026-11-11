@@ -11,12 +11,14 @@ import { supabase } from '../../../lib/supabase';
 import { idsMarcaAtiva } from '../../../lib/marcaAtiva';
 import { erroFotoNaoSuportada } from '../../../lib/validarFoto';
 import EditorEstiloBanner, { ESTILO_VAZIO, EstiloValor } from '../../../components/EditorEstiloBanner';
+import { BannerValor, bannerDeJson, bannerParaJson } from '../../../components/EditorBannerCompleto';
+import VariantesBanner, { LugarBanner, lugaresDoLocal } from '../../../components/VariantesBanner';
 
 const input = 'w-full bg-[#0B0B0E] border border-[#232230] rounded-xl py-2.5 px-3 text-white text-sm focus:outline-none focus:border-[#E1306C]';
 const label = 'text-[11px] font-bold text-[#A0A0B2] uppercase block mb-1.5';
 const card = 'bg-[#161520] border border-[#232230] rounded-2xl p-5 mb-6';
 
-type Local = { id: string; nome: string; plano_comercial: string; plano_comercial_status: string };
+type Local = { id: string; nome: string; plano_comercial: string; plano_comercial_status: string; categoria?: string };
 type Resumo = { secao: string; exibicoes: number; cliques: number };
 type Com = { headline: string; texto: string; oferta: string; cta: string; destino: string; escrito_por: string };
 type Patro = { categoria: string; tag: string; titulo: string; subtitulo: string; cta: string; destino: string; cor1: string; cor2: string };
@@ -67,6 +69,11 @@ export default function DestaquesPage() {
   // Rodada 140 — visual do banner (migration 095).
   const [estilo, setEstilo] = useState<EstiloValor>(ESTILO_VAZIO);
   const [temColunasEstilo, setTemColunasEstilo] = useState(true);
+  // Rodada 141 — Fundador pode ter um banner diferente na Home (coluna home, migration 096).
+  // Rodada 141 — banner diferente por lugar (Home, cada categoria, Destaques): destaque_chamada.variantes (migration 096).
+  const [temColunaVariantes, setTemColunaVariantes] = useState(true);
+  const [variantes, setVariantes] = useState<Record<string, BannerValor>>({});
+  const [lugares, setLugares] = useState<LugarBanner[]>([]);
   const [vagas, setVagas] = useState<{ categoria: string; tipo: string; posicao: number }[]>([]);
   const [aviso, setAviso] = useState('');
   const [erro, setErro] = useState('');
@@ -74,9 +81,10 @@ export default function DestaquesPage() {
   const carregar = useCallback(async () => {
     const { data: u } = await supabase.auth.getUser();
     if (!u?.user) { router.push('/login'); return; }
-    const { data: l } = await supabase.from('locais').select('id, nome, plano_comercial, plano_comercial_status').eq('owner_id', u.user.id).in('id', idsMarcaAtiva()).maybeSingle();
+    const { data: l } = await supabase.from('locais').select('id, nome, plano_comercial, plano_comercial_status, categoria').eq('owner_id', u.user.id).in('id', idsMarcaAtiva()).maybeSingle();
     if (!l) { router.push('/dashboard'); return; }
     setLocal(l as Local);
+    lugaresDoLocal(l.id, (l as any).categoria || '', (l as any).plano_comercial === 'fundador').then(setLugares);
 
     const { data: r } = await supabase.rpc('resumo_vitrine_local', { p_local_id: l.id, p_dias: 30 });
     setResumo(((r as any[]) || []).map((x) => ({ secao: x.secao, exibicoes: Number(x.exibicoes), cliques: Number(x.cliques) })));
@@ -88,13 +96,17 @@ export default function DestaquesPage() {
     const { data: c } = await supabase.from('fundador_comunicacao').select('headline, texto, oferta, cta, destino, escrito_por').eq('local_id', l.id).maybeSingle();
     if (c) setCom({ headline: c.headline || '', texto: c.texto || '', oferta: c.oferta || '', cta: c.cta || 'Conhecer', destino: c.destino || '', escrito_por: c.escrito_por });
 
-    let rch: any = await supabase.from('destaque_chamada').select('chamada, cta, imagem_url, updated_at, estilo, cor1, cor2, cor_texto, destaque_texto, cor_destaque').eq('local_id', l.id).maybeSingle();
+    let rch: any = await supabase.from('destaque_chamada').select('chamada, cta, imagem_url, updated_at, estilo, cor1, cor2, cor_texto, destaque_texto, cor_destaque, variantes').eq('local_id', l.id).maybeSingle();
+    if (rch.error) { setTemColunaVariantes(false); rch = await supabase.from('destaque_chamada').select('chamada, cta, imagem_url, updated_at, estilo, cor1, cor2, cor_texto, destaque_texto, cor_destaque').eq('local_id', l.id).maybeSingle(); }
     if (rch.error) { setTemColunasEstilo(false); rch = await supabase.from('destaque_chamada').select('chamada, cta, imagem_url, updated_at').eq('local_id', l.id).maybeSingle(); }
     const ch = rch.data as any;
     if (ch) {
       setCham({ chamada: ch.chamada || '', cta: ch.cta || 'Conhecer', imagem_url: ch.imagem_url || '' });
       setChamAtualizada(ch.updated_at || null);
       setEstilo({ estilo: ch.estilo || (ch.imagem_url ? 'foto_metade' : 'degrade'), cor1: ch.cor1 ?? null, cor2: ch.cor2 ?? null, cor_texto: ch.cor_texto ?? null, destaque_texto: ch.destaque_texto || '', cor_destaque: ch.cor_destaque ?? null });
+      const vs: Record<string, BannerValor> = {};
+      for (const [k, j] of Object.entries((ch.variantes || {}) as Record<string, unknown>)) { const b = bannerDeJson(j); if (b) vs[k] = b; }
+      setVariantes(vs);
     }
 
     const { data: vg } = await supabase.from('vitrine_vaga').select('categoria, tipo, posicao').eq('local_id', l.id);
@@ -122,9 +134,17 @@ export default function DestaquesPage() {
     setErro(''); setAviso('');
     if (!cham.chamada.trim()) { setErro('Escreva a chamada do seu banner.'); return; }
     const base: Record<string, unknown> = { local_id: local.id, chamada: cham.chamada.trim(), cta: cham.cta.trim() || 'Conhecer', imagem_url: cham.imagem_url || null };
-    const { error } = await supabase.from('destaque_chamada').upsert(temColunasEstilo
+    const semFrase = Object.entries(variantes).find(([, v]) => !v.chamada.trim());
+    if (semFrase) { setErro(`Escreva a frase do banner de ${lugares.find((x) => x.chave === semFrase[0])?.rotulo || semFrase[0]} (ou desmarque).`); return; }
+    let dados: Record<string, unknown> = temColunasEstilo
       ? { ...base, estilo: estilo.estilo, cor1: estilo.cor1, cor2: estilo.cor2, cor_texto: estilo.cor_texto, destaque_texto: estilo.destaque_texto.trim() || null, cor_destaque: estilo.cor_destaque }
-      : base);
+      : base;
+    if (temColunaVariantes) {
+      const vs: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(variantes)) if (lugares.some((x) => x.chave === k)) vs[k] = bannerParaJson(v);
+      dados = { ...dados, variantes: Object.keys(vs).length ? vs : null };
+    }
+    const { error } = await supabase.from('destaque_chamada').upsert(dados);
     if (error) setErro(error.message); else { setAviso('Frase salva — o banner já usa esse texto.'); setChamAtualizada(new Date().toISOString()); }
   };
 
@@ -258,6 +278,17 @@ export default function DestaquesPage() {
             foto={cham.imagem_url}
             etiquetaHome={local.plano_comercial === 'fundador' ? local.nome : null}
           />
+          {temColunaVariantes && (
+            <VariantesBanner
+              lugares={lugares}
+              padrao={{ ...estilo, chamada: cham.chamada, cta: cham.cta, imagem_url: cham.imagem_url }}
+              variantes={variantes}
+              onChange={setVariantes}
+              localId={local.id}
+              nome={local.nome}
+              onErro={setErro}
+            />
+          )}
           <button onClick={salvarChamada} className="bg-[#E1306C] hover:bg-[#C2285C] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition inline-flex items-center gap-2"><Save size={14} /> Salvar banner</button>
           {!podeEditarFrase && <p className="text-[11px] text-[#A0A0B2]">Você pode guardar a frase desde já: ela entra no ar quando o plano Premium for ativado.</p>}
         </div>

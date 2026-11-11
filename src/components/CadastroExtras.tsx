@@ -148,10 +148,11 @@ export async function aplicarPendente(userId: string) {
 const s = StyleSheet.create({
   titulo: { fontSize: 16, fontWeight: '800', color: '#FFFFFF', marginBottom: 4 },
   sub: { fontSize: 12, color: '#A0A0B2', lineHeight: 17, marginBottom: 14 },
-  rotulo: { fontSize: 12, fontWeight: '800', color: '#A9A6BD', marginTop: 12, marginBottom: 8 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1, borderColor: '#2E2E3D', backgroundColor: '#14141B' },
-  chipTxt: { fontSize: 12, fontWeight: '700', color: '#D6D3E0' },
+  // Rodada 141 — chips menores e grupos mais próximos: a tela "Sobre você" cabe melhor sem rolar tanto.
+  rotulo: { fontSize: 11, fontWeight: '800', color: '#A9A6BD', marginTop: 14, marginBottom: 6, letterSpacing: 0.4, textTransform: 'uppercase' },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  chip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1, borderColor: '#2E2E3D', backgroundColor: '#14141B' },
+  chipTxt: { fontSize: 11.5, fontWeight: '700', color: '#D6D3E0' },
   consent: { flexDirection: 'row', gap: 10, marginTop: 18, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: '#2E2E3D', backgroundColor: '#0F0F14' },
   checkbox: { width: 20, height: 20, borderRadius: 6, borderWidth: 2, borderColor: COR, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
   consentTxt: { flex: 1, fontSize: 12, color: '#A0A0B2', lineHeight: 17 },

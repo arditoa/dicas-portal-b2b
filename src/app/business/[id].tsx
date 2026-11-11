@@ -156,6 +156,7 @@ interface LocalRow {
   lng: number | null;
   instagram: string | null;
   foto_capa_url: string | null;
+  logo_url: string | null;
   safe_space: boolean;
   plano_destaque: 'basico' | 'destaque' | 'vip';
   rating_media: number;
@@ -268,7 +269,7 @@ export default function BusinessDetailScreen() {
         supabase
           .from('locais')
           .select(
-            'id, nome, categoria, subcategoria, descricao, endereco, bairro, cidade, lat, lng, instagram, foto_capa_url, safe_space, plano_destaque, rating_media, rating_total, horario_funcionamento, galeria_fotos, video_url, programacao_texto, programacao_imagem_url, tags, plano_comercial, plano_comercial_status, classificacao_lgbt'
+            'id, nome, categoria, subcategoria, descricao, endereco, bairro, cidade, lat, lng, instagram, foto_capa_url, logo_url, safe_space, plano_destaque, rating_media, rating_total, horario_funcionamento, galeria_fotos, video_url, programacao_texto, programacao_imagem_url, tags, plano_comercial, plano_comercial_status, classificacao_lgbt'
           )
           .eq('id', id)
           .single(),
@@ -652,39 +653,30 @@ export default function BusinessDetailScreen() {
             {local.foto_capa_url && (
               <Image source={{ uri: local.foto_capa_url }} style={styles.heroImage} resizeMode="cover" />
             )}
-            <View style={styles.badgesRow}>
-              {local.safe_space && (
-                <View style={styles.safeBadge}>
-                  <Feather name="shield" size={12} color="#4CAF7D" style={{ marginRight: 4 }} />
-                  <Text style={styles.safeBadgeText}>Espaço Seguro LGBT+</Text>
-                </View>
-              )}
-              {badges.map((b) => (
-                <View
-                  key={b.id}
-                  style={[styles.genericBadge, { borderColor: BADGE_COLORS[b.cor_tag] || '#FFD54F' }]}
-                >
-                  <Feather name="award" size={12} color={BADGE_COLORS[b.cor_tag] || '#FFD54F'} style={{ marginRight: 4 }} />
-                  <Text style={[styles.genericBadgeText, { color: BADGE_COLORS[b.cor_tag] || '#FFD54F' }]}>
-                    {b.rotulo}
-                  </Text>
-                </View>
-              ))}
-              {local.plano_destaque !== 'basico' && (
-                <View style={styles.genericBadge}>
-                  <Feather name="star" size={12} color="#FFD54F" style={{ marginRight: 4 }} />
-                  <Text style={[styles.genericBadgeText, { color: '#FFD54F' }]}>Em destaque</Text>
-                </View>
-              )}
-            </View>
           </View>
 
           <View style={styles.detailBody}>
-            <Text style={styles.detailTitle}>{local.nome}</Text>
-            <Text style={styles.detailSubtext}>
-              {CATEGORIA_LABEL[local.categoria] || local.categoria}
-              {local.subcategoria ? ` • ${local.subcategoria}` : ''} • {local.bairro || local.cidade}
-            </Text>
+            <View style={styles.identidade}>
+              <View style={styles.logoBola}>
+                {local.logo_url ? (
+                  <Image source={{ uri: local.logo_url }} style={styles.logoImg} resizeMode="contain" />
+                ) : (
+                  <Text style={styles.logoInicial}>{local.nome.trim().charAt(0).toUpperCase()}</Text>
+                )}
+              </View>
+              <View style={styles.identidadeTexto}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={[styles.detailTitle, { flexShrink: 1, marginBottom: 0 }]} numberOfLines={2}>{local.nome}</Text>
+                  {local.safe_space && <Feather name="shield" size={15} color="#4CAF7D" />}
+                  {(local.plano_comercial === 'fundador' || badges.some((b) => /fundador/i.test(b.rotulo))) && (
+                    <Feather name="award" size={16} color="#FFD54F" />
+                  )}
+                </View>
+                <Text style={styles.detailSubtext} numberOfLines={1}>
+                  {local.subcategoria || CATEGORIA_LABEL[local.categoria] || local.categoria} • {local.bairro || local.cidade}
+                </Text>
+              </View>
+            </View>
 
             <View style={styles.ratingRow}>
               <Feather name="star" size={16} color="#FFD54F" />
@@ -1166,8 +1158,8 @@ const styles = StyleSheet.create({
   favBtnAbsolute: { position: 'absolute', top: 16, right: 16, zIndex: 10, width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
 
   scrollDetail: { paddingBottom: 40 },
-  heroBanner: { height: 200, backgroundColor: '#1A1926', justifyContent: 'flex-end', padding: 16, overflow: 'hidden' },
-  heroImage: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%' },
+  heroBanner: { height: 190, backgroundColor: '#1A1926', justifyContent: 'flex-end', overflow: 'hidden' },
+  heroImage: { ...StyleSheet.absoluteFillObject },
   badgesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   safeBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(76, 175, 125, 0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   safeBadgeText: { fontSize: 11, fontWeight: '700', color: '#4CAF7D' },
@@ -1176,7 +1168,12 @@ const styles = StyleSheet.create({
 
   detailBody: { padding: 20 },
   detailTitle: { fontSize: 20, fontWeight: '900', color: '#FFF', marginBottom: 4 },
-  detailSubtext: { fontSize: 12, color: '#A0A0B2', marginBottom: 10 },
+  detailSubtext: { fontSize: 12, color: '#A0A0B2', marginTop: 3 },
+  identidade: { flexDirection: 'row', alignItems: 'flex-start', gap: 14, marginTop: -58, marginBottom: 14 },
+  logoBola: { width: 76, height: 76, borderRadius: 38, borderWidth: 3, borderColor: '#0B0B0E', backgroundColor: '#FFFFFF', padding: 8, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  logoImg: { width: '100%', height: '100%' },
+  logoInicial: { fontSize: 30, fontWeight: '900', color: '#E1306C' },
+  identidadeTexto: { flex: 1, paddingTop: 46 },
 
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 14 },
   ratingText: { fontSize: 13, fontWeight: '700', color: '#FFF' },

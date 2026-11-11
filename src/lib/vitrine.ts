@@ -46,7 +46,10 @@ export type Comunicacao = {
   cor1?: string | null;
   cor2?: string | null;
   cor_texto?: string | null;
+  // Rodada 141 — banner diferente por lugar: {'home': {...}, 'cat:bares': {...}} (destaque_chamada.variantes, migration 096).
+  variantes?: Record<string, VarianteBanner> | null;
 };
+export type VarianteBanner = { chamada?: string | null; cta?: string | null; imagem_url?: string | null; estilo?: string | null; cor1?: string | null; cor2?: string | null; cor_texto?: string | null; destaque_texto?: string | null; cor_destaque?: string | null };
 
 // Exemplo "Bares by Ambev" usado SÓ em desenvolvimento (Expo Go / __DEV__), quando o banco não devolve patrocínio de
 // Bares — assim dá para ver o layout sem depender das migrations. Em produção (app publicado) nunca aparece.
@@ -145,8 +148,9 @@ export async function buscarComunicacao(ids: string[]): Promise<Record<string, C
   try {
     let resp: any = await supabase
       .from('destaque_chamada')
-      .select('local_id, chamada, cta, imagem_url, estilo, cor1, cor2, cor_texto, destaque_texto, cor_destaque')
+      .select('local_id, chamada, cta, imagem_url, estilo, cor1, cor2, cor_texto, destaque_texto, cor_destaque, variantes')
       .in('local_id', ids);
+    if (resp.error) resp = await supabase.from('destaque_chamada').select('local_id, chamada, cta, imagem_url, estilo, cor1, cor2, cor_texto, destaque_texto, cor_destaque').in('local_id', ids);
     // Sem a migration 095 (colunas de estilo): segue com o básico.
     if (resp.error) resp = await supabase.from('destaque_chamada').select('local_id, chamada, cta, imagem_url').in('local_id', ids);
     const { data, error } = resp;
@@ -167,6 +171,7 @@ export async function buscarComunicacao(ids: string[]): Promise<Record<string, C
           cor_texto: r.cor_texto ?? null,
           destaque_texto: r.destaque_texto ?? null,
           cor_destaque: r.cor_destaque ?? null,
+          variantes: r.variantes ?? null,
         };
       }
     }

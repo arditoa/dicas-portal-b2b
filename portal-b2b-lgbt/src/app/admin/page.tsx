@@ -12,6 +12,7 @@ import PainelRoteiros from '../../components/PainelRoteiros';
 import BuscaGlobal from '../../components/BuscaGlobal';
 import AdminMfa from '../../components/AdminMfa';
 import PainelBanners from '../../components/PainelBanners';
+import PainelMapaApp from '../../components/PainelMapaApp';
 import PainelVitrine from '../../components/PainelVitrine';
 import PainelCategorias from '../../components/PainelCategorias';
 import PosicaoLocal from '../../components/PosicaoLocal';
@@ -496,7 +497,7 @@ type LeadInstitucional = {
 // Rodada 89 — menu lateral do /admin, agrupado por tarefa do dia.
 type SubAprov = 'todas' | 'interesse' | 'locais' | 'eventos' | 'vinculos' | 'leads' | 'hospedagem' | 'acesso';
 type ItemSub = { id: SubAprov; rotulo: string; badge?: number };
-type ItemMenu = { subs?: ItemSub[]; id: 'visao' | 'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos' | 'roteiros' | 'push' | 'rodizio' | 'banners' | 'vitrine' | 'categorias' | 'denuncias'; rotulo: string; icone: typeof Store; badge?: number; alerta?: boolean };
+type ItemMenu = { subs?: ItemSub[]; id: 'visao' | 'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos' | 'roteiros' | 'push' | 'rodizio' | 'banners' | 'vitrine' | 'categorias' | 'denuncias' | 'mapa'; rotulo: string; icone: typeof Store; badge?: number; alerta?: boolean };
 function MENU_ADMIN(pendentes: number, locais: number, eventos: number, fundadores: number, filas: { interesse: number; locais: number; eventos: number; vinculos: number; leads: number; acesso: number }): { grupo: string; itens: ItemMenu[] }[] {
   return [
     // Rodada 135 — 5 grupos: o que precisa de resposta, parceiros, vitrine, Trip e comunicação.
@@ -526,6 +527,7 @@ function MENU_ADMIN(pendentes: number, locais: number, eventos: number, fundador
     {
       grupo: 'Vitrine do app',
       itens: [
+        { id: 'mapa', rotulo: 'Mapa do app (comece aqui)', icone: Compass },
         { id: 'categorias', rotulo: 'Categorias e vagas', icone: LayoutGrid },
         { id: 'banners', rotulo: 'Banners e parceiros', icone: Megaphone },
         { id: 'rodizio', rotulo: 'Rodízio e Destaques', icone: Sparkles },
@@ -571,6 +573,7 @@ const TITULO_ABA: Record<ItemMenu['id'], string> = {
   vitrine: 'Frases dos Fundadores e desempenho',
   categorias: 'Categorias e vagas',
   denuncias: 'Denúncias',
+  mapa: 'Mapa do app',
 };
 const SUBTITULO_ABA: Record<ItemMenu['id'], string> = {
   visao: 'Como o app e a carteira de parceiros estão indo: cadastros, uso das telas e desempenho dos locais.',
@@ -586,6 +589,7 @@ const SUBTITULO_ABA: Record<ItemMenu['id'], string> = {
   vitrine: 'A frase que gera desejo de cada Membro Fundador, o limite de ofertas por plano e o desempenho (exibições e toques) dos destaques. O Patrocínio Master de cada categoria fica em "Categorias e vagas".',
   categorias: 'Escolha uma categoria. Em cada uma, na ordem em que aparece no app: Patrocínio Master, Banners (com os dizeres de cada local), subcategorias (Ativar, Em breve ou Esconder) e Cupons. Marque "Aparece no app" só quando houver anunciante; vaga sem local escolhido é automática (pelo plano).',
   denuncias: 'Ocorrências registradas no app: relato, provas, histórico e atendimento. Conteúdo sensível — acesso restrito à equipe.',
+  mapa: 'A Home e a página de categoria do app, de cima para baixo: o que aparece em cada parte, o que está no ar agora e onde edita.',
 };
 
 export default function AdminPage() {
@@ -609,7 +613,7 @@ export default function AdminPage() {
   const [subAprov, setSubAprov] = useState<SubAprov>('todas');
   const ver = (k: SubAprov) => subAprov === 'todas' || subAprov === k;
   const [posicaoLocalId, setPosicaoLocalId] = useState<string | null>(null);
-  const [aba, setAba] = useState<'visao' | 'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos' | 'roteiros' | 'push' | 'rodizio' | 'banners' | 'vitrine' | 'categorias' | 'denuncias'>('visao');
+  const [aba, setAba] = useState<'visao' | 'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos' | 'roteiros' | 'push' | 'rodizio' | 'banners' | 'vitrine' | 'categorias' | 'denuncias' | 'mapa'>('visao');
   const [filtroPrincipal, setFiltroPrincipal] = useState<string>('todas');
   // Rodada 46 — filtro só da aba Eventos: "O que Fazer Hoje" (destaque_secoes
   // contém 'hoje', mesmo mecanismo que locais já tinham) vs todos.
@@ -2576,6 +2580,7 @@ Dicas LGBT+`;
                     key={`banner-${l.id}`}
                     ehFundador={l.fundador}
                     categoriaRotulo={cat}
+                    categoria={l.categoria}
                     localId={l.id}
                     nome={l.nome}
                     etiqueta={l.subcategoria || l.nome}
@@ -3040,6 +3045,7 @@ Dicas LGBT+`;
       {aba === 'destinos' && <PainelDestinos abrir={pedidoDestino} />}
       {aba === 'roteiros' && <PainelRoteiros abrir={pedidoRoteiro} />}
       {aba === 'push' && <PainelPush />}
+      {aba === 'mapa' && <PainelMapaApp onIrPara={(a) => setAba(a as typeof aba)} />}
       {aba === 'banners' && <PainelBanners onIrPara={(a) => setAba(a as typeof aba)} />}
       {aba === 'vitrine' && <PainelVitrine />}
       {aba === 'categorias' && <PainelCategorias />}

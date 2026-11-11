@@ -28,6 +28,8 @@ type Props = {
   foto: string;
   etiquetaHome?: string | null; // nome do local, quando é Fundador (prévia da Home)
   rotuloCategoria?: string;
+  soHome?: boolean; // só a prévia da Home (banner da Home separado)
+  soCategoria?: boolean; // só a prévia da categoria
 };
 
 export function PreviaBanner({ valor, chamada, cta, foto, etiqueta, padrao }: { valor: EstiloValor; chamada: string; cta: string; foto: string; etiqueta?: string | null; padrao: [string, string] }) {
@@ -70,7 +72,7 @@ export function PreviaBanner({ valor, chamada, cta, foto, etiqueta, padrao }: { 
   );
 }
 
-export default function EditorEstiloBanner({ valor, onChange, chamada, cta, foto, etiquetaHome, rotuloCategoria = '' }: Props) {
+export default function EditorEstiloBanner({ valor, onChange, chamada, cta, foto, etiquetaHome, rotuloCategoria = '', soHome = false, soCategoria = false }: Props) {
   const set = (p: Partial<EstiloValor>) => onChange({ ...valor, ...p });
   const chip = (ativo: boolean) => `text-[11px] font-bold px-2.5 py-1.5 rounded-lg border transition ${ativo ? 'border-[#E1306C] bg-[#E1306C]/15 text-white' : 'border-[#232230] text-[#A0A0B2] hover:border-[#3a3950]'}`;
   const destaqueForaDaFrase = !!valor.destaque_texto.trim() && !!chamada && !chamada.toLowerCase().includes(valor.destaque_texto.trim().toLowerCase());
@@ -134,16 +136,18 @@ export default function EditorEstiloBanner({ valor, onChange, chamada, cta, foto
         </div>
       </div>
       <div className="space-y-2">
-        {etiquetaHome && (
+        {etiquetaHome && !soCategoria && (
           <div>
             <p className="text-[10px] font-bold text-[#A0A0B2] mb-1">Home (Membros Fundadores)</p>
             <PreviaBanner valor={valor} chamada={chamada} cta={cta} foto={foto} etiqueta={etiquetaHome} padrao={['#B45309', '#9D174D']} />
           </div>
         )}
+        {!soHome && (
         <div>
           <p className="text-[10px] font-bold text-[#A0A0B2] mb-1">{`Categoria ${rotuloCategoria}`.trim()}</p>
           <PreviaBanner valor={valor} chamada={chamada} cta={cta} foto={foto} padrao={['#0E9F6E', '#0E7490']} />
         </div>
+        )}
       </div>
     </div>
   );
