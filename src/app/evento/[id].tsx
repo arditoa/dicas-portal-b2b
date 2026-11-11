@@ -102,6 +102,12 @@ function tagsAgrupadas(ev: Evento) {
   }
   slugs.delete('todos_os_publicos');
   slugs.delete('para_todes');
+  // Rodada 136 — marcou gays e lésbicas juntos: mostra uma etiqueta só, "Gays e lésbicas".
+  if (slugs.has('predominancia_gay') && slugs.has('predominancia_lesbica')) {
+    slugs.delete('predominancia_gay');
+    slugs.delete('predominancia_lesbica');
+    slugs.add('gays_e_lesbicas');
+  }
   return GRUPOS_EVENTO.map((g) => ({ titulo: g.titulo, tags: g.tags.map(slugTag).filter((t) => slugs.has(t)) })).filter((g) => g.tags.length > 0);
 }
 

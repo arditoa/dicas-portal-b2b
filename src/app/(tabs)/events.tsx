@@ -436,6 +436,7 @@ export default function EventsScreen() {
     });
 
   // Festas pagas (divulgação avulsa, R$ 89): rodam do começo do dia anterior até 6h depois do fim. Máx. 24.
+  const [verTodasFestas, setVerTodasFestas] = useState(false);
   const festasPagas = useMemo(() => {
     const agora = Date.now();
     return events
@@ -785,15 +786,16 @@ export default function EventsScreen() {
                   {festasPaginadas.length > 0 && !subDesligadas.has('__festas') && (
                     <View style={{ marginTop: 14 }}>
                       <Text style={styles.festasPagasTitulo}>Festas em destaque</Text>
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-                        {festasPaginadas.map((ev) => (
+                      {/* Rodada 136 — mesmo tamanho dos quadradinhos de ofertas de Bares e Trip (3 por linha), flier em cima e texto embaixo. */}
+                      <View style={styles.festasGrade}>
+                        {(verTodasFestas ? festasPaginadas : festasPaginadas.slice(0, 6)).map((ev) => (
                           <TouchableOpacity key={ev.id} activeOpacity={0.9} style={styles.festaPagaCard} onPress={() => router.push(`/evento/${ev.id}` as any)} accessibilityRole="button" accessibilityLabel={ev.titulo}>
                             {/* Rodada 135 — o flier fica em cima e o texto embaixo, em faixa sólida: um não cobre o outro. */}
                             <View style={styles.festaPagaFoto}>
                               {ev.foto_capa_url ? (
                                 <Image source={{ uri: ev.foto_capa_url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
                               ) : (
-                                <Feather name="music" size={26} color="rgba(255,255,255,0.35)" />
+                                <Feather name="music" size={18} color="rgba(255,255,255,0.35)" />
                               )}
                             </View>
                             <View style={styles.festaPagaTexto}>
@@ -802,7 +804,12 @@ export default function EventsScreen() {
                             </View>
                           </TouchableOpacity>
                         ))}
-                      </ScrollView>
+                      </View>
+                      {festasPaginadas.length > 6 && (
+                        <TouchableOpacity onPress={() => setVerTodasFestas((v) => !v)} style={{ marginTop: 8 }} accessibilityRole="button">
+                          <Text style={styles.festasVerTodas}>{verTodasFestas ? 'Ver menos' : `Ver todas (${festasPaginadas.length})`}</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
                   )}
     </>
@@ -1295,11 +1302,13 @@ const styles = StyleSheet.create({
   eventLocationLink: { textDecorationLine: 'underline', color: COLORS.pink },
   eventPrice: { fontSize: 11, fontWeight: '700', color: COLORS.gold, marginTop: 4 },
   festasPagasTitulo: { fontSize: 14, fontWeight: '800', color: '#FFFFFF', marginBottom: 8 },
-  festaPagaCard: { width: 132, borderRadius: 14, overflow: 'hidden', backgroundColor: '#1C1726' },
-  festaPagaFoto: { width: 132, height: 132, backgroundColor: '#2A1B3D', alignItems: 'center', justifyContent: 'center' },
-  festaPagaTexto: { paddingHorizontal: 8, paddingVertical: 7, gap: 2, minHeight: 52 },
-  festaPagaData: { fontSize: 10, fontWeight: '800', color: '#F6C453' },
-  festaPagaNome: { fontSize: 12, fontWeight: '800', color: '#FFFFFF' },
+  festasGrade: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  festasVerTodas: { fontSize: 12, fontWeight: '800', color: '#E1306C' },
+  festaPagaCard: { width: '31.5%', height: 92, borderRadius: 14, overflow: 'hidden', backgroundColor: '#1C1726' },
+  festaPagaFoto: { flex: 1, backgroundColor: '#2A1B3D', alignItems: 'center', justifyContent: 'center' },
+  festaPagaTexto: { height: 38, paddingHorizontal: 6, paddingVertical: 4, justifyContent: 'center' },
+  festaPagaData: { fontSize: 9, fontWeight: '800', color: '#F6C453' },
+  festaPagaNome: { fontSize: 10.5, lineHeight: 13, fontWeight: '800', color: '#FFFFFF' },
   filtrarLinha: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingBottom: 12 },
   filtrarBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.card, borderRadius: 12, paddingHorizontal: 12, height: 32 },
   filtrarTxt: { color: COLORS.textPrimary, fontSize: 12, fontWeight: '700' },

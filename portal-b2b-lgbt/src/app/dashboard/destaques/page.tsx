@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { idsMarcaAtiva } from '../../../lib/marcaAtiva';
+import { erroFotoNaoSuportada } from '../../../lib/validarFoto';
 
 const input = 'w-full bg-[#0B0B0E] border border-[#232230] rounded-xl py-2.5 px-3 text-white text-sm focus:outline-none focus:border-[#E1306C]';
 const label = 'text-[11px] font-bold text-[#A0A0B2] uppercase block mb-1.5';
@@ -57,7 +58,8 @@ export default function DestaquesPage() {
   const [uso, setUso] = useState<{ plano: string; periodo: 'semana' | 'mes' | 'dias'; limite: number | null; usadas: number; dias: number; liberaEm: string | null } | null>(null);
   const [com, setCom] = useState<Com | null>(null);
   const [patro, setPatro] = useState<Patro | null>(null);
-  const [cham, setCham] = useState<{ chamada: string; cta: string }>({ chamada: '', cta: 'Conhecer' });
+  const [cham, setCham] = useState<{ chamada: string; cta: string; imagem_url: string }>({ chamada: '', cta: 'Conhecer', imagem_url: '' });
+  const [enviandoFotoBanner, setEnviandoFotoBanner] = useState(false);
   const [chamAtualizada, setChamAtualizada] = useState<string | null>(null);
   const [vagas, setVagas] = useState<{ categoria: string; tipo: string; posicao: number }[]>([]);
   const [aviso, setAviso] = useState('');
@@ -80,8 +82,8 @@ export default function DestaquesPage() {
     const { data: c } = await supabase.from('fundador_comunicacao').select('headline, texto, oferta, cta, destino, escrito_por').eq('local_id', l.id).maybeSingle();
     if (c) setCom({ headline: c.headline || '', texto: c.texto || '', oferta: c.oferta || '', cta: c.cta || 'Conhecer', destino: c.destino || '', escrito_por: c.escrito_por });
 
-    const { data: ch } = await supabase.from('destaque_chamada').select('chamada, cta, updated_at').eq('local_id', l.id).maybeSingle();
-    if (ch) { setCham({ chamada: (ch as any).chamada || '', cta: (ch as any).cta || 'Conhecer' }); setChamAtualizada((ch as any).updated_at || null); }
+    const { data: ch } = await supabase.from('destaque_chamada').select('chamada, cta, imagem_url, updated_at').eq('local_id', l.id).maybeSingle();
+    if (ch) { setCham({ chamada: (ch as any).chamada || '', cta: (ch as any).cta || 'Conhecer', imagem_url: (ch as any).imagem_url || '' }); setChamAtualizada((ch as any).updated_at || null); }
 
     const { data: vg } = await supabase.from('vitrine_vaga').select('categoria, tipo, posicao').eq('local_id', l.id);
     setVagas((vg as any[]) || []);
@@ -107,8 +109,23 @@ export default function DestaquesPage() {
     if (!local) return;
     setErro(''); setAviso('');
     if (!cham.chamada.trim()) { setErro('Escreva a chamada do seu banner.'); return; }
-    const { error } = await supabase.from('destaque_chamada').upsert({ local_id: local.id, chamada: cham.chamada.trim(), cta: cham.cta.trim() || 'Conhecer' });
+    const { error } = await supabase.from('destaque_chamada').upsert({ local_id: local.id, chamada: cham.chamada.trim(), cta: cham.cta.trim() || 'Conhecer', imagem_url: cham.imagem_url || null });
     if (error) setErro(error.message); else { setAviso('Frase salva — o banner já usa esse texto.'); setChamAtualizada(new Date().toISOString()); }
+  };
+
+  // Rodada 136 — foto do banner: fica na metade direita; a frase fica na metade esquerda, sem nada por cima.
+  const enviarFotoBanner = async (arquivo: File | undefined) => {
+    if (!arquivo || !local) return;
+    const problema = erroFotoNaoSuportada(arquivo);
+    if (problema) { setErro(problema); return; }
+    setEnviandoFotoBanner(true); setErro('');
+    const extensao = (arquivo.name.split('.').pop() || 'jpg').toLowerCase();
+    const caminho = `${local.id}/banner-${Date.now()}.${extensao}`;
+    const { error } = await supabase.storage.from('fotos-locais').upload(caminho, arquivo, { cacheControl: '3600', upsert: false });
+    if (error) { setErro(`Não deu para enviar a foto: ${error.message}`); setEnviandoFotoBanner(false); return; }
+    setCham((c) => ({ ...c, imagem_url: supabase.storage.from('fotos-locais').getPublicUrl(caminho).data.publicUrl }));
+    setEnviandoFotoBanner(false);
+    setAviso('Foto enviada. Clique em "Salvar frase" para publicar.');
   };
 
   const salvarPatro = async () => {
@@ -199,8 +216,38 @@ export default function DestaquesPage() {
         )}
         <p className="text-xs text-[#A0A0B2] mb-3">No banner que gira no topo da categoria <b>seu nome não aparece</b>: aparece uma chamada que dá vontade de conhecer. Ex.: &ldquo;Conheça o nosso queridinho drink de Lichia&rdquo;. Quem toca vai para a página do {local.nome}.</p>
         <div className="space-y-3">
-          <div><label className={label}>Chamada (até 90 caracteres)</label><input className={input} maxLength={90} value={cham.chamada} onChange={(e) => setCham({ ...cham, chamada: e.target.value })} /></div>
+          <div>
+            <label className={label}>Chamada ({cham.imagem_url ? 'com foto: até 60 caracteres' : 'até 90 caracteres'})</label>
+            <input className={input} maxLength={cham.imagem_url ? 60 : 90} value={cham.chamada} onChange={(e) => setCham({ ...cham, chamada: e.target.value })} />
+            <p className={`text-[11px] mt-1 ${cham.imagem_url && cham.chamada.length > 60 ? 'text-amber-300' : 'text-[#626274]'}`}>{cham.chamada.length}/{cham.imagem_url ? 60 : 90}{cham.imagem_url && cham.chamada.length > 60 ? ' — com foto o texto fica em meio cartão: encurte para até 60.' : ''}</p>
+          </div>
           <div><label className={label}>Texto do botão</label><input className={input} maxLength={24} value={cham.cta} onChange={(e) => setCham({ ...cham, cta: e.target.value })} /></div>
+          <div>
+            <label className={label}>Foto do banner (opcional)</label>
+            <p className="text-[11px] text-[#A0A0B2] mb-2">A foto ocupa a metade direita do banner e a frase fica na metade esquerda, nunca por cima. Prefira foto <b>sem texto escrito</b>, com o drink, o prato ou o ambiente no centro. Fotos com letreiro ou flier com texto ficam ruins.</p>
+            <div className="flex items-center gap-3 flex-wrap">
+              <label className="text-xs font-bold text-[#E1306C] cursor-pointer hover:underline">
+                {enviandoFotoBanner ? 'Enviando...' : cham.imagem_url ? 'Trocar foto' : 'Subir foto'}
+                <input type="file" accept="image/*" className="hidden" disabled={enviandoFotoBanner} onChange={(e) => { enviarFotoBanner(e.target.files?.[0]); e.target.value = ''; }} />
+              </label>
+              {cham.imagem_url && <button type="button" className="text-xs font-bold text-[#A0A0B2] hover:underline" onClick={() => setCham({ ...cham, imagem_url: '' })}>Tirar foto</button>}
+            </div>
+          </div>
+          {/* Prévia: igual ao banner do app (metade frase, metade foto). */}
+          <div>
+            <p className={label}>Prévia no app</p>
+            <div className="relative flex h-32 max-w-md rounded-2xl overflow-hidden" style={{ background: 'linear-gradient(135deg, #B45309, #9D174D)' }}>
+              <div className={`${cham.imagem_url ? 'w-[55%]' : 'w-full pr-24'} p-3.5 flex flex-col justify-center gap-1.5`}>
+                <span className="self-start text-[9px] font-black uppercase tracking-wide bg-white/20 text-white px-2 py-0.5 rounded-lg">{local.nome}</span>
+                <p className={`font-black text-white leading-tight ${cham.imagem_url ? 'text-[13px] line-clamp-3' : 'text-[15px] line-clamp-2'}`}>{cham.chamada || 'Sua chamada aparece aqui'}</p>
+                <span className="self-start text-[11px] font-black bg-white text-[#1A1020] px-2.5 py-1 rounded-lg">{cham.cta || 'Conhecer'} →</span>
+              </div>
+              {cham.imagem_url && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={cham.imagem_url} alt="" className="absolute right-0 top-0 h-full w-[45%] object-cover" />
+              )}
+            </div>
+          </div>
           <button onClick={salvarChamada} className="bg-[#E1306C] hover:bg-[#C2285C] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition inline-flex items-center gap-2"><Save size={14} /> Salvar frase</button>
           {!podeEditarFrase && <p className="text-[11px] text-[#A0A0B2]">Você pode guardar a frase desde já: ela entra no ar quando o plano Premium for ativado.</p>}
         </div>

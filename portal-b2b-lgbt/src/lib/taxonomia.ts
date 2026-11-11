@@ -196,7 +196,8 @@ export const GRUPOS_EVENTO: GrupoTags[] = [
     'Música Latina', 'Flashback', 'Ritmos regionais',
   ] },
   { id: 'publico', titulo: 'Tipo de público', tags: [
-    'Para eles', 'Para elas', 'Para Todes', 'Festas Queer', 'Público Hétero e Queer',
+    // Rodada 136 — mesmos rótulos de "Para quem" do cadastro, + Queer e Hétero e Queer quando marcados de propósito.
+    'Predominância Lésbica', 'Predominância Gay', 'Gays e lésbicas', 'Festas Queer', 'Público Hétero e Queer',
   ] },
   { id: 'experiencia', titulo: 'Experiência', tags: [
     'Música', 'Drinks e bebidas', 'Open bar', 'Gastronomia', 'Arte', 'Karaokê', 'Shows ao vivo', 'DJs',
@@ -239,6 +240,8 @@ export const TIPOS_EVENTO_CADASTRO = [
 export const PUBLICO_FESTA_CADASTRO = [
   { slug: 'predominancia_lesbica', rotulo: 'Predominância Lésbica' },
   { slug: 'predominancia_gay', rotulo: 'Predominância Gay' },
+  // Rodada 136 — festa misturada de gays e sapatões (pedido da Andrea), diferente de "Todos" (aberto a qualquer público).
+  { slug: 'gays_e_lesbicas', rotulo: 'Gays e lésbicas' },
   { slug: 'para_todes', rotulo: 'Todos' },
 ] as const;
 
@@ -308,7 +311,8 @@ export const LEGADO_EVENTO: Record<string, string[]> = {
   para_elas: ['lesbica'],
   para_todes: ['todos', 'misto_lgbt'],
   festas_queer: ['queer'],
-  publico_hetero_e_queer: ['misto_lgbt'],
+  // Rodada 136 — "Misto LGBT+" antigo vira "Gays e lésbicas"; "Hétero e Queer" só aparece quando marcado de propósito.
+  gays_e_lesbicas: ['misto_lgbt'],
   samba_pagode: ['mpb_samba'],
   tribal_house: ['techno_house'],
   disco_house: ['techno_house'],

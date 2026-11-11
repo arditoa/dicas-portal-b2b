@@ -341,6 +341,7 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
         tag: fundadores ? formatarNome(l.nome).toUpperCase() : (l.subcategoria ? String(l.subcategoria).toUpperCase() : 'LUGAR ESPECIAL'),
         titulo: chamada,
         cta: com?.cta || 'Conhecer',
+        fotoUrl: com?.imagem_url || null, // Rodada 136 — foto do parceiro na metade direita, texto ao lado
         icone: fundadores ? 'star' : 'map-pin',
         cor: cor[0],
         degrade: cor,

@@ -557,6 +557,7 @@ export default function HomeScreen() {
         tag: formatarNome(d.nome).toUpperCase(),
         titulo: com?.headline || com?.oferta || `Conheça ${formatarNome(d.nome)}`,
         cta: com?.cta || 'Conhecer',
+        fotoUrl: com?.imagem_url || null, // Rodada 136 — foto do fundador na metade direita
         icone: 'star',
         cor: '#F59E0B',
         degrade: ['#B45309', '#9D174D'] as [string, string],

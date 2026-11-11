@@ -22,6 +22,9 @@ export type Anuncio = {
   degrade?: [string, string]; // cartão do Dicas (Museu, Recomendados): degradê + ícone grande, em vez do cartão claro de parceiro
   chave?: string; // chave do banner no painel (ex.: 'museu'), usada para evitar duplicar cartões
   custom?: ReactNode; // cartão próprio (ex.: o cartão da Copa na Trip, com as cidades-sede)
+  // Rodada 136 — foto do parceiro (Fundador/Premium). Fica na metade direita do cartão; o texto fica na metade
+  // esquerda, sobre o degradê, e nunca por cima da foto. Assim a foto nunca atrapalha a leitura dos dizeres.
+  fotoUrl?: string | null;
 };
 
 const INTERVALO_MS = 5000;
@@ -93,20 +96,32 @@ export default function CarrosselAnuncios({ anuncios, onExibir, compacto = false
                   </View>
                   <Text style={styles.tituloCompacto} numberOfLines={2}>{a.titulo}</Text>
                 </View>
+                {a.fotoUrl ? (
+                  <View style={styles.fotoCompacto}>
+                    <Image source={{ uri: a.fotoUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                  </View>
+                ) : (
                 <View style={styles.setaCompacto}>
                   <Feather name="arrow-right" size={16} color="#1A1020" />
                 </View>
+                )}
               </View>
             ) : (
-            <View style={[styles.cardDegrade, altura ? { height: altura } : null]}>
+            <View style={[styles.cardDegrade, altura ? { height: altura } : null, a.fotoUrl ? styles.cardComFoto : null]}>
               <FundoCaixaDegrade id={`anc-${a.id}`} cores={a.degrade} />
+              {a.fotoUrl ? (
+                <View style={styles.fotoMetade}>
+                  <Image source={{ uri: a.fotoUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                </View>
+              ) : (
               <Feather name={a.icone} size={132} color="rgba(255,255,255,0.16)" style={styles.marcaDagua} />
-              <View style={[styles.corpoDegrade, altura ? { paddingVertical: 10, gap: 4 } : null]}>
+              )}
+              <View style={[styles.corpoDegrade, altura ? { paddingVertical: 10, gap: 4 } : null, a.fotoUrl ? styles.corpoComFoto : null]}>
                 <View style={styles.pilulaDegrade}>
                   <Feather name={a.icone} size={11} color="#FFFFFF" />
                   <Text style={styles.pilulaDegradeTxt} numberOfLines={1}>{a.tag}</Text>
                 </View>
-                <Text style={styles.tituloDegrade} numberOfLines={2}>{a.titulo}</Text>
+                <Text style={[styles.tituloDegrade, a.fotoUrl ? styles.tituloComFoto : null]} numberOfLines={a.fotoUrl ? 3 : 2}>{a.titulo}</Text>
                 <View style={styles.btnDegrade}>
                   <Text style={styles.btnDegradeTxt}>{a.cta}</Text>
                   <Feather name="arrow-right" size={14} color="#1A1020" />
@@ -159,6 +174,11 @@ const styles = StyleSheet.create({
   tituloCompacto: { fontSize: 14, fontWeight: '800', color: '#FFFFFF', lineHeight: 17 },
   setaCompacto: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
   marcaDagua: { position: 'absolute', right: -14, bottom: -18 },
+  cardComFoto: { flexDirection: 'row' },
+  fotoMetade: { position: 'absolute', top: 0, right: 0, bottom: 0, width: '45%', backgroundColor: '#1C1B26' },
+  corpoComFoto: { width: '55%', paddingRight: 12 },
+  tituloComFoto: { fontSize: 13, lineHeight: 17 },
+  fotoCompacto: { width: 96, alignSelf: 'stretch', marginRight: -12, overflow: 'hidden', backgroundColor: '#1C1B26' },
   corpoDegrade: { padding: 14, gap: 6, paddingRight: 96 },
   pilulaDegrade: { alignSelf: 'flex-start', maxWidth: '100%', flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.22)', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 },
   pilulaDegradeTxt: { fontSize: 10, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.6 },
