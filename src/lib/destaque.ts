@@ -97,8 +97,10 @@ export function pagaPlanoComDireitoADestaque(item: ItemComDestaque): boolean {
 }
 
 // Rodada 79 — "premium" para a faixa da Home: plano pago ativo OU fixado em Em Alta no /admin.
+// Rodada 137 — bloco "Destaques" da Home é só de quem PAGA (Fundador/Premium). Antes, "Fixar em Em Alta" no /admin
+// também jogava o local aqui (ex.: Bar Boto Elétrico): agora fixar em Em Alta vale só para a caixa Em Alta.
 export function ehPremiumAtivo(item: ItemComDestaque): boolean {
-  return pagaPlanoComDireitoADestaque(item) || estaFixadoEm(item, 'em_alta');
+  return pagaPlanoComDireitoADestaque(item);
 }
 
 function secoesDoItem(item: ItemComDestaque): string[] {

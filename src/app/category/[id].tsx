@@ -186,6 +186,9 @@ export default function CategoryListScreen() {
     ? decodeURIComponent(title)
     : categoriaConfig?.label || (categoriaReal ? CATEGORIA_REAL_LABEL[categoriaReal] : 'Todos os Locais');
 
+  // Rodada 137 — todo Membro Fundador (plano OU selo) ganha a borda de arco-íris na lista.
+  const [idsSeloFundador, setIdsSeloFundador] = useState<Set<string>>(new Set());
+  useEffect(() => { buscarIdsFundadores().then((ids) => setIdsSeloFundador(new Set(ids))).catch(() => {}); }, []);
   const [loading, setLoading] = useState(true);
   const [locais, setLocais] = useState<LocalItem[]>([]);
   const [favoritos, setFavoritos] = useState<string[]>([]);
@@ -578,7 +581,7 @@ export default function CategoryListScreen() {
               const avaliado = item.rating_total > 0;
               const tipo = item.subcategoria || CATEGORIA_REAL_LABEL[item.categoria] || item.categoria;
               const lugar = textoLocalizacao(item);
-              const fundador = item.plano_comercial === 'fundador' && (item.plano_comercial_status ?? 'ativo') === 'ativo';
+              const fundador = (item.plano_comercial === 'fundador' && (item.plano_comercial_status ?? 'ativo') === 'ativo') || idsSeloFundador.has(item.id);
               const cartao = (
                 <TouchableOpacity
                   style={[styles.placeCard, premium && styles.placeCardPremium, fundador && styles.placeCardFundador]}

@@ -117,7 +117,6 @@ export default function BannerDestaqueAdmin({ localId, nome, etiqueta, temBanner
         {/* Prévia: igual ao banner do app */}
         <div className="relative flex h-28 w-80 max-w-full rounded-2xl overflow-hidden" style={{ background: 'linear-gradient(135deg, #7E57C2, #2563EB)' }}>
           <div className={`${foto ? 'w-[55%]' : 'w-full pr-16'} p-3 flex flex-col justify-center gap-1`}>
-            <span className="self-start text-[8px] font-black uppercase tracking-wide bg-white/20 text-white px-2 py-0.5 rounded-lg truncate max-w-full">{etiqueta || nome}</span>
             <p className={`font-black text-white leading-tight ${foto ? 'text-[12px] line-clamp-3' : 'text-[14px] line-clamp-2'}`}>{chamada || 'Sua frase aparece aqui'}</p>
             <span className="self-start text-[10px] font-black bg-white text-[#1A1020] px-2 py-0.5 rounded-lg">{cta || 'Conhecer'} →</span>
           </div>

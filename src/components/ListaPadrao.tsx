@@ -31,6 +31,8 @@ const COLORS = {
 };
 
 import { TIPOS_SERVICO } from '../lib/servicosTipos';
+import BordaArcoIris from './BordaArcoIris';
+import { buscarIdsFundadores } from '../lib/vitrine';
 // Campos de `locais` que as listas precisam (inclui o que deveIncluirEm/abertoAgora leem).
 export const CAMPOS_LOCAL =
   'id, nome, categoria, subcategoria, descricao, bairro, bairro_exibicao, cidade, foto_capa_url, galeria_fotos, logo_url, rating_media, rating_total, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status, horario_funcionamento, lat, lng, publico_tags';
@@ -168,6 +170,8 @@ interface Props {
 
 export default function ListaPadrao({ titulo, subtitulo, itens, carregando, vazioTexto, vazioIcone = 'map-pin', chipInicial = 'Todas', rodape, patrocinado, patrocinadoRotulo = 'PATROCINADO', filtros, topo, opcoesTitulo, valorTitulo, onTrocarTitulo, tituloSeletor, modoHome, bannerMaster, iconesFiltro, filtrosExtras, onFiltroExtra, onLimparExtras, semPublico, iconesSempre }: Props) {
   const router = useRouter();
+  const [idsFundadorLista, setIdsFundadorLista] = useState<Set<string>>(new Set());
+  useEffect(() => { buscarIdsFundadores().then((ids) => setIdsFundadorLista(new Set(ids))).catch(() => {}); }, []);
   const insets = useSafeAreaInsets();
   const [busca, setBusca] = useState('');
   const [chip, setChip] = useState<string | null>(null);
@@ -341,8 +345,11 @@ export default function ListaPadrao({ titulo, subtitulo, itens, carregando, vazi
               </View>
             }
             ListFooterComponent={rodape ? <View>{rodape}</View> : undefined}
-            renderItem={({ item }) => (
-              <TouchableOpacity style={styles.placeCard} activeOpacity={0.88} onPress={() => router.push(item.rota as any)}>
+            renderItem={({ item }) => {
+              // Rodada 137 — Membro Fundador ganha a borda de arco-íris na listagem.
+              const fundadorItem = item.rota.startsWith('/business/') && idsFundadorLista.has(item.rota.slice('/business/'.length));
+              const cartao = (
+              <TouchableOpacity style={[styles.placeCard, fundadorItem && { borderWidth: 0, marginBottom: 0 }]} activeOpacity={0.88} onPress={() => router.push(item.rota as any)}>
                 <View style={[styles.placeThumb, !item.foto && !!item.logo && { backgroundColor: '#F4F1FA' }]}>
                   {item.foto ? (
                     <Image source={{ uri: item.foto }} style={styles.placeThumbImg} resizeMode="cover" />
@@ -390,7 +397,9 @@ export default function ListaPadrao({ titulo, subtitulo, itens, carregando, vazi
 
                 <Feather name="chevron-right" size={18} color={COLORS.textMuted} />
               </TouchableOpacity>
-            )}
+              );
+              return fundadorItem ? <BordaArcoIris raio={17} espessura={2} style={{ marginBottom: 12 }}>{cartao}</BordaArcoIris> : cartao;
+            }}
           />
         )}
       </View>

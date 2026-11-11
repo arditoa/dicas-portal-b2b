@@ -90,10 +90,12 @@ export default function CarrosselAnuncios({ anuncios, onExibir, compacto = false
               <View style={styles.cardCompacto}>
                 <FundoCaixaDegrade id={`anc-${a.id}`} cores={a.degrade} />
                 <View style={styles.corpoCompacto}>
-                  <View style={styles.pilulaDegrade}>
-                    <Feather name={a.icone} size={10} color="#FFFFFF" />
-                    <Text style={styles.pilulaDegradeTxt} numberOfLines={1}>{a.tag}</Text>
-                  </View>
+                  {!!a.tag && (
+                    <View style={styles.pilulaDegrade}>
+                      <Feather name={a.icone} size={10} color="#FFFFFF" />
+                      <Text style={styles.pilulaDegradeTxt} numberOfLines={1}>{a.tag}</Text>
+                    </View>
+                  )}
                   <Text style={styles.tituloCompacto} numberOfLines={2}>{a.titulo}</Text>
                 </View>
                 {a.fotoUrl ? (
@@ -117,10 +119,12 @@ export default function CarrosselAnuncios({ anuncios, onExibir, compacto = false
               <Feather name={a.icone} size={132} color="rgba(255,255,255,0.16)" style={styles.marcaDagua} />
               )}
               <View style={[styles.corpoDegrade, altura ? { paddingVertical: 10, gap: 4 } : null, a.fotoUrl ? styles.corpoComFoto : null]}>
-                <View style={styles.pilulaDegrade}>
-                  <Feather name={a.icone} size={11} color="#FFFFFF" />
-                  <Text style={styles.pilulaDegradeTxt} numberOfLines={1}>{a.tag}</Text>
-                </View>
+                {!!a.tag && (
+                  <View style={styles.pilulaDegrade}>
+                    <Feather name={a.icone} size={11} color="#FFFFFF" />
+                    <Text style={styles.pilulaDegradeTxt} numberOfLines={1}>{a.tag}</Text>
+                  </View>
+                )}
                 <Text style={[styles.tituloDegrade, a.fotoUrl ? styles.tituloComFoto : null]} numberOfLines={a.fotoUrl ? 3 : 2}>{a.titulo}</Text>
                 <View style={styles.btnDegrade}>
                   <Text style={styles.btnDegradeTxt}>{a.cta}</Text>

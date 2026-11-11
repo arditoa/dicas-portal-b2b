@@ -409,8 +409,8 @@ function resumoExperienciasLocal(l: LocalDestaque): string {
 // (botão "Posição no app"); Dicas Trip é automático pela categoria; Patrocinado e Destaque da
 // Semana saíram (migration 092 limpa os valores antigos).
 const OPCOES_SECAO_LOCAL_RAPIDA: { value: string; label: string; ajuda: string }[] = [
-  { value: 'em_alta', label: 'Fixar em Em Alta', ajuda: 'Home, faixa Em Alta, mesmo sem plano' },
-  { value: 'hoje', label: 'Fixar em O que fazer hoje', ajuda: 'Home, seção O que fazer hoje' },
+  { value: 'em_alta', label: 'Caixa Em Alta', ajuda: 'Home > caixa Em Alta, entre os primeiros' },
+  { value: 'hoje', label: 'Caixa O que fazer hoje', ajuda: 'Home > caixa O que fazer hoje' },
 ];
 
 // Rodada 46 — a Andrea reportou "eventos não sobem": a causa real era
@@ -2331,7 +2331,7 @@ Dicas LGBT+`;
           <summary className="cursor-pointer font-bold text-[#A0A0B2]">Como as vitrines funcionam</summary>
           <ul className="mt-2 space-y-1.5 list-disc list-inside">
             <li><b className="text-[#D0D0E0]">O plano decide a posição</b> (Fundador, Premium, Intermediário, Master): escolha em &quot;Posição no app&quot;.</li>
-            <li><b className="text-[#D0D0E0]">Ajustes da equipe</b> (fixar em Em Alta ou em O que fazer hoje) servem para completar a Home com quem não paga.</li>
+            <li><b className="text-[#D0D0E0]">Caixas da Home</b> (Em Alta, Recomendados, O que fazer hoje) são escolha da equipe e servem também para quem não paga. O bloco Destaques da Home é só de plano pago.</li>
             <li><b className="text-[#D0D0E0]">Selo Dicas LGBT+</b> é curadoria da equipe, nunca venda.</li>
             <li><b className="text-[#D0D0E0]">Marcas de festa</b> (categoria Festas) mostram as festas delas dentro da ficha, com o flier.</li>
           </ul>
@@ -2427,7 +2427,8 @@ Dicas LGBT+`;
                 </div>
               )}
               <div className="border-t border-[#232230] pt-3">
-                <p className="text-xs font-bold text-[#D0D0E0] mb-2">Ajustes da equipe</p>
+                <p className="text-xs font-bold text-[#D0D0E0] mb-0.5">Caixas da Home (escolha da equipe)</p>
+                <p className="text-[10px] text-[#626274] mb-2">As mesmas caixas que aparecem no app: Em Alta, Recomendados e O que fazer hoje. O bloco &quot;Destaques&quot; da Home e os banners das categorias são só de plano pago (Fundador e Premium), em &quot;Posição no app&quot;.</p>
                 <div className="flex items-start gap-4 flex-wrap">
                   {OPCOES_SECAO_LOCAL_RAPIDA.map((o) => (
                     <label key={o.value} className="flex items-start gap-1.5 text-xs text-[#D0D0E0] cursor-pointer">
@@ -2449,7 +2450,7 @@ Dicas LGBT+`;
                       onChange={(e) => alternarSecaoInstantanea(l, 'selo_dicas', e.target.checked)}
                       className="accent-[#7E57C2] mt-0.5"
                     />
-                    <span>Selo Dicas LGBT+<span className="block text-[10px] text-[#626274]">Curadoria da equipe, nunca venda</span></span>
+                    <span>Caixa Recomendados<span className="block text-[10px] text-[#626274]">Selo Dicas LGBT+: curadoria da equipe, nunca venda</span></span>
                   </label>
                 </div>
               </div>

@@ -338,7 +338,8 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
       return {
         id: `dest-${l.id}`,
         chave: `dest-${l.id}`,
-        tag: fundadores ? formatarNome(l.nome).toUpperCase() : (l.subcategoria ? String(l.subcategoria).toUpperCase() : 'LUGAR ESPECIAL'),
+        // Rodada 137 — nas categorias, o banner não mostra a subcategoria (cortava e não ajudava); só em Destaques aparece o nome.
+        tag: fundadores ? formatarNome(l.nome).toUpperCase() : '',
         titulo: chamada,
         cta: com?.cta || 'Conhecer',
         fotoUrl: com?.imagem_url || null, // Rodada 136 — foto do parceiro na metade direita, texto ao lado
