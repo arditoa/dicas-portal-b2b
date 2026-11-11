@@ -840,15 +840,6 @@ export default function EventsScreen() {
             <TouchableOpacity activeOpacity={1} style={styles.filtrarSheet}>
               <Text style={styles.filtrarTitulo}>Mais filtros</Text>
               <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
-                <Text style={styles.filtrarSecao}>Tipo de evento</Text>
-                <View style={styles.filtrarChips}>
-                  {TIPOS_EVENTO_CHIPS.map((c) => (
-                    <TouchableOpacity key={c.id} style={[styles.chip, tipoChip === c.id && styles.chipAtivo]} onPress={() => { setTipoChip((a) => (a === c.id ? null : c.id)); setSelectedMusic(null); }}>
-                      <Text style={[styles.chipTxt, tipoChip === c.id && { color: '#FFF' }]}>{c.rotulo}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
                 <Text style={styles.filtrarSecao}>Para quem</Text>
                 <View style={styles.filtrarChips}>
                   {PUBLICO_FESTA_CADASTRO.map((p) => (
@@ -858,7 +849,7 @@ export default function EventsScreen() {
                   ))}
                 </View>
 
-                {(!tipoChip || TIPOS_EVENTO_CHIPS.find((c) => c.id === tipoChip)?.musica) && (<>
+                {(!selectedSub || selectedSub === 'festas e baladas' || selectedSub === 'shows') && (<>
                   <Text style={styles.filtrarSecao}>Estilo musical</Text>
                   <View style={styles.filtrarChips}>
                     {opcoesFiltrar.estilos.map((t) => (

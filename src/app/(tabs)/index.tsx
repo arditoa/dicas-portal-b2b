@@ -117,7 +117,7 @@ const BANNERS_PRINCIPAIS = [
     cta: 'banner.fundadorCta',
     cor: '#FFD54F',
     icone: 'award',
-    route: '/experience/Membro%20Fundador',
+    route: '/category/destaques',
   },
   {
     id: 'b2',
@@ -1113,12 +1113,11 @@ export default function HomeScreen() {
             <TouchableOpacity
               style={[styles.fundadoresCabecalho, { marginBottom: 4 }]}
               activeOpacity={0.8}
-              onPress={() => router.push('/experience/Membro%20Fundador' as any)}
+              onPress={() => router.push({ pathname: '/category/destaques' as any, params: { title: encodeURIComponent('Destaques') } })}
               accessibilityRole="button"
               accessibilityLabel={t('banner.fundadorTitulo')}
             >
-              <Text style={[styles.tituloSecaoHomeInline, { fontSize: 12, letterSpacing: 1.4, textTransform: 'uppercase', color: COLORS.gold }]}>{t('banner.fundadorTitulo')}</Text>
-              <Text style={[styles.fundadoresVer, { fontSize: 12, color: COLORS.textSecondary }]}>{t('banner.fundadorCta')} →</Text>
+              <Text style={styles.tituloSecaoHomeInline}>{t('banner.fundadorTitulo')}</Text>
             </TouchableOpacity>
             <FaixaPremium itens={fundadoresFaixa} onAbrir={(id) => router.push(`/business/${id}` as any)} />
           </View>

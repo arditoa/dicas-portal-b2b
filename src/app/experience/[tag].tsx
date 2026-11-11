@@ -3,7 +3,7 @@
 // Rodada 82 — usam o layout padrão da página de categoria (ListaPadrao), com
 // chips Em Alta / Todas. A regra comercial de cada seleção não mudou.
 import { Feather } from '@expo/vector-icons';
-import { useLocalSearchParams } from 'expo-router';
+import { Redirect, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -27,7 +27,15 @@ const COLORS = {
 
 const PLANO_PRIORIDADE: Record<string, number> = { vip: 0, destaque: 1, basico: 2 };
 
+// A página antiga "Membro Fundador" foi encerrada: os fundadores agora ficam em Destaques.
 export default function FeaturedScreen() {
+  const { tag } = useLocalSearchParams<{ tag?: string }>();
+  const nome = tag ? decodeURIComponent(tag).toLowerCase() : 'membro fundador';
+  if (nome.includes('fundador')) return <Redirect href={{ pathname: '/category/destaques' as any, params: { title: encodeURIComponent('Destaques') } }} />;
+  return <FeaturedConteudo />;
+}
+
+function FeaturedConteudo() {
   useRastrearTela('experiencia', { detalheParam: 'tag' });
   const { tag } = useLocalSearchParams<{ tag?: string }>();
   const pageTitle = tag ? decodeURIComponent(tag) : 'Membro Fundador';
