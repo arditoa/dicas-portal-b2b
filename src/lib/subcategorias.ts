@@ -96,14 +96,13 @@ export const SUBCATEGORIAS: Record<string, SubDef[]> = {
   ],
   // Saúde & Bem-estar
   saude: [
+    def('Psicologia, Terapia & Psiquiatria', 'Psicologia e Terapia', 'heart', ['psicologia', 'psicologo', 'psicologa', 'terapia', 'terapeuta', 'psiquiatria', 'psiquiatra', 'psicanalise']),
     def('Clínicas Médicas & Consultórios', 'Clínicas e Consultas', 'activity', ['clinica', 'clinicas', 'consultorio', 'consultorios', 'medico', 'medica', 'clinico geral', 'cardiologia', 'pediatria', 'ginecologia', 'dermatologia', 'endocrinologia', 'medicina']),
     def('Odontologia & Ortodontia', 'Odontologia', 'smile', ['odontologia', 'odonto', 'dentista', 'ortodontia', 'dentario', 'dentes']),
     def('Laboratórios & Exames de Imagem', 'Exames e Laboratório', 'eye', ['laboratorio', 'laboratorios', 'exame', 'exames', 'imagem', 'radiologia', 'diagnostico', 'ultrassom']),
     def('Farmácias, Drogarias & Manipulação', 'Farmácias', 'plus-square', ['farmacia', 'farmacias', 'drogaria', 'drogarias', 'manipulacao', 'manipulado']),
     def('Fisioterapia, Quiropraxia & Reabilitação', 'Fisioterapia', 'user-check', ['fisioterapia', 'fisioterapeuta', 'quiropraxia', 'reabilitacao', 'pilates', 'rpg', 'osteopatia']),
-    def('Psicologia, Terapia & Psiquiatria', 'Psicologia e Terapia', 'heart', ['psicologia', 'psicologo', 'psicologa', 'terapia', 'terapeuta', 'psiquiatria', 'psiquiatra', 'psicanalise']),
     def('Nutrição & Nutrologia', 'Nutrição', 'feather', ['nutricao', 'nutricionista', 'nutrologia', 'nutrologo', 'dieta']),
-    def('Pronto-Atendimento & Urgências', 'Pronto Atendimento', 'alert-circle', ['pronto atendimento', 'pronto-atendimento', 'urgencia', 'urgencias', 'emergencia', 'pronto socorro', 'upa', 'hospital']),
   ],
   // Beleza & Estética
   beleza: [

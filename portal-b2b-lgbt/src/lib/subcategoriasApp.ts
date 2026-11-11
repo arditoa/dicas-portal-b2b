@@ -99,14 +99,13 @@ export const SUBCATEGORIAS_APP: Record<string, { titulo: string; itens: { chave:
   saude: {
     titulo: 'Saúde & Bem-estar',
     itens: [
+      { chave: 'psicologia, terapia & psiquiatria', rotulo: 'Psicologia, Terapia & Psiquiatria' },
       { chave: 'clinicas medicas & consultorios', rotulo: 'Clínicas Médicas & Consultórios' },
       { chave: 'odontologia & ortodontia', rotulo: 'Odontologia & Ortodontia' },
       { chave: 'laboratorios & exames de imagem', rotulo: 'Laboratórios & Exames de Imagem' },
       { chave: 'farmacias, drogarias & manipulacao', rotulo: 'Farmácias, Drogarias & Manipulação' },
       { chave: 'fisioterapia, quiropraxia & reabilitacao', rotulo: 'Fisioterapia, Quiropraxia & Reabilitação' },
-      { chave: 'psicologia, terapia & psiquiatria', rotulo: 'Psicologia, Terapia & Psiquiatria' },
       { chave: 'nutricao & nutrologia', rotulo: 'Nutrição & Nutrologia' },
-      { chave: 'pronto-atendimento & urgencias', rotulo: 'Pronto-Atendimento & Urgências' },
     ],
   },
   beleza: {
