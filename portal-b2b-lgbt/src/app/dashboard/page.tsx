@@ -148,7 +148,7 @@ export default function InicioPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Cartao icone={Eye} rotulo="Visualizações do perfil" valor={analytics ? String(analytics.visualizacao_perfil) : '—'} nota={analytics ? 'vezes que sua página foi aberta' : 'ainda sem dados'} />
           <Cartao icone={Instagram} rotulo="Cliques no Instagram" valor={analytics ? String(analytics.clique_instagram) : '—'} nota="a partir da sua página" />
-          <Cartao icone={Ticket} rotulo="Cliques em cupom" valor={analytics ? String(analytics.clique_cupom) : '—'} nota="interesse nos seus cupons" />
+          {local.categoria !== 'eventos' && <Cartao icone={Ticket} rotulo="Cliques em cupom" valor={analytics ? String(analytics.clique_cupom) : '—'} nota="interesse nos seus cupons" />}
           <Cartao icone={Star} rotulo="Avaliação média" valor={local.rating_total > 0 ? local.rating_media.toFixed(1) : '—'} nota={local.rating_total > 0 ? `${local.rating_total} avaliações` : 'ainda sem avaliações'} />
         </div>
       </section>

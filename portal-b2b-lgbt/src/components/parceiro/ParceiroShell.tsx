@@ -76,6 +76,7 @@ const GRUPOS: { titulo: string | null; itens: ItemMenu[] }[] = [
         href: '/dashboard/cupons',
         rotulo: 'Cupons',
         icone: Ticket,
+        visivel: (l) => l.categoria !== 'eventos', // Em Festas & Eventos não há faixa de cupons
         bloqueio: (p) => (p === 'freemium' ? 'Cupons chegam com o plano Intermediário ou superior.' : null),
       },
       { href: '/dashboard/agenda', rotulo: 'Agenda da semana', icone: CalendarDays, visivel: (l) => categoriaComAgenda(l.categoria) && l.categoria !== 'eventos' },
@@ -90,7 +91,7 @@ const GRUPOS: { titulo: string | null; itens: ItemMenu[] }[] = [
   {
     titulo: 'Fidelizar',
     itens: [
-      { href: '/dashboard/checkins', rotulo: 'Check-ins', icone: ClipboardCheck },
+      { href: '/dashboard/checkins', rotulo: 'Check-ins', icone: ClipboardCheck, visivel: (l) => l.categoria !== 'eventos' },
       {
         href: '/dashboard/fidelidade',
         rotulo: 'Fidelidade',

@@ -80,6 +80,8 @@ export type Diagnostico = {
   cuponsTotal: number | null;
   fraseDias: number | null | undefined; // undefined = não se aplica; null = nunca escreveu
   fidelidade: { existe: boolean; ativo: boolean; exibir: boolean } | null;
+  // Só para a categoria Festas & Eventos: festas cadastradas (todas), próximas e quantas das próximas já são pagas (destaque).
+  festas: { total: number; proximas: number; pagasProximas: number } | null;
 };
 
 function perfilFaltando(local: LocalParceiro): string[] {
@@ -88,7 +90,7 @@ function perfilFaltando(local: LocalParceiro): string[] {
   if (!temFoto) falta.push('foto');
   if ((local.descricao || '').trim().length < 20) falta.push('descrição');
   if (!(local.instagram || '').trim()) falta.push('Instagram');
-  if (categoriaComAgenda(local.categoria)) {
+  if (categoriaComAgenda(local.categoria) && local.categoria !== 'eventos') {
     const h = local.horario_funcionamento || {};
     if (!Object.values(h).some((d) => d?.aberto)) falta.push('horário de funcionamento');
   }
@@ -102,13 +104,14 @@ export async function diagnosticar(
   agora: Date = new Date()
 ): Promise<Diagnostico> {
   const plano = planoEfetivo(local);
-  const comAgenda = categoriaComAgenda(local.categoria);
+  const comAgenda = categoriaComAgenda(local.categoria) && local.categoria !== 'eventos';
+  const ehFesta = local.categoria === 'eventos';
   const segunda = segundaDaSemana(agora);
   const domingo = somarDias(segunda, 6);
   const segundaProx = somarDias(segunda, 7);
   const domingoProx = somarDias(segunda, 13);
 
-  const [agenda, uso, cupons, frase, fid] = await Promise.all([
+  const [agenda, uso, cupons, frase, fid, evs] = await Promise.all([
     comAgenda
       ? supabase.from('agenda_semanal').select('data, tipo, ativo').eq('local_id', local.id)
       : Promise.resolve(null),
@@ -118,6 +121,9 @@ export async function diagnosticar(
       ? supabase.from('destaque_chamada').select('updated_at').eq('local_id', local.id).maybeSingle()
       : Promise.resolve(null),
     supabase.from('programas_fidelidade').select('id, ativo, exibir_no_app').eq('local_id', local.id).limit(1),
+    ehFesta
+      ? supabase.from('eventos').select('id, data_inicio, destaque_secoes').eq('local_id', local.id).in('status', ['pendente', 'aprovado']).limit(300)
+      : Promise.resolve(null),
   ]);
 
   // Agenda: linha fixa (data nula) vale pra todas as semanas; linha com data vale só pra aquela semana.
@@ -161,6 +167,17 @@ export async function diagnosticar(
     fidelidade = { existe: !!p, ativo: !!p?.ativo, exibir: p?.exibir_no_app !== false };
   }
 
+  let festas: Diagnostico['festas'] = null;
+  if (evs && !evs.error) {
+    const lista = (evs.data as { data_inicio: string; destaque_secoes: string[] | null }[]) || [];
+    const futuras = lista.filter((e) => new Date(e.data_inicio).getTime() >= agora.getTime());
+    festas = {
+      total: lista.length,
+      proximas: futuras.length,
+      pagasProximas: futuras.filter((e) => (e.destaque_secoes || []).includes('patrocinado')).length,
+    };
+  }
+
   return {
     senhaProvisoria: ehContaWhatsApp(user) && user.user_metadata?.senha_trocada !== true,
     perfilFaltando: perfilFaltando(local),
@@ -170,6 +187,7 @@ export async function diagnosticar(
     cuponsTotal: cupons.error ? null : cupons.count ?? 0,
     fraseDias,
     fidelidade,
+    festas,
   };
 }
 
@@ -191,6 +209,7 @@ const dataCurta = (iso: string) =>
 
 export function montarLembretes(local: LocalParceiro, d: Diagnostico, agora: Date = new Date()): Lembrete[] {
   const plano = planoEfetivo(local);
+  const ehFesta = local.categoria === 'eventos';
   const l: Lembrete[] = [];
 
   if (local.status === 'pendente') {
@@ -240,7 +259,32 @@ export function montarLembretes(local: LocalParceiro, d: Diagnostico, agora: Dat
     });
   }
 
-  if (categoriaComAgenda(local.categoria)) {
+  if (ehFesta && d.festas) {
+    if (d.festas.proximas === 0) {
+      l.push({
+        id: 'festa-nova',
+        nivel: 'semana',
+        titulo: 'Cadastre a sua próxima festa',
+        texto: 'Festa aprovada aparece na aba Eventos do app e já pode ter Lista VIP. Leva poucos minutos.',
+        href: '/dashboard/eventos/novo',
+        acao: 'Cadastrar festa',
+      });
+    } else if (d.festas.pagasProximas === 0) {
+      l.push({
+        id: 'festa-destaque',
+        nivel: 'dica',
+        titulo: 'Coloque sua festa na faixa "Festas em destaque"',
+        texto:
+          plano === 'premium' || plano === 'fundador'
+            ? 'Seu plano inclui até 4 festas em destaque por mês. Peça à equipe para destacar a próxima.'
+            : 'Por R$ 89 a festa aparece no topo da aba Eventos, 1 dia antes e no dia, na frente da lista. Combine com a equipe.',
+        href: plano === 'premium' || plano === 'fundador' ? '/dashboard/ajuda' : '/planos',
+        acao: plano === 'premium' || plano === 'fundador' ? 'Falar com a equipe' : 'Ver planos de eventos',
+      });
+    }
+  }
+
+  if (categoriaComAgenda(local.categoria) && !ehFesta) {
     if (d.agendaEstaSemana === false) {
       l.push({
         id: 'agenda-semana',
@@ -262,7 +306,9 @@ export function montarLembretes(local: LocalParceiro, d: Diagnostico, agora: Dat
     }
   }
 
-  if (plano === 'freemium') {
+  if (ehFesta) {
+    // Em Festas & Eventos não há cupom: nada de lembrete de cupom.
+  } else if (plano === 'freemium') {
     l.push({
       id: 'plano-cupom',
       nivel: 'dica',
@@ -299,7 +345,9 @@ export function montarLembretes(local: LocalParceiro, d: Diagnostico, agora: Dat
         id: 'frase',
         nivel: 'semana',
         titulo: 'Escreva a frase do seu banner',
-        texto: 'No plano Premium/Fundador, a frase do banner da sua categoria é sua. Dá para trocar toda semana.',
+        texto: ehFesta
+          ? 'No plano Premium/Fundador, a frase do banner de Festas & Eventos é sua. Use para anunciar a próxima festa e troque toda semana.'
+          : 'No plano Premium/Fundador, a frase do banner da sua categoria é sua. Dá para trocar toda semana.',
         href: '/dashboard/destaques',
         acao: 'Escrever a frase',
       });
@@ -315,7 +363,7 @@ export function montarLembretes(local: LocalParceiro, d: Diagnostico, agora: Dat
     }
   }
 
-  if (d.fidelidade) {
+  if (d.fidelidade && !ehFesta) {
     if (!d.fidelidade.existe) {
       l.push({
         id: 'fidelidade',
@@ -345,6 +393,7 @@ export type PassoChecklist = { id: string; titulo: string; texto: string; feito:
 
 export function montarChecklist(local: LocalParceiro, d: Diagnostico, contaWhatsApp: boolean): PassoChecklist[] {
   const plano = planoEfetivo(local);
+  const ehFesta = local.categoria === 'eventos';
   const p: PassoChecklist[] = [];
   if (contaWhatsApp) {
     p.push({
@@ -359,12 +408,30 @@ export function montarChecklist(local: LocalParceiro, d: Diagnostico, contaWhats
   p.push({
     id: 'perfil',
     titulo: 'Completar a página do espaço',
-    texto: 'Foto, descrição' + (categoriaComAgenda(local.categoria) ? ', horário' : '') + ' e Instagram.',
+    texto: 'Foto, descrição' + (categoriaComAgenda(local.categoria) && !ehFesta ? ', horário' : '') + ' e Instagram.',
     feito: d.perfilFaltando.length === 0,
     href: '/dashboard/perfil',
     acao: 'Abrir minha página',
   });
-  if (categoriaComAgenda(local.categoria) && d.agendaEstaSemana !== null) {
+  if (ehFesta && d.festas) {
+    p.push({
+      id: 'festa',
+      titulo: 'Cadastrar a sua festa',
+      texto: 'Aparece na aba Eventos do app e pode ter Lista VIP.',
+      feito: d.festas.total > 0,
+      href: '/dashboard/eventos/novo',
+      acao: 'Cadastrar festa',
+    });
+    p.push({
+      id: 'festa-destaque',
+      titulo: 'Colocar uma festa em destaque',
+      texto: 'Faixa "Festas em destaque" no topo de Eventos: R$ 89 por festa, ou incluída no Premium e no Fundador.',
+      feito: d.festas.pagasProximas > 0,
+      href: '/planos',
+      acao: 'Ver como destacar',
+    });
+  }
+  if (categoriaComAgenda(local.categoria) && !ehFesta && d.agendaEstaSemana !== null) {
     p.push({
       id: 'agenda',
       titulo: 'Subir a agenda da semana',
@@ -374,7 +441,7 @@ export function montarChecklist(local: LocalParceiro, d: Diagnostico, contaWhats
       acao: 'Montar agenda',
     });
   }
-  if (plano !== 'freemium' && d.cuponsTotal !== null) {
+  if (!ehFesta && plano !== 'freemium' && d.cuponsTotal !== null) {
     p.push({
       id: 'cupom',
       titulo: 'Publicar o primeiro cupom',
@@ -384,7 +451,7 @@ export function montarChecklist(local: LocalParceiro, d: Diagnostico, contaWhats
       acao: 'Criar cupom',
     });
   }
-  if (d.fidelidade) {
+  if (d.fidelidade && !ehFesta) {
     p.push({
       id: 'fidelidade',
       titulo: 'Criar o cartão fidelidade',
