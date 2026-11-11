@@ -23,6 +23,7 @@ import PainelDestaqueHora from '../../components/PainelDestaqueHora';
 import PainelVisaoGeral from '../../components/PainelVisaoGeral';
 import { deveIncluirEm, estaFixadoEm, estaFixadoParaHoje, pagaPlanoComDireitoADestaque } from '../../lib/destaque';
 import PainelOcorrencias from '../../components/PainelOcorrencias';
+import { CLASSIFICACOES_LGBT } from '../../lib/classificacaoLgbt';
 
 const URL_PORTAL = 'https://dicas-portal-b2b-dun.vercel.app'; // ajuste aqui quando o domínio definitivo (ex.: portal.vezpabar.com) estiver configurado
 
@@ -196,6 +197,7 @@ type LocalDestaque = {
   // dashboard/perfil/page.tsx): só texto de apresentação, nunca usado
   // pra geocodificação.
   bairro_exibicao: string | null;
+  classificacao_lgbt: string | null;
   galeria_fotos: string[];
   video_url: string | null;
   tags: string[];
@@ -697,7 +699,7 @@ export default function AdminPage() {
   // grava quando ela clica "Salvar conteúdo"); upload de foto já sobe
   // e grava na hora (não faz sentido rascunho pra isso).
   const [rascunhoConteudo, setRascunhoConteudo] = useState<
-    Record<string, { descricao: string; instagram: string; video_url: string; tags: string; bairro_exibicao: string }>
+    Record<string, { descricao: string; instagram: string; video_url: string; tags: string; bairro_exibicao: string; classificacao_lgbt: string }>
   >({});
   const [enviandoFoto, setEnviandoFoto] = useState<string | null>(null);
   // Rodada 57 — configurações globais (chave/valor, migration 030) e
@@ -720,6 +722,7 @@ export default function AdminPage() {
       video_url: l.video_url || '',
       tags: (l.tags || []).join(', '),
       bairro_exibicao: l.bairro_exibicao || '',
+      classificacao_lgbt: l.classificacao_lgbt || '',
     };
 
   const carregarFilas = useCallback(async () => {
@@ -769,7 +772,7 @@ export default function AdminPage() {
         supabase
           .from('locais')
           .select(
-            'id, nome, categoria, subcategoria, cidade, bairro, bairro_exibicao, plano_destaque, plano_comercial, plano_comercial_status, destaque_secoes, destaque_ate, experiencias, descricao, instagram, foto_capa_url, logo_url, galeria_fotos, video_url, tags'
+            'id, nome, categoria, subcategoria, cidade, bairro, bairro_exibicao, plano_destaque, plano_comercial, plano_comercial_status, destaque_secoes, destaque_ate, experiencias, descricao, instagram, foto_capa_url, logo_url, galeria_fotos, video_url, tags, classificacao_lgbt'
           )
           .eq('status', 'aprovado')
           .order('nome', { ascending: true }),
@@ -1225,6 +1228,7 @@ Dicas LGBT+`;
         .map((t) => t.trim())
         .filter(Boolean),
       bairro_exibicao: rascunho.bairro_exibicao.trim() || null,
+      classificacao_lgbt: rascunho.classificacao_lgbt || null,
     };
     setLocaisDestaque((atual) => atual.map((item) => (item.id === l.id ? { ...item, ...patch } : item)));
     const { error } = await supabase.from('locais').update(patch).eq('id', l.id);
@@ -2581,6 +2585,16 @@ Dicas LGBT+`;
                       placeholder={`Bairro pra exibir (opcional — hoje mostra "${l.bairro || l.cidade}")`}
                       className="w-full bg-[#0B0B0E] border border-[#232230] rounded-lg text-xs px-3 py-2"
                     />
+                    <select
+                      value={rascunhoConteudoItem.classificacao_lgbt}
+                      onChange={(e) => setRascunhoConteudo((atual) => ({ ...atual, [l.id]: { ...rascunhoConteudoItem, classificacao_lgbt: e.target.value } }))}
+                      className="w-full bg-[#0B0B0E] border border-[#232230] rounded-lg text-xs px-3 py-2"
+                    >
+                      <option value="">Relação com a comunidade LGBT+ (nenhuma)</option>
+                      {CLASSIFICACOES_LGBT.map((c) => (
+                        <option key={c.value} value={c.value}>{c.emoji} {c.label}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
                 <textarea

@@ -16,6 +16,7 @@ import {
   normalizarHorarioFuncionamento,
 } from '../../../lib/horarios';
 import CampoHorarioFuncionamento from '../../../components/CampoHorarioFuncionamento';
+import { CLASSIFICACOES_LGBT } from '../../../lib/classificacaoLgbt';
 
 // Upload de foto real (Rodada 17) — bucket "fotos-locais" (ver
 // 007_storage_fotos_locais.sql). Convenção de caminho: "<local_id>/<nome>",
@@ -70,47 +71,10 @@ const PUBLICO_OPCOES = [
   { slug: 'aliados', label: 'Aliados' },
 ] as const;
 
-// Rodada 24 — mesma lista de chips "Escolha pela experiência" da Home do
-// app (src/app/(tabs)/index.tsx), tirando "Predominância lésbica/Gay"
-// (esses dois já são cobertos pelas tags de público acima, não é a mesma
-// coisa) e somando "Pet Friendly"/"Parklet" que a Andrea pediu. Isso é
-// SÓ a lista de sugestão pronta — o campo permite tags livres também
-// (ver "extra" no estado do formulário).
-const TAGS_EXPERIENCIA = [
-  'Aniversário',
-  'Date',
-  'Rolê com amigos',
-  'Dançar',
-  'Música ao vivo',
-  'Karaokê',
-  'Drag show',
-  'Comer bem',
-  'Happy hour',
-  'Cultura',
-  'Relaxar',
-  'Conhecer pessoas',
-  'Aula de dança',
-  'Aula de forró',
-  'Pet Friendly',
-  'Parklet',
-] as const;
+// Tags de experiência saíram do cadastro e do perfil (nov/2026): a experiência do local agora é marcada pelo admin
+// (locais.experiencias). O campo `tags` continua no banco e é gravado como veio, para não apagar dados antigos.
 
-// Rodada 38 — pedido direto da Andrea pra inverter a lógica antiga: TODO
-// plano (mesmo freemium) pode preencher tags de experiência, galeria e
-// vídeo — o preenchimento nunca foi travado no banco (ver
-// 014_tags_experiencia_locais.sql / 020_horario_funcionamento_galeria_e_
-// fix_foto_evento.sql), só a UX do portal escondia o campo. O que
-// continua exclusivo de Premium/Fundador com plano_comercial_status =
-// 'ativo' é aparecer PRO USUÁRIO FINAL no app — ver `publicaRecursosNoApp`,
-// usada em business/[id].tsx (app) pra decidir o que mostrar. Isso deixa
-// o cadastro completo desde o início (menos fricção, mais dados pra
-// Andrea oferecer o upgrade com o perfil já pronto) sem dar de graça o
-// que é vendido nos planos pagos.
-function limiteTagsExperiencia(): number {
-  return 3;
-}
-
-// Mesmo espírito da função acima — preencher é livre pra qualquer plano;
+// Preencher é livre pra qualquer plano;
 // o que aparece no app pro usuário final é decidido por
 // `publicaRecursosNoApp`. Vídeo é só LINK (Instagram/Reels/YouTube),
 // nunca upload de arquivo — decisão da Andrea pra não gerar custo de
@@ -159,6 +123,9 @@ type Local = {
   lat: number | null;
   lng: number | null;
   publico_tags: string[];
+  // Rodada 134 — relação com a comunidade (selo "Lugar LGBT+" etc. na
+  // tela do local no app). Antes só dava pra escolher no cadastro.
+  classificacao_lgbt: string | null;
   tags: string[];
   plano_comercial: string;
   plano_comercial_status: string;
@@ -190,7 +157,6 @@ export default function MinhaPaginaPage() {
   const [trocandoSenha, setTrocandoSenha] = useState(false);
   const [senhaTrocada, setSenhaTrocada] = useState(false);
   const [erroSenha, setErroSenha] = useState('');
-  const [novaTagLivre, setNovaTagLivre] = useState('');
   const [buscandoCoordenadas, setBuscandoCoordenadas] = useState(false);
   const inputArquivoRef = useRef<HTMLInputElement>(null);
   const inputGaleriaRef = useRef<HTMLInputElement>(null);
@@ -206,7 +172,7 @@ export default function MinhaPaginaPage() {
       const { data, error } = await supabase
         .from('locais')
         .select(
-          'id, nome, categoria, subcategoria, descricao, bairro, bairro_exibicao, cidade, endereco, atendimento_tipo, especialidade, link_loja_online, lat, lng, instagram, contato_nome, contato_email, contato_telefone, foto_capa_url, logo_url, publico_tags, tags, plano_comercial, plano_comercial_status, status, plano_destaque, horario_funcionamento, galeria_fotos, video_url, programacao_texto, programacao_imagem_url'
+          'id, nome, categoria, subcategoria, descricao, bairro, bairro_exibicao, cidade, endereco, atendimento_tipo, especialidade, link_loja_online, lat, lng, instagram, contato_nome, contato_email, contato_telefone, foto_capa_url, logo_url, publico_tags, classificacao_lgbt, tags, plano_comercial, plano_comercial_status, status, plano_destaque, horario_funcionamento, galeria_fotos, video_url, programacao_texto, programacao_imagem_url'
         )
         .eq('owner_id', userData.user.id).in('id', idsMarcaAtiva())
         .maybeSingle();
@@ -232,31 +198,6 @@ export default function MinhaPaginaPage() {
     const ligado = atuais.includes(slug);
     const novas = ligado ? atuais.filter((t) => t !== slug) : [...atuais, slug];
     setLocal({ ...local, publico_tags: novas.length > 0 ? novas : ['todos'] });
-  };
-
-  const alternarTagExperiencia = (tag: string, limite: number) => {
-    if (!local) return;
-    const ligado = local.tags.includes(tag);
-    if (!ligado && local.tags.length >= limite) return; // limite do plano — botão já vem desabilitado, isso é só reforço
-    const novas = ligado ? local.tags.filter((t) => t !== tag) : [...local.tags, tag];
-    setLocal({ ...local, tags: novas });
-  };
-
-  const adicionarTagLivre = (limite: number) => {
-    if (!local) return;
-    const texto = novaTagLivre.trim();
-    if (!texto || local.tags.length >= limite) return;
-    if (local.tags.some((t) => t.toLowerCase() === texto.toLowerCase())) {
-      setNovaTagLivre('');
-      return;
-    }
-    setLocal({ ...local, tags: [...local.tags, texto] });
-    setNovaTagLivre('');
-  };
-
-  const removerTag = (tag: string) => {
-    if (!local) return;
-    setLocal({ ...local, tags: local.tags.filter((t) => t !== tag) });
   };
 
   const buscarCoordenadasDoEndereco = async () => {
@@ -414,6 +355,7 @@ export default function MinhaPaginaPage() {
         lat: local.lat,
         lng: local.lng,
         publico_tags: local.publico_tags,
+        classificacao_lgbt: local.classificacao_lgbt || null,
         tags: local.tags,
         horario_funcionamento: limparHorarioFuncionamento(local.horario_funcionamento),
         galeria_fotos: local.galeria_fotos,
@@ -444,7 +386,7 @@ export default function MinhaPaginaPage() {
 
       <h1 className="text-2xl font-black mb-1">Minha Página</h1>
       <p className="text-[#A0A0B2] text-xs mb-2">
-        É assim que seu local aparece pro usuário final do app — nome, fotos, categoria e tags.
+        É assim que seu local aparece pro usuário final do app — nome, fotos e categoria.
       </p>
       <p className="text-[11px] text-[#626274] mb-8">
         Selo, destaque e status de aprovação não ficam aqui de propósito — quem confirma isso é a
@@ -762,6 +704,38 @@ export default function MinhaPaginaPage() {
 
         <div>
           <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">
+            Relação com a comunidade LGBT+ (aparece na página do local no app)
+          </label>
+          <div className="flex flex-col gap-2">
+            {CLASSIFICACOES_LGBT.map((c) => {
+              const ativo = local.classificacao_lgbt === c.value;
+              return (
+                <button
+                  key={c.value}
+                  type="button"
+                  onClick={() => setLocal({ ...local, classificacao_lgbt: ativo ? null : c.value })}
+                  disabled={salvando}
+                  className={`text-left px-4 py-3 rounded-xl border transition ${
+                    ativo
+                      ? 'bg-[#7E57C2]/15 border-[#7E57C2] ring-1 ring-[#7E57C2]'
+                      : 'bg-[#161520] border-[#232230] hover:border-[#7E57C2]/50'
+                  }`}
+                >
+                  <span className={`text-sm font-semibold ${ativo ? 'text-white' : 'text-[#E5E5F0]'}`}>
+                    {c.emoji} {c.label}
+                  </span>
+                  <p className="text-xs text-[#A0A0B2] mt-1 leading-relaxed">{c.descricao}</p>
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[10px] text-[#626274] mt-2">
+            Metodologia da Câmara de Comércio LGBT+. Escolha uma (toque de novo para desmarcar). Muda no app assim que você salvar.
+          </p>
+        </div>
+
+        <div>
+          <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">
             Tags de público (aparece nos filtros do app e do mapa)
           </label>
           <div className="flex flex-wrap gap-2">
@@ -797,93 +771,6 @@ export default function MinhaPaginaPage() {
             onChange={(h) => setLocal({ ...local, horario_funcionamento: h })}
             disabled={salvando}
           />
-        </div>
-
-        <div>
-          {(() => {
-            const limite = limiteTagsExperiencia();
-            const extras = local.tags.filter((t) => !(TAGS_EXPERIENCIA as readonly string[]).includes(t));
-            const publicaNoApp = publicaRecursosNoApp(local.plano_comercial, local.plano_comercial_status);
-            return (
-              <>
-                <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">
-                  Tags de experiência (aparecem no perfil e no destaque do local)
-                </label>
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {TAGS_EXPERIENCIA.map((tag) => {
-                    const ligado = local.tags.includes(tag);
-                    const desabilitado = !ligado && local.tags.length >= limite;
-                    return (
-                      <button
-                        type="button"
-                        key={tag}
-                        disabled={desabilitado}
-                        onClick={() => alternarTagExperiencia(tag, limite)}
-                        className={`text-xs font-bold px-3 py-2 rounded-full border transition ${
-                          ligado
-                            ? 'bg-[#E1306C] border-[#E1306C] text-white'
-                            : desabilitado
-                            ? 'bg-[#161520] border-[#232230] text-[#626274] opacity-40 cursor-not-allowed'
-                            : 'bg-[#161520] border-[#232230] text-[#A0A0B2] hover:border-[#E1306C]/50'
-                        }`}
-                      >
-                        {tag}
-                      </button>
-                    );
-                  })}
-                </div>
-                {extras.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {extras.map((tag) => (
-                      <button
-                        type="button"
-                        key={tag}
-                        onClick={() => removerTag(tag)}
-                        className="text-xs font-bold px-3 py-2 rounded-full border bg-[#E1306C] border-[#E1306C] text-white flex items-center gap-1.5"
-                        title="Remover"
-                      >
-                        {tag} <span className="text-white/70">×</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={novaTagLivre}
-                    onChange={(e) => setNovaTagLivre(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        adicionarTagLivre(limite);
-                      }
-                    }}
-                    disabled={local.tags.length >= limite}
-                    placeholder="Escreva uma tag sua (ex: Rooftop)"
-                    className="flex-1 bg-[#161520] border border-[#232230] rounded-xl py-2.5 px-3 text-white text-sm focus:outline-none focus:border-[#E1306C] disabled:opacity-40"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => adicionarTagLivre(limite)}
-                    disabled={local.tags.length >= limite || !novaTagLivre.trim()}
-                    className="bg-[#232230] hover:bg-[#2D2B3D] text-white text-xs font-bold px-4 rounded-xl disabled:opacity-40"
-                  >
-                    Adicionar
-                  </button>
-                </div>
-                <p className="text-[10px] text-[#626274] mt-2">
-                  {local.tags.length}/{limite} tags usadas — escolha das sugeridas ou escreva a sua.
-                </p>
-                {!publicaNoApp && (
-                  <p className="text-xs text-[#E1A93A] bg-[#E1A93A]/10 border border-[#E1A93A]/30 rounded-xl p-3 mt-2">
-                    Fica salvo aqui, mas só aparece pros usuários no app quando seu plano for{' '}
-                    <b>Premium</b> ou <b>Fundador</b> (ativo). Veja em{' '}
-                    <Link href="/planos" className="underline hover:text-white">planos</Link>.
-                  </p>
-                )}
-              </>
-            );
-          })()}
         </div>
 
         <div>
