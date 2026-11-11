@@ -64,7 +64,7 @@ type ItemMenu = {
   icone: LucideIcon;
   visivel?: (l: LocalParceiro, podePacotes: boolean | null) => boolean;
   /** Texto do cadeado quando o plano atual ainda não libera o recurso. */
-  bloqueio?: (plano: ReturnType<typeof planoEfetivo>) => string | null;
+  bloqueio?: (plano: ReturnType<typeof planoEfetivo>, local: LocalParceiro) => string | null;
 };
 
 const GRUPOS: { titulo: string | null; itens: ItemMenu[] }[] = [
@@ -91,7 +91,13 @@ const GRUPOS: { titulo: string | null; itens: ItemMenu[] }[] = [
     titulo: 'Fidelizar',
     itens: [
       { href: '/dashboard/checkins', rotulo: 'Check-ins', icone: ClipboardCheck },
-      { href: '/dashboard/fidelidade', rotulo: 'Fidelidade', icone: Gift },
+      {
+        href: '/dashboard/fidelidade',
+        rotulo: 'Fidelidade',
+        icone: Gift,
+        // Festa não tem cliente recorrente de uma "casa": o cartão fidelidade é para bares, cafés e lojas.
+        bloqueio: (_p, l) => (l.categoria === 'eventos' ? 'Fidelidade é para casas com clientes que voltam. Em Festas & Eventos não se aplica.' : null),
+      },
     ],
   },
   {
@@ -270,7 +276,7 @@ export default function ParceiroShell({ children }: { children: React.ReactNode 
             {itens.map((it) => {
               const Icone = it.icone;
               const on = ativo(it.href);
-              const bloqueio = it.bloqueio?.(plano) ?? null;
+              const bloqueio = it.bloqueio?.(plano, local) ?? null;
               return (
                 <Link
                   key={it.href}

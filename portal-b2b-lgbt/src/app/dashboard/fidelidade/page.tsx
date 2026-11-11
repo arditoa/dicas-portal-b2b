@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { idsMarcaAtiva } from '../../../lib/marcaAtiva';
+import { useParceiro } from '../../../components/parceiro/ParceiroContext';
 
 // Plano de fidelidade da casa (migrations 010 + 074).
 // A casa define: quantas visitas, o que o cliente ganha e se a contagem é por mês.
@@ -45,7 +46,7 @@ function fraseRegra(visitas: number, recompensa: string, janela: string) {
   return `A cada ${visitas || '…'} visita${visitas === 1 ? '' : 's'}${quando}, o cliente ganha: ${recompensa.trim() || '…'}`;
 }
 
-export default function FidelidadePage() {
+function FidelidadeConteudo() {
   const router = useRouter();
   const [carregando, setCarregando] = useState(true);
   const [localId, setLocalId] = useState<string | null>(null);
@@ -494,4 +495,25 @@ export default function FidelidadePage() {
       )}
     </div>
   );
+}
+
+// Em Festas & Eventos o cartão fidelidade fica travado (a tela existe, mas não se aplica a festa).
+export default function FidelidadePage() {
+  const parceiro = useParceiro();
+  if (parceiro?.local.categoria === 'eventos') {
+    return (
+      <div className="mx-auto max-w-xl p-8 text-center">
+        <Gift className="mx-auto mb-3 text-[#626274]" size={32} />
+        <h1 className="text-lg font-black text-white">Fidelidade não se aplica a festas</h1>
+        <p className="mt-2 text-sm text-[#A0A0B2]">
+          O cartão fidelidade é para casas com clientes que voltam várias vezes, como bares, cafés e lojas. Para festas,
+          use a Lista VIP e divulgue cada edição em Meus eventos.
+        </p>
+        <Link href="/dashboard/lista-vip" className="mt-5 inline-block text-sm font-bold text-[#E1306C] hover:underline">
+          Ir para a Lista VIP
+        </Link>
+      </div>
+    );
+  }
+  return <FidelidadeConteudo />;
 }
