@@ -149,7 +149,7 @@ export default function PainelVitrine() {
 
   // ---- 2b) Ofertas da equipe em qualquer local (carrossel lateral de ofertas das categorias)
   type OfertaEq = { id: string; titulo: string; ativo: boolean; valido_ate: string | null; nome: string; imagem_url: string; local_id: string; categoria: string; equipe: boolean };
-  type FestaPaga = { id: string; titulo: string; data_inicio: string; foto_capa_url: string | null; marca: string };
+  type FestaPaga = { id: string; titulo: string; data_inicio: string; foto_capa_url: string | null; marca: string; doPlano: boolean };
   const [festasPagas, setFestasPagas] = useState<FestaPaga[]>([]);
   const [filtroCatOferta, setFiltroCatOferta] = useState('todas');
   const [soEquipe, setSoEquipe] = useState(false);
@@ -166,8 +166,8 @@ export default function PainelVitrine() {
     if (error) return;
     setOfertasEq(((data as any[]) || []).map((r) => ({ id: r.id, titulo: r.titulo, ativo: r.ativo, valido_ate: r.valido_ate, nome: r.locais?.nome || '', imagem_url: r.imagem_url || '', local_id: r.local_id, categoria: r.locais?.categoria || '', equipe: !!r.criado_pela_equipe })));
     const ontem = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
-    const { data: fs } = await supabase.from('eventos').select('id, titulo, data_inicio, foto_capa_url, locais(nome)').eq('status', 'aprovado').contains('destaque_secoes', ['patrocinado']).gte('data_inicio', ontem).order('data_inicio');
-    setFestasPagas(((fs as any[]) || []).map((f) => ({ id: f.id, titulo: f.titulo, data_inicio: f.data_inicio, foto_capa_url: f.foto_capa_url, marca: f.locais?.nome || '' })));
+    const { data: fs } = await supabase.from('eventos').select('id, titulo, data_inicio, foto_capa_url, destaque_secoes, locais(nome)').eq('status', 'aprovado').overlaps('destaque_secoes', ['patrocinado', 'plano_festa']).gte('data_inicio', ontem).order('data_inicio');
+    setFestasPagas(((fs as any[]) || []).map((f) => ({ id: f.id, titulo: f.titulo, data_inicio: f.data_inicio, foto_capa_url: f.foto_capa_url, marca: f.locais?.nome || '', doPlano: (f.destaque_secoes || []).includes('plano_festa') })));
   }, []);
   useEffect(() => { carregarOfertasEq(); }, [carregarOfertasEq]);
   useEffect(() => {
@@ -528,6 +528,7 @@ export default function PainelVitrine() {
       <div className={card}>
         <h2 className="text-sm font-black mb-1">Comunicação dos Membros Fundadores</h2>
         <p className="text-[#A0A0B2] text-xs mb-4">É aqui que a equipe deixa o negócio do fundador o mais vendável possível: uma frase que gera desejo e a oferta do momento. Aparece no topo da Home, na categoria Destaques e nos cartões de destaque. O fundador vê o texto no portal e pode ajustar.</p>
+        <p className="text-xs mb-4 bg-[#E1306C]/10 border border-[#E1306C]/40 rounded-xl px-3 py-2 text-[#F3C6D6]"><b>A frase e a foto do banner</b> (Home, categoria e Destaques) agora se editam em <b>Membros Fundadores &gt; Editar banner</b>, ou na ficha do local em Locais e marcas. Quando existe frase lá, ela vale no banner; aqui ficam o texto de apoio e a oferta.</p>
         {fundadores.length === 0 && <p className="text-xs text-[#626274]">Nenhum Membro Fundador ativo ainda.</p>}
         <div className="space-y-2">
           {fundadores.map((f) => {
@@ -654,14 +655,14 @@ export default function PainelVitrine() {
 
       {/* 2b') FESTAS PAGAS (R$89) — não são ofertas, mas o parceiro pergunta onde aparecem */}
       <div className={card}>
-        <h2 className="text-sm font-black mb-1">Festas com divulgação paga (R$89)</h2>
-        <p className="text-[#A0A0B2] text-xs mb-4">Aparecem na aba Eventos, faixa &ldquo;Festas em destaque&rdquo;, 1 dia antes e no dia da festa (até 24 por vez). Não entram na faixa de ofertas. Para ligar ou desligar, vá em Festas e eventos.</p>
+        <h2 className="text-sm font-black mb-1">Festas em destaque (R$89 e festas do plano)</h2>
+        <p className="text-[#A0A0B2] text-xs mb-4">Só o flier, na faixa &ldquo;Festas em destaque&rdquo; (tela de Festas e tela do tipo da festa), 6 por vez com rodízio a cada 10 min. <b>R$89</b>: 1 dia antes e no dia (até 24 ao mesmo tempo). <b>Festa do plano</b> (Fundador/Premium, 4 por mês): todos os dias até a festa, antes das avulsas. Liga e desliga em Festas e eventos.</p>
         <div className="space-y-2">
           {festasPagas.length === 0 && <p className="text-xs text-[#626274]">Nenhuma festa paga de ontem em diante.</p>}
           {festasPagas.map((f) => {
             const ini = new Date(f.data_inicio);
             const abre = new Date(ini.getFullYear(), ini.getMonth(), ini.getDate() - 1);
-            const noAr = Date.now() >= abre.getTime();
+            const noAr = f.doPlano || Date.now() >= abre.getTime();
             return (
               <div key={f.id} className="flex items-center gap-3 bg-[#0B0B0E] border border-[#232230] rounded-xl p-3">
                 {f.foto_capa_url ? <img src={f.foto_capa_url} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" /> : <div className="w-10 h-10 rounded-lg border border-dashed border-amber-500/50 shrink-0" />}
@@ -670,7 +671,7 @@ export default function PainelVitrine() {
                   <p className="text-[11px] text-[#8888A0]">{f.marca ? `${f.marca} · ` : ''}{ini.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}{!f.foto_capa_url ? ' · sem flier' : ''}</p>
                 </div>
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${noAr ? 'bg-emerald-500/20 text-emerald-300' : 'bg-[#232230] text-[#A0A0B2]'}`}>
-                  {noAr ? 'No ar: Eventos > Festas em destaque' : `Entra em ${abre.toLocaleDateString('pt-BR')}`}
+                  {f.doPlano ? 'Festa do plano · no ar até a festa' : noAr ? 'No ar: Eventos > Festas em destaque' : `Entra em ${abre.toLocaleDateString('pt-BR')}`}
                 </span>
               </div>
             );

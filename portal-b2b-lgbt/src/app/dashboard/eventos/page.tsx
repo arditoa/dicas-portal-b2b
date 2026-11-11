@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { lerMarcaAtiva } from '../../../lib/marcaAtiva';
+import DestaqueFestaPlano from '../../../components/DestaqueFestaPlano';
 import {
   ESTILOS_MAX_CADASTRO,
   FORMATOS_CADASTRO,
@@ -56,6 +57,7 @@ type EventoEditavel = {
   estilos_musicais: string[] | null;
   publico_tags: string[] | null;
   status: 'pendente' | 'aprovado' | 'rejeitado' | 'cancelado';
+  destaque_secoes?: string[] | null;
 };
 
 // Rodada 47 — pedido direto da Andrea: "em todo evento colocar a opção de
@@ -426,6 +428,8 @@ export default function DashboardEventosPage() {
               </div>
             ) : (
               <>
+            {/* Rodada 138 — festa do plano (Fundador/Premium: 4 por mês, todos os dias até a festa) */}
+            {ev.local_id && <DestaqueFestaPlano evento={ev} modo="parceiro" />}
             {ev.status === 'aprovado' && (
               <div className="flex items-start gap-2 bg-[#E1A93A]/10 border border-[#E1A93A]/30 rounded-xl p-3">
                 <AlertTriangle size={14} className="text-[#E1A93A] shrink-0 mt-0.5" />

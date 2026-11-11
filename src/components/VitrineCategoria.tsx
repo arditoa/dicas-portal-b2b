@@ -26,6 +26,7 @@ import {
   registrarVitrine,
 } from '../lib/vitrine';
 import CarrosselAnuncios, { Anuncio } from './CarrosselAnuncios';
+import { useAnunciosApp } from '../lib/banners';
 import FundoCaixaDegrade from './FundoCaixaDegrade';
 
 const C = { card: '#161520', border: '#232230', text: '#FFFFFF', dim: '#A0A0B2', pink: '#E1306C', gold: '#FFD54F' };
@@ -354,6 +355,10 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
       };
     });
   }, [posicoes, pool, comunicacao, fundadores, slot, slug, titulo, router]);
+  // Rodada 139 — banners de parceiros e campanhas (aba "Banners e parceiros" do /admin) marcados para esta categoria
+  // entram no mesmo carrossel, depois dos banners de Fundador/Premium.
+  const { anuncios: bannersParceiros, aoExibir: exibirParceiro } = useAnunciosApp(`cat:${slug}`);
+  const bannersDaPagina = useMemo(() => [...anunciosRotativos, ...(bannersParceiros || [])], [anunciosRotativos, bannersParceiros]);
 
 
   return (
@@ -366,20 +371,31 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
               <View key={c} style={{ flex: 1, backgroundColor: c }} />
             ))}
           </View>
+          {/* Rodada 138 — cartão mais leve, sem "agradecimento": título curto + logos dos Fundadores. */}
           <View style={s.agradeceCorpo}>
-            <View style={s.agradeceTopo}>
-              <View style={s.agradeceIcone}>
-                <Feather name="heart" size={18} color="#FFFFFF" />
-              </View>
-              <View style={s.agradecePilula}>
-                <Text style={s.agradecePilulaTxt}>MEMBROS FUNDADORES</Text>
-              </View>
+            <View style={s.agradecePilula}>
+              <Feather name="star" size={10} color="#FFFFFF" />
+              <Text style={s.agradecePilulaTxt}>MEMBROS FUNDADORES</Text>
             </View>
-            <Text style={s.agradeceTitulo}>Gratidão aos nossos Fundadores</Text>
-            <Text style={s.agradeceTexto}>
-              Estes negócios acreditaram no Dicas LGBT+ desde o começo e estão construindo esta comunidade com a gente. Cada visita, cada avaliação e cada oferta aqui fortalece quem abriu as portas primeiro.
-            </Text>
-            <Text style={s.agradeceFecho}>Obrigado por fazer parte da história!</Text>
+            <Text style={s.agradeceTitulo}>Quem abriu as portas primeiro</Text>
+            <Text style={s.agradeceTexto}>Negócios que apostam na comunidade LGBT+ desde o começo.</Text>
+            {locais.length > 0 && (
+              <View style={s.agradeceLogos}>
+                {locais.slice(0, 6).map((l, i) => {
+                  const img = l.logo_url || l.foto_capa_url || l.galeria_fotos?.[0] || null;
+                  return (
+                    <View key={l.id} style={[s.agradeceLogo, { marginLeft: i === 0 ? 0 : -10, zIndex: 10 - i }]}>
+                      {img ? (
+                        <Image source={{ uri: img }} style={StyleSheet.absoluteFill} resizeMode={l.logo_url ? 'contain' : 'cover'} />
+                      ) : (
+                        <Text style={s.agradeceLogoTxt}>{formatarNome(l.nome).charAt(0)}</Text>
+                      )}
+                    </View>
+                  );
+                })}
+                <Text style={s.agradeceQtd}>{locais.length === 1 ? '1 fundador' : `${locais.length} fundadores`}</Text>
+              </View>
+            )}
           </View>
         </View>
       )}
@@ -418,9 +434,9 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
       )}
 
       {/* 1) BANNER ROTATIVO — mesmo cartão em degradê da Home (ex.: "Apoio cultural"): etiqueta, chamada, botão, pontinhos. */}
-      {anunciosRotativos.length > 0 && !secoesOff.has('__banner') && (
+      {bannersDaPagina.length > 0 && !secoesOff.has('__banner') && (
         <View style={{ marginHorizontal: -16, marginBottom: -8 }}>
-          <CarrosselAnuncios anuncios={anunciosRotativos} onExibir={(id) => { const l = destaques.find((x) => `dest-${x.id}` === id); if (l) registrarVitrine(l.id, `destaques:${slug}`, 'exibicao'); }} />
+          <CarrosselAnuncios anuncios={bannersDaPagina} onExibir={(id) => { exibirParceiro(id); const l = destaques.find((x) => `dest-${x.id}` === id); if (l) registrarVitrine(l.id, `destaques:${slug}`, 'exibicao'); }} />
         </View>
       )}
 
@@ -502,12 +518,16 @@ const s = StyleSheet.create({
   vazioSub: { fontSize: 12, color: C.dim, lineHeight: 16, marginTop: 2 },
   agradece: { marginBottom: 14, borderRadius: 16, overflow: 'hidden', backgroundColor: C.card },
   agradeceFaixa: { flexDirection: 'row', height: 4 },
-  agradeceCorpo: { padding: 16, gap: 8 },
+  agradeceCorpo: { padding: 16, gap: 6 },
+  agradeceLogos: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
+  agradeceLogo: { width: 32, height: 32, borderRadius: 16, overflow: 'hidden', borderWidth: 2, borderColor: '#FFFFFF', backgroundColor: '#F4F1FA', alignItems: 'center', justifyContent: 'center' },
+  agradeceLogoTxt: { fontSize: 13, fontWeight: '900', color: '#4C1D95' },
+  agradeceQtd: { marginLeft: 10, fontSize: 12, fontWeight: '800', color: 'rgba(255,255,255,0.92)' },
   agradeceTopo: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   agradeceIcone: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: 'rgba(255,255,255,0.85)', backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
-  agradecePilula: { backgroundColor: 'rgba(255,255,255,0.22)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
+  agradecePilula: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.22)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
   agradecePilulaTxt: { fontSize: 10, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.6 },
-  agradeceTitulo: { fontSize: 19, lineHeight: 24, fontWeight: '900', color: '#FFFFFF' },
+  agradeceTitulo: { fontSize: 18, lineHeight: 23, fontWeight: '900', color: '#FFFFFF' },
   agradeceTexto: { fontSize: 13, lineHeight: 19, color: 'rgba(255,255,255,0.92)' },
   agradeceFecho: { fontSize: 13, fontWeight: '800', color: '#FFFFFF', marginTop: 2 },
   patroc: { marginBottom: 14, height: 128, borderRadius: 14, overflow: 'hidden', justifyContent: 'center', backgroundColor: C.card },

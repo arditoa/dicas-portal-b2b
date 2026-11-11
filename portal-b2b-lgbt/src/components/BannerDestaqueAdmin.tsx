@@ -16,9 +16,11 @@ type Props = {
   etiqueta: string; // o que aparece na pílula do banner (nome do Fundador ou subcategoria)
   temBanner: boolean; // plano Fundador ou Premium ativo
   ondeAparece: string;
+  ehFundador?: boolean;
+  categoriaRotulo?: string;
 };
 
-export default function BannerDestaqueAdmin({ localId, nome, etiqueta, temBanner, ondeAparece }: Props) {
+export default function BannerDestaqueAdmin({ localId, nome, temBanner, ondeAparece, ehFundador = false, categoriaRotulo = '' }: Props) {
   const [carregando, setCarregando] = useState(true);
   const [chamada, setChamada] = useState('');
   const [cta, setCta] = useState('Conhecer');
@@ -76,10 +78,10 @@ export default function BannerDestaqueAdmin({ localId, nome, etiqueta, temBanner
   if (carregando) return <div className="text-xs text-[#626274] flex items-center gap-2"><Loader2 size={12} className="animate-spin" /> Carregando banner...</div>;
 
   return (
-    <div className="border-t border-[#232230] pt-3 space-y-2">
-      <p className="text-xs font-bold text-[#D0D0E0]">Banner de destaque (frase + foto)</p>
-      <p className="text-[10px] text-[#626274]">
-        É o cartão grande que gira {ondeAparece}. Não usa a capa nem o logo: tem frase e foto próprias.
+    <div id={`banner-${localId}`} className="border border-[#E1306C]/40 bg-[#E1306C]/5 rounded-xl p-3 space-y-2 scroll-mt-24">
+      <p className="text-xs font-bold text-[#D0D0E0]">Banners deste local {ehFundador ? '(Fundador)' : '(Premium)'}</p>
+      <p className="text-[10px] text-[#A0A0B2]">
+        São os cartões grandes que giram {ondeAparece}. Uma frase e uma foto valem para todos eles. Não usam a capa nem o logo.
         {!temBanner && <span className="text-amber-300"> Este local não tem plano Fundador ou Premium ativo: o banner fica guardado, mas só aparece quando o plano for ativado.</span>}
       </p>
       <div className="grid md:grid-cols-[1fr_auto] gap-3 items-start">
@@ -114,16 +116,27 @@ export default function BannerDestaqueAdmin({ localId, nome, etiqueta, temBanner
           <p className="text-[10px] text-[#626274]">Foto boa: sem texto escrito, com o drink, prato, pessoas ou ambiente no centro. Flier com letras fica ruim aqui (o flier é da festa, não do banner).</p>
           {msg && <p className={`text-[11px] ${msg.tipo === 'ok' ? 'text-emerald-400' : 'text-red-400'}`}>{msg.texto}</p>}
         </div>
-        {/* Prévia: igual ao banner do app */}
-        <div className="relative flex h-28 w-80 max-w-full rounded-2xl overflow-hidden" style={{ background: 'linear-gradient(135deg, #7E57C2, #2563EB)' }}>
-          <div className={`${foto ? 'w-[55%]' : 'w-full pr-16'} p-3 flex flex-col justify-center gap-1`}>
-            <p className={`font-black text-white leading-tight ${foto ? 'text-[12px] line-clamp-3' : 'text-[14px] line-clamp-2'}`}>{chamada || 'Sua frase aparece aqui'}</p>
-            <span className="self-start text-[10px] font-black bg-white text-[#1A1020] px-2 py-0.5 rounded-lg">{cta || 'Conhecer'} →</span>
-          </div>
-          {foto && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={foto} alt="" className="absolute right-0 top-0 h-full w-[45%] object-cover" />
-          )}
+        {/* Prévias: iguais aos banners do app (Home com o nome na etiqueta; categoria sem etiqueta) */}
+        <div className="space-y-2">
+          {([
+            ...(ehFundador ? [{ chave: 'home', rotulo: 'Home (Membros Fundadores)', cores: '#B45309, #9D174D', pilula: true }] : []),
+            { chave: 'cat', rotulo: `Categoria ${categoriaRotulo}`.trim(), cores: '#0E9F6E, #0E7490', pilula: false },
+          ]).map((p) => (
+            <div key={p.chave}>
+              <p className="text-[10px] font-bold text-[#A0A0B2] mb-1">{p.rotulo}</p>
+              <div className="relative flex h-24 w-80 max-w-full rounded-2xl overflow-hidden" style={{ background: `linear-gradient(135deg, ${p.cores})` }}>
+                <div className={`${foto ? 'w-[55%]' : 'w-full pr-16'} p-3 flex flex-col justify-center gap-1`}>
+                  {p.pilula && <span className="self-start text-[8px] font-black uppercase tracking-wide bg-white/20 text-white px-2 py-0.5 rounded-lg truncate max-w-full">{nome}</span>}
+                  <p className={`font-black text-white leading-tight ${foto ? 'text-[12px] line-clamp-3' : 'text-[14px] line-clamp-2'}`}>{chamada || 'Sua frase aparece aqui'}</p>
+                  <span className="self-start text-[10px] font-black bg-white text-[#1A1020] px-2 py-0.5 rounded-lg">{cta || 'Conhecer'} →</span>
+                </div>
+                {foto && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={foto} alt="" className="absolute right-0 top-0 h-full w-[45%] object-cover" />
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

@@ -181,7 +181,9 @@ export default function CategoryListScreen() {
   const experienciaSlug = experiencia ? decodeURIComponent(experiencia) : null;
 
   const categoriaConfig = CATEGORIAS[slug as CategoriaSlugUI];
-  const categoriaReal = isTodos ? null : categoriaConfig?.categoriaReal ?? slug;
+  // Rodada 138 — "Destaques" (Membros Fundadores) não tem categoria real (categoriaReal: null). O `?? slug` virava
+  // .eq('categoria', 'destaques'), que não existe no banco: dava erro 22P02 e a lista de Fundadores vinha vazia.
+  const categoriaReal = isTodos || slug === 'destaques' ? null : categoriaConfig?.categoriaReal ?? slug;
   const decodedTitle = title
     ? decodeURIComponent(title)
     : categoriaConfig?.label || (categoriaReal ? CATEGORIA_REAL_LABEL[categoriaReal] : 'Todos os Locais');

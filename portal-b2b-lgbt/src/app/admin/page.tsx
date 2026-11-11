@@ -16,6 +16,7 @@ import PainelVitrine from '../../components/PainelVitrine';
 import PainelCategorias from '../../components/PainelCategorias';
 import PosicaoLocal from '../../components/PosicaoLocal';
 import BannerDestaqueAdmin from '../../components/BannerDestaqueAdmin';
+import DestaqueFestaPlano from '../../components/DestaqueFestaPlano';
 import SubcategoriaAdmin from '../../components/SubcategoriaAdmin';
 import { SUBCATEGORIAS_APP } from '../../lib/subcategoriasApp';
 import PainelPush from '../../components/PainelPush';
@@ -726,6 +727,15 @@ export default function AdminPage() {
   // painel genérico "Conteúdo do local" pra uma aba própria e mais fácil
   // de achar).
   const [buscaFundador, setBuscaFundador] = useState('');
+
+  // Rodada 137 — atalho: abre a ficha do local já aberta em Locais e marcas (usado por "Editar banner").
+  const abrirFichaLocal = (id: string, nome: string) => {
+    setFiltroPrincipal('todas');
+    setBuscaLocal(nome.trim());
+    setLocalExpandido((a) => ({ ...a, [id]: true }));
+    setAba('locais');
+    setTimeout(() => document.getElementById(`banner-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 400);
+  };
 
   const lerRascunhoConteudo = (l: LocalDestaque) =>
     rascunhoConteudo[l.id] ?? {
@@ -2544,6 +2554,13 @@ Dicas LGBT+`;
                           >
                             Data, tipo e público
                           </button>
+                          <div className="w-full">
+                            <DestaqueFestaPlano
+                              evento={{ ...ev, status: 'aprovado' }}
+                              modo="admin"
+                              onMudou={(lig) => setEventosDestaque((a) => a.map((x) => (x.id === ev.id ? { ...x, destaque_secoes: lig ? [...x.destaque_secoes.filter((v) => v !== 'plano_festa'), 'plano_festa'] : x.destaque_secoes.filter((v) => v !== 'plano_festa') } : x)))}
+                            />
+                          </div>
                         </div>
                       );
                     })}
@@ -2556,6 +2573,9 @@ Dicas LGBT+`;
                 const cat = CATEGORIA_REAL_LABEL_ADMIN[l.categoria] || l.categoria;
                 return (
                   <BannerDestaqueAdmin
+                    key={`banner-${l.id}`}
+                    ehFundador={l.fundador}
+                    categoriaRotulo={cat}
                     localId={l.id}
                     nome={l.nome}
                     etiqueta={l.subcategoria || l.nome}
@@ -2835,6 +2855,7 @@ Dicas LGBT+`;
                       <span className={ev.destaque_secoes.includes('patrocinado') ? 'text-[#4CAF7D]' : 'text-[#626274]'}>
                         {ev.destaque_secoes.includes('patrocinado') ? '✓ Divulgação paga (Festas em destaque)' : 'Sem divulgação paga'}
                       </span>
+                      {ev.destaque_secoes.includes('plano_festa') ? <span className="text-[#E1306C]"> · festa do plano</span> : null}
                       {ev.destaque_secoes.includes('hoje') ? <span className="text-[#4CAF7D]"> · O que fazer hoje</span> : null}
                       {ev.destaque_secoes.includes('evento_destaque') ? <span className="text-[#4CAF7D]"> · primeira da lista</span> : null}
                       {!ev.foto_capa_url ? <span className="text-amber-300"> · sem flier</span> : null}
@@ -2921,6 +2942,14 @@ Dicas LGBT+`;
               </div>
               )}
 
+              {expandidoEv && ev.local_id && (
+                <DestaqueFestaPlano
+                  evento={{ ...ev, status: 'aprovado' }}
+                  modo="admin"
+                  onMudou={(lig) => setEventosDestaque((a) => a.map((x) => (x.id === ev.id ? { ...x, destaque_secoes: lig ? [...x.destaque_secoes.filter((v) => v !== 'plano_festa'), 'plano_festa'] : x.destaque_secoes.filter((v) => v !== 'plano_festa') } : x)))}
+                />
+              )}
+
               {expandidoEv && (
               <div className="flex items-center gap-3 flex-wrap">
                 {OPCOES_SECAO_EVENTO.map((o) => (
@@ -2953,7 +2982,7 @@ Dicas LGBT+`;
                 </button>
                 {ev.destaque_secoes.length > 0 && (
                   <span className="text-xs text-[#4CAF7D]">
-                    ✓ {ev.destaque_secoes.map((v) => OPCOES_SECAO_EVENTO.find((o) => o.value === v)?.label || v).join(', ')}
+                    ✓ {ev.destaque_secoes.map((v) => OPCOES_SECAO_EVENTO.find((o) => o.value === v)?.label || (v === 'plano_festa' ? 'Festa do plano' : v)).join(', ')}
                     {ev.destaque_ate ? ` até ${new Date(ev.destaque_ate).toLocaleDateString('pt-BR')}` : ''}
                   </span>
                 )}
@@ -3011,7 +3040,7 @@ Dicas LGBT+`;
       {aba === 'destinos' && <PainelDestinos abrir={pedidoDestino} />}
       {aba === 'roteiros' && <PainelRoteiros abrir={pedidoRoteiro} />}
       {aba === 'push' && <PainelPush />}
-      {aba === 'banners' && <PainelBanners />}
+      {aba === 'banners' && <PainelBanners onIrPara={(a) => setAba(a as typeof aba)} />}
       {aba === 'vitrine' && <PainelVitrine />}
       {aba === 'categorias' && <PainelCategorias />}
       {posicaoLocalId && <PosicaoLocal localId={posicaoLocalId} onFechar={() => setPosicaoLocalId(null)} onSalvo={() => { carregarFilas(); }} />}
@@ -3025,58 +3054,32 @@ Dicas LGBT+`;
 
       {aba === 'fundador' && (
       <>
+      {/* Rodada 137 — "Arte do banner" (app_config.membro_fundador_banner_url) não aparecia em lugar nenhum do app.
+          No lugar: onde editar o banner de cada Fundador (frase + foto), com atalho para a ficha. */}
       <section className="mb-10">
-        <h2 className="text-base font-bold mb-3">🎨 Arte do banner</h2>
-        <p className="text-xs text-[#626274] mb-3">
-          Imagem de fundo do banner &quot;Membro Fundador&quot; que aparece no topo da Home do
-          app (ao lado do &quot;Selo Dicas LGBT+&quot;). Formato paisagem funciona melhor — o
-          banner é bem mais largo que alto. Sem arte, o banner continua aparecendo do jeito
-          atual (texto sobre cor sólida), então não tem pressa nenhuma pra subir isso.
+        <h2 className="text-base font-bold mb-1">Banners dos Membros Fundadores</h2>
+        <p className="text-xs text-[#A0A0B2] mb-3">
+          Cada Fundador tem <b>um</b> banner (frase + foto opcional). Ele aparece no topo da Home (com o nome do local na
+          etiqueta), no topo da categoria dele (sem etiqueta) e em Destaques. Para editar, toque em <b>Editar banner</b>:
+          abre a ficha do local em Locais e marcas, no bloco &quot;Banners deste local&quot;.
         </p>
-        <div className="bg-[#161520] border border-[#232230] rounded-xl p-4 flex items-start gap-4 flex-wrap">
-          <div className="shrink-0">
-            {appConfig['membro_fundador_banner_url'] ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={appConfig['membro_fundador_banner_url']!}
-                alt="Arte do banner Membro Fundador"
-                className="w-40 h-24 rounded-lg object-cover border border-[#232230]"
-              />
-            ) : (
-              <div className="w-40 h-24 rounded-lg bg-[#0B0B0E] border border-dashed border-[#232230] flex items-center justify-center text-[9px] text-[#626274] text-center px-2">
-                sem arte — banner usa o visual padrão (texto sobre cor sólida)
+        <div className="space-y-2">
+          {locaisDestaque.filter((l) => l.fundador).length === 0 && <p className="text-xs text-[#626274]">Nenhum Membro Fundador ativo.</p>}
+          {locaisDestaque.filter((l) => l.fundador).map((l) => (
+            <div key={l.id} className="flex items-center gap-3 bg-[#161520] border border-[#232230] rounded-xl px-4 py-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold truncate">{l.nome}</p>
+                <p className="text-[11px] text-[#8888A0]">Home · {CATEGORIA_REAL_LABEL_ADMIN[l.categoria] || l.categoria} · Destaques</p>
               </div>
-            )}
-            <div className="flex gap-2 mt-1.5">
-              <label className="text-[10px] font-bold text-[#E1306C] cursor-pointer hover:underline">
-                {enviandoArteMarketing
-                  ? 'Enviando...'
-                  : appConfig['membro_fundador_banner_url']
-                  ? 'Trocar'
-                  : 'Subir arte'}
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  disabled={enviandoArteMarketing}
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) enviarArteMarketing('membro_fundador_banner_url', f);
-                    e.target.value = '';
-                  }}
-                />
-              </label>
-              {appConfig['membro_fundador_banner_url'] && (
-                <button
-                  onClick={() => removerArteMarketing('membro_fundador_banner_url')}
-                  disabled={enviandoArteMarketing}
-                  className="text-[10px] font-bold text-[#626274] hover:text-red-400 disabled:opacity-40"
-                >
-                  Remover
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => abrirFichaLocal(l.id, l.nome)}
+                className="bg-[#E1306C] hover:bg-[#C2285C] text-white font-bold text-xs px-3 py-2 rounded-lg"
+              >
+                Editar banner
+              </button>
             </div>
-          </div>
+          ))}
         </div>
       </section>
 

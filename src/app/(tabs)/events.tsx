@@ -4,7 +4,7 @@ import SubcategoriaBanners, { GrupoSub } from '../../components/SubcategoriaBann
 import VitrineCategoria, { LocalVitrine } from '../../components/VitrineCategoria';
 import { CAMPOS_LOCAL } from '../../components/ListaPadrao';
 import { normTxt, SUBCATEGORIAS } from '../../lib/subcategorias';
-import { EstadoSubcategorias, buscarEstadoSubcategorias, buscarSubcategoriasDesligadas, buscarVagas } from '../../lib/vitrine';
+import { EstadoSubcategorias, buscarEstadoSubcategorias, buscarSubcategoriasDesligadas, buscarIdsFundadores, buscarVagas } from '../../lib/vitrine';
 import MarcaApp from '../../components/MarcaApp';
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -32,6 +32,7 @@ import { deveExibirGlow, estaFixadoEm } from '../../lib/destaque';
 import { supabase } from '../../lib/supabase';
 import { ESTILO_ALIAS, GRUPOS_EVENTO, LEGADO_EVENTO, PUBLICO_FESTA_CADASTRO, TAGS_EVENTO_AUTOMATICAS, rotuloTag, slugTag } from '../../lib/taxonomia';
 import { useRastrearTela } from '../../lib/usoTelas';
+import { useSlotHora } from '../../hooks/useSlotHora';
 
 const COLORS = {
   background: '#0B0B0E',
@@ -193,7 +194,7 @@ interface EventoRow {
   destaque_secoes: string[] | null;
   destaque_ate: string | null;
   local_id: string | null;
-  locais: { nome: string; bairro: string | null; cidade: string; lat?: number | null; lng?: number | null } | null;
+  locais: { nome: string; bairro: string | null; cidade: string; lat?: number | null; lng?: number | null; plano_comercial?: string | null; plano_comercial_status?: string | null } | null;
   listas_vip: ListaVip[] | null;
 }
 
@@ -325,7 +326,7 @@ export default function EventsScreen() {
       inicioHoje.setHours(0, 0, 0, 0);
 
       const CAMPOS =
-        'id, titulo, descricao, data_inicio, data_fim, estilos_musicais, publico_tags, foto_capa_url, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, local_id, locais(nome, bairro, cidade, lat, lng), listas_vip(id, titulo, vagas_limite, vagas_ocupadas, ativa)';
+        'id, titulo, descricao, data_inicio, data_fim, estilos_musicais, publico_tags, foto_capa_url, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, local_id, locais(nome, bairro, cidade, lat, lng, plano_comercial, plano_comercial_status), listas_vip(id, titulo, vagas_limite, vagas_ocupadas, ativa)';
       const consultar = (campos: string) =>
         supabase
           .from('eventos')
@@ -435,21 +436,37 @@ export default function EventsScreen() {
       return aFixado === bFixado ? 0 : aFixado ? -1 : 1;
     });
 
-  // Festas pagas (divulgação avulsa, R$ 89): rodam do começo do dia anterior até 6h depois do fim. Máx. 24.
+  // Rodada 138 — "Festas em destaque" (só o flier, como os quadradinhos de ofertas):
+  //  * Festa do plano (Fundador/Premium, até 4 por mês, destaque_secoes 'plano_festa'): todo dia até o fim da festa.
+  //  * Festa avulsa paga (R$ 89, 'patrocinado'): do começo do dia anterior até 6h depois do fim. Máx. 24 ao mesmo tempo.
+  // Ordem: festas do plano primeiro, depois as avulsas, cada grupo pela data mais próxima.
+  // Na tela aparecem 6 por vez (2 linhas de 3); com mais, a janela gira a cada 10 min e há "Ver todas".
   const [verTodasFestas, setVerTodasFestas] = useState(false);
+  const slotFestas = useSlotHora(10);
+  const [idsFundadorEv, setIdsFundadorEv] = useState<Set<string>>(new Set());
+  useEffect(() => { buscarIdsFundadores().then((ids) => setIdsFundadorEv(new Set(ids))).catch(() => {}); }, []);
   const festasPagas = useMemo(() => {
     const agora = Date.now();
-    return events
+    const fimDe = (ev: EventItem) => new Date(ev.data_fim || ev.data_inicio).getTime() + 6 * 3600 * 1000;
+    const porData = (a: EventItem, b: EventItem) => new Date(a.data_inicio).getTime() - new Date(b.data_inicio).getTime();
+    const marcaComPlano = (ev: EventItem) =>
+      (!!ev.local_id && idsFundadorEv.has(ev.local_id)) ||
+      ((ev.locais?.plano_comercial === 'fundador' || ev.locais?.plano_comercial === 'premium') && (ev.locais?.plano_comercial_status ?? 'ativo') === 'ativo');
+    const doPlano = events
+      .filter((ev) => (ev.destaque_secoes || []).includes('plano_festa') && marcaComPlano(ev) && agora <= fimDe(ev))
+      .sort(porData);
+    const idsPlano = new Set(doPlano.map((ev) => ev.id));
+    const avulsas = events
       .filter((ev) => {
-        if (!(ev.destaque_secoes || []).includes('patrocinado')) return false;
+        if (idsPlano.has(ev.id) || !(ev.destaque_secoes || []).includes('patrocinado')) return false;
         const ini = new Date(ev.data_inicio);
         const abre = new Date(ini.getFullYear(), ini.getMonth(), ini.getDate() - 1).getTime();
-        const fecha = new Date(ev.data_fim || ev.data_inicio).getTime() + 6 * 3600 * 1000;
-        return agora >= abre && agora <= fecha;
+        return agora >= abre && agora <= fimDe(ev);
       })
-      .sort((a, b) => new Date(a.data_inicio).getTime() - new Date(b.data_inicio).getTime())
+      .sort(porData)
       .slice(0, 24);
-  }, [events]);
+    return [...doPlano, ...avulsas];
+  }, [events, idsFundadorEv]);
 
   // A faixa de festas pagas acompanha o ícone escolhido (só as desse tipo).
   const festasPaginadas = selectedSub ? festasPagas.filter((ev) => subsDoEvento(ev).includes(selectedSub)) : festasPagas;
@@ -788,20 +805,20 @@ export default function EventsScreen() {
                       <Text style={styles.festasPagasTitulo}>Festas em destaque</Text>
                       {/* Rodada 136 — mesmo tamanho dos quadradinhos de ofertas de Bares e Trip (3 por linha), flier em cima e texto embaixo. */}
                       <View style={styles.festasGrade}>
-                        {(verTodasFestas ? festasPaginadas : festasPaginadas.slice(0, 6)).map((ev) => (
+                        {(verTodasFestas || festasPaginadas.length <= 6
+                          ? festasPaginadas
+                          : Array.from({ length: 6 }, (_, k) => festasPaginadas[(((slotFestas * 6) % festasPaginadas.length) + k) % festasPaginadas.length])
+                        ).map((ev) => (
                           <TouchableOpacity key={ev.id} activeOpacity={0.9} style={styles.festaPagaCard} onPress={() => router.push(`/evento/${ev.id}` as any)} accessibilityRole="button" accessibilityLabel={ev.titulo}>
-                            {/* Rodada 135 — o flier fica em cima e o texto embaixo, em faixa sólida: um não cobre o outro. */}
-                            <View style={styles.festaPagaFoto}>
-                              {ev.foto_capa_url ? (
-                                <Image source={{ uri: ev.foto_capa_url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-                              ) : (
-                                <Feather name="music" size={18} color="rgba(255,255,255,0.35)" />
-                              )}
-                            </View>
-                            <View style={styles.festaPagaTexto}>
-                              <Text style={styles.festaPagaData} numberOfLines={1}>{formatarDataEvento(ev.data_inicio, ev.dateTag)}</Text>
-                              <Text style={styles.festaPagaNome} numberOfLines={2}>{ev.titulo}</Text>
-                            </View>
+                            {/* Rodada 138 — só o flier, como os quadradinhos de ofertas (pedido da Andrea: "mais bonito"). */}
+                            {ev.foto_capa_url ? (
+                              <Image source={{ uri: ev.foto_capa_url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                            ) : (
+                              <View style={styles.festaSemFlier}>
+                                <Feather name="music" size={18} color="rgba(255,255,255,0.5)" />
+                                <Text style={styles.festaSemFlierTxt} numberOfLines={3}>{ev.titulo}</Text>
+                              </View>
+                            )}
                           </TouchableOpacity>
                         ))}
                       </View>
@@ -1304,7 +1321,9 @@ const styles = StyleSheet.create({
   festasPagasTitulo: { fontSize: 14, fontWeight: '800', color: '#FFFFFF', marginBottom: 8 },
   festasGrade: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   festasVerTodas: { fontSize: 12, fontWeight: '800', color: '#E1306C' },
-  festaPagaCard: { width: '31.5%', height: 92, borderRadius: 14, overflow: 'hidden', backgroundColor: '#1C1726' },
+  festaPagaCard: { width: '31.5%', height: 92, borderRadius: 14, overflow: 'hidden', backgroundColor: '#2A1B3D' },
+  festaSemFlier: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4, paddingHorizontal: 6 },
+  festaSemFlierTxt: { fontSize: 10.5, fontWeight: '800', color: '#FFFFFF', textAlign: 'center' },
   festaPagaFoto: { flex: 1, backgroundColor: '#2A1B3D', alignItems: 'center', justifyContent: 'center' },
   festaPagaTexto: { height: 38, paddingHorizontal: 6, paddingVertical: 4, justifyContent: 'center' },
   festaPagaData: { fontSize: 9, fontWeight: '800', color: '#F6C453' },
