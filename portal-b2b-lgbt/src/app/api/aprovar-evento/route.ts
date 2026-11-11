@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
 
   const { data: evento, error: eventoErr } = await admin
     .from('eventos')
-    .select('id, titulo, status, local_id, criado_por, contato_nome, contato_whatsapp')
+    .select('id, titulo, status, local_id, criado_por, contato_nome, contato_whatsapp, foto_capa_url, classificacao_lgbt, publico_tags')
     .eq('id', evento_id)
     .maybeSingle();
   if (eventoErr || !evento) {
@@ -119,6 +119,7 @@ export async function POST(req: NextRequest) {
   let userId: string | null = null;
   let senhaGerada: string | null = null;
   let contaNova = false;
+  let outraMarca = false;
   let telefone: string | null = null;
 
   if (precisaDeLogin) {
@@ -161,19 +162,40 @@ export async function POST(req: NextRequest) {
         );
       }
       userId = achou.id;
-      // Rodada 54 — mesma correção defensiva de aprovar-local: reaproveitar
-      // uma conta antiga também garante que ela não esteja bloqueada por
-      // confirmação pendente ou ban antigo (de anos de teste manual no
-      // painel do Supabase), não só a senha nova.
-      const { error: senhaErr } = await admin.auth.admin.updateUserById(userId, {
-        password: senhaNova,
-        email_confirm: true,
-        ban_duration: 'none',
-      });
-      if (senhaErr) {
-        return NextResponse.json({ error: senhaErr.message }, { status: 500 });
+      // Portal único: se esse WhatsApp já usa o portal (tem marca aprovada ou outra festa aprovada), a festa nova
+      // entra como OUTRA MARCA na mesma conta — não trocamos a senha que a pessoa já usa. No "reenviar acesso"
+      // a troca continua, porque é justamente o pedido de senha nova.
+      let jaUsaPortal = false;
+      if (!reenviar) {
+        const { count: marcasAprovadas } = await admin
+          .from('locais')
+          .select('id', { count: 'exact', head: true })
+          .eq('owner_id', userId)
+          .eq('status', 'aprovado');
+        const { count: eventosAprovados } = await admin
+          .from('eventos')
+          .select('id', { count: 'exact', head: true })
+          .eq('criado_por', userId)
+          .eq('status', 'aprovado');
+        jaUsaPortal = (marcasAprovadas ?? 0) > 0 || (eventosAprovados ?? 0) > 0;
       }
-      senhaGerada = senhaNova;
+      if (jaUsaPortal) {
+        outraMarca = true;
+      } else {
+        // Rodada 54 — mesma correção defensiva de aprovar-local: reaproveitar
+        // uma conta antiga também garante que ela não esteja bloqueada por
+        // confirmação pendente ou ban antigo (de anos de teste manual no
+        // painel do Supabase), não só a senha nova.
+        const { error: senhaErr } = await admin.auth.admin.updateUserById(userId, {
+          password: senhaNova,
+          email_confirm: true,
+          ban_duration: 'none',
+        });
+        if (senhaErr) {
+          return NextResponse.json({ error: senhaErr.message }, { status: 500 });
+        }
+        senhaGerada = senhaNova;
+      }
       contaNova = false;
     }
 
@@ -195,6 +217,71 @@ export async function POST(req: NextRequest) {
     atualizacao.criado_por = userId;
   }
 
+  // Portal completo para TODA festa avulsa: quem organiza uma festa sem casa fixa também ganha uma "marca"
+  // (um registro em `locais`, categoria Festas) — é ela que abre o portal completo (cupons, Lista VIP, Meus eventos,
+  // plano, destaques) e aparece no seletor do topo ao lado de outras marcas do mesmo dono (ex.: Vilinha + Fiofo).
+  // Se o dono já tem uma marca de Festas, a festa entra nela; se não, criamos uma com o nome da festa
+  // (ele renomeia depois em "Minha página"). Eventos ligados a um local com dono não mudam: já têm portal.
+  let marcaCriada = false;
+  let marcaNome: string | null = null;
+  const donoId = userId || (evento.criado_por as string | null);
+  if (!evento.local_id && donoId) {
+    const { error: perfilMarcaErr } = await admin
+      .from('profiles')
+      .upsert({ id: donoId }, { onConflict: 'id', ignoreDuplicates: true });
+    if (perfilMarcaErr) {
+      return NextResponse.json({ error: perfilMarcaErr.message }, { status: 500 });
+    }
+
+    const { data: existentes } = await admin
+      .from('locais')
+      .select('id, nome')
+      .eq('owner_id', donoId)
+      .eq('categoria', 'eventos')
+      .order('created_at', { ascending: true })
+      .limit(1);
+
+    let marcaId: string | null = existentes?.[0]?.id ?? null;
+    marcaNome = existentes?.[0]?.nome ?? null;
+
+    if (!marcaId) {
+      const base: Record<string, unknown> = {
+        nome: evento.titulo,
+        categoria: 'eventos',
+        subcategoria: 'Festa avulsa',
+        cidade: 'São Paulo',
+        contato_nome: evento.contato_nome || null,
+        contato_telefone: evento.contato_whatsapp || null,
+        foto_capa_url: evento.foto_capa_url || null,
+      };
+      const completo: Record<string, unknown> = {
+        ...base,
+        classificacao_lgbt: evento.classificacao_lgbt || null,
+        publico_tags: Array.isArray(evento.publico_tags) && evento.publico_tags.length ? evento.publico_tags : ['todos'],
+      };
+      let { data: nova, error: marcaErr } = await admin.from('locais').insert(completo).select('id, nome').single();
+      if (marcaErr) {
+        // Se alguma tag do evento não casar com o formato de locais, cria a marca só com o básico.
+        ({ data: nova, error: marcaErr } = await admin.from('locais').insert(base).select('id, nome').single());
+      }
+      if (marcaErr || !nova) {
+        return NextResponse.json({ error: marcaErr?.message || 'Não foi possível criar a marca da festa.' }, { status: 500 });
+      }
+      // O gatilho de criação força status 'pendente' e dono nulo; a service_role pode corrigir logo em seguida.
+      const { error: aprovaMarcaErr } = await admin
+        .from('locais')
+        .update({ status: 'aprovado', owner_id: donoId })
+        .eq('id', nova.id);
+      if (aprovaMarcaErr) {
+        return NextResponse.json({ error: aprovaMarcaErr.message }, { status: 500 });
+      }
+      marcaId = nova.id;
+      marcaNome = nova.nome;
+      marcaCriada = true;
+    }
+    atualizacao.local_id = marcaId;
+  }
+
   const { error: updErr } = await admin
     .from('eventos')
     .update(atualizacao)
@@ -210,5 +297,8 @@ export async function POST(req: NextRequest) {
     telefone,
     senha: senhaGerada,
     contaNova,
+    outraMarca,
+    marcaCriada,
+    marcaNome,
   });
 }

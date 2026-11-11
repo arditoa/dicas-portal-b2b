@@ -233,7 +233,7 @@ export default function EventsScreen() {
     (supabase.from('locais') as any)
       .select(CAMPOS_LOCAL)
       .eq('status', 'aprovado')
-      .in('categoria', ['eventos', 'lugares'])
+      .eq('categoria', 'eventos')
       .limit(500)
       .then((r: any) => { if (vivo && r?.data) setLocaisVitrine(r.data as LocalVitrine[]); });
     buscarSubcategoriasDesligadas('festas').then((x) => { if (vivo) setSubDesligadas(x); });
@@ -364,8 +364,8 @@ export default function EventsScreen() {
       return true;
     })
     .sort((a, b) => {
-      const aFixado = estaFixadoEm(a, 'evento_destaque');
-      const bFixado = estaFixadoEm(b, 'evento_destaque');
+      const aFixado = estaFixadoEm(a, 'evento_destaque') || estaFixadoEm(a, 'patrocinado');
+      const bFixado = estaFixadoEm(b, 'evento_destaque') || estaFixadoEm(b, 'patrocinado');
       return aFixado === bFixado ? 0 : aFixado ? -1 : 1;
     });
 
@@ -376,6 +376,21 @@ export default function EventsScreen() {
     const partes = texto.split(/[^a-z0-9]+/).filter(Boolean);
     return defsFestas.filter((d) => d.palavras.some((p) => (p.includes(' ') ? texto.includes(p) : partes.includes(p)))).map((d) => d.chave);
   };
+  // Festas pagas (divulgação avulsa, R$ 89): rodam do começo do dia anterior até 6h depois do fim. Máx. 24.
+  const festasPagas = useMemo(() => {
+    const agora = Date.now();
+    return events
+      .filter((ev) => {
+        if (!(ev.destaque_secoes || []).includes('patrocinado')) return false;
+        const ini = new Date(ev.data_inicio);
+        const abre = new Date(ini.getFullYear(), ini.getMonth(), ini.getDate() - 1).getTime();
+        const fecha = new Date(ev.data_fim || ev.data_inicio).getTime() + 6 * 3600 * 1000;
+        return agora >= abre && agora <= fecha;
+      })
+      .sort((a, b) => new Date(a.data_inicio).getTime() - new Date(b.data_inicio).getTime())
+      .slice(0, 24);
+  }, [events]);
+
   const gruposSub = useMemo<GrupoSub[]>(
     () => defsFestas
       .filter((d) => !subDesligadas.has(d.chave))
@@ -796,21 +811,39 @@ export default function EventsScreen() {
             <VitrineCategoria
               slug="festas"
               titulo="Eventos"
-              categoriaReal={['eventos', 'lugares']}
+              categoriaReal={['eventos']}
+              semOfertas
               locais={locaisVitrine}
               tituloLista={null}
               aposOfertas={
-                gruposSub.length > 0 ? (
-                  <SubcategoriaBanners
-                    grupos={gruposSub}
-                    defs={defsFestas}
-                    estado={estadoSub}
-                    selecionada={selectedSub}
-                    compacto
-                    cor={CATEGORIAS.festas.color}
-                    onAbrir={(chave) => setSelectedSub((atual) => (atual === chave ? null : chave))}
-                  />
-                ) : undefined
+                <View>
+                  {gruposSub.length > 0 && (
+                    <SubcategoriaBanners
+                      grupos={gruposSub}
+                      defs={defsFestas}
+                      estado={estadoSub}
+                      selecionada={selectedSub}
+                      compacto
+                      cor={CATEGORIAS.festas.color}
+                      onAbrir={(chave) => setSelectedSub((atual) => (atual === chave ? null : chave))}
+                    />
+                  )}
+                  {festasPagas.length > 0 && !subDesligadas.has('__festas') && (
+                    <View style={{ marginTop: 14 }}>
+                      <Text style={styles.festasPagasTitulo}>Festas em destaque</Text>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                        {festasPagas.map((ev) => (
+                          <TouchableOpacity key={ev.id} activeOpacity={0.9} style={styles.festaPagaCard} onPress={() => router.push(`/evento/${ev.id}` as any)} accessibilityRole="button" accessibilityLabel={ev.titulo}>
+                            {!!ev.foto_capa_url && <Image source={{ uri: ev.foto_capa_url }} style={StyleSheet.absoluteFill} resizeMode="cover" />}
+                            <View style={styles.festaPagaVeu} />
+                            <Text style={styles.festaPagaData}>{formatarDataEvento(ev.data_inicio, ev.dateTag)}</Text>
+                            <Text style={styles.festaPagaNome} numberOfLines={3}>{ev.titulo}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
               }
             />
           </View>
@@ -1130,6 +1163,11 @@ const styles = StyleSheet.create({
   eventLocation: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
   eventLocationLink: { textDecorationLine: 'underline', color: COLORS.pink },
   eventPrice: { fontSize: 11, fontWeight: '700', color: COLORS.gold, marginTop: 4 },
+  festasPagasTitulo: { fontSize: 14, fontWeight: '800', color: '#FFFFFF', marginBottom: 8 },
+  festaPagaCard: { width: 118, height: 118, borderRadius: 14, overflow: 'hidden', backgroundColor: '#2A1B3D', justifyContent: 'flex-end', padding: 8, gap: 2 },
+  festaPagaVeu: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8,6,16,0.5)' },
+  festaPagaData: { fontSize: 10, fontWeight: '800', color: '#F6C453' },
+  festaPagaNome: { fontSize: 12, fontWeight: '800', color: '#FFFFFF' },
   patrocinadoBadge: { fontSize: 10, fontWeight: '700', color: COLORS.purple, marginTop: 2 },
 
   emptyBox: { padding: 30, alignItems: 'center', gap: 10, backgroundColor: COLORS.card, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, marginTop: 10 },

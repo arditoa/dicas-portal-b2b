@@ -608,9 +608,9 @@ export default function FormularioLocal({
               </select>
               {categoria === 'eventos' && (
                 <p className="mt-2 rounded-lg border border-[#E1306C]/30 bg-[#E1306C]/10 px-3 py-2 text-[11px] leading-relaxed text-[#F9A8C9]">
-                  <b>Casa noturna, balada ou produtora</b> (marca com perfil próprio): escolha o estilo abaixo e siga com o
-                  cadastro de empresa; depois de aprovada, você cadastra as datas direto no portal. <b>Uma festa isolada, com
-                  data marcada?</b> Escolha <b>Festa avulsa</b> na subcategoria.
+                  <b>Produtora ou marca de festas?</b> Escolha o estilo abaixo e siga: depois de aprovada, você cadastra as datas no
+                  portal. <b>Só uma festa com data marcada?</b> Escolha <b>Festa avulsa</b>. <b>Tem uma casa noturna ou balada com
+                  endereço?</b> Cadastre em <b>Bares &amp; Vida Noturna</b>, subcategoria Casas Noturnas &amp; Boates.
                 </p>
               )}
               {CATEGORIAS.find((c) => c.value === categoria)?.emBreve && (

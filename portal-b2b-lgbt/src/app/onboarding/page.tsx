@@ -78,11 +78,19 @@ export default function OnboardingPage() {
         ) : (
           <>
             {aba === 'local' ? (
-              <p className="text-gray-500 text-xs -mt-2">
-                Bares, restaurantes, hotéis, espaços, produtoras e festas. Aparece no mapa, nas categorias e pode ganhar destaque.
-                Vai divulgar só uma festa com data marcada? Escolha a categoria <b className="text-gray-300">Festas &amp; Eventos</b> e a
-                subcategoria <b className="text-gray-300">Festa avulsa</b>.
-              </p>
+              <div className="space-y-3 -mt-2">
+                <p className="text-gray-400 text-sm">
+                  Tem <b className="text-white">bar, restaurante, hotel, loja, serviço, casa noturna ou produtora</b>? Preencha abaixo.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => { setDadosAvulsa(undefined); setAba('evento'); }}
+                  className="w-full text-left rounded-xl border border-purple-500/40 bg-purple-500/10 px-4 py-3 hover:bg-purple-500/20 transition-colors"
+                >
+                  <span className="block text-sm font-bold text-purple-100">Só uma festa com data marcada? Toque aqui</span>
+                  <span className="block text-xs text-purple-200/80">É um cadastro mais curto, só para a sua festa.</span>
+                </button>
+              </div>
             ) : (
               <div className="flex items-center justify-between gap-3 rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-3">
                 <p className="text-sm text-purple-200">

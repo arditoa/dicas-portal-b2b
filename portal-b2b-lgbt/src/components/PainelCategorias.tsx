@@ -4,7 +4,7 @@
 //   1) Patrocínio Master  → a faixa grande do topo (1 vaga; tabela categoria_patrocinio)
 //   2) Banner Premium     → 12 vagas, 4 por hora (tabela vitrine_vaga, tipo premium; texto em destaque_chamada)
 //   3) Subcategorias      → os ícones redondos; liga/desliga (tabela subcategoria_config)
-//   4) Cupons             → 24 posições (1–10 Premium, 11–12 Fundador, 13–24 Intermediário), 6 por vez (3 + 3), Premium/Fundador avançam a cada 10 min e Intermediário a cada 30 min (vitrine_vaga, tipo intermediario)
+//   4) Cupons (em 'festas' vira "Festas pagas": eventos com destaque_secoes ∋ 'patrocinado', máx. 24; ver FestasPagas)             → 24 posições (1–10 Premium, 11–12 Fundador, 13–24 Intermediário), 6 por vez (3 + 3), Premium/Fundador avançam a cada 10 min e Intermediário a cada 30 min (vitrine_vaga, tipo intermediario)
 // Vaga sem local escolhido = AUTOMÁTICA: o app preenche pelo plano do local. Escolher um local aqui manda nele.
 // Migrations: 059 (patrocínio), 060 (chamada), 065 (subcategorias), 071 (vagas).
 import { ArrowLeft, Check, ChevronRight, Loader2, Save, Trash2 } from 'lucide-react';
@@ -25,7 +25,7 @@ type Cat = { slug: string; nome: string; real: string | null; aberta: boolean; f
 const CATS: Cat[] = [
   { slug: 'destaques', nome: 'Destaques (Fundadores)', real: null, aberta: true, fundadores: true },
   { slug: 'bares', nome: 'Bares & Vida Noturna', real: 'lugares', aberta: true },
-  { slug: 'festas', nome: 'Festas & Eventos', real: null, aberta: true },
+  { slug: 'festas', nome: 'Festas & Eventos', real: 'eventos', aberta: true },
   { slug: 'servicos', nome: 'Serviços', real: 'servicos', aberta: true },
   { slug: 'turismo', nome: 'Turismo | Dicas Trip', real: 'turismo', aberta: true },
   { slug: 'artistas', nome: 'Artistas', real: 'artistas', aberta: true },
@@ -49,17 +49,19 @@ const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().to
 const planoPago = (l: LocalMini) => !!l.plano_comercial && l.plano_comercial !== 'freemium' && (l.plano_comercial_status ?? 'ativo') === 'ativo';
 const rotuloPlano = (l: LocalMini) => (l.plano_comercial === 'fundador' ? 'Fundador' : l.plano_comercial === 'premium' ? 'Premium' : l.plano_comercial === 'intermediario' ? 'Intermediário' : l.plano_comercial === 'starter' ? 'Starter' : 'Gratuito') + (planoPago(l) || l.plano_comercial === 'freemium' ? '' : ' (não ativo)');
 
-function BuscaLocal({ onEscolher, texto = 'Buscar local pelo nome…' }: { onEscolher: (l: LocalMini) => void; texto?: string }) {
+function BuscaLocal({ onEscolher, texto = 'Buscar local pelo nome…', categoria }: { onEscolher: (l: LocalMini) => void; texto?: string; categoria?: string }) {
   const [q, setQ] = useState('');
   const [achados, setAchados] = useState<LocalMini[]>([]);
   useEffect(() => {
     const t = setTimeout(async () => {
       if (q.trim().length < 2) { setAchados([]); return; }
-      const { data } = await supabase.from('locais').select('id, nome, plano_comercial, plano_comercial_status, categoria').eq('status', 'aprovado').ilike('nome', `%${q.trim()}%`).limit(8);
+      let consulta = supabase.from('locais').select('id, nome, plano_comercial, plano_comercial_status, categoria').eq('status', 'aprovado').ilike('nome', `%${q.trim()}%`);
+      if (categoria) consulta = consulta.eq('categoria', categoria);
+      const { data } = await consulta.limit(8);
       setAchados((data as LocalMini[]) || []);
     }, 250);
     return () => clearTimeout(t);
-  }, [q]);
+  }, [q, categoria]);
   return (
     <div>
       <input className={input} placeholder={texto} value={q} onChange={(e) => setQ(e.target.value)} />
@@ -101,7 +103,7 @@ function VisaoCategorias({ onAbrir }: { onAbrir: (c: Cat) => void }) {
     <div>
       <div className="bg-[#161520] border border-[#232230] rounded-2xl p-4 mb-6 text-xs text-[#C9C9D6] leading-relaxed">
         <b className="text-white">Como funciona:</b> escolha uma categoria. Dentro dela você vê, na ordem em que aparecem no app, o <b>Patrocínio Master</b> (1 faixa grande), os
-        <b> 12 Banners Premium</b> (rodam 4 por hora), as <b>Subcategorias</b> (ícones redondos) e os <b>24 Cupons</b> (quadradinhos: 10 Premium + 2 Fundador + 12 Intermediário; cada tela mostra 6 = 3 Premium/Fundador + 3 Intermediário; Premium/Fundador mudam a cada 10 min e Intermediário a cada 30 min).
+        <b> 12 Banners Premium</b> (rodam 4 por hora), as <b>Subcategorias</b> (ícones redondos) e os <b>24 Cupons</b> (em <b>Festas &amp; Eventos</b> não há cupom: ali ficam as <b>24 Festas pagas</b> a R$ 89, de 1 dia antes até o dia) (quadradinhos: 10 Premium + 2 Fundador + 12 Intermediário; cada tela mostra 6 = 3 Premium/Fundador + 3 Intermediário; Premium/Fundador mudam a cada 10 min e Intermediário a cada 30 min).
         Vaga sem local escolhido é <b>automática</b>: o app preenche sozinho pelo plano do local.
       </div>
       <QuadroCliques />
@@ -118,7 +120,7 @@ function VisaoCategorias({ onAbrir }: { onAbrir: (c: Cat) => void }) {
               <div className="flex flex-wrap gap-1.5 mt-3 text-[10px] font-bold">
                 <span className={`px-2 py-1 rounded-md ${x?.master ? 'bg-[#4CAF7D]/15 text-[#4CAF7D]' : 'bg-[#232230] text-[#8888A0]'}`}>Master {x?.master ? '✓' : 'vazio'}</span>
                 <span className="px-2 py-1 rounded-md bg-[#232230] text-[#D0D0E0]">{c.fundadores ? 'Fundadores' : 'Premium'} {x?.premium ?? 0}/12 escolhidos</span>
-                {!c.fundadores && <span className="px-2 py-1 rounded-md bg-[#232230] text-[#D0D0E0]">Cupons {x?.inter ?? 0}/24</span>}
+                {!c.fundadores && c.slug !== 'festas' && <span className="px-2 py-1 rounded-md bg-[#232230] text-[#D0D0E0]">Cupons {x?.inter ?? 0}/24</span>}
               </div>
             </button>
           );
@@ -149,7 +151,8 @@ function DetalheCategoria({ cat, onVoltar }: { cat: Cat; onVoltar: () => void })
       <MasterCategoria cat={cat} ok={ok} falha={falha} />
       <VagasCategoria cat={cat} tipo="premium" total={12} ok={ok} falha={falha} />
       {!cat.fundadores && <SubcategoriasCategoria cat={cat} ok={ok} falha={falha} />}
-      {!cat.fundadores && <VagasCategoria cat={cat} tipo="intermediario" total={24} ok={ok} falha={falha} />}
+      {!cat.fundadores && cat.slug !== 'festas' && <VagasCategoria cat={cat} tipo="intermediario" total={24} ok={ok} falha={falha} />}
+      {cat.slug === 'festas' && <FestasPagas cat={cat} ok={ok} falha={falha} />}
     </div>
   );
 }
@@ -246,7 +249,7 @@ function MasterCategoria({ cat, ok, falha }: Props) {
           {p.local_id ? (
             <div className="flex items-center gap-3 text-sm"><b>{patrocinador || 'Local escolhido'}</b><button className="text-[11px] text-[#E1306C]" onClick={() => { setP({ ...p, local_id: null }); setPatrocinador(''); }}>trocar</button></div>
           ) : (
-            <BuscaLocal onEscolher={(l) => { setP({ ...p, local_id: l.id, destino: p.destino || `local:${l.id}` }); setPatrocinador(l.nome); }} />
+            <BuscaLocal categoria={cat.slug === 'festas' ? 'eventos' : undefined} onEscolher={(l) => { setP({ ...p, local_id: l.id, destino: p.destino || `local:${l.id}` }); setPatrocinador(l.nome); }} />
           )}
         </div>
         <div><label className={label}>Para onde o botão leva</label><input className={input} placeholder="local:ID, /rota do app ou https://…" value={p.destino} onChange={(e) => setP({ ...p, destino: e.target.value })} /><p className="text-[10px] text-[#626274] mt-1">Ao escolher o patrocinador acima, o botão já abre a página dele.</p></div>
@@ -281,6 +284,90 @@ function useLigada(slug: string, chave: string, falha: (m: string) => void) {
     return true;
   };
   return { salva, lido, gravar };
+}
+
+// ---- 4) Festas pagas (só na categoria Festas & Eventos): no lugar dos cupons.
+// Festa avulsa paga (R$ 89 de lançamento) = evento aprovado marcado com 'patrocinado' em destaque_secoes.
+// O app mostra a festa de 1 dia antes até 6h depois do fim, no máximo 24 ao mesmo tempo.
+type FestaMini = { id: string; titulo: string; data_inicio: string; destaque_secoes: string[] | null; locais?: { nome: string } | null };
+const dataCurta = (iso: string) => new Date(iso).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+const diaChave = (iso: string) => { const d = new Date(iso); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; };
+
+function FestasPagas({ cat, ok, falha }: Props) {
+  const [pagas, setPagas] = useState<FestaMini[]>([]);
+  const [achadas, setAchadas] = useState<FestaMini[]>([]);
+  const [q, setQ] = useState('');
+  const [pronto, setPronto] = useState(false);
+  const tick = useLigada(cat.slug, '__festas', falha);
+  const LIMITE = 24;
+  const POR_DIA = 12;
+
+  const carregar = useCallback(async () => {
+    const ontem = new Date(); ontem.setHours(0, 0, 0, 0); ontem.setDate(ontem.getDate() - 1);
+    const { data } = await supabase.from('eventos').select('id, titulo, data_inicio, destaque_secoes, locais(nome)').eq('status', 'aprovado').contains('destaque_secoes', ['patrocinado']).gte('data_inicio', ontem.toISOString()).order('data_inicio', { ascending: true }).limit(200);
+    setPagas((data as any[]) || []);
+    setPronto(true);
+  }, []);
+  useEffect(() => { carregar(); }, [carregar]);
+
+  useEffect(() => {
+    const t = setTimeout(async () => {
+      if (q.trim().length < 2) { setAchadas([]); return; }
+      const ontem = new Date(); ontem.setHours(0, 0, 0, 0);
+      const { data } = await supabase.from('eventos').select('id, titulo, data_inicio, destaque_secoes, locais(nome)').eq('status', 'aprovado').ilike('titulo', `%${q.trim()}%`).gte('data_inicio', ontem.toISOString()).order('data_inicio', { ascending: true }).limit(8);
+      setAchadas(((data as any[]) || []).filter((e) => !(e.destaque_secoes || []).includes('patrocinado')));
+    }, 250);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  const trocar = async (e: FestaMini, pagar: boolean) => {
+    const atual = (e.destaque_secoes || []).filter((x) => x !== 'patrocinado');
+    if (pagar) {
+      const mesmoDia = pagas.filter((x) => diaChave(x.data_inicio) === diaChave(e.data_inicio)).length;
+      if (pagas.length >= LIMITE) return falha(`Limite de ${LIMITE} festas pagas atingido. Libere uma antes.`);
+      if (mesmoDia >= POR_DIA) return falha(`Já há ${POR_DIA} festas pagas neste dia. Escolha outra data ou libere uma.`);
+    }
+    const { error } = await supabase.from('eventos').update({ destaque_secoes: pagar ? [...atual, 'patrocinado'] : atual }).eq('id', e.id);
+    if (error) return falha(error.message);
+    ok(pagar ? `"${e.titulo}" agora roda como festa paga (1 dia antes e no dia).` : `"${e.titulo}" saiu das festas pagas.`);
+    setQ(''); setAchadas([]); carregar();
+  };
+
+  const ligada = tick.salva ?? true;
+  return (
+    <div className={card}>
+      <div className="flex items-center justify-between gap-3 mb-1">
+        <h3 className="text-sm font-black">4 · Festas pagas <span className="text-[#A0A0B2] font-semibold">({pagas.length}/{LIMITE} vagas · R$ 89 por divulgação)</span></h3>
+        <label className="flex items-center gap-2 text-xs font-bold cursor-pointer shrink-0"><input type="checkbox" className="accent-[#E1306C]" checked={ligada} disabled={!pronto || !tick.lido} onChange={async (e) => { if (await tick.gravar(e.target.checked)) ok(e.target.checked ? 'Festas pagas aparecem no app.' : 'Festas pagas escondidas do app.'); }} /> Aparece no app</label>
+      </div>
+      <p className="text-xs text-[#A0A0B2] mb-1">Aqui não tem cupom: são as festas avulsas que pagaram a divulgação. Cada festa roda no app <b>1 dia antes e no dia</b> (até 6h depois do fim), na aba Eventos, e fica na frente nas listas.</p>
+      <p className="text-xs text-[#A0A0B2] mb-4">Limite: {LIMITE} ao mesmo tempo, no máximo {POR_DIA} por data. Cobrança manual pela equipe por enquanto.</p>
+      {!pronto ? <p className="text-xs text-[#626274]">Carregando…</p> : (<>
+        {pagas.length === 0 ? <p className="text-xs text-[#626274] mb-4">Nenhuma festa paga ainda.</p> : (
+          <div className="space-y-1.5 mb-4">
+            {pagas.map((e, i) => (
+              <div key={e.id} className="flex items-center justify-between gap-3 bg-[#0B0B0E] border border-[#232230] rounded-xl px-3 py-2 text-xs">
+                <span><b>{i + 1}.</b> {e.titulo} <span className="text-[#A0A0B2]">· {e.locais?.nome ? `${e.locais.nome} · ` : ''}{dataCurta(e.data_inicio)}</span></span>
+                <button onClick={() => trocar(e, false)} className="text-[#A0A0B2] hover:text-red-400 shrink-0 inline-flex items-center gap-1"><Trash2 size={13} /> Tirar</button>
+              </div>
+            ))}
+          </div>
+        )}
+        <label className={label}>Marcar uma festa como paga</label>
+        <input className={input} placeholder="Buscar festa pelo nome…" value={q} onChange={(e) => setQ(e.target.value)} />
+        {achadas.length > 0 && (
+          <div className="mt-1 bg-[#0B0B0E] border border-[#232230] rounded-xl overflow-hidden">
+            {achadas.map((e) => (
+              <button key={e.id} onClick={() => trocar(e, true)} className="w-full text-left px-3 py-2 text-xs hover:bg-[#1D1C2A] flex justify-between gap-3">
+                <span className="font-bold">{e.titulo}</span>
+                <span className="text-[#A0A0B2]">{dataCurta(e.data_inicio)}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </>)}
+    </div>
+  );
 }
 
 // ---- 2) e 4) Vagas (Premium 12 / Intermediário 24)
@@ -434,7 +521,7 @@ function VagasCategoria({ cat, tipo, total, ok, falha }: Props & { tipo: 'premiu
             <div className="rounded-xl border border-dashed border-[#232230] p-3">
               <p className="text-xs font-bold mb-2">Adicionar um local a uma vaga</p>
               <div className="grid md:grid-cols-[1fr_auto] gap-2 items-start">
-                <BuscaLocal texto="Buscar local pelo nome…" onEscolher={(l) => escolher(novaVaga || livresN[0], l)} />
+                <BuscaLocal categoria={cat.slug === 'festas' ? 'eventos' : undefined} texto="Buscar local pelo nome…" onEscolher={(l) => escolher(novaVaga || livresN[0], l)} />
                 <select className={`${input} md:w-40`} value={novaVaga || livresN[0]} onChange={(e) => setNovaVaga(Number(e.target.value))} aria-label="Vaga">
                   {livresN.map((n) => <option key={n} value={n}>Vaga {n}</option>)}
                 </select>
@@ -472,7 +559,7 @@ function VagasCategoria({ cat, tipo, total, ok, falha }: Props & { tipo: 'premiu
         <div className="mt-4 bg-[#0B0B0E] border border-[#232230] rounded-xl p-4">
           <p className="text-xs font-black mb-3">{rotuloVaga(sel)}</p>
           <label className={label}>{vagas[sel] ? 'Trocar o local desta vaga' : 'Escolher o local desta vaga'}</label>
-          <BuscaLocal onEscolher={(l) => escolher(sel, l)} />
+          <BuscaLocal categoria={cat.slug === 'festas' ? 'eventos' : undefined} onEscolher={(l) => escolher(sel, l)} />
           {(vagas[sel] || autoDaVaga[sel]) && premium && (
             <div className="mt-4 space-y-3">
               <p className="text-xs text-[#A0A0B2]">Frase do banner de <b className="text-white">{(vagas[sel] || autoDaVaga[sel]).nome}</b> (o nome do local não aparece no banner, só a frase). O parceiro Premium também pode alterá-la toda semana pelo portal dele.</p>
