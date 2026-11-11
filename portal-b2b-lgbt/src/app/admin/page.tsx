@@ -13,6 +13,7 @@ import BuscaGlobal from '../../components/BuscaGlobal';
 import AdminMfa from '../../components/AdminMfa';
 import PainelBanners from '../../components/PainelBanners';
 import PainelMapaApp from '../../components/PainelMapaApp';
+import PainelCaixasHome from '../../components/PainelCaixasHome';
 import { CaixasCuradoriaLocal } from '../../components/EditorCaixasHome';
 import PainelVitrine from '../../components/PainelVitrine';
 import PainelCategorias from '../../components/PainelCategorias';
@@ -22,7 +23,6 @@ import DestaqueFestaPlano from '../../components/DestaqueFestaPlano';
 import SubcategoriaAdmin from '../../components/SubcategoriaAdmin';
 import { SUBCATEGORIAS_APP } from '../../lib/subcategoriasApp';
 import PainelPush from '../../components/PainelPush';
-import PainelRodizio from '../../components/PainelRodizio';
 import PainelDestaqueHora from '../../components/PainelDestaqueHora';
 import PainelVisaoGeral from '../../components/PainelVisaoGeral';
 import { deveIncluirEm, estaFixadoEm, estaFixadoParaHoje, pagaPlanoComDireitoADestaque } from '../../lib/destaque';
@@ -531,7 +531,7 @@ function MENU_ADMIN(pendentes: number, locais: number, eventos: number, fundador
         { id: 'mapa', rotulo: 'Mapa do app (comece aqui)', icone: Compass },
         { id: 'categorias', rotulo: 'Categorias e vagas', icone: LayoutGrid },
         { id: 'banners', rotulo: 'Banners e parceiros', icone: Megaphone },
-        { id: 'rodizio', rotulo: 'Rodízio e Destaques', icone: Sparkles },
+        { id: 'rodizio', rotulo: 'Caixas e Destaques', icone: Sparkles },
         { id: 'fundador', rotulo: 'Membros Fundadores', icone: Star, badge: fundadores },
         { id: 'vitrine', rotulo: 'Frases e desempenho', icone: BarChart3 },
       ],
@@ -569,7 +569,7 @@ const TITULO_ABA: Record<ItemMenu['id'], string> = {
   destinos: 'Destinos (Dicas Trip)',
   roteiros: 'Roteiros',
   push: 'Avisos (push)',
-  rodizio: 'Rodízio e Destaques',
+  rodizio: 'Caixas da Home e Destaques',
   banners: 'Banners e parceiros',
   vitrine: 'Frases dos Fundadores e desempenho',
   categorias: 'Categorias e vagas',
@@ -585,7 +585,7 @@ const SUBTITULO_ABA: Record<ItemMenu['id'], string> = {
   destinos: 'Cidades do Dicas Trip: foto de capa, frase, tags, melhor época e roteiro em destaque.',
   roteiros: 'Roteiros e experiências do Dicas Trip: foto, tags (até 8 principais), paradas e publicação.',
   push: 'Notificações push: escreva o aviso, teste no seu celular e envie para quem aceitou.',
-  rodizio: 'Rodízio por horário da Home: quantos locais aparecem por vez, de quanto em quanto tempo troca, e a oferta do bloco Destaques.',
+  rodizio: 'As caixas da Home, uma por aba: o que está dentro de cada uma, quem a equipe escolheu e a regra. Em Alta tem o rodízio por horário; o bloco Destaques tem a oferta.',
   banners: 'Cartões que giram na tela inicial e na aba Trip (Copa, Embratur, Câmara LGBT, patrocinadores): textos, onde aparecem, peso, período e relatório de exibições e cliques.',
   vitrine: 'A frase que gera desejo de cada Membro Fundador, o limite de ofertas por plano e o desempenho (exibições e toques) dos destaques. O Patrocínio Master de cada categoria fica em "Categorias e vagas".',
   categorias: 'Escolha uma categoria. Em cada uma, na ordem em que aparece no app: Patrocínio Master, Banners (com os dizeres de cada local), subcategorias (Ativar, Em breve ou Esconder) e Cupons. Marque "Aparece no app" só quando houver anunciante; vaga sem local escolhido é automática (pelo plano).',
@@ -3045,8 +3045,8 @@ Dicas LGBT+`;
       {posicaoLocalId && <PosicaoLocal localId={posicaoLocalId} onFechar={() => setPosicaoLocalId(null)} onSalvo={() => { carregarFilas(); }} />}
       {aba === 'rodizio' && (
         <>
-          <PainelRodizio />
-          <PainelDestaqueHora />
+          {/* Rodada 145 — organizado pelas caixas da Home; Em Alta mantém o rodízio; o bloco Destaques vira uma aba. */}
+          <PainelCaixasHome extraDestaques={<PainelDestaqueHora />} />
         </>
       )}
       {aba === 'denuncias' && <PainelOcorrencias />}
