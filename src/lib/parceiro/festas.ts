@@ -291,6 +291,8 @@ export async function salvarFesta(
     exigir_foto: f.listaVip && f.exigirFoto,
     quer_lista_vip: f.listaVip,
   };
+  // Sem a permissão 'lista_vip', quem edita não mexe na Lista VIP que já existe (nem na exigência de foto).
+  if (!podeLista && f.listaId) { delete campos.exigir_foto; delete campos.quer_lista_vip; }
 
   let id = f.id;
   if (!id) {

@@ -11,6 +11,7 @@ import {
   apagar, carregar, criarEspaco, criarPonto, Dados, distanciaTexto, Espaco, ETAPAS, LIMITE_GALERIA, montarChecklist, salvar,
 } from '../../lib/parceiro/hospedagem';
 import { coordenadasAqui, coordenadasDoEndereco } from '../../lib/parceiro/pagina';
+import { paraNumero } from '../../lib/parceiro/catalogo';
 import {
   COMPROMISSOS_ACOLHIMENTO, FORMAS_PAGAMENTO, GRUPOS_HOSPEDAGEM, IDIOMAS_ATENDIMENTO, slugTag, TAGS_RESERVADAS, TERMO_ACOLHIMENTO,
   TIPOS_CANCELAMENTO, TIPOS_ESPACO, TIPOS_HOSPEDAGEM, TIPOS_PROXIMOS,
@@ -60,7 +61,7 @@ export default function HospedagemEtapa() {
   };
   const itens = montarChecklist(d).filter((i) => i.etapa === n);
   const termoTravado = !!d.validacao.termo_aceito_em;
-  const num = (v: string) => (v.trim() ? Number(v.replace(',', '.')) : null);
+  const num = (v: string) => paraNumero(v);
 
   const gravar = async () => {
     setSalvando(true);
@@ -74,6 +75,7 @@ export default function HospedagemEtapa() {
   };
   const addEspaco = async () => {
     if (!novoEspaco.nome.trim()) return Alert.alert('Espaço', 'Dê um nome (ex.: Suíte com varanda).');
+    if (novoEspaco.preco.trim() && num(novoEspaco.preco) == null) return Alert.alert('Espaço', 'Confira o preço (ex.: 350,00).');
     setBuscando(true);
     try {
       await criarEspaco(d.local.id, {
@@ -181,7 +183,7 @@ export default function HospedagemEtapa() {
               <>
                 <View style={a.duas}>
                   <View style={{ flex: 1 }}><Campo rotulo="Pessoas" valor={novoEspaco.capacidade} aoMudar={(v) => setNovoEspaco({ ...novoEspaco, capacidade: v.replace(/\D/g, '') })} teclado="number-pad" /></View>
-                  <View style={{ flex: 1 }}><Campo rotulo="Preço a partir de (R$)" valor={novoEspaco.preco} aoMudar={(v) => setNovoEspaco({ ...novoEspaco, preco: v.replace(/[^\d,]/g, '') })} teclado="decimal-pad" /></View>
+                  <View style={{ flex: 1 }}><Campo rotulo="Preço a partir de (R$)" valor={novoEspaco.preco} aoMudar={(v) => setNovoEspaco({ ...novoEspaco, preco: v.replace(/[^\d.,]/g, '') })} teclado="decimal-pad" /></View>
                 </View>
                 <Campo rotulo="Camas" valor={novoEspaco.camas} aoMudar={(v) => setNovoEspaco({ ...novoEspaco, camas: v })} exemplo="Ex.: 1 cama de casal" />
                 {grupo('quartos') && <Chips multiplo rotulo="Características" opcoes={grupo('quartos')!.tags.map((t) => ({ valor: slugTag(t), rotulo: t }))} valor={novoEspaco.caracteristicas} aoMudar={(l) => setNovoEspaco({ ...novoEspaco, caracteristicas: l })} />}

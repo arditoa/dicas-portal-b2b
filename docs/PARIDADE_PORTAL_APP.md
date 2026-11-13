@@ -368,3 +368,21 @@ Papéis e permissões da equipe, porteiro por PIN, foto de conferência na porta
 | Comprovante da hospedagem (PDF até 10 MB) | dono | ⚠️ continua no portal (o app não tem leitor de PDF/arquivos); o resumo mostra se já foi enviado e abre o portal |
 | Preço de produtos, pacotes e quartos | — | ⚠️ **Decisão:** é informação da própria casa (o app cliente já mostra); a regra "sem preço" vale para os planos do Dicas |
 | Onde fica no app | — | Meu espaço (a Divulgar só mostra festas, agenda, cupons e banner) |
+
+## 24. Etapa 10 — revisão geral (13/11/2026)
+
+Revisão do código por papel (dono, gerente, porteiro, aparelho da porta) e plano (Gratuito, Fundador). Corrigido:
+
+| Problema | Correção |
+|---|---|
+| Aparelho da porta: logo depois do login anônimo, a lista de locais zerava e o Modo parceiro ficava carregando ou voltava ao app | `modoParceiro.recarregar` lê a conta atual (ref) e recarrega quando a conta muda |
+| Preço "49.90" (teclado em inglês) virava 4990 em produtos e pacotes; "1.200,00" sumia no quarto da hospedagem | `paraNumero` único: ponto só é milhar quando há vírgula; preço inválido avisa |
+| Cartão da faixa de Ofertas mostrava "Válido até" um dia depois | data no fuso de Brasília |
+| Gratuito conseguia "Retomar" cupom pausado | botão some no Gratuito, editor trava e **112** barra no banco |
+| Social media (sem `lista_vip`) desligava a exigência de foto da Lista VIP aberta | sem `lista_vip`, Lista VIP e "exigir foto" ficam só para ver quando a lista já existe |
+| Regra violada da aparência do cupom era tratada como "falta a 109" | só "coluna não existe" conta como banco sem a 109 |
+| Lembretes do Início refaziam 7 consultas a cada renovação de sessão | `pode()` memorizado no contexto |
+| "Reservas de hoje" usava a data do aparelho (o banco usa Brasília) | "hoje" no fuso de Brasília, também em Aprovações |
+| Pousada não liberada via "Só o dono…" ao salvar pacote | mensagem certa: "Pacotes são liberados pela equipe" (com a 111, o item nem aparece) |
+
+Conferido sem problema: gerente (cada tela conferindo `papel === 'dono'` onde é só do dono e a RLS da equipe nas 099, 103, 104, 105, 106, 107, 109), porteiro (Porta, check-ins, histórico e reservas de hoje), Gratuito (cadeados em cupons, banner e reservas; trava de cupom na 104 antes do limite) e Fundador (cota de 7 dias, banner da Home, destaques).

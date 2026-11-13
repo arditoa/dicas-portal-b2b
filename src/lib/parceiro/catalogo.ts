@@ -32,12 +32,14 @@ export const ITEM_VAZIO: Item = { id: null, nome: '', descricao: '', preco: '', 
 
 const tabela = (t: Tipo) => (t === 'produtos' ? 'produtos_catalogo' : 'pacotes_turismo');
 const num = (v: unknown) => (v == null ? '' : String(v).replace('.', ','));
-const paraNumero = (v: string) => { const n = Number(v.replace(/\./g, '').replace(',', '.')); return v.trim() && Number.isFinite(n) ? n : null; };
+// "1.200,50" → 1200.5; "49,90" → 49.9; "49.90" → 49.9 (teclado em inglês). Ponto só é milhar quando há vírgula.
+export const paraNumero = (v: string) => { const t = v.trim(); if (!t) return null; const n = Number(t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : t); return Number.isFinite(n) ? n : null; };
 export const moeda = (v: string) => { const n = paraNumero(v); return n == null ? null : `R$ ${n.toFixed(2).replace('.', ',')}`; };
 
 export function traduzirErro(e: { message?: string } | null | undefined): string {
   const m = (e?.message || '').toLowerCase();
   if (!m) return 'Algo deu errado. Tente de novo.';
+  if (m.includes('pacotes_turismo') && (m.includes('row-level') || m.includes('policy'))) return 'Pacotes e roteiros são liberados pela equipe Dicas. Fale com a equipe.';
   if (m.includes('row-level') || m.includes('policy') || m.includes('permission denied')) return 'Só o dono do local mexe no catálogo.';
   if (m.includes('network') || m.includes('fetch')) return 'Sem conexão. Confira a internet e tente de novo.';
   return e?.message || 'Algo deu errado. Tente de novo.';
@@ -82,7 +84,7 @@ export async function salvar(t: Tipo, localId: string, i: Item, total: number): 
     : supabase.from(tabela(t)).insert({ ...dados, local_id: localId, ordem: total }));
   let { error } = await gravar({ ...base, ...extras });
   if (error && t === 'pacotes' && /destino|duracao_texto/.test(error.message)) ({ error } = await gravar(base)); // sem a 054
-  if (error) throw new Error(traduzirErro(error));
+  if (error) throw new Error(t === 'pacotes' && /row-level|policy/i.test(error.message) ? 'Pacotes e roteiros são liberados pela equipe Dicas. Fale com a equipe.' : traduzirErro(error));
 }
 
 export async function alternarAtivo(t: Tipo, id: string, ativo: boolean): Promise<void> {

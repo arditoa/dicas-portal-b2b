@@ -161,7 +161,8 @@ export default function Cupons() {
                     </View>
                     <Feather name="edit-2" size={16} color={CP.fraco} />
                   </View>
-                  {!vencido && (
+                  {/* Gratuito pausa, mas não retoma (migração 112 trava no banco também) */}
+                  {!vencido && (c.ativo || !gratuito) && (
                     <TouchableOpacity style={[a.acao, c.ativo ? null : a.acaoRetomar]} onPress={() => void alternar(c)} disabled={mudando === c.id} accessibilityRole="button">
                       {mudando === c.id ? <ActivityIndicator size="small" color={CP.dim} /> : <Feather name={c.ativo ? 'pause' : 'play'} size={14} color={c.ativo ? CP.dim : '#FFF'} />}
                       <Text style={[a.acaoTxt, !c.ativo && { color: '#FFF' }]}>{c.ativo ? 'Pausar' : 'Retomar'}</Text>

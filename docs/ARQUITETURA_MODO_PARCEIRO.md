@@ -53,6 +53,9 @@ O que cada etapa precisa cobrir, regra por regra, está em `docs/PARIDADE_PORTAL
 | 13 | `hospedagem` (9 etapas, % de completude, envio para validação) | novo item `hospedagem` (só turismo) | `dashboard/hospedagem` + `lib/hospedagemChecklist.ts` | `hospedagem_perfil`, `hospedagem_espacos`, `hospedagem_validacao`, `pontos_proximos`, buckets `fotos-locais` e `documentos-hospedagem` | só dono |
 | 14 | `pacotes` (pacotes e roteiros) | novo item `pacotes` (`locais.pode_subir_pacotes`; sem a coluna, turismo) | `dashboard/pacotes` | `pacotes_turismo` (054), storage `fotos-locais` | só dono |
 
+### Andamento (13/11/2026)
+Feitas no app todas as etapas da tabela acima: 0 a 14, mais Reservas fase 2 e "um cupom, dois lugares". O detalhe de cada etapa está em `docs/PARIDADE_PORTAL_APP.md` (§12 a §24). Migrações novas: 104 a 112, mais a Edge Function `avisar-reserva`.
+
 ### Regra nova — destaque da agenda (migração 101)
 - Premium/Fundador: **4 destaques por mês, uma cota só** para festas do plano + agenda.
 - Dia da agenda: destaca uma data e fica no ar até o fim do dia. Cartaz da semana: destaca de segunda a domingo e conta como 1.

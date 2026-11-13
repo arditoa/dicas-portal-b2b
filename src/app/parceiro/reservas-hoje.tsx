@@ -14,7 +14,8 @@ import { supabase } from '../../lib/supabase';
 type Reserva = { id: string; nome: string; area_nome: string; horario: string; pessoas: number; ocasiao: string | null; observacao: string | null; status: string };
 type Filtro = 'faltam' | 'chegaram' | 'todas';
 const OCASIAO: Record<string, string> = { date: 'Date', aniversario: 'Aniversário', amigos: 'Amigos', trabalho: 'Trabalho', outro: 'Outro' };
-const hoje = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+// "Hoje" no fuso de Brasília, igual à regra do banco (migração 110).
+const hoje = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 
 export default function ReservasHoje() {
   const router = useRouter();

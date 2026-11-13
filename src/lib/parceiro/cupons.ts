@@ -205,7 +205,8 @@ export async function salvarCupom(localId: string, f: FormCupom, usadas = 0): Pr
     vitrine_cor2: proprio ? v.cor2 : null,
     vitrine_cor_texto: proprio ? v.corTexto : null,
   };
-  const semColunas = (e: { message?: string } | null) => !!e && /vitrine_/.test(e.message || '');
+  // Só a coluna que não existe (banco sem a 109). Regra violada (cupons_vitrine_valida) é erro de verdade.
+  const semColunas = (e: { message?: string } | null) => !!e && /vitrine_/.test(e.message || '') && /does not exist|schema cache|could not find/i.test(e.message || '');
   if (f.id) {
     let { error } = await supabase.from('cupons').update({ ...campos, ...vitrine }).eq('id', f.id);
     if (semColunas(error)) { ultimoAvisoVitrine = AVISO_SEM_109; ({ error } = await supabase.from('cupons').update(campos).eq('id', f.id)); } else ultimoAvisoVitrine = null;

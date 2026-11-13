@@ -30,7 +30,8 @@ export function partesCupom(o: { titulo: string; descricao: string | null; valid
   if (desc && desc.length <= 40) return { oferta: t, detalhe: desc };
   if (o.valido_ate) {
     const d = new Date(o.valido_ate);
-    if (!isNaN(d.getTime())) return { oferta: t, detalhe: `Válido até ${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}` };
+    // Dia no fuso de Brasília (o app grava 23h59 -03:00; em UTC isso já é o dia seguinte).
+    if (!isNaN(d.getTime())) return { oferta: t, detalhe: `Válido até ${d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'America/Sao_Paulo' })}` };
   }
   return { oferta: t, detalhe: '' };
 }

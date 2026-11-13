@@ -316,9 +316,10 @@ export default function FestaEditar() {
               <>
                 <Interruptor
                   titulo="Lista VIP"
-                  explicacao={podeLista ? 'O público pede nome na lista pelo app e vocês aprovam em Aprovações.' : 'Fica marcada e a lista abre quando a festa for aprovada. Quem cuida da lista na casa ajusta as vagas.'}
+                  explicacao={podeLista ? 'O público pede nome na lista pelo app e vocês aprovam em Aprovações.' : form.listaId ? 'A lista já está aberta. Quem cuida da Lista VIP na casa liga, desliga e ajusta as vagas.' : 'Fica marcada e a lista abre quando a festa for aprovada. Quem cuida da lista na casa ajusta as vagas.'}
                   valor={form.listaVip}
                   aoMudar={(v) => mudar({ listaVip: v })}
+                  desabilitado={!podeLista && !!form.listaId}
                 />
                 {form.listaVip && podeLista && (
                   <Campo rotulo="Vagas (opcional)" valor={form.vagas} aoMudar={(v) => mudar({ vagas: v.replace(/\D/g, '') })} teclado="number-pad" erro={erros.vagas} exemplo="Sem limite" ajuda={form.vagasOcupadas ? `${form.vagasOcupadas} já ocupadas. Com a lista cheia, ninguém mais é aprovado.` : 'Com a lista cheia, ninguém mais é aprovado.'} />
@@ -329,6 +330,7 @@ export default function FestaEditar() {
                     explicacao="Só pede nome na lista quem tem foto no perfil. Na porta, vocês veem a foto para conferir."
                     valor={form.exigirFoto}
                     aoMudar={(v) => mudar({ exigirFoto: v })}
+                    desabilitado={!podeLista && !!form.listaId}
                   />
                 )}
               </>

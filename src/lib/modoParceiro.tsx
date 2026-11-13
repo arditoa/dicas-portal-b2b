@@ -121,7 +121,12 @@ export function ModoParceiroProvider({ children }: { children: React.ReactNode }
   // Só o id importa: o Supabase troca o objeto `user` a cada renovação de sessão (TOKEN_REFRESHED),
   // e recarregar por isso desmontava as abas do parceiro e jogava a pessoa de volta no Início.
   const userId = user?.id ?? null;
+  // Revisão (Etapa 10): o recarregar lê a conta ATUAL. Antes ele guardava o id da hora em que foi criado, e quem
+  // chamava logo depois de entrar (ex.: aparelho da porta, login anônimo) zerava a lista e ficava no "carregando".
+  const userIdRef = useRef<string | null>(userId);
+  userIdRef.current = userId;
   const recarregar = useCallback(async () => {
+    const userId = userIdRef.current;
     if (!userId) {
       setLocais([]);
       setCarregadoPara(null);
@@ -156,12 +161,12 @@ export function ModoParceiroProvider({ children }: { children: React.ReactNode }
       setCarregadoPara(userId);
       setCarregando(false);
     }
-  }, [userId]);
+  }, []);
 
   useEffect(() => {
     if (authLoading) return;
     void recarregar();
-  }, [authLoading, recarregar]);
+  }, [authLoading, userId, recarregar]);
 
   const escolherLocal = useCallback((id: string) => {
     setLocalId(id);
@@ -178,6 +183,9 @@ export function ModoParceiroProvider({ children }: { children: React.ReactNode }
     [locais, localId]
   );
 
+  // Memorizado: sem isso, cada renderização do contexto refazia as consultas de quem depende de pode() (ex.: lembretes do Início).
+  const pode = useCallback((p: Permissao) => !!localAtivo?.permissoes?.includes(p), [localAtivo]);
+
   const valor: ModoParceiroCtx = {
     carregando: authLoading || carregando || (!!user && carregadoPara !== user.id),
     locais,
@@ -188,7 +196,7 @@ export function ModoParceiroProvider({ children }: { children: React.ReactNode }
     ehParceiro: locais.length > 0,
     // Conta criada pelo portal com a senha "dica + 4 últimos números": precisa trocar antes de usar o Modo parceiro.
     senhaProvisoria: ehContaWhatsApp(user?.email) && user?.user_metadata?.senha_trocada !== true,
-    pode: (p) => !!localAtivo?.permissoes?.includes(p),
+    pode,
     recarregar,
   };
 

@@ -100,8 +100,7 @@ export async function carregarPendencias(local: LocalDoParceiro, pode: (p: Permi
   // Rodada 146 — reservas esperando confirmação (de hoje em diante). Sem a migração 102, só não aparece.
   if (r.reservas && pode('lista_vip')) {
     tarefas.push((async () => {
-      const d = new Date(agora);
-      const hoje = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const hoje = new Date(agora).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }); // Brasília, como o banco
       const { data, error } = await supabase
         .from('reservas')
         .select('id, nome, area_nome, data, horario, pessoas, ocasiao, observacao, telefone')

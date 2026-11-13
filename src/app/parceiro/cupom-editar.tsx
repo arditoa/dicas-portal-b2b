@@ -211,6 +211,7 @@ export default function CupomEditar() {
           explicacao={form.ativo ? 'Aparece na página da casa e na faixa de cupons.' : 'Fica guardado sem aparecer para o público.'}
           valor={form.ativo}
           aoMudar={(v) => mudar({ ativo: v })}
+          desabilitado={gratuito && !form.ativo}
         />
 
         {/* 4 · Faixa de Ofertas ("um cupom, dois lugares", migração 109): aparência opcional, mesma regra do cupom */}
