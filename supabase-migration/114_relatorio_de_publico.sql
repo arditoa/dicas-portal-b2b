@@ -10,7 +10,7 @@
 --   * os demais números são arredondados de 5 em 5 (assim não dá para descobrir um grupo pequeno por subtração);
 --   * gostos e identidades com menos de 10 pessoas não aparecem (só o aviso "outros_ocultos");
 --   * identidade de gênero SÓ de quem deu o consentimento novo e separado (consentimento_relatorio_genero);
---   * orientação sexual NUNCA entra.
+--   * orientação sexual não entra aqui (a 115 inclui, só para o admin e com consentimento próprio).
 -- Quem pode: admin (qualquer casa) e, no Modo parceiro, quem tem 'resultados' numa casa com Premium ou Fundador
 -- ativo. Seguro rodar mais de uma vez. Rode depois da 113.
 

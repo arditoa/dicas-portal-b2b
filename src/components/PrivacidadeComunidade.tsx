@@ -1,42 +1,53 @@
-// Conta › Privacidade e conta (LGPD): o que é da Comunidade e do Relatório de público (migrações 113 e 114).
-//   • Consentimento NOVO e separado para a identidade de gênero entrar, anônima e somada, nos relatórios
-//     para casas e marcas (perfil_privado.consentimento_relatorio_genero, padrão: não). Orientação sexual nunca entra.
+// Conta › Privacidade e conta (LGPD): o que é da Comunidade e do Relatório de público (migrações 113, 114 e 115).
+//   • Dois consentimentos PRÓPRIOS e separados (padrão: não), cada um com o seu interruptor:
+//       - identidade de gênero nos relatórios para casas e marcas (consentimento_relatorio_genero, 114);
+//       - orientação sexual só nos relatórios da equipe Dicas para marcas (consentimento_relatorio_orientacao, 115).
+//     Sem a migração, o interruptor dela não aparece.
 //   • "Apagar meu histórico de presença": apaga todos os "Eu vou" da pessoa (apagar_historico_presenca).
 import { Feather } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { apagarHistorico } from '../lib/euVou';
+import { TEXTO_CONSENTIMENTO_GENERO, TEXTO_CONSENTIMENTO_ORIENTACAO } from '../lib/perfilOpcoes';
 import { supabase } from '../lib/supabase';
 
-export const TEXTO_CONSENTIMENTO_GENERO =
-  'Autorizo usar minha identidade de gênero, de forma anônima e somada, em relatórios para casas e marcas parceiras.';
+type Chave = 'genero' | 'orientacao';
+const COLUNA: Record<Chave, string> = { genero: 'consentimento_relatorio_genero', orientacao: 'consentimento_relatorio_orientacao' };
+const LINHAS: { chave: Chave; titulo: string; texto: string; icone: 'pie-chart' | 'bar-chart-2' }[] = [
+  { chave: 'genero', titulo: 'Relatórios: identidade de gênero', texto: TEXTO_CONSENTIMENTO_GENERO, icone: 'pie-chart' },
+  { chave: 'orientacao', titulo: 'Relatórios: orientação sexual', texto: TEXTO_CONSENTIMENTO_ORIENTACAO, icone: 'bar-chart-2' },
+];
 
 export default function PrivacidadeComunidade({ userId }: { userId: string }) {
-  const [genero, setGenero] = useState<boolean | null>(null); // null = carregando ou sem a migração 114
-  const [salvando, setSalvando] = useState(false);
+  // null = carregando ou sem a migração daquela coluna (o interruptor não aparece)
+  const [valores, setValores] = useState<Record<Chave, boolean | null>>({ genero: null, orientacao: null });
+  const [salvando, setSalvando] = useState<Chave | null>(null);
   const [apagando, setApagando] = useState(false);
 
   useEffect(() => {
     let vivo = true;
     (async () => {
-      const { data, error } = await supabase.from('perfil_privado').select('consentimento_relatorio_genero').eq('user_id', userId).maybeSingle();
-      if (!vivo) return;
-      setGenero(error ? null : !!(data as { consentimento_relatorio_genero?: boolean } | null)?.consentimento_relatorio_genero);
+      const lidos: Record<Chave, boolean | null> = { genero: null, orientacao: null };
+      await Promise.all((Object.keys(COLUNA) as Chave[]).map(async (k) => {
+        const { data, error } = await supabase.from('perfil_privado').select(COLUNA[k]).eq('user_id', userId).maybeSingle();
+        lidos[k] = error ? null : !!(data as Record<string, boolean> | null)?.[COLUNA[k]];
+      }));
+      if (vivo) setValores(lidos);
     })();
     return () => { vivo = false; };
   }, [userId]);
 
-  const mudarGenero = async (v: boolean) => {
-    setSalvando(true);
-    const antes = genero;
-    setGenero(v);
+  const mudar = async (k: Chave, v: boolean) => {
+    setSalvando(k);
+    const antes = valores[k];
+    setValores((x) => ({ ...x, [k]: v }));
     const { error } = await supabase.from('perfil_privado').upsert(
-      { user_id: userId, consentimento_relatorio_genero: v, consentimento_relatorio_genero_em: v ? new Date().toISOString() : null },
+      { user_id: userId, [COLUNA[k]]: v, [`${COLUNA[k]}_em`]: v ? new Date().toISOString() : null },
       { onConflict: 'user_id' },
     );
-    setSalvando(false);
+    setSalvando(null);
     if (error) {
-      setGenero(antes);
+      setValores((x) => ({ ...x, [k]: antes }));
       Alert.alert('Privacidade', 'Não deu para salvar agora. Tente de novo.');
     }
   };
@@ -61,16 +72,16 @@ export default function PrivacidadeComunidade({ userId }: { userId: string }) {
 
   return (
     <>
-      {genero !== null && (
-        <View style={[s.linha, s.borda]}>
-          <View style={[s.icone, { backgroundColor: '#FFFFFF26' }]}><Feather name="pie-chart" size={16} color="#FFFFFF" /></View>
+      {LINHAS.filter((l) => valores[l.chave] !== null).map((l) => (
+        <View key={l.chave} style={[s.linha, s.borda]}>
+          <View style={[s.icone, { backgroundColor: '#FFFFFF26' }]}><Feather name={l.icone} size={16} color="#FFFFFF" /></View>
           <View style={{ flex: 1 }}>
-            <Text style={s.titulo}>Relatórios anônimos</Text>
-            <Text style={s.sub}>{TEXTO_CONSENTIMENTO_GENERO} Orientação sexual nunca entra.</Text>
+            <Text style={s.titulo}>{l.titulo}</Text>
+            <Text style={s.sub}>{l.texto} Nunca com o seu nome.</Text>
           </View>
-          <Switch value={genero} onValueChange={(v) => void mudarGenero(v)} disabled={salvando} trackColor={{ true: '#4CAF7D', false: '#3A3950' }} thumbColor="#FFF" accessibilityLabel={TEXTO_CONSENTIMENTO_GENERO} />
+          <Switch value={!!valores[l.chave]} onValueChange={(v) => void mudar(l.chave, v)} disabled={salvando === l.chave} trackColor={{ true: '#4CAF7D', false: '#3A3950' }} thumbColor="#FFF" accessibilityLabel={l.texto} />
         </View>
-      )}
+      ))}
       <TouchableOpacity style={[s.linha, s.borda]} onPress={confirmarApagar} disabled={apagando} activeOpacity={0.7} accessibilityRole="button">
         <View style={[s.icone, { backgroundColor: '#FFFFFF26' }]}>
           {apagando ? <ActivityIndicator size="small" color="#FFF" /> : <Feather name="user-x" size={16} color="#FFFFFF" />}

@@ -20,6 +20,8 @@ type Rel = {
   chegada_dia?: { dia: number; n: Num }[];
   gostos?: { musica: Grupo[]; experiencia: Grupo[]; responderam: Num };
   genero?: { consentiram: Num; grupos: Grupo[]; outros_ocultos: boolean };
+  // Migração 115: só o admin recebe; null para o parceiro ou sem a 115.
+  orientacao?: { consentiram: Num; grupos: Grupo[]; outros_ocultos: boolean } | null;
   totais?: Record<string, Num>;
 };
 type Local = { id: string; nome: string; cidade: string | null };
@@ -139,8 +141,9 @@ ${blocoBarras('Dia da semana', (rel.chegada_dia || []).map((d) => ({ rotulo: DIA
 ${blocoBarras('Gosto musical', (rel.gostos?.musica || []).map((g) => ({ rotulo: g.valor, n: g.n })), `De quem preencheu os gostos no app (${t(rel.gostos?.responderam)} pessoas).`)}
 ${blocoBarras('O que buscam', (rel.gostos?.experiencia || []).map((g) => ({ rotulo: g.valor, n: g.n })))}
 ${blocoBarras('Identidade de gênero', (rel.genero?.grupos || []).map((g) => ({ rotulo: g.valor, n: g.n })), `Só de quem autorizou expressamente, de forma anônima e somada (${t(rel.genero?.consentiram)} pessoas).${rel.genero?.outros_ocultos ? ' Identidades com menos de 10 pessoas ficam de fora.' : ''}`)}
+${rel.orientacao ? blocoBarras('Orientação sexual', (rel.orientacao.grupos || []).map((g) => ({ rotulo: g.valor, n: g.n })), `Só de quem autorizou expressamente este uso, de forma anônima e somada (${t(rel.orientacao.consentiram)} pessoas).${rel.orientacao.outros_ocultos ? ' Orientações com menos de 10 pessoas ficam de fora.' : ''}`) : ''}
 <h2>Movimento</h2><table class="grade">${TOTAIS.map(([k, r]) => `<tr><td>${esc(r)}</td><td class="v">${esc(t(rel.totais?.[k]))}</td></tr>`).join('')}</table>
-<div class="rodape">Dados somados e anônimos do app Dicas LGBT+. Nenhum nome, contato ou dado individual é compartilhado. Com menos de 30 pessoas no período o relatório não é gerado; grupos com menos de 10 pessoas aparecem como "menos de 10" e os demais números são arredondados de 5 em 5. Orientação sexual nunca é usada. Identidade de gênero só de quem deu consentimento específico.</div>
+<div class="rodape">Dados somados e anônimos do app Dicas LGBT+. Nenhum nome, contato ou dado individual é compartilhado. Com menos de 30 pessoas no período o relatório não é gerado; grupos com menos de 10 pessoas aparecem como "menos de 10" e os demais números são arredondados de 5 em 5. Identidade de gênero e orientação sexual só de quem deu, para cada uma, um consentimento específico e separado.</div>
 <script>window.onload=function(){window.print()}</script></body></html>`);
     w.document.close();
   }
@@ -223,6 +226,9 @@ ${blocoBarras('Identidade de gênero', (rel.genero?.grupos || []).map((g) => ({ 
             <div><h4 className="text-sm font-bold mb-2">Dia da semana</h4><Barras itens={(rel.chegada_dia || []).map((d) => ({ rotulo: DIAS[d.dia], n: d.n }))} /></div>
             <div><h4 className="text-sm font-bold mb-2">Gosto musical</h4><Barras itens={(rel.gostos?.musica || []).map((g) => ({ rotulo: g.valor, n: g.n }))} /></div>
             <div><h4 className="text-sm font-bold mb-2">Identidade de gênero <span className="text-[11px] text-[#626274] font-normal">(só quem autorizou: {t(rel.genero?.consentiram)})</span></h4><Barras itens={(rel.genero?.grupos || []).map((g) => ({ rotulo: g.valor, n: g.n }))} /></div>
+            {rel.orientacao && (
+              <div><h4 className="text-sm font-bold mb-2">Orientação sexual <span className="text-[11px] text-[#626274] font-normal">(só quem autorizou: {t(rel.orientacao.consentiram)} · só neste relatório da equipe, nunca no app do parceiro)</span></h4><Barras itens={(rel.orientacao.grupos || []).map((g) => ({ rotulo: g.valor, n: g.n }))} /></div>
+            )}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               {TOTAIS.map(([k, r]) => <div key={k} className="bg-[#12121A] rounded-xl p-3"><b className="block">{t(rel.totais?.[k])}</b><span className="text-[11px] text-[#A0A0B2]">{r}</span></div>)}
             </div>

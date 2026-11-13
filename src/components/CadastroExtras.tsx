@@ -2,10 +2,14 @@
 // Tudo pode ser pulado; orientação/identidade/status só são gravados com consentimento específico.
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { ReactNode } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { GRUPOS_EVENTO } from '../lib/taxonomia';
-import { EXTRAS_VAZIO, ExtrasCadastro, IDENTIDADES, NAO_INFORMAR, ORIENTACOES, PRONOMES, STATUS_OPCOES, statusLegado } from '../lib/perfilOpcoes';
+import {
+  EXTRAS_VAZIO, ExtrasCadastro, IDENTIDADES, NAO_INFORMAR, ORIENTACOES, PRONOMES, STATUS_OPCOES, statusLegado,
+  TEXTO_CONSENTIMENTO_GENERO, TEXTO_CONSENTIMENTO_ORIENTACAO,
+} from '../lib/perfilOpcoes';
 import { supabase } from '../lib/supabase';
 
 const COR = '#7E57C2';
@@ -44,8 +48,20 @@ function ChipsMulti({ opcoes, valores, onMudar }: { opcoes: string[]; valores: s
 
 type PassoProps = { valor: ExtrasCadastro; onMudar: (v: ExtrasCadastro) => void };
 
+function Caixa({ marcado, onTocar, children }: { marcado: boolean; onTocar: () => void; children: ReactNode }) {
+  return (
+    <TouchableOpacity style={s.consent} activeOpacity={0.8} onPress={onTocar} accessibilityRole="checkbox" accessibilityState={{ checked: marcado }}>
+      <View style={[s.checkbox, marcado && { backgroundColor: ROSA, borderColor: ROSA }]}>
+        {marcado && <Feather name="check" size={12} color="#FFF" />}
+      </View>
+      <Text style={s.consentTxt}>{children}</Text>
+    </TouchableOpacity>
+  );
+}
+
 export function PassoSobreVoce({ valor, onMudar }: PassoProps) {
   const tocouSensivel = !!(valor.orientacao || valor.identidade || (valor.status && valor.status.length > 0));
+  const informou = (v?: string) => !!v && v !== NAO_INFORMAR;
   return (
     <View>
       <Text style={s.titulo}>Sobre você</Text>
@@ -72,14 +88,22 @@ export function PassoSobreVoce({ valor, onMudar }: PassoProps) {
       />
 
       {tocouSensivel && (
-        <TouchableOpacity style={s.consent} activeOpacity={0.8} onPress={() => onMudar({ ...valor, consentimento: !valor.consentimento })} accessibilityRole="checkbox" accessibilityState={{ checked: valor.consentimento }}>
-          <View style={[s.checkbox, valor.consentimento && { backgroundColor: ROSA, borderColor: ROSA }]}>
-            {valor.consentimento && <Feather name="check" size={12} color="#FFF" />}
-          </View>
-          <Text style={s.consentTxt}>
-            Autorizo o tratamento destes <Text style={s.bold}>dados sensíveis</Text> (orientação sexual, identidade de gênero e status) apenas para personalizar a minha experiência. Eles ficam só comigo, não são vendidos nem mostrados a outras pessoas ou parceiros, e posso apagá-los quando quiser em Conta.
-          </Text>
-        </TouchableOpacity>
+        <Caixa marcado={valor.consentimento} onTocar={() => onMudar({ ...valor, consentimento: !valor.consentimento, ...(valor.consentimento ? { relatorioGenero: false, relatorioOrientacao: false } : {}) })}>
+          Autorizo o tratamento destes <Text style={s.bold}>dados sensíveis</Text> (orientação sexual, identidade de gênero e status) para personalizar a minha experiência. Individualmente, eles ficam só comigo, não são vendidos nem mostrados a outras pessoas ou parceiros, e posso apagá-los quando quiser em Conta.
+        </Caixa>
+      )}
+
+      {/* Relatório de público: cada autorização é separada, opcional e começa desmarcada. Dá para mudar em Conta. */}
+      {valor.consentimento && (informou(valor.identidade) || informou(valor.orientacao)) && (
+        <>
+          <Text style={[s.sub, { marginTop: 14, marginBottom: 0 }]}>Opcional, separado e só somado com pelo menos 10 pessoas, nunca com o seu nome:</Text>
+          {informou(valor.identidade) && (
+            <Caixa marcado={!!valor.relatorioGenero} onTocar={() => onMudar({ ...valor, relatorioGenero: !valor.relatorioGenero })}>{TEXTO_CONSENTIMENTO_GENERO}</Caixa>
+          )}
+          {informou(valor.orientacao) && (
+            <Caixa marcado={!!valor.relatorioOrientacao} onTocar={() => onMudar({ ...valor, relatorioOrientacao: !valor.relatorioOrientacao })}>{TEXTO_CONSENTIMENTO_ORIENTACAO}</Caixa>
+          )}
+        </>
       )}
     </View>
   );
@@ -115,15 +139,25 @@ export async function salvarExtras(userId: string, extras: ExtrasCadastro): Prom
   const temAlgo = temGosto || !!limpa(extras.pronomes) || (sens && (!!limpa(extras.orientacao) || !!limpa(extras.identidade) || (extras.status?.length ?? 0) > 0));
   if (!temAlgo) return true;
   let ok = true;
-  const { error } = await supabase.from('perfil_privado').upsert({
+  const agora = new Date().toISOString();
+  const base = {
     user_id: userId,
     orientacao_sexual: sens ? limpa(extras.orientacao) : null,
     identidade_genero: sens ? limpa(extras.identidade) : null,
     pronomes: limpa(extras.pronomes),
     gostos: extras.gostos,
-    consentimento_sensivel_em: sens ? new Date().toISOString() : null,
-    atualizado_em: new Date().toISOString(),
-  });
+    consentimento_sensivel_em: sens ? agora : null,
+    atualizado_em: agora,
+  };
+  // Relatório de público: só vale com o consentimento dos dados sensíveis e com o dado informado.
+  const gen = !!(sens && extras.relatorioGenero && limpa(extras.identidade));
+  const ori = !!(sens && extras.relatorioOrientacao && limpa(extras.orientacao));
+  const relatorio: Record<string, unknown> = {};
+  if (gen) Object.assign(relatorio, { consentimento_relatorio_genero: true, consentimento_relatorio_genero_em: agora });
+  if (ori) Object.assign(relatorio, { consentimento_relatorio_orientacao: true, consentimento_relatorio_orientacao_em: agora });
+  let { error } = await supabase.from('perfil_privado').upsert({ ...base, ...relatorio });
+  // Sem as migrações 114/115, as colunas novas não existem: grava o resto e segue.
+  if (error && Object.keys(relatorio).length && /consentimento_relatorio/.test(error.message || '')) ({ error } = await supabase.from('perfil_privado').upsert(base));
   if (error) ok = false; // migration 058 ainda não rodou: o app segue normalmente
   if (sens && extras.status && extras.status.length > 0) {
     const { error: e2 } = await supabase.from('profiles').update({ status_relacionamento: statusLegado(extras.status), status_relacionamento_lista: extras.status, mostrar_status_relacionamento: false }).eq('id', userId);

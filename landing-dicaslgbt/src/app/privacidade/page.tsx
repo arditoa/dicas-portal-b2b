@@ -80,8 +80,10 @@ export default function PrivacidadePage() {
               gostos musicais), feitos a partir de check-ins, Lista VIP, cupons e &quot;Eu vou&quot;. Esses
               relatórios nunca trazem nomes, contatos ou dados de uma pessoa: só aparecem com pelo menos
               30 pessoas, e grupos com menos de 10 pessoas ficam como &quot;menos de 10&quot;. A sua
-              identidade de gênero só entra se você autorizar em Conta, numa opção separada. A sua
-              orientação sexual nunca entra.
+              identidade de gênero e a sua orientação sexual só entram se você autorizar, cada uma
+              numa opção própria e separada (no cadastro ou em Conta), e você pode desligar quando
+              quiser. A orientação sexual só entra nos relatórios que a equipe do Dicas LGBT+ prepara
+              para marcas parceiras; as casas não a veem.
             </p>
           </div>
 

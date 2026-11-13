@@ -37,7 +37,16 @@ export type ExtrasCadastro = {
   pronomes?: string;
   status?: string[];
   consentimento: boolean;
+  // Relatório de público (migrações 114 e 115): consentimentos PRÓPRIOS e separados, desligados por padrão.
+  relatorioGenero?: boolean;
+  relatorioOrientacao?: boolean;
   gostos: { musica: string[]; experiencia: string[]; publico: string[] };
 };
+
+// Textos dos consentimentos do Relatório de público (iguais no cadastro, na Conta e no banco).
+export const TEXTO_CONSENTIMENTO_GENERO =
+  'Autorizo usar minha identidade de gênero, de forma anônima e somada, em relatórios para casas e marcas parceiras.';
+export const TEXTO_CONSENTIMENTO_ORIENTACAO =
+  'Autorizo usar minha orientação sexual, de forma anônima e somada, em relatórios da equipe Dicas para marcas parceiras.';
 
 export const EXTRAS_VAZIO: ExtrasCadastro = { consentimento: false, gostos: { musica: [], experiencia: [], publico: [] } };

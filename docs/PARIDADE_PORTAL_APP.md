@@ -389,7 +389,7 @@ Conferido sem problema: gerente (cada tela conferindo `papel === 'dono'` onde é
 
 ## 25. Comunidade ("Eu vou") e Relatório de público (13/11/2026)
 
-Migrações **113** (Eu vou) e **114** (relatório). Não há tela equivalente no portal do parceiro: o parceiro vê no app (Minhas festas, Início, Fidelizar › Seu público); a equipe vê no /admin (Denúncias da comunidade, Relatório de público).
+Migrações **113** (Eu vou), **114** (relatório) e **115** (orientação sexual só no /admin). Não há tela equivalente no portal do parceiro: o parceiro vê no app (Minhas festas, Início, Fidelizar › Seu público); a equipe vê no /admin (Denúncias da comunidade, Relatório de público).
 
 **"Eu vou" (fase 1)**
 - Onde: página da festa (`evento/[id]`) e cartões da agenda do bar na aba Eventos (Hoje, Amanhã, Essa semana). O cartaz da semana inteira não tem "Eu vou" (não é de um dia só).
@@ -411,7 +411,9 @@ Migrações **113** (Eu vou) e **114** (relatório). Não há tela equivalente n
 - Chegada por hora e dia: check-ins confirmados e entradas pela Lista VIP (Brasília).
 - Gostos: `perfil_privado.gostos` (música e experiência), top 10.
 - **Proteções:** menos de 30 pessoas → `dados_insuficientes`, sem nenhum número; grupo com menos de 10 → "menos de 10" (inclusive zero). **Decisão minha:** os demais números são arredondados de 5 em 5, para ninguém descobrir um grupo pequeno subtraindo (ex.: pessoas − recorrentes). Gostos e identidades com menos de 10 pessoas não aparecem.
-- Identidade de gênero: só com `perfil_privado.consentimento_relatorio_genero` (novo, padrão falso), com o texto pedido, em Conta. Orientação sexual nunca é lida.
+- Identidade de gênero: só com `perfil_privado.consentimento_relatorio_genero` (novo, padrão falso), com o texto pedido.
+- Orientação sexual (**migração 115**, decisão da Andrea em 13/11/2026): só com `consentimento_relatorio_orientacao` (próprio, padrão falso) e **só no relatório do /admin** (PDF para a marca). Para quem não é admin a chave `orientacao` volta `null`: a tela Seu público do parceiro nunca mostra. Mesmas proteções (30 pessoas, grupos com menos de 10 fora, arredondamento).
+- Onde a pessoa autoriza: no cadastro (passo "Sobre você", depois do consentimento dos dados sensíveis, uma caixa para cada dado que ela informou, desmarcadas) e em Conta › Privacidade (um interruptor para cada). O aviso dos dados sensíveis passou a dizer "Individualmente, eles ficam só comigo…", já que os relatórios são somados.
 - Quem pode: admin (qualquer casa) e quem tem 'resultados' numa casa com Premium ou Fundador ativo. Os demais planos: cadeado e "Falar com a equipe" (sem preço).
 - PDF: o /admin abre a versão para impressão e o navegador salva como PDF (o mesmo jeito do resumo de ocorrências). Não foi adicionada biblioteca de PDF.
 - Limite conhecido: quem tem acesso pode comparar períodos que se sobrepõem. O arredondamento e o mínimo de 30 reduzem, mas não eliminam, esse risco. Se a casa abusar, a equipe pode restringir aos períodos fixos.

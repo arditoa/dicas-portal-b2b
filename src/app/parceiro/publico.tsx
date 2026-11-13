@@ -182,7 +182,7 @@ export default function SeuPublico() {
           <TituloSecao texto="O que buscam" />
           <Lista grupos={rel.gostos?.experiencia} vazio="Ainda poucas respostas." />
 
-          <TituloSecao texto="Identidade de gênero" info="Só de quem autorizou em Conta, de forma anônima e somada. Orientação sexual nunca entra." />
+          <TituloSecao texto="Identidade de gênero" info="Só de quem autorizou em Conta, de forma anônima e somada." />
           {rel.genero?.grupos?.length ? <Lista grupos={rel.genero.grupos} vazio="" /> : <Text style={a.vazio}>Ainda poucas pessoas autorizaram.</Text>}
           {!!rel.genero?.outros_ocultos && <Text style={a.nota}>Outras identidades com menos de 10 pessoas ficam de fora.</Text>}
 
