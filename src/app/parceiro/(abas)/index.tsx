@@ -7,6 +7,7 @@
 //     (WhatsApp, rota, telefone, favoritos, banner, festas, Lista VIP), com comparação no período de 7 dias.
 //   • Ações rápidas.
 //   • ESPAÇO RESERVADO para frases de venda (Plano Fundador, divulgação): ver <ChamadaVenda /> no fim do arquivo.
+import LembretesDoInicio from '../../../components/parceiro/LembretesDoInicio';
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
@@ -340,6 +341,9 @@ export default function InicioParceiro() {
           aoTocarDica={() => router.push('/parceiro/divulgar')}
         />
       )}
+
+      {/* Etapa 11 — Início do portal: aviso do cadastro, primeiros passos e o lembrete mais importante */}
+      <LembretesDoInicio />
 
       {/* Agora: só quando há festa (hoje, próxima ou nenhuma marcada) */}
       {agora && (

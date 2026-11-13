@@ -99,6 +99,7 @@ export function itensDaAba(aba: Aba, local: LocalDoParceiro, pode: (p: Permissao
           { chave: 'equipe', titulo: 'Equipe e senha da porta', sub: 'Quem pode fazer o quê', icone: 'shield', cor: '#7E57C2', rota: '/parceiro/equipe', mostrar: dono },
           { chave: 'plano', titulo: 'Meu plano', sub: 'O que está incluído', icone: 'award', cor: '#C8853C', rota: '/parceiro/espaco', mostrar: false },
           { chave: 'senha', titulo: 'Trocar minha senha', sub: 'Vale no app e no portal', icone: 'lock', cor: '#3FA0A7', rota: '/parceiro/trocar-senha', mostrar: local.papel !== 'porta_pin' },
+          { chave: 'ajuda', titulo: 'Ajuda', sub: 'Passo a passo e perguntas frequentes', icone: 'help-circle', cor: '#4B5BD6', rota: '/parceiro/ajuda', mostrar: local.papel !== 'porta_pin' },
         ];
   return itens.filter((i) => i.mostrar).map(({ mostrar: _m, ...i }) => ({ ...i, portal: i.rota ? undefined : NO_PORTAL[i.chave] }));
 }

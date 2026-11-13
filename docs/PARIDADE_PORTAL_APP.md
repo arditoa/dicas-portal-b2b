@@ -343,3 +343,17 @@ Papéis e permissões da equipe, porteiro por PIN, foto de conferência na porta
 | Lista do dia na Porta (compareceu / não veio) | `src/app/parceiro/reservas-hoje.tsx`, botão "Reservas" no topo da Porta; **110** deixa quem tem `porta` ver as reservas de hoje e marcar só compareceu/não veio |
 | Reservas no portal do parceiro | `portal dashboard/reservas` (novo): como receber, regras, áreas e pedidos (confirmar/recusar com recado opcional, hoje: compareceu/não veio); item "Reservas" em Meu espaço, com cadeado no Gratuito; `recursosDaLocal().reservas` no portal (espelho do app) |
 | Histórico dos avisos | os avisos ficam em `push_envios` (tipo "lembretes", rota `/minhas-reservas`, título `reserva:<id>:<situação>`) e aparecem no histórico de envios do admin |
+
+## 22. Etapa 11 — Início do portal no app (13/11/2026)
+
+| Regra do portal | No app agora |
+|---|---|
+| Aviso fixo: cadastro em análise (até 48h) / não aprovado (fale com a equipe) | ✅ no topo do Início (`LembretesDoInicio`), não dá para adiar; também "suspensa" |
+| Perfil incompleto (foto, descrição ≥ 20, Instagram, horário se `pedeHorario`; nada se festa avulsa) | ✅ lembrete e passo, com a mesma regra (`oQueFalta`) |
+| Lembretes de festa, agenda (esta e a próxima semana, sex–dom), cupom (livre / libera dd/mm / plano), frase do banner, fidelidade (criar / escondida) | ✅ `src/lib/parceiro/inicio.ts`, cada um só para quem tem a permissão |
+| Ordem agora → semana → dica; "Lembrar amanhã" por 24 h no aparelho | ✅ (AsyncStorage) |
+| Primeiros passos com % e "Parabéns" | ✅ cartão no Início + tela `parceiro/lembretes` |
+| Lembrete "troque a senha provisória" | ⚠️ não vira lembrete: no app a troca é obrigatória antes de entrar (o passo aparece já feito) |
+| Textos com preço (R$ 89, planos) | ⚠️ trocados por "fale com a equipe" (regra Apple) |
+| Central de ajuda (telas pela categoria, perguntas frequentes, WhatsApp) | ✅ `parceiro/ajuda` (Meu espaço › Ajuda), textos em `src/lib/parceiro/ajuda.ts` (espelho de `lib/ajudaPaginas.ts`) |
+| Caixa "Como funciona" no topo de cada tela | 🟡 cada tela do app já explica com o ⓘ do título e a Ajuda reúne tudo |
