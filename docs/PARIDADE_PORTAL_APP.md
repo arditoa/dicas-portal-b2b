@@ -357,3 +357,14 @@ Papéis e permissões da equipe, porteiro por PIN, foto de conferência na porta
 | Textos com preço (R$ 89, planos) | ⚠️ trocados por "fale com a equipe" (regra Apple) |
 | Central de ajuda (telas pela categoria, perguntas frequentes, WhatsApp) | ✅ `parceiro/ajuda` (Meu espaço › Ajuda), textos em `src/lib/parceiro/ajuda.ts` (espelho de `lib/ajudaPaginas.ts`) |
 | Caixa "Como funciona" no topo de cada tela | 🟡 cada tela do app já explica com o ⓘ do título e a Ajuda reúne tudo |
+
+## 23. Etapas 12, 13 e 14 — Produtos, Hospedagem e Pacotes (13/11/2026)
+
+| Tela | Para quem | No app agora |
+|---|---|---|
+| Catálogo de produtos | dono, categoria produtos | ✅ `parceiro/produtos` (Meu espaço): nome obrigatório; descrição, preço ≥ 0, link de compra (https) e foto; pausar/retomar; excluir **com confirmação** (o portal apaga direto) |
+| Pacotes e roteiros | dono, `pode_subir_pacotes` (sem a informação, turismo) | ✅ `parceiro/pacotes`: nome; destino; duração (4); estilo (8, vai para tags); preço a partir de/até (até ≥ a partir de); foto; pausar; excluir com confirmação. **111** manda `pode_subir_pacotes` para o app |
+| Cadastro da hospedagem | dono, turismo | ✅ `parceiro/hospedagem` + `hospedagem-etapa?n=1..8`: mesmo checklist e % do portal (obrigatório 2, recomendado 1), status rascunho/enviado/ajustes/aprovado (aprovado não perde o selo), tags reservadas saem ao salvar, termo trava depois de aceito, galeria até 10, quartos/áreas/lazer, locais próximos em análise, canais de reserva |
+| Comprovante da hospedagem (PDF até 10 MB) | dono | ⚠️ continua no portal (o app não tem leitor de PDF/arquivos); o resumo mostra se já foi enviado e abre o portal |
+| Preço de produtos, pacotes e quartos | — | ⚠️ **Decisão:** é informação da própria casa (o app cliente já mostra); a regra "sem preço" vale para os planos do Dicas |
+| Onde fica no app | — | Meu espaço (a Divulgar só mostra festas, agenda, cupons e banner) |
