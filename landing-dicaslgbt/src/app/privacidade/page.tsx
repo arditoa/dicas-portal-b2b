@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic';
 //
 // Rodada 59 — Andrea: "advogado aprovou o seu rascunho.. pode deixar o
 // final." Aviso de rascunho removido, texto abaixo é o oficial.
-const DATA_ATUALIZACAO = '9 de novembro de 2026';
+const DATA_ATUALIZACAO = '13 de novembro de 2026';
 
 export default function PrivacidadePage() {
   return (
@@ -52,6 +52,7 @@ export default function PrivacidadePage() {
               <li>Dados de navegação usados para entender a origem do cadastro (de qual página ou campanha você veio).</li>
               <li>No aplicativo, se você registrar uma ocorrência: o relato (data, local, descrição, pessoas envolvidas), fotos e vídeos que você anexar e os dados de contato que você informar. Veja a seção 5.</li>
               <li>No aplicativo, se você ativar os avisos: o identificador do seu aparelho para notificações e as suas escolhas de quais avisos receber.</li>
+              <li>No aplicativo, se você marcar &quot;Eu vou&quot; numa festa ou na agenda de um bar: essa presença. Ela é invisível por padrão (só conta no número de pessoas que vão); se você ligar &quot;Aparecer&quot;, seu primeiro nome e sua foto ficam visíveis para quem também vai, até o fim do evento. Você pode desmarcar, bloquear ou denunciar alguém e apagar todo o seu histórico de presença em Conta.</li>
               <li>No aplicativo, de forma anônima: quais telas foram abertas e por quanto tempo, para entendermos o que funciona e melhorarmos o app. Usamos um código aleatório criado no aparelho, que não identifica você: não registramos nome, e-mail, telefone nem a sua localização nessa medição.</li>
             </ul>
           </div>
@@ -72,6 +73,15 @@ export default function PrivacidadePage() {
               Os dados são armazenados em banco de dados (Supabase) com acesso restrito à equipe do
               Dicas LGBT+. Não vendemos nem compartilhamos seus dados com terceiros para fins de
               publicidade.
+            </p>
+            <p className="mt-2">
+              Relatórios para parceiros: casas e marcas parceiras podem receber relatórios de público
+              anônimos e somados (por exemplo, quantas pessoas, faixa de idade, horários de chegada e
+              gostos musicais), feitos a partir de check-ins, Lista VIP, cupons e &quot;Eu vou&quot;. Esses
+              relatórios nunca trazem nomes, contatos ou dados de uma pessoa: só aparecem com pelo menos
+              30 pessoas, e grupos com menos de 10 pessoas ficam como &quot;menos de 10&quot;. A sua
+              identidade de gênero só entra se você autorizar em Conta, numa opção separada. A sua
+              orientação sexual nunca entra.
             </p>
           </div>
 

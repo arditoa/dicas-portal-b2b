@@ -91,6 +91,9 @@ export function itensDaAba(aba: Aba, local: LocalDoParceiro, pode: (p: Permissao
           { chave: 'checkins', titulo: 'Histórico de visitas', sub: 'Check-ins e cupons usados', icone: 'clock', cor: '#4CAF7D', rota: '/parceiro/historico', mostrar: pode('checkins') && r.checkins },
           { chave: 'fidelidade', titulo: 'Cartão fidelidade', sub: 'Meta de visitas e brinde', icone: 'gift', cor: '#E1306C', rota: '/parceiro/fidelidade', mostrar: dono && r.fidelidade },
           { chave: 'vip', titulo: 'Nível VIP', sub: 'Benefício para quem vem sempre', icone: 'award', cor: '#C8853C', rota: '/parceiro/fidelidade', mostrar: dono && r.fidelidade },
+          // Relatório de público (migração 114): só números somados; Premium e Fundador.
+          { chave: 'publico', titulo: 'Seu público', sub: 'Idade, horários e gostos, somados', icone: 'pie-chart', cor: '#4B5BD6', rota: '/parceiro/publico',
+            selo: nivel === 'premium' ? 'Incluído' : 'Premium / Fundador', bloqueado: nivel !== 'premium', mostrar: pode('resultados') },
         ]
       : [
           { chave: 'pagina', titulo: 'Minha página', sub: 'Fotos, textos, horários e Instagram', icone: 'home', cor: '#E1306C', rota: '/parceiro/pagina', mostrar: dono },
@@ -114,6 +117,8 @@ export function abrirItem(router: { push: (r: any) => void }, item: ItemParceiro
       item.titulo,
       item.chave === 'banner'
         ? 'O banner aparece na Home e no topo da categoria e está incluído nos planos Premium e Fundador.'
+        : item.chave === 'publico'
+        ? 'Seu público mostra idade, horários de chegada, dias mais fortes e gostos de quem vem, tudo somado e sem nomes. Está incluído nos planos Premium e Fundador.'
         : item.chave === 'reservas'
         ? 'Com reserva, o cliente escolhe a área (rooftop, salão, sacada…), o dia e o horário pelo app, ou chama vocês no WhatsApp. Está incluída nos planos pagos.'
         : MSG_CUPOM_PLANO_PAGO,

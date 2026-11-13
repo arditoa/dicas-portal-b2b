@@ -386,3 +386,33 @@ Revisão do código por papel (dono, gerente, porteiro, aparelho da porta) e pla
 | Pousada não liberada via "Só o dono…" ao salvar pacote | mensagem certa: "Pacotes são liberados pela equipe" (com a 111, o item nem aparece) |
 
 Conferido sem problema: gerente (cada tela conferindo `papel === 'dono'` onde é só do dono e a RLS da equipe nas 099, 103, 104, 105, 106, 107, 109), porteiro (Porta, check-ins, histórico e reservas de hoje), Gratuito (cadeados em cupons, banner e reservas; trava de cupom na 104 antes do limite) e Fundador (cota de 7 dias, banner da Home, destaques).
+
+## 25. Comunidade ("Eu vou") e Relatório de público (13/11/2026)
+
+Migrações **113** (Eu vou) e **114** (relatório). Não há tela equivalente no portal do parceiro: o parceiro vê no app (Minhas festas, Início, Fidelizar › Seu público); a equipe vê no /admin (Denúncias da comunidade, Relatório de público).
+
+**"Eu vou" (fase 1)**
+- Onde: página da festa (`evento/[id]`) e cartões da agenda do bar na aba Eventos (Hoje, Amanhã, Essa semana). O cartaz da semana inteira não tem "Eu vou" (não é de um dia só).
+- Tabela `presencas`: pessoa + festa **ou** item da agenda + data. `aparecer` começa falso. Expira no fim do evento: festa = `data_fim` (sem fim, início + 8h); agenda = 6h do dia seguinte (Brasília). Agenda: dá para marcar até 14 dias antes.
+- Gravação só por funções (`marcar_eu_vou`, `desmarcar_eu_vou`, `apagar_historico_presenca`); a pessoa só lê as próprias linhas.
+- Rostos: até 8 (você primeiro), primeiro nome (nome social, senão nome) e foto; "+N" com o resto. Só para quem está logado e tem 18+. Bloqueio vale nos dois sentidos (tabela `bloqueios`, a mesma das avaliações).
+- Fotos: o bucket `avatares` é privado. Nova regra de leitura: a foto de quem está aparecendo numa presença ativa, se não há bloqueio e quem olha tem 18+. A equipe lê todas (fila de denúncias).
+- 18+: marcar exige `birth_date` com 18 anos ou mais. **Decisão:** sem data de nascimento, não marca ("Confira sua data de nascimento em Conta").
+- Denúncia: tocar no rosto › Denunciar (6 motivos) › cai em `denuncias_comunidade`, fila nova no /admin. Até 20 por pessoa por dia. Depois da denúncia o app oferece bloquear também.
+- A equipe pode **tirar a pessoa da comunidade** (`comunidade_suspensos`): ela some dos rostos e não consegue ligar "aparecer" (continua marcando e contando no número).
+- Parceiro: `eu_vou_do_local` devolve só números ('festa', 'resultados', 'lista_vip' ou 'porta'). Minhas festas: selo "N vão". Início: no cartão Agora e o número "Marcaram Eu vou" (sem comparação com a semana anterior).
+- Conta › Privacidade: "Apagar meu histórico de presença" apaga todas, inclusive as futuras.
+
+**Relatório de público**
+- `relatorio_publico(local, evento, de, ate)`: período (até 12 meses) ou uma festa (janela de 3h antes do início a 3h depois do fim).
+- Quem conta como público: check-in confirmado e não cancelado, Lista VIP aprovada ou com entrada, cupom resgatado e "Eu vou".
+- Novas x recorrentes: recorrente = já tinha qualquer um desses na casa antes do início do período.
+- Idade pela `birth_date` na data final; "sem data" separado.
+- Chegada por hora e dia: check-ins confirmados e entradas pela Lista VIP (Brasília).
+- Gostos: `perfil_privado.gostos` (música e experiência), top 10.
+- **Proteções:** menos de 30 pessoas → `dados_insuficientes`, sem nenhum número; grupo com menos de 10 → "menos de 10" (inclusive zero). **Decisão minha:** os demais números são arredondados de 5 em 5, para ninguém descobrir um grupo pequeno subtraindo (ex.: pessoas − recorrentes). Gostos e identidades com menos de 10 pessoas não aparecem.
+- Identidade de gênero: só com `perfil_privado.consentimento_relatorio_genero` (novo, padrão falso), com o texto pedido, em Conta. Orientação sexual nunca é lida.
+- Quem pode: admin (qualquer casa) e quem tem 'resultados' numa casa com Premium ou Fundador ativo. Os demais planos: cadeado e "Falar com a equipe" (sem preço).
+- PDF: o /admin abre a versão para impressão e o navegador salva como PDF (o mesmo jeito do resumo de ocorrências). Não foi adicionada biblioteca de PDF.
+- Limite conhecido: quem tem acesso pode comparar períodos que se sobrepõem. O arredondamento e o mínimo de 30 reduzem, mas não eliminam, esse risco. Se a casa abusar, a equipe pode restringir aos períodos fixos.
+- A 058 dizia que `perfil_privado` não é lido por parceiros: continua valendo para dados individuais. Os gostos e a identidade de gênero (com consentimento) entram só somados, e a política de privacidade foi atualizada.

@@ -6,6 +6,8 @@ import { CAMPOS_LOCAL } from '../../components/ListaPadrao';
 import { normTxt, SUBCATEGORIAS } from '../../lib/subcategorias';
 import { EstadoSubcategorias, buscarEstadoSubcategorias, buscarSubcategoriasDesligadas, buscarIdsFundadores, buscarVagas } from '../../lib/vitrine';
 import MarcaApp from '../../components/MarcaApp';
+import { EuVouCompacto } from '../../components/EuVou';
+import { AlvoEuVou, chaveDoAlvo, contar, Contagem } from '../../lib/euVou';
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import FiltrosPilulas from '../../components/FiltrosPilulas';
@@ -726,8 +728,24 @@ export default function EventsScreen() {
 
   const amanha = new Date(); amanha.setDate(amanha.getDate() + 1);
   const agendaDaLista: AgendaBar[] = dateFilter === 'hoje' ? agendaDoDia(new Date()) : dateFilter === 'amanha' ? agendaDoDia(amanha) : [];
+  const diaDaLista = chaveDia(dateFilter === 'amanha' ? amanha : new Date());
 
-  const renderAgendaBar = (a: AgendaBar) => (
+  // Comunidade — "Eu vou" nos cartões da agenda (migração 113): uma contagem só para todos os cartões na tela.
+  const [euVou, setEuVou] = useState<Record<string, Contagem>>({});
+  const alvosEuVou: AlvoEuVou[] = dateFilter === 'semana'
+    ? blocosSemana.flatMap((b) => b.ag.map((a) => ({ agenda: a.id, data: chaveDia(b.d) })))
+    : agendaDaLista.map((a) => ({ agenda: a.id, data: diaDaLista }));
+  const chavesEuVou = alvosEuVou.map(chaveDoAlvo).join('|');
+  useEffect(() => {
+    if (!chavesEuVou) return;
+    let vivo = true;
+    void contar(chavesEuVou.split('|').map((k) => { const [, agenda, data] = k.split(':'); return { agenda, data }; })).then((r) => {
+      if (vivo && r) setEuVou((x) => ({ ...x, ...r }));
+    });
+    return () => { vivo = false; };
+  }, [chavesEuVou, user?.id]);
+
+  const renderAgendaBar = (a: AgendaBar, dia: string) => (
     <TouchableOpacity
       key={a.id}
       style={styles.eventCard}
@@ -758,6 +776,11 @@ export default function EventsScreen() {
             <Text style={styles.agendaLink}>Ver mais</Text>
           </TouchableOpacity>
         )}
+        <EuVouCompacto
+          alvo={{ agenda: a.id, data: dia }}
+          contagem={euVou[`a:${a.id}:${dia}`]}
+          aoMudar={(c) => setEuVou((x) => ({ ...x, [`a:${a.id}:${dia}`]: c }))}
+        />
       </View>
       <Feather name="chevron-right" size={18} color="#606070" />
     </TouchableOpacity>
@@ -800,7 +823,7 @@ export default function EventsScreen() {
           <View key={chaveDia(b.d)} style={{ marginBottom: 6 }}>
             <Text style={styles.diaSemanaTitulo}>{rotuloDiaSemana(b.d, b.i)}</Text>
             {b.evs.map(renderEventCard)}
-            {b.ag.map(renderAgendaBar)}
+            {b.ag.map((a) => renderAgendaBar(a, chaveDia(b.d)))}
           </View>
         ))}
       </>
@@ -1060,7 +1083,7 @@ export default function EventsScreen() {
           ) : (
             <>
               {eventosDaLista.map(renderEventCard)}
-              {agendaDaLista.map(renderAgendaBar)}
+              {agendaDaLista.map((a) => renderAgendaBar(a, diaDaLista))}
             </>
           )}
         </View>

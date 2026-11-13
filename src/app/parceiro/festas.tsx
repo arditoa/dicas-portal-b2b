@@ -18,6 +18,7 @@ import { destaquesUsadosNoMes, temDestaqueNoPlano } from '../../lib/parceiro/age
 import {
   destacarFesta, emDestaque, encerrada, Festa, LIMITE_DESTAQUES_FESTA, listarFestas, resumoDaFesta, ResumoFesta, situacaoDaFesta,
 } from '../../lib/parceiro/festas';
+import { euVouDoLocal, vao } from '../../lib/parceiro/publico';
 import { falarComEquipe } from '../../lib/parceiroMenu';
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -46,6 +47,7 @@ export default function MinhasFestas() {
   const [erro, setErro] = useState('');
   const [destacando, setDestacando] = useState<string | null>(null);
   const [verTodas, setVerTodas] = useState(false);
+  const [vaoPorFesta, setVaoPorFesta] = useState<Record<string, number>>({}); // "Eu vou" (migração 113)
 
   const carregar = useCallback(async () => {
     if (!localId) return;
@@ -57,6 +59,7 @@ export default function MinhasFestas() {
         dono ? destaquesUsadosNoMes(localId, chaveData(new Date())) : Promise.resolve(null),
       ]);
       setFestas(lista);
+      void euVouDoLocal(localId).then((x) => setVaoPorFesta(x?.porEvento || {}));
       setTemPlano(plano);
       setUsadas(n);
       if (verNumeros) {
@@ -140,6 +143,7 @@ export default function MinhasFestas() {
             <View style={a.selos}>
               <View style={[a.selo, { backgroundColor: sit.cor + '22' }]}><Text style={[a.seloTxt, { color: sit.cor }]}>{sit.txt}</Text></View>
               {ligado && <View style={[a.selo, { backgroundColor: '#FFD54F22' }]}><Feather name="star" size={10} color="#FFD54F" /><Text style={[a.seloTxt, { color: '#FFD54F' }]}>Em destaque</Text></View>}
+              {!!vaoPorFesta[f.id] && <View style={[a.selo, { backgroundColor: '#B39DDB22' }]}><Feather name="users" size={10} color="#B39DDB" /><Text style={[a.seloTxt, { color: '#B39DDB' }]}>{vao(vaoPorFesta[f.id])}</Text></View>}
             </View>
           </View>
           <Feather name="edit-2" size={16} color={CP.fraco} />

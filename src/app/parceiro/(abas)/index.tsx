@@ -19,6 +19,7 @@ import { NOME_PAPEL, Permissao, recursosDaCategoria, useModoParceiro } from '../
 import { abrirItem, IconeFeather, itensDaAba, nivelDoPlano } from '../../../lib/parceiroMenu';
 import { festaNaJanelaDaPorta, usePendencias } from '../../../lib/pendencias';
 import { comSituacao, useStatusDivulgar } from '../../../lib/statusDivulgar';
+import { euVouDoLocal, vao } from '../../../lib/parceiro/publico';
 import { supabase } from '../../../lib/supabase';
 
 type Numeros = Record<string, number>;
@@ -59,6 +60,7 @@ export default function InicioParceiro() {
   const [festas, setFestas] = useState<Festa[]>([]);
   const [listas, setListas] = useState<Record<string, Lista>>({});
   const [checkinsHoje, setCheckinsHoje] = useState<number | null>(null);
+  const [vaoPorFesta, setVaoPorFesta] = useState<Record<string, number>>({}); // "Eu vou" (migração 113)
   const [carregando, setCarregando] = useState(false);
   const [maisNumeros, setMaisNumeros] = useState(false);
   const [atualizando, setAtualizando] = useState(false);
@@ -148,6 +150,15 @@ export default function InicioParceiro() {
       })());
     }
 
+    if (podeFestas || podeRes) {
+      tarefas.push((async () => {
+        const x = await euVouDoLocal(localId);
+        if (!x) return;
+        setVaoPorFesta(x.porEvento);
+        if (x.total) atualN.eu_vou = x.total;
+      })());
+    }
+
     await Promise.all(tarefas);
     setAtual(atualN);
     setAnterior(antN);
@@ -179,7 +190,8 @@ export default function InicioParceiro() {
       icone: 'zap', cores: ['#C2185B', '#6A1B9A'],
       rotulo: new Date(festaHoje.data_inicio).getTime() <= agoraMs ? 'Acontecendo agora' : 'Hoje tem festa',
       titulo: `${festaHoje.titulo} · ${hora(festaHoje.data_inicio)}`,
-      detalhe: temLista ? `${l.entraram} entraram (${l.pessoasEntraram} pessoas) · ${l.aprovados} aprovados · ${l.aguardando} esperando` : 'Sem Lista VIP nesta festa',
+      detalhe: (temLista ? `${l.entraram} entraram (${l.pessoasEntraram} pessoas) · ${l.aprovados} aprovados · ${l.aguardando} esperando` : 'Sem Lista VIP nesta festa')
+        + (vaoPorFesta[festaHoje.id] ? ` · ${vao(vaoPorFesta[festaHoje.id])} pelo app` : ''),
       botoes: [
         ...(p('porta') && temLista ? [{ titulo: 'Abrir a porta', chave: 'porta', rota: '/parceiro/aprovacoes', principal: true }] : []),
         ...(p('lista_vip') && l.aguardando > 0 ? [{ titulo: `Aprovar ${l.aguardando}`, chave: 'lista', rota: '/parceiro/aprovacoes' }] : []),
@@ -192,7 +204,7 @@ export default function InicioParceiro() {
       icone: 'calendar', cores: ['#4A1C8C', '#1F3A93'],
       rotulo: proxima.status === 'aprovado' ? 'Próxima festa' : 'Próxima festa · em aprovação',
       titulo: proxima.titulo,
-      detalhe: `${diaHora(proxima.data_inicio)}${temLista ? ` · ${l.aguardando + l.aprovados} pedidos na lista` : ''}`,
+      detalhe: `${diaHora(proxima.data_inicio)}${temLista ? ` · ${l.aguardando + l.aprovados} pedidos na lista` : ''}${vaoPorFesta[proxima.id] ? ` · ${vao(vaoPorFesta[proxima.id])}` : ''}`,
       botoes: [
         ...(p('lista_vip') && l.aguardando > 0 ? [{ titulo: `Aprovar ${l.aguardando}`, chave: 'lista', rota: '/parceiro/aprovacoes', principal: true }] : []),
         ...(p('festa') ? [{ titulo: 'Editar festa', chave: 'eventos', rota: `/parceiro/festa-editar?id=${proxima.id}` }] : []),
@@ -219,6 +231,8 @@ export default function InicioParceiro() {
     grandes.push({ chave: 'lista_pedidos', rotulo: 'Pedidos de Lista VIP', icone: 'users', cores: ['#6A1B9A', '#C2185B'] });
     pequenas.push({ chave: 'lista_entraram', rotulo: 'Entraram pela lista', icone: 'log-in' });
   }
+  // "Eu vou": quantas pessoas marcaram nas festas e na agenda que ainda vão acontecer (sem comparação).
+  if ((podeFestas || podeRes) && (atual?.eu_vou ?? 0) > 0) pequenas.unshift({ chave: 'eu_vou', rotulo: 'Marcaram "Eu vou"', icone: 'users' });
   if (podeRes) {
     pequenas.push(
       { chave: 'clique_whatsapp', rotulo: 'WhatsApp', icone: 'message-circle' },
@@ -231,7 +245,7 @@ export default function InicioParceiro() {
   }
 
   const variacao = (chave: string): { txt: string; d: number } | null => {
-    if (periodo !== 7) return null;
+    if (periodo !== 7 || chave === 'eu_vou') return null;
     const v = atual?.[chave] ?? 0;
     const a = anterior?.[chave];
     if (a === undefined && !v) return null;

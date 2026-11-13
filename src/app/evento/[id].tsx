@@ -19,6 +19,7 @@ import { ActivityIndicator, Alert, Image, Linking, Platform, ScrollView, Share, 
 import QRCode from 'react-native-qrcode-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { EuVouCompleto } from '../../components/EuVou';
 import FundoFesta, { coresDaFesta } from '../../components/FundoFesta';
 import { registrarCliqueIngresso, registrarCliqueRota, registrarVisualizacaoFesta } from '../../lib/analytics';
 import { useAuth } from '../../lib/authContext';
@@ -438,6 +439,11 @@ export default function EventoScreen() {
                 <Text style={styles.btnPequenoTxt}>Como chegar</Text>
               </TouchableOpacity>
             </View>
+          )}
+
+          {/* Comunidade — "Eu vou" (migração 113). Some quando a festa acaba. */}
+          {new Date(ev.data_fim || new Date(ev.data_inicio).getTime() + 8 * 3600e3).getTime() > Date.now() && (
+            <EuVouCompleto alvo={{ evento: ev.id }} />
           )}
 
           {/* Etapa 3 — ingresso */}

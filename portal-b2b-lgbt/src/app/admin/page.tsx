@@ -27,6 +27,8 @@ import PainelDestaqueHora from '../../components/PainelDestaqueHora';
 import PainelVisaoGeral from '../../components/PainelVisaoGeral';
 import { deveIncluirEm, estaFixadoEm, estaFixadoParaHoje, pagaPlanoComDireitoADestaque } from '../../lib/destaque';
 import PainelOcorrencias from '../../components/PainelOcorrencias';
+import PainelDenunciasComunidade from '../../components/PainelDenunciasComunidade';
+import PainelRelatorioPublico from '../../components/PainelRelatorioPublico';
 import { CLASSIFICACOES_LGBT } from '../../lib/classificacaoLgbt';
 import { GRUPOS_EVENTO, PUBLICO_FESTA_CADASTRO, TIPOS_EVENTO_CADASTRO, slugTag } from '../../lib/taxonomia';
 
@@ -498,7 +500,7 @@ type LeadInstitucional = {
 // Rodada 89 — menu lateral do /admin, agrupado por tarefa do dia.
 type SubAprov = 'todas' | 'interesse' | 'locais' | 'eventos' | 'vinculos' | 'leads' | 'hospedagem' | 'acesso';
 type ItemSub = { id: SubAprov; rotulo: string; badge?: number };
-type ItemMenu = { subs?: ItemSub[]; id: 'visao' | 'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos' | 'roteiros' | 'push' | 'rodizio' | 'banners' | 'vitrine' | 'categorias' | 'denuncias' | 'mapa'; rotulo: string; icone: typeof Store; badge?: number; alerta?: boolean };
+type ItemMenu = { subs?: ItemSub[]; id: 'visao' | 'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos' | 'roteiros' | 'push' | 'rodizio' | 'banners' | 'vitrine' | 'categorias' | 'denuncias' | 'comunidade' | 'publico' | 'mapa'; rotulo: string; icone: typeof Store; badge?: number; alerta?: boolean };
 function MENU_ADMIN(pendentes: number, locais: number, eventos: number, fundadores: number, filas: { interesse: number; locais: number; eventos: number; vinculos: number; leads: number; acesso: number }): { grupo: string; itens: ItemMenu[] }[] {
   return [
     // Rodada 135 — 5 grupos: o que precisa de resposta, parceiros, vitrine, Trip e comunicação.
@@ -517,12 +519,14 @@ function MENU_ADMIN(pendentes: number, locais: number, eventos: number, fundador
         ],
       },
       { id: 'denuncias', rotulo: 'Denúncias', icone: ShieldAlert },
+      { id: 'comunidade', rotulo: 'Denúncias da comunidade', icone: ShieldAlert },
     ] },
     {
       grupo: 'Parceiros',
       itens: [
         { id: 'locais', rotulo: 'Locais e marcas', icone: Store, badge: locais },
         { id: 'eventos', rotulo: 'Festas e eventos', icone: CalendarDays, badge: eventos },
+        { id: 'publico', rotulo: 'Relatório de público', icone: BarChart3 },
       ],
     },
     {
@@ -574,6 +578,8 @@ const TITULO_ABA: Record<ItemMenu['id'], string> = {
   vitrine: 'Frases dos Fundadores e desempenho',
   categorias: 'Categorias e vagas',
   denuncias: 'Denúncias',
+  comunidade: 'Denúncias da comunidade',
+  publico: 'Relatório de público',
   mapa: 'Mapa do app',
 };
 const SUBTITULO_ABA: Record<ItemMenu['id'], string> = {
@@ -590,6 +596,8 @@ const SUBTITULO_ABA: Record<ItemMenu['id'], string> = {
   vitrine: 'A frase que gera desejo de cada Membro Fundador, o limite de ofertas por plano e o desempenho (exibições e toques) dos destaques. O Patrocínio Master de cada categoria fica em "Categorias e vagas".',
   categorias: 'Escolha uma categoria. Em cada uma, na ordem em que aparece no app: Patrocínio Master, Banners (com os dizeres de cada local), subcategorias (Ativar, Em breve ou Esconder) e Cupons. Marque "Aparece no app" só quando houver anunciante; vaga sem local escolhido é automática (pelo plano).',
   denuncias: 'Ocorrências registradas no app: relato, provas, histórico e atendimento. Conteúdo sensível — acesso restrito à equipe.',
+  comunidade: 'Pessoas denunciadas no "Eu vou" (assédio, foto imprópria, perfil falso, menor de 18…). Mude a situação, anote e, se precisar, tire a pessoa da comunidade.',
+  publico: 'Números somados e anônimos de uma casa (período) ou de uma festa, para enviar à marca patrocinadora em PDF. Nunca nomes.',
   mapa: 'A Home e a página de categoria do app, de cima para baixo: o que aparece em cada parte, o que está no ar agora e onde edita.',
 };
 
@@ -614,7 +622,7 @@ export default function AdminPage() {
   const [subAprov, setSubAprov] = useState<SubAprov>('todas');
   const ver = (k: SubAprov) => subAprov === 'todas' || subAprov === k;
   const [posicaoLocalId, setPosicaoLocalId] = useState<string | null>(null);
-  const [aba, setAba] = useState<'visao' | 'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos' | 'roteiros' | 'push' | 'rodizio' | 'banners' | 'vitrine' | 'categorias' | 'denuncias' | 'mapa'>('visao');
+  const [aba, setAba] = useState<'visao' | 'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos' | 'roteiros' | 'push' | 'rodizio' | 'banners' | 'vitrine' | 'categorias' | 'denuncias' | 'comunidade' | 'publico' | 'mapa'>('visao');
   const [filtroPrincipal, setFiltroPrincipal] = useState<string>('todas');
   // Rodada 46 — filtro só da aba Eventos: "O que Fazer Hoje" (destaque_secoes
   // contém 'hoje', mesmo mecanismo que locais já tinham) vs todos.
@@ -3050,6 +3058,8 @@ Dicas LGBT+`;
         </>
       )}
       {aba === 'denuncias' && <PainelOcorrencias />}
+      {aba === 'comunidade' && <PainelDenunciasComunidade />}
+      {aba === 'publico' && <PainelRelatorioPublico />}
 
       {aba === 'fundador' && (
       <>

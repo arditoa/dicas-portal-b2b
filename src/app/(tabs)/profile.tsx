@@ -37,6 +37,7 @@ import { useModoParceiro } from '../../lib/modoParceiro';
 import CartaoAreaParceiro from '../../components/CartaoAreaParceiro';
 import EntradaEquipe from '../../components/EntradaEquipe';
 import AniversarioCasas from '../../components/AniversarioCasas';
+import PrivacidadeComunidade from '../../components/PrivacidadeComunidade';
 import { ativarTodosAvisos } from '../../lib/push';
 import { useRastrearTela } from '../../lib/usoTelas';
 
@@ -828,6 +829,7 @@ export default function ProfileScreen() {
               </View>
               <Feather name="external-link" size={16} color={COLORS.textMuted} />
             </TouchableOpacity>
+            {isLogado && !!user?.id && <PrivacidadeComunidade userId={user.id} />}
             {isLogado && (
               <TouchableOpacity style={[styles.linha, styles.linhaUltima]} onPress={handleExcluirConta} activeOpacity={0.7} accessibilityRole="button">
                 <View style={[styles.menuIconBg, { backgroundColor: '#FF52521F' }]}>
