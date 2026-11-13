@@ -24,6 +24,7 @@ export type LocalDoParceiro = {
   plano_comercial: string | null;
   plano_contratado?: string | null; // o que está no cadastro, mesmo sem estar ativo (só para mostrar)
   plano_comercial_status?: string | null; // vem da migração 104
+  pode_subir_pacotes?: boolean | null; // vem da migração 111 (sem ela: categoria turismo)
   papel: 'dono' | 'porteiro' | 'gerente' | 'social_media' | 'personalizado' | 'porta_pin';
   permissoes: Permissao[];
   expira_em: string | null;
