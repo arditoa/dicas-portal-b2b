@@ -1,5 +1,5 @@
 // Rodada 145 — o que precisa de resposta do parceiro agora (aba Aprovações):
-//   • pedidos de Lista VIP esperando aprovação (festas de agora até 14 dias);
+//   • pedidos de Lista VIP esperando aprovação (festas que ainda não passaram da janela, até 14 dias à frente);
 //   • festa de hoje (atalho para abrir a porta);
 //   • check-ins por código esperando confirmação;
 //   • festas em análise pela equipe Dicas (só informação).
@@ -25,6 +25,14 @@ export type Pendencias = {
 };
 const VAZIO: Pendencias = { vip: [], checkins: [], reservas: [], festaHoje: null, emAnalise: [], total: 0 };
 
+// Janela da porta — espelho de evento_na_janela_da_porta (migração 099): de 12h antes do início
+// até 12h depois do fim (sem fim, conta o início). Usada para "festa de hoje" aqui e no Início.
+const JANELA_MS = 12 * 36e5;
+export const fimDaJanela = (inicio: string, fim: string | null) => new Date(fim || inicio).getTime() + JANELA_MS;
+export function festaNaJanelaDaPorta(inicio: string, fim: string | null, agora = Date.now()): boolean {
+  return agora >= new Date(inicio).getTime() - JANELA_MS && agora <= fimDaJanela(inicio, fim);
+}
+
 export async function carregarPendencias(local: LocalDoParceiro, pode: (p: Permissao) => boolean): Promise<Pendencias> {
   const r = recursosDaCategoria(local.categoria);
   const agora = Date.now();
@@ -37,7 +45,8 @@ export async function carregarPendencias(local: LocalDoParceiro, pode: (p: Permi
         .from('listas_vip_solicitacoes')
         .select('id, user_id, status, acompanhantes, created_at, listas_vip!inner(evento_id, eventos!inner(id, titulo, data_inicio, data_fim, local_id))')
         .eq('listas_vip.eventos.local_id', local.local_id)
-        .gte('listas_vip.eventos.data_inicio', new Date(agora - 18 * 36e5).toISOString())
+        // começou há até 3 dias (festa longa ainda pode estar na janela); o filtro fino é festaNaJanelaDaPorta
+        .gte('listas_vip.eventos.data_inicio', new Date(agora - 3 * 864e5).toISOString())
         .lte('listas_vip.eventos.data_inicio', new Date(agora + 14 * 864e5).toISOString())
         .in('status', ['solicitada', 'aprovada', 'check_in']);
       type Linha = {
@@ -45,13 +54,11 @@ export async function carregarPendencias(local: LocalDoParceiro, pode: (p: Permi
         listas_vip: { evento_id: string; eventos: { id: string; titulo: string; data_inicio: string; data_fim: string | null } };
       };
       const linhas = (data as unknown as Linha[]) || [];
-      // festa de hoje: começa nas próximas 18 h ou ainda não terminou
-      const deHoje = (e: Linha['listas_vip']['eventos']) => {
-        const ini = new Date(e.data_inicio).getTime();
-        const fim = e.data_fim ? new Date(e.data_fim).getTime() : ini + 8 * 36e5;
-        return ini - agora <= 18 * 36e5 && fim + 2 * 36e5 >= agora;
-      };
-      const hoje = linhas.filter((l) => deHoje(l.listas_vip.eventos));
+      // festa de hoje = mesma janela do banco (12h antes do início até 12h depois do fim)
+      const deHoje = (e: Linha['listas_vip']['eventos']) => festaNaJanelaDaPorta(e.data_inicio, e.data_fim, agora);
+      const naoPassou = (e: Linha['listas_vip']['eventos']) => fimDaJanela(e.data_inicio, e.data_fim) >= agora;
+      const linhasValidas = linhas.filter((l) => naoPassou(l.listas_vip.eventos));
+      const hoje = linhasValidas.filter((l) => deHoje(l.listas_vip.eventos));
       if (hoje.length) {
         const e = hoje[0].listas_vip.eventos;
         const daFesta = hoje.filter((l) => l.listas_vip.eventos.id === e.id);
@@ -62,7 +69,7 @@ export async function carregarPendencias(local: LocalDoParceiro, pode: (p: Permi
         };
       }
       if (pode('lista_vip') || (pode('porta') && hoje.length)) {
-        const esperando = linhas.filter((l) => l.status === 'solicitada' && (pode('lista_vip') || deHoje(l.listas_vip.eventos)));
+        const esperando = linhasValidas.filter((l) => l.status === 'solicitada' && (pode('lista_vip') || deHoje(l.listas_vip.eventos)));
         let nomes = new Map<string, string | null>();
         if (esperando.length) {
           const { data: perfis } = await supabase.from('perfis_publicos').select('id, display_name').in('id', esperando.map((l) => l.user_id));
@@ -154,7 +161,8 @@ export async function responderReserva(id: string, status: 'confirmada' | 'recus
 }
 
 // Muda o status de um pedido e confere se o banco aceitou (o gatilho desfaz em silêncio quando não pode).
-export async function responderPedido(id: string, status: 'aprovada' | 'recusada'): Promise<'ok' | 'sem_permissao' | 'cheia' | 'erro'> {
+// Recusar = 'rejeitada' (enum status_solicitacao_vip, migração 001). 'recusada' não existe para a Lista VIP.
+export async function responderPedido(id: string, status: 'aprovada' | 'rejeitada'): Promise<'ok' | 'sem_permissao' | 'cheia' | 'erro'> {
   const { data, error } = await supabase.from('listas_vip_solicitacoes').update({ status }).eq('id', id).select('status').maybeSingle();
   if (error) return /cheia/i.test(error.message) ? 'cheia' : 'erro';
   return data && (data as { status: string }).status === status ? 'ok' : 'sem_permissao';

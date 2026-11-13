@@ -78,7 +78,7 @@ export default function Aprovacoes() {
     setCamera(true);
   };
 
-  const responder = async (ped: PedidoVip, status: 'aprovada' | 'recusada') => {
+  const responder = async (ped: PedidoVip, status: 'aprovada' | 'rejeitada') => {
     setOcupado(ped.id);
     const r = await responderPedido(ped.id, status);
     setOcupado(null);
@@ -221,7 +221,7 @@ export default function Aprovacoes() {
                 </View>
                 {ocupado === p.id ? <ActivityIndicator color={CP.rosa} /> : (
                   <>
-                    <TouchableOpacity style={[e.redondo, e.nao]} onPress={() => responder(p, 'recusada')} accessibilityLabel={`Recusar ${p.nome}`}>
+                    <TouchableOpacity style={[e.redondo, e.nao]} onPress={() => responder(p, 'rejeitada')} accessibilityLabel={`Recusar ${p.nome}`}>
                       <Feather name="x" size={20} color="#FF7A7A" />
                     </TouchableOpacity>
                     <TouchableOpacity style={[e.redondo, e.sim]} onPress={() => responder(p, 'aprovada')} accessibilityLabel={`Aprovar ${p.nome}`}>

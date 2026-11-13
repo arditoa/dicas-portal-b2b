@@ -22,7 +22,7 @@ const C = {
   secao: '#B9B6CC', rosa: '#E1306C', verde: '#4CAF7D', amarelo: '#F2A900', vermelho: '#FF5252',
 };
 
-type Status = 'solicitada' | 'aprovada' | 'recusada' | 'cancelada' | 'check_in';
+type Status = 'solicitada' | 'aprovada' | 'rejeitada' | 'cancelada' | 'check_in'; // enum status_solicitacao_vip
 type Festa = { id: string; titulo: string; data_inicio: string; data_fim: string | null; listas_vip: { id: string; vagas_limite: number | null }[] };
 type Pedido = { id: string; user_id: string; status: Status; acompanhantes: number; created_at: string; check_in_em?: string | null; nome: string };
 type Filtro = 'todos' | 'faltam' | 'entraram' | 'esperando';
@@ -31,7 +31,7 @@ const ROTULO: Record<Status, { texto: string; cor: string }> = {
   solicitada: { texto: 'Esperando aprovação', cor: C.amarelo },
   aprovada: { texto: 'Aprovado', cor: '#3FA0A7' },
   check_in: { texto: 'Já entrou', cor: C.verde },
-  recusada: { texto: 'Recusado', cor: C.vermelho },
+  rejeitada: { texto: 'Recusado', cor: C.vermelho },
   cancelada: { texto: 'Cancelou', cor: C.fraco },
 };
 
@@ -199,6 +199,20 @@ export default function Porta() {
     if (listaId) await carregarPedidos(listaId);
     setAberto((a) => (a ? { ...a, status: novo } : a));
     if (novo === 'check_in') Alert.alert('Entrada confirmada', ok);
+  };
+
+  // "Aprovar e liberar" num toque só (igual ao portal): aprova e já confirma a entrada.
+  // Grava em dois passos de propósito: o banco só confere "lista cheia" na passagem para 'aprovada'.
+  const aprovarELiberar = async (p: Pedido) => {
+    setSalvando(true);
+    const ap = await supabase.from('listas_vip_solicitacoes').update({ status: 'aprovada' }).eq('id', p.id).select('status').maybeSingle();
+    if (ap.error || (ap.data as { status: Status } | null)?.status !== 'aprovada') {
+      setSalvando(false);
+      if (ap.error) return Alert.alert('Não foi possível', ap.error.message.includes('cheia') ? 'A Lista VIP está cheia.' : 'Tente de novo em instantes.');
+      return Alert.alert('Sem permissão agora', 'O seu acesso não permite esta ação neste horário. A porta só abre perto do horário da festa.');
+    }
+    setSalvando(false);
+    await mudar({ ...p, status: 'aprovada' }, 'check_in', `${p.nome} entrou.`);
   };
 
   // ---- números ----
@@ -374,14 +388,14 @@ export default function Porta() {
                 )}
                 {aberto.status === 'solicitada' && (
                   <>
-                    <BotaoFicha cor={C.verde} texto="Aprovar e liberar" icone="check" onPress={() => mudar(aberto, 'aprovada', '')} />
-                    <BotaoFicha secundario texto="Recusar" icone="x" onPress={() => mudar(aberto, 'recusada', '')} />
+                    <BotaoFicha cor={C.verde} texto="Aprovar e liberar" icone="check" onPress={() => void aprovarELiberar(aberto)} />
+                    <BotaoFicha secundario texto="Recusar" icone="x" onPress={() => mudar(aberto, 'rejeitada', '')} />
                   </>
                 )}
                 {aberto.status === 'check_in' && (
                   <BotaoFicha secundario texto="Desfazer entrada" icone="rotate-ccw" onPress={() => mudar(aberto, 'aprovada', '')} />
                 )}
-                {(aberto.status === 'recusada' || aberto.status === 'cancelada') && (
+                {(aberto.status === 'rejeitada' || aberto.status === 'cancelada') && (
                   <BotaoFicha secundario texto="Aprovar mesmo assim" icone="check" onPress={() => mudar(aberto, 'aprovada', '')} />
                 )}
               </View>

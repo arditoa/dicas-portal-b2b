@@ -30,6 +30,8 @@ const NO_PORTAL: Record<string, string> = {
 
 // Quem vê o quê na vitrine do app, por plano (espelho das regras do portal B2B).
 export type NivelPlano = 'gratuito' | 'intermediario' | 'premium';
+// Recebe o plano EFETIVO (LocalDoParceiro.plano_comercial já vem calculado por planoEfetivo em modoParceiro):
+// plano pago fora do status 'ativo' chega aqui como null e vira Gratuito.
 export function nivelDoPlano(plano?: string | null): NivelPlano {
   if (plano === 'fundador' || plano === 'premium') return 'premium';
   if (plano === 'intermediario') return 'intermediario';
@@ -40,6 +42,7 @@ export const NOME_NIVEL: Record<NivelPlano, string> = {
   intermediario: 'Intermediário',
   premium: 'Premium / Fundador',
 };
+export const AVISO_FAIXA_CUPONS = 'Quer aparecer na faixa de cupons? Planos pagos';
 export const WHATSAPP_EQUIPE = '5511942942028';
 export async function falarComEquipe(texto: string) {
   const t = encodeURIComponent(texto);
@@ -72,9 +75,13 @@ export function itensDaAba(aba: Aba, local: LocalDoParceiro, pode: (p: Permissao
           { chave: 'festa', titulo: 'Nova festa', sub: 'Flyer, data e Lista VIP', icone: 'plus-circle', cor: '#9B3CFF', mostrar: pode('festa') && r.eventos },
           { chave: 'eventos', titulo: ehFesta ? 'Minhas festas' : 'Meus eventos', sub: 'Criar, editar, repetir e destacar', icone: 'star', cor: '#9B3CFF', mostrar: pode('festa') && r.eventos },
           { chave: 'agenda', titulo: 'Agenda da semana', sub: 'O que rola em cada dia', icone: 'calendar', cor: '#3FA0A7', rota: '/parceiro/agenda', mostrar: pode('festa') && r.agenda },
-          { chave: 'cupons', titulo: desconto ? 'Cupons de desconto' : 'Cupons', sub: 'Na página da casa e na busca', icone: 'tag', cor: '#F2A900',
-            selo: nivel === 'premium' ? '1 a cada 7 dias' : nivel === 'intermediario' ? '1 a cada 14 dias' : 'Planos pagos',
-            bloqueado: nivel === 'gratuito', mostrar: pode('cupons') && r.cupom !== false },
+          // Gratuito cria cupom igual ao portal: aparece só na página da casa. A faixa de cupons da categoria
+          // (quadradinhos que passam de lado) é dos planos pagos: o cadeado fica só nela (quadro de planos).
+          { chave: 'cupons', titulo: desconto ? 'Cupons de desconto' : 'Cupons', sub: nivel === 'gratuito' ? 'Na página da casa' : 'Na página da casa e na faixa da categoria', icone: 'tag', cor: '#F2A900',
+            selo: nivel === 'premium' ? '1 a cada 7 dias' : nivel === 'intermediario' ? '1 a cada 14 dias' : 'Na página da casa',
+            seloTom: nivel === 'gratuito' ? 'neutro' : undefined,
+            aviso: nivel === 'gratuito' ? `No plano Gratuito, o cupom aparece na página da casa.\n\n${AVISO_FAIXA_CUPONS}\n\nChega no app na próxima versão. Por enquanto, crie pelo portal do parceiro: entra com o mesmo WhatsApp e senha.` : undefined,
+            mostrar: pode('cupons') && r.cupom !== false },
           { chave: 'banner', titulo: 'Banner', sub: 'Na Home e no topo da categoria', icone: 'image', cor: '#E07A5F',
             selo: nivel === 'premium' ? 'Incluído' : 'Premium / Fundador', bloqueado: nivel !== 'premium', mostrar: pode('banner') && !ehFesta },
         ]

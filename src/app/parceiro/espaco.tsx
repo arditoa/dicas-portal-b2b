@@ -29,6 +29,12 @@ export default function MeuEspaco() {
   const chavePlano = localAtivo.plano_comercial && PLANO[localAtivo.plano_comercial] ? localAtivo.plano_comercial : 'gratuito';
   const plano = PLANO[chavePlano];
   const topo = nivelDoPlano(localAtivo.plano_comercial) === 'premium';
+  // Plano contratado que ainda não vale (interesse, aguardando pagamento, cancelado): o app trata como Gratuito
+  // e diz por quê na linha de cima do cartão, sem mudar o layout.
+  const STATUS: Record<string, string> = { interesse: 'em conversa', aguardando_pagamento: 'aguardando pagamento', cancelado: 'cancelado' };
+  const contratado = localAtivo.plano_contratado && localAtivo.plano_contratado !== localAtivo.plano_comercial && PLANO[localAtivo.plano_contratado]
+    ? `${PLANO[localAtivo.plano_contratado].nome} ${STATUS[localAtivo.plano_comercial_status || ''] || 'ainda não ativo'}`
+    : null;
 
   const sair = () =>
     Alert.alert('Sair da conta', 'Você vai precisar entrar de novo com WhatsApp ou e-mail e senha.', [
@@ -45,7 +51,7 @@ export default function MeuEspaco() {
           <TouchableOpacity style={m.planoTopo} onPress={() => setVerPlano((v) => !v)} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={`Plano ${plano.nome}. Toque para ver o que inclui`}>
             <View style={m.planoIcone}><Feather name="award" size={16} color="#FFFFFF" /></View>
             <View style={{ flex: 1 }}>
-              <Text style={m.planoRotulo}>Seu plano</Text>
+              <Text style={m.planoRotulo} numberOfLines={1}>{contratado ? `Seu plano · ${contratado}` : 'Seu plano'}</Text>
               <Text style={m.planoNome}>{plano.nome}</Text>
             </View>
             <Text style={m.planoVer}>{verPlano ? 'Fechar' : 'O que inclui'}</Text>

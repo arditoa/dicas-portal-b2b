@@ -16,7 +16,7 @@ import FundoCaixaDegrade from '../../components/FundoCaixaDegrade';
 import { CP, ESP, RAIO, TelaParceiro, TituloSecao } from '../../components/parceiro/TelaParceiro';
 import { NOME_PAPEL, Permissao, recursosDaCategoria, useModoParceiro } from '../../lib/modoParceiro';
 import { abrirItem, IconeFeather, itensDaAba, nivelDoPlano } from '../../lib/parceiroMenu';
-import { usePendencias } from '../../lib/pendencias';
+import { festaNaJanelaDaPorta, usePendencias } from '../../lib/pendencias';
 import { comSituacao, useStatusDivulgar } from '../../lib/statusDivulgar';
 import { supabase } from '../../lib/supabase';
 
@@ -36,11 +36,8 @@ const VAZIA: Lista = { aguardando: 0, aprovados: 0, entraram: 0, pessoasEntraram
 const hora = (iso: string) => new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 const diaHora = (iso: string) =>
   `${new Date(iso).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }).replace('.', '')} · ${hora(iso)}`;
-const ehDeHoje = (f: Festa, agora: number) => {
-  const ini = new Date(f.data_inicio).getTime();
-  const fim = f.data_fim ? new Date(f.data_fim).getTime() : ini + 8 * 36e5;
-  return ini - agora <= 18 * 36e5 && fim + 2 * 36e5 >= agora;
-};
+// Festa de hoje = janela do banco (12h antes do início até 12h depois do fim), igual à porta.
+const ehDeHoje = (f: Festa, agora: number) => festaNaJanelaDaPorta(f.data_inicio, f.data_fim, agora);
 
 async function analytics(localId: string, inicio: Date, fim: Date): Promise<Numeros> {
   const { data, error } = await supabase.rpc('resumo_analytics_local', {
@@ -129,10 +126,10 @@ export default function InicioParceiro() {
           .select('id, titulo, data_inicio, data_fim, status, listas_vip(id)')
           .eq('local_id', localId)
           .neq('status', 'cancelado')
-          .gte('data_inicio', new Date(agora.getTime() - 24 * 36e5).toISOString())
+          .gte('data_inicio', new Date(agora.getTime() - 3 * 864e5).toISOString()) // festa longa ainda na janela de 12h após o fim
           .lte('data_inicio', new Date(agora.getTime() + 7 * 864e5).toISOString())
           .order('data_inicio', { ascending: true })
-          .limit(10);
+          .limit(20);
         if (error) return;
         const fs = (data as unknown as Festa[]) || [];
         setFestas(fs);

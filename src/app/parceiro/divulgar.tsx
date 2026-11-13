@@ -8,7 +8,7 @@ import { Feather } from '@expo/vector-icons';
 import { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { CP, GradeItens, TelaParceiro, TituloSecao } from '../../components/parceiro/TelaParceiro';
-import { falarComEquipe, itensDaAba, NivelPlano, nivelDoPlano, NOME_NIVEL } from '../../lib/parceiroMenu';
+import { AVISO_FAIXA_CUPONS, falarComEquipe, itensDaAba, NivelPlano, nivelDoPlano, NOME_NIVEL } from '../../lib/parceiroMenu';
 import { useModoParceiro } from '../../lib/modoParceiro';
 import { comSituacao, useStatusDivulgar } from '../../lib/statusDivulgar';
 import { useRouter } from 'expo-router';
@@ -18,7 +18,9 @@ type Linha = { titulo: string; onde: string; gratuito: string | boolean; interme
 const QUADRO: Linha[] = [
   { titulo: 'Página da casa', onde: 'Busca, mapa e categoria', gratuito: true, intermediario: true, premium: true },
   { titulo: 'Festas e agenda', onde: 'Aba Eventos', gratuito: true, intermediario: true, premium: true },
-  { titulo: 'Cupons', onde: 'Página da casa e busca', gratuito: false, intermediario: '1 a cada 14 dias', premium: '1 a cada 7 dias' },
+  { titulo: 'Cupons', onde: 'Página da casa', gratuito: true, intermediario: true, premium: true },
+  // Cadeado só aqui (igual ao portal): a faixa de cupons da categoria é dos planos pagos.
+  { titulo: 'Faixa de cupons', onde: AVISO_FAIXA_CUPONS, gratuito: false, intermediario: '1 a cada 14 dias', premium: '1 a cada 7 dias' },
   { titulo: 'Destaques', onde: 'Topo de Eventos · festa ou agenda', gratuito: 'Avulso', intermediario: 'Avulso', premium: '4 por mês' },
   { titulo: 'Banner', onde: 'Home e topo da categoria', gratuito: false, intermediario: false, premium: true },
   { titulo: 'Selo Fundador', onde: 'Membros Fundadores na Home', gratuito: false, intermediario: false, premium: 'Só Fundador' },
@@ -43,7 +45,7 @@ export default function Divulgar() {
   const temAgenda = itens.some((i) => i.chave === 'agenda');
   const oQue = temAgenda && minhasFestas ? 'festa ou agenda' : temAgenda ? 'agenda' : 'festa';
   const vitrine = itens.filter((i) => vitrineOrdem.includes(i.chave)).sort((a, b) => vitrineOrdem.indexOf(a.chave) - vitrineOrdem.indexOf(b.chave));
-  const nivel = nivelDoPlano(localAtivo.plano_comercial);
+  const nivel = nivelDoPlano(localAtivo.plano_comercial); // plano efetivo (só conta pago com status ativo)
   const ehFesta = localAtivo.categoria === 'eventos';
   const dono = localAtivo.papel === 'dono';
 

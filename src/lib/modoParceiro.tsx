@@ -19,7 +19,11 @@ export type LocalDoParceiro = {
   nome: string;
   categoria: string;
   subcategoria: string | null;
+  // Plano que VALE (plano efetivo, igual ao planoEfetivo do portal): pago só com status 'ativo'.
+  // Em interesse / aguardando pagamento / cancelado, fica null (= Gratuito). Calculado ao carregar.
   plano_comercial: string | null;
+  plano_contratado?: string | null; // o que está no cadastro, mesmo sem estar ativo (só para mostrar)
+  plano_comercial_status?: string | null; // vem da migração 104
   papel: 'dono' | 'porteiro' | 'gerente' | 'social_media' | 'personalizado' | 'porta_pin';
   permissoes: Permissao[];
   expira_em: string | null;
@@ -45,6 +49,15 @@ const POR_CATEGORIA: Record<string, Partial<Recursos>> = {
   servicos: { cupom: 'desconto', agenda: false, eventos: false, listaVip: false, reservas: false },
   turismo: { agenda: false, eventos: false, listaVip: false, reservas: false },
 };
+// Plano efetivo (espelho de planoEfetivo em portal-b2b-lgbt/src/lib/parceiro.ts): plano pago só conta com
+// status 'ativo'. Sem status (antes da migração 104, ou campo vazio) vale como 'ativo', igual ao banco
+// (coalesce(plano_comercial_status, 'ativo') em local_tem_plano_pago e marca_tem_festa_do_plano).
+const PLANOS_PAGOS = ['intermediario', 'premium', 'fundador'];
+export function planoEfetivo(plano: string | null | undefined, status: string | null | undefined): string | null {
+  if (!plano || !PLANOS_PAGOS.includes(plano)) return null;
+  return (status ?? 'ativo') === 'ativo' ? plano : null;
+}
+
 export function recursosDaCategoria(categoria: string): Recursos {
   return { ...PADRAO, ...(POR_CATEGORIA[categoria] ?? {}) };
 }
@@ -117,7 +130,11 @@ export function ModoParceiroProvider({ children }: { children: React.ReactNode }
         console.warn('[modoParceiro] meus_locais_parceiro:', error.message);
         setLocais([]);
       } else {
-        const lista = (data as LocalDoParceiro[]) || [];
+        const lista = ((data as LocalDoParceiro[]) || []).map((l) => ({
+          ...l,
+          plano_contratado: l.plano_comercial,
+          plano_comercial: planoEfetivo(l.plano_comercial, l.plano_comercial_status),
+        }));
         setLocais(lista);
         const valido = lista.find((l) => l.local_id === localSalvo);
         setLocalId(valido ? valido.local_id : lista[0]?.local_id ?? null);

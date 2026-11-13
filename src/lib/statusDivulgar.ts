@@ -26,7 +26,7 @@ export function useStatusDivulgar(local: LocalDoParceiro | null | undefined, pod
   const [st, setSt] = useState<StatusDivulgar>(VAZIO);
   const localId = local?.local_id;
   const categoria = local?.categoria ?? '';
-  const plano = local?.plano_comercial ?? null;
+  const plano = local?.plano_comercial ?? null; // plano efetivo (modoParceiro): pago fora do status ativo = Gratuito
   const podeFesta = pode('festa');
   const podeCupom = pode('cupons');
   const podeBanner = pode('banner');

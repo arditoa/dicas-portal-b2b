@@ -1,6 +1,6 @@
 # Paridade portal × app (Modo parceiro)
 
-Auditoria de 13/11/2026. Compara o portal do parceiro (`portal-b2b-lgbt/src/app/dashboard/**`, `lib/parceiro.ts`, `components/parceiro/**`) com o Modo parceiro do app (`src/app/parceiro/**`, `src/lib/modoParceiro.tsx`, `parceiroMenu.ts`, `statusDivulgar.ts`, `pendencias.ts`).
+Auditoria de 13/11/2026. **Etapa 0 feita em 13/11/2026** (bug da Lista VIP, plano efetivo, criar Lista VIP pela equipe, decisões): ver o fim deste arquivo. Compara o portal do parceiro (`portal-b2b-lgbt/src/app/dashboard/**`, `lib/parceiro.ts`, `components/parceiro/**`) com o Modo parceiro do app (`src/app/parceiro/**`, `src/lib/modoParceiro.tsx`, `parceiroMenu.ts`, `statusDivulgar.ts`, `pendencias.ts`).
 Nenhum código foi alterado nesta auditoria.
 
 **Legenda:** ✅ existe · 🟡 parcial · ❌ não existe · ➕ só no app · ⚠️ diferente do portal (decidir).
@@ -17,7 +17,7 @@ Nenhum código foi alterado nesta auditoria.
 | ✅ Já igual | Recursos por categoria (POR_CATEGORIA), troca de senha provisória, troca de local, agenda da semana, situação do cupom (libera em dd/mm) e do banner (dias desde a troca), cota de 4 destaques, validar check-in, porta com QR. |
 | ❌ Telas que faltam | Festa (nova/editar/lista), cupons, banner, fidelidade, histórico de check-ins, Minha página, equipe, **produtos**, **hospedagem**, **pacotes**, central de ajuda. |
 | ❌ Regras do Início que faltam | Primeiros passos (checklist com %), perfil incompleto, cadastro em análise/rejeitado, lembretes com "lembrar amanhã", sino de lembretes e caixa "Como funciona". |
-| ⚠️ Para decidir | Cupom no plano Gratuito (o portal deixa criar só no perfil, o app tranca) · "Aprovar e liberar" na porta (o portal já marca a entrada, o app só aprova) · janela da festa de hoje (o app usa 18h antes/2h depois, o banco usa 12h/12h) · no portal só o dono mexe em cupons, enquanto o app mostra cupons para a equipe com permissão, mas o banco ainda trava (ver etapa 0). |
+| ⚠️ Para decidir | Cupom no plano Gratuito (o portal deixa criar só no perfil, o app tranca) · "Aprovar e liberar" na porta (o portal já marca a entrada, o app só aprova) · janela da festa de hoje (o app usa 18h antes/2h depois, o banco usa 12h/12h) · no portal só o dono mexe em cupons; no app (e no banco, desde a 099) a equipe com permissão também mexe. |
 
 ---
 
@@ -40,7 +40,7 @@ Nenhum código foi alterado nesta auditoria.
 | Selo "Espaço Seguro" | `ParceiroShell` | `locais.safe_space` | ❌ | 8 |
 | Conta sem local: tela "Nenhum espaço vinculado" (vincular / cadastrar) | `dashboard/page.tsx` | — | ❌ volta para o modo cliente | 11 |
 | Organizador sem local, mas com festas, vai para Eventos | `ParceiroShell` | `meus_eventos_gerenciaveis` | ❌ não entra no Modo parceiro | 2 |
-| Permissões: o portal é só do dono | todas as telas (`owner_id`) | RLS | ➕ o app tem papéis e `pode()`. A 099 já abriu para a equipe: editar festa, aprovar/recusar Lista VIP e banner. **Ainda só do dono no banco:** gravar `cupons` e **criar** `listas_vip` (insert). Precisa de migração igual à 103 antes das etapas 1 e 4 | 0 |
+| Permissões: o portal é só do dono | todas as telas (`owner_id`) | RLS | ➕ o app tem papéis e `pode()`. A 099 já abriu para a equipe: editar festa, aprovar/recusar Lista VIP e banner. Cupons para a equipe também já estavam na 099 (`cupons_write_equipe`). **Faltava** criar `listas_vip`: feito na **104** ✅ | 0 |
 | Sair da conta | `ParceiroShell` | auth | ✅ `espaco.tsx` | — |
 
 ## 2. Início do portal (primeiros passos, lembretes, senha)
@@ -202,3 +202,14 @@ Nenhum código foi alterado nesta auditoria.
 ## 11. O que o app tem e o portal não tem
 
 Papéis e permissões da equipe, porteiro por PIN, foto de conferência na porta, aprovar todos, leitura de QR no check-in, reservas (102), destacar e compartilhar a agenda, prévia ao vivo, Clientes VIP com aniversários. Destas, só **destacar a agenda** e o **"Usadas X de 4 (festas + agenda)"** já estão listadas para levar ao portal (§2 do guia).
+
+## 12. Etapa 0 — feita (13/11/2026)
+
+| Item | O que mudou |
+|---|---|
+| Lista VIP recusar | `'rejeitada'` em `pendencias.ts` (`responderPedido`), Aprovações e Porta ✅ |
+| Plano efetivo | `meus_locais_parceiro` devolve `plano_comercial_status` (**migração 104**). `modoParceiro` calcula `planoEfetivo` ao carregar: `plano_comercial` já chega efetivo para `nivelDoPlano`, `statusDivulgar`, Divulgar, Meu espaço, Início, Reservas. Meu espaço mostra "Seu plano · Premium aguardando pagamento". Sem status = ativo (igual ao banco) ✅ |
+| Equipe | `'lista_vip'` cria Lista VIP (104); `'cupons'` já vinha da 099 (recriada na 104) ✅ |
+| Cupom no Gratuito | Pode criar (só na página da casa); cadeado só na linha "Faixa de cupons" do quadro de planos, com "Quer aparecer na faixa de cupons? Planos pagos" ✅ |
+| Porta | "Aprovar e liberar" num toque (aprova e confirma a entrada; grava em 2 passos para o banco conferir a lista cheia). Aprovações continua só "Aprovar" ✅ |
+| Festa de hoje | 12h antes do início até 12h depois do fim (sem fim, conta o início), igual a `evento_na_janela_da_porta`: `festaNaJanelaDaPorta` em `pendencias.ts`, usada também no Início ✅ |
