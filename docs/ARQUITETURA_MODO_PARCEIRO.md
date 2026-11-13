@@ -17,9 +17,11 @@ Expo SDK 58 · expo-router · Supabase. Leia também `AGENTS.md`.
 ## 2. Telas a construir (hoje abrem "Abrir no portal")
 Cada tela nova = 1 rota em `src/app/parceiro/`, registrada no `_layout.tsx` com `href: null`, e `rota` preenchida no item de `parceiroMenu.ts` (aí o aviso some sozinho).
 A regra de negócio NÃO se inventa: copie da tela equivalente do portal (`portal-b2b-lgbt/src/app/dashboard/...`).
+O que cada etapa precisa cobrir, regra por regra, está em `docs/PARIDADE_PORTAL_APP.md`. Comece pela etapa 0.
 
 | Ordem | Tela (rota) | Item do menu | Copiar regra de | Tabelas / RPC | Permissão |
 |---|---|---|---|---|---|
+| **0** | **Correções antes de seguir** (sem tela nova): (a) Lista VIP recusar grava `'recusada'`, mas o enum só aceita `'rejeitada'` (`pendencias.ts`, `aprovacoes.tsx`, `porta.tsx`); (b) plano efetivo: `meus_locais_parceiro` devolver `plano_comercial_status` e `nivelDoPlano` tratar como gratuito se não estiver `ativo`; (c) migração para a equipe gravar `cupons` e criar `listas_vip`; (d) decidir: cupom no Gratuito, "Aprovar e liberar" na porta, janela 12h/12h | — | `lib/parceiro.ts` `planoEfetivo`, `dashboard/porta` | `meus_locais_parceiro` (099), enum `status_solicitacao_vip` | — |
 | 1 | `festa-editar` (nova e editar, `?id=`) | festa, eventos | `dashboard/eventos/novo` + componente de cadastro único (rodada 130) | `eventos` (capa_url, cor1, cor2, textura, chamada, destaques, link_ingresso, exigir_foto), `listas_vip`, storage `fotos-eventos` | `festa` |
 | 2 | `festas` (Minhas festas: começa com **+ Nova festa**; lista com status, repetir da semana passada, Destacar com o plano; é o único quadradinho de festas na Divulgar) | eventos | `dashboard/eventos` | `eventos`, `resumo_da_festa` | `festa` |
 | 3 | `agenda` (agenda da semana, 7 dias) + prévia de como o cliente vê + **Destacar este dia / Destacar o cartaz da semana** + **Compartilhar** (WhatsApp/Instagram com o link da casa) | agenda | `dashboard/agenda` | `agenda_semanal`, `destacar_agenda_do_plano`, `festas_do_plano_no_mes` (cota única 4/mês, migração 101) | `festa` (destacar: só dono) |
@@ -31,6 +33,10 @@ A regra de negócio NÃO se inventa: copie da tela equivalente do portal (`porta
 | 8 | `pagina` (fotos, textos, horários, Instagram) | pagina | `dashboard/perfil` (grande: dividir em seções) | `locais`, storage `fotos-locais` | só dono |
 | 9 | `historico` (visitas e cupons usados) | checkins (Fidelizar) | `dashboard/checkins` | `checkins_do_local` | `checkins` |
 | 10 | Entrada do porteiro por PIN ("Sou da equipe da porta") na tela Conta | — | migração 099 | `entrar_modo_porta` (login anônimo) | — |
+| 11 | Início do portal no app: **primeiros passos** (checklist com %), **perfil incompleto** (`pedeHorario`/`pedePagina`), aviso de cadastro **em análise/rejeitado**, lembretes ordenados com "lembrar amanhã", agenda da próxima semana (sex–dom), fidelidade criada/escondida, nota média, caixa "Como funciona" e central de ajuda; conta sem local ("Nenhum espaço vinculado") | (Início) | `lib/parceiro.ts` (`diagnosticar`, `montarLembretes`, `montarChecklist`), `components/parceiro/CaixaComoFunciona.tsx`, `dashboard/ajuda` | `locais`, `agenda_semanal`, `cupons`, `programas_fidelidade`, `eventos` | todos (cada lembrete segue `pode()`) |
+| 12 | `produtos` (catálogo) | novo item `produtos` (só categoria produtos) | `dashboard/produtos` | `produtos_catalogo`, storage `fotos-locais/<local>/produtos/` | só dono |
+| 13 | `hospedagem` (9 etapas, % de completude, envio para validação) | novo item `hospedagem` (só turismo) | `dashboard/hospedagem` + `lib/hospedagemChecklist.ts` | `hospedagem_perfil`, `hospedagem_espacos`, `hospedagem_validacao`, `pontos_proximos`, buckets `fotos-locais` e `documentos-hospedagem` | só dono |
+| 14 | `pacotes` (pacotes e roteiros) | novo item `pacotes` (`locais.pode_subir_pacotes`; sem a coluna, turismo) | `dashboard/pacotes` | `pacotes_turismo` (054), storage `fotos-locais` | só dono |
 
 ### Regra nova — destaque da agenda (migração 101)
 - Premium/Fundador: **4 destaques por mês, uma cota só** para festas do plano + agenda.
