@@ -7,7 +7,7 @@
 // Regras por categoria: ESPELHO de POR_CATEGORIA em portal-b2b-lgbt/src/lib/parceiro.ts.
 // Se mudar lá, mude aqui.
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from './authContext';
 import { ehContaWhatsApp } from './parceiroAuth';
 import { supabase } from './supabase';
@@ -110,15 +110,20 @@ export function ModoParceiroProvider({ children }: { children: React.ReactNode }
   const [modo, setModo] = useState<Modo>('parceiro');
   // Para quem a lista já foi carregada: evita decidir a entrada com a lista da conta anterior (ou vazia) logo após o login.
   const [carregadoPara, setCarregadoPara] = useState<string | null>(null);
+  const carregadoParaRef = useRef<string | null>(null);
 
+  // Só o id importa: o Supabase troca o objeto `user` a cada renovação de sessão (TOKEN_REFRESHED),
+  // e recarregar por isso desmontava as abas do parceiro e jogava a pessoa de volta no Início.
+  const userId = user?.id ?? null;
   const recarregar = useCallback(async () => {
-    if (!user) {
+    if (!userId) {
       setLocais([]);
       setCarregadoPara(null);
       setCarregando(false);
       return;
     }
-    setCarregando(true);
+    // Recarga silenciosa quando já carregou para esta conta (não mostra o carregando de novo).
+    setCarregando((c) => (carregadoParaRef.current === userId ? c : true));
     try {
       const [{ data, error }, modoSalvo, localSalvo] = await Promise.all([
         supabase.rpc('meus_locais_parceiro'),
@@ -141,10 +146,11 @@ export function ModoParceiroProvider({ children }: { children: React.ReactNode }
       }
       setModo(modoSalvo === 'cliente' ? 'cliente' : 'parceiro');
     } finally {
-      setCarregadoPara(user.id);
+      carregadoParaRef.current = userId;
+      setCarregadoPara(userId);
       setCarregando(false);
     }
-  }, [user]);
+  }, [userId]);
 
   useEffect(() => {
     if (authLoading) return;

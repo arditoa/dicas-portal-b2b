@@ -7,12 +7,12 @@
 import { Feather } from '@expo/vector-icons';
 import { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { CP, GradeItens, TelaParceiro, TituloSecao } from '../../components/parceiro/TelaParceiro';
-import { falarComEquipe, itensDaAba, NivelPlano, nivelDoPlano, NOME_NIVEL } from '../../lib/parceiroMenu';
-import { useModoParceiro } from '../../lib/modoParceiro';
-import { comSituacao, useStatusDivulgar } from '../../lib/statusDivulgar';
+import { CP, GradeItens, TelaParceiro, TituloSecao } from '../../../components/parceiro/TelaParceiro';
+import { falarComEquipe, itensDaAba, NivelPlano, nivelDoPlano, NOME_NIVEL } from '../../../lib/parceiroMenu';
+import { useModoParceiro } from '../../../lib/modoParceiro';
+import { comSituacao, useStatusDivulgar } from '../../../lib/statusDivulgar';
 import { useRouter } from 'expo-router';
-import { abrirItem } from '../../lib/parceiroMenu';
+import { abrirItem } from '../../../lib/parceiroMenu';
 
 type Linha = { titulo: string; onde: string; gratuito: string | boolean; intermediario: string | boolean; premium: string | boolean };
 const QUADRO: Linha[] = [

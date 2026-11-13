@@ -6,11 +6,11 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, StyleSheet, Text, TextInput, TouchableOpacity, Vibration, View } from 'react-native';
-import FundoCaixaDegrade from '../../components/FundoCaixaDegrade';
-import { CP, TelaParceiro, TituloSecao } from '../../components/parceiro/TelaParceiro';
-import { useModoParceiro } from '../../lib/modoParceiro';
-import { PedidoVip, ReservaPendente, responderPedido, responderReserva, usePendencias } from '../../lib/pendencias';
-import { supabase } from '../../lib/supabase';
+import FundoCaixaDegrade from '../../../components/FundoCaixaDegrade';
+import { CP, TelaParceiro, TituloSecao } from '../../../components/parceiro/TelaParceiro';
+import { useModoParceiro } from '../../../lib/modoParceiro';
+import { PedidoVip, ReservaPendente, responderPedido, responderReserva, usePendencias } from '../../../lib/pendencias';
+import { supabase } from '../../../lib/supabase';
 
 const hora = (iso: string) => new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 const dia = (iso: string) => new Date(iso).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }).replace('.', '');

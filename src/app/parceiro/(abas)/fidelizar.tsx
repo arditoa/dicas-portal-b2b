@@ -2,10 +2,10 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { CP, GradeItens, TelaParceiro, TituloSecao } from '../../components/parceiro/TelaParceiro';
-import { inicial, quandoAniversario, useClientesVip } from '../../lib/clientesVip';
-import { itensDaAba } from '../../lib/parceiroMenu';
-import { useModoParceiro } from '../../lib/modoParceiro';
+import { CP, GradeItens, TelaParceiro, TituloSecao } from '../../../components/parceiro/TelaParceiro';
+import { inicial, quandoAniversario, useClientesVip } from '../../../lib/clientesVip';
+import { itensDaAba } from '../../../lib/parceiroMenu';
+import { useModoParceiro } from '../../../lib/modoParceiro';
 
 const DOURADO = '#C8853C';
 

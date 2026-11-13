@@ -6,11 +6,13 @@ Expo SDK 58 · expo-router · Supabase. Leia também `AGENTS.md`.
 ## 1. O que já existe (não refazer)
 | Parte | Arquivo |
 |---|---|
-| Abas, guarda de entrada, senha provisória | `src/app/parceiro/_layout.tsx` |
+| Guarda de entrada e senha provisória (Stack) | `src/app/parceiro/_layout.tsx` |
+| As 5 abas do rodapé (Tabs) | `src/app/parceiro/(abas)/_layout.tsx` |
 | Moldura das telas (logo, local, trocar local, título + subtítulo, régua `ESP`/`RAIO`, `GradeItens`, `ListaItens`, `TituloSecao`) | `src/components/parceiro/TelaParceiro.tsx` |
 | Locais, papel, permissões `pode()`, recursos por categoria | `src/lib/modoParceiro.tsx` |
 | Itens de cada aba, selos/cadeado por plano, link "Abrir no portal", WhatsApp da equipe | `src/lib/parceiroMenu.ts` |
-| Início, Aprovações, Porta (QR), Divulgar, Fidelizar, Clientes VIP, Meu espaço, Trocar senha | `src/app/parceiro/*.tsx` |
+| Início, Aprovações, Divulgar, Fidelizar, Meu espaço (abas) | `src/app/parceiro/(abas)/*.tsx` |
+| Porta (QR), Clientes VIP, Trocar senha e as telas novas | `src/app/parceiro/*.tsx` |
 | Pendências (Lista VIP, check-ins) | `src/lib/pendencias.ts` |
 | Banco: equipe, PIN da porta, foto de conferência, analytics, clientes VIP | `supabase-migration/098`, `099`, `100` |
 
@@ -22,7 +24,7 @@ Expo SDK 58 · expo-router · Supabase. Leia também `AGENTS.md`.
 - Antes, as telas eram abas escondidas e qualquer toque voltava para o Início.
 
 ## 2. Telas a construir (hoje abrem "Abrir no portal")
-Cada tela nova = 1 rota em `src/app/parceiro/`, registrada no `_layout.tsx` com `href: null`, e `rota` preenchida no item de `parceiroMenu.ts` (aí o aviso some sozinho).
+Cada tela nova = 1 arquivo direto em `src/app/parceiro/` (o Stack empilha sozinho; **não** registre em Tabs nem use `href: null`, ver "Estrutura de navegação" acima) e `rota` preenchida no item de `parceiroMenu.ts` (aí o aviso some sozinho).
 A regra de negócio NÃO se inventa: copie da tela equivalente do portal (`portal-b2b-lgbt/src/app/dashboard/...`).
 O que cada etapa precisa cobrir, regra por regra, está em `docs/PARIDADE_PORTAL_APP.md`. Comece pela etapa 0.
 

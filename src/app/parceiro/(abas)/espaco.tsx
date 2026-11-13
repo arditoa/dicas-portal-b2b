@@ -4,11 +4,11 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import FundoCaixaDegrade from '../../components/FundoCaixaDegrade';
-import { CP, GradeItens, TelaParceiro, TituloSecao, s } from '../../components/parceiro/TelaParceiro';
-import { useAuth } from '../../lib/authContext';
-import { useModoParceiro } from '../../lib/modoParceiro';
-import { falarComEquipe, itensDaAba, nivelDoPlano } from '../../lib/parceiroMenu';
+import FundoCaixaDegrade from '../../../components/FundoCaixaDegrade';
+import { CP, GradeItens, TelaParceiro, TituloSecao, s } from '../../../components/parceiro/TelaParceiro';
+import { useAuth } from '../../../lib/authContext';
+import { useModoParceiro } from '../../../lib/modoParceiro';
+import { falarComEquipe, itensDaAba, nivelDoPlano } from '../../../lib/parceiroMenu';
 
 const PLANO: Record<string, { nome: string; cores: [string, string]; inclui: string[] }> = {
   fundador: { nome: 'Fundador', cores: ['#C8853C', '#7A3E8E'], inclui: ['Selo de Membro Fundador na Home', 'Banner na Home e na categoria', '4 destaques por mês em Eventos (festa ou agenda)', 'Cupom a cada 7 dias'] },

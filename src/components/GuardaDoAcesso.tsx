@@ -1,9 +1,9 @@
 // Etapa 6 — guarda do acesso com validade (montada uma vez, pelo EntradaModoParceiro).
 //   • Vencimento: o aparelho da porta (papel porta_pin) vale até as 6h. Na hora de vencer (ou ao voltar para o app
 //     depois disso), recarrega a lista de locais; se era a sessão anônima da porta e não sobrou nada, encerra a sessão.
-//     O _layout do Modo parceiro já manda para o app quando a lista fica vazia.
-//   • Aparelho da porta só vê Aprovações (com a Porta) e Meu espaço: se cair no Início do Modo parceiro, vai para
-//     Aprovações. (Divulgar e Fidelizar já somem pelo parceiroMenu.)
+//     O Stack do Modo parceiro (src/app/parceiro/_layout.tsx) já manda para o app quando a lista fica vazia.
+//   • Aparelho da porta só vê Aprovações (com a Porta) e Meu espaço: se cair no Início (src/app/parceiro/(abas)/index),
+//     vai para Aprovações. O botão Início some em (abas)/_layout.tsx; Divulgar e Fidelizar somem pelo parceiroMenu.
 import { useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
 import { AppState } from 'react-native';
