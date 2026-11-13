@@ -291,3 +291,18 @@ Papéis e permissões da equipe, porteiro por PIN, foto de conferência na porta
 | Acesso expira sozinho (6h) | ✅ `GuardaDoAcesso` recarrega na hora de vencer e encerra a sessão anônima |
 | Sessão anônima na Conta | ✅ não conta como cliente logado: mostra "Modo porta · casa · vale até…", "Abrir a porta" e "Sair do modo porta" |
 | No portal | ❌ não há tela de equipe nem de senha da porta (só no app) |
+
+## 18. Etapa 7 — fidelidade e histórico (13/11/2026)
+
+| Regra do portal | No app agora |
+|---|---|
+| 1 cartão por local (o mais antigo); visitas 1–60; brinde obrigatório (120); nome padrão (60); observações (300) | ✅ `parceiro/fidelidade.tsx` |
+| Contagem "no mês" (zera dia 1º, 1 brinde/mês) ou "sempre" | ✅ |
+| Nível VIP: 2–200 visitas, benefício obrigatório (120) | ✅ |
+| Mostrar no app / programa ativo | ✅ |
+| Prévia da regra | ✅ prévia igual ao cartão da página da casa (`PreviaFidelidade`) |
+| Confirmar visita pelo código, mostrando "X de N" | ✅ (e "Entregar brinde" na hora, se bateu a meta) |
+| Lista de clientes com progresso, VIP e brinde; "Entreguei o brinde" | ✅ `fidelidade_clientes`, `resgatar_fidelidade` |
+| Só o dono | ✅ (as funções do banco conferem owner_id). **Decisão:** igual ao portal, a equipe não entrega brinde |
+| Histórico 24h/2/7/30 dias, confirmado/pendente/cancelado, como foi, cancelar com confirmação (inclusive confirmadas) | ✅ `parceiro/historico.tsx` + contagem de cupons usados; recarrega a cada 30 s |
+| Meta VIP de Clientes VIP | ✅ **108**: `clientes_vip_do_local` passa a usar o mesmo cartão (o mais antigo), igual ao portal e ao app |

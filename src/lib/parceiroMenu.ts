@@ -88,9 +88,9 @@ export function itensDaAba(aba: Aba, local: LocalDoParceiro, pode: (p: Permissao
       : aba === 'fidelizar'
       ? [
           { chave: 'clientes', titulo: 'Clientes VIP', sub: 'Quem mais vem e aniversários', icone: 'users', cor: '#C8853C', rota: '/parceiro/clientes', mostrar: pode('resultados') && (r.checkins || r.listaVip) },
-          { chave: 'checkins', titulo: 'Histórico de visitas', sub: 'Check-ins e cupons usados', icone: 'clock', cor: '#4CAF7D', mostrar: pode('checkins') && r.checkins },
-          { chave: 'fidelidade', titulo: 'Cartão fidelidade', sub: 'Meta de visitas e brinde', icone: 'gift', cor: '#E1306C', mostrar: dono && r.fidelidade },
-          { chave: 'vip', titulo: 'Nível VIP', sub: 'Benefício para quem vem sempre', icone: 'award', cor: '#C8853C', mostrar: dono && r.fidelidade },
+          { chave: 'checkins', titulo: 'Histórico de visitas', sub: 'Check-ins e cupons usados', icone: 'clock', cor: '#4CAF7D', rota: '/parceiro/historico', mostrar: pode('checkins') && r.checkins },
+          { chave: 'fidelidade', titulo: 'Cartão fidelidade', sub: 'Meta de visitas e brinde', icone: 'gift', cor: '#E1306C', rota: '/parceiro/fidelidade', mostrar: dono && r.fidelidade },
+          { chave: 'vip', titulo: 'Nível VIP', sub: 'Benefício para quem vem sempre', icone: 'award', cor: '#C8853C', rota: '/parceiro/fidelidade', mostrar: dono && r.fidelidade },
         ]
       : [
           { chave: 'pagina', titulo: 'Minha página', sub: 'Fotos, textos, horários e Instagram', icone: 'home', cor: '#E1306C', mostrar: dono },
