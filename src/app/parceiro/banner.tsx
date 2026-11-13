@@ -155,34 +155,6 @@ export default function BannerParceiro() {
       <TelaParceiro titulo="Banner" subtitulo={fundador ? 'Na Home, nos Destaques e no topo da categoria.' : 'No topo da sua categoria.'}>
         <TouchableOpacity style={a.voltar} onPress={voltar} accessibilityRole="button"><Feather name="chevron-left" size={16} color={CP.dim} /><Text style={a.voltarTxt}>Voltar</Text></TouchableOpacity>
 
-        {/* Trocado há N dias */}
-        <View style={[a.dias, dias !== null && dias >= 7 && a.diasAlerta]}>
-          <Feather name={dias === null || dias >= 7 ? 'alert-circle' : 'check-circle'} size={16} color={dias === null || dias >= 7 ? '#FFD54F' : '#4CAF7D'} />
-          <Text style={[a.diasTxt, (dias === null || dias >= 7) && { color: '#FFD54F' }]}>
-            {dias === null ? 'Você ainda não escreveu a frase do seu banner.'
-              : dias >= 7 ? `Trocado há ${dias} dias. Que tal uma novidade da semana? Banner novo chama mais atenção.`
-              : dias === 0 ? 'Trocado hoje. O ideal é trocar toda semana.'
-              : `Trocado há ${dias} dia${dias === 1 ? '' : 's'}. O ideal é trocar toda semana.`}
-          </Text>
-        </View>
-
-        {/* Plano e vaga */}
-        <TouchableOpacity style={[a.plano, { borderColor: plano.cor + '66' }]} onPress={() => setVerPlano((v) => !v)} activeOpacity={0.85} accessibilityRole="button">
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: ESP.s }}>
-            <Text style={[a.planoNome, { color: plano.cor }]}>{plano.nome}</Text>
-            <View style={{ flex: 1 }} />
-            <Text style={a.planoVer}>{verPlano ? 'Fechar' : 'O que inclui'}</Text>
-            <Feather name={verPlano ? 'chevron-up' : 'chevron-down'} size={16} color={CP.dim} />
-          </View>
-          <Text style={a.vaga}>
-            <Text style={{ fontWeight: '800', color: CP.texto }}>Sua vaga no app: </Text>
-            {vagas.length ? `${vagas.map((v) => textoDaVaga(v, fundador)).join(' · ')}.` : 'a posição do seu banner entre as vagas é definida pela equipe Dicas; você já entra na rotação.'}
-          </Text>
-          {verPlano && plano.itens.map((t) => (
-            <View key={t} style={a.item}><Feather name="check" size={13} color={plano.cor} /><Text style={a.itemTxt}>{t}</Text></View>
-          ))}
-        </TouchableOpacity>
-
         {/* Qual banner (Fundador tem Home e categoria; Premium só categoria) */}
         {fundador && (
           <>
@@ -205,6 +177,26 @@ export default function BannerParceiro() {
               })}
             </View>
           </>
+        )}
+
+        {/* Trocado há N dias */}
+        <View style={[a.dias, dias !== null && dias >= 7 && a.diasAlerta]}>
+          <Feather name={dias === null || dias >= 7 ? 'alert-circle' : 'check-circle'} size={16} color={dias === null || dias >= 7 ? '#FFD54F' : '#4CAF7D'} />
+          <Text style={[a.diasTxt, (dias === null || dias >= 7) && { color: '#FFD54F' }]}>
+            {dias === null ? 'Você ainda não escreveu a frase do seu banner.'
+              : dias >= 7 ? `Trocado há ${dias} dias. Que tal uma novidade da semana? Banner novo chama mais atenção.`
+              : dias === 0 ? 'Trocado hoje. O ideal é trocar toda semana.'
+              : `Trocado há ${dias} dia${dias === 1 ? '' : 's'}. O ideal é trocar toda semana.`}
+          </Text>
+        </View>
+
+        {/* Onde o banner roda (só as vagas de banner; os quadradinhos de cupom não entram aqui) */}
+        {vagas.some((v) => v.tipo === 'premium') && (
+          <Text style={a.vagaLinha}>
+            <Feather name="map-pin" size={12} color={CP.fraco} />{' '}
+            Seu banner roda em: {vagas.filter((v) => v.tipo === 'premium').map((v) => NOME_CATEGORIA_APP[v.categoria] || v.categoria).join(' · ')}
+            {fundador ? ' · Home' : ''}
+          </Text>
         )}
 
         {/* 1 · Frase */}
@@ -321,7 +313,8 @@ function CorChips({ rotulo, opcoes, valor, aoMudar }: { rotulo: string; opcoes: 
 }
 
 const a = StyleSheet.create({
-  lugares: { flexDirection: 'row', gap: ESP.s },
+  lugares: { flexDirection: 'row', gap: ESP.s, marginBottom: ESP.s },
+  vagaLinha: { color: CP.fraco, fontSize: 12, lineHeight: 17, marginTop: ESP.m },
   lugar: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: CP.card, borderColor: CP.borda, borderWidth: 1, borderRadius: RAIO.m, padding: ESP.m, minHeight: 56 },
   lugarOn: { backgroundColor: '#E1306C1F', borderColor: CP.rosa },
   lugarTitulo: { color: CP.dim, fontSize: 14, fontWeight: '800' },

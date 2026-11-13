@@ -31,7 +31,7 @@ const COLORS = {
 };
 
 import { TIPOS_SERVICO } from '../lib/servicosTipos';
-import BordaArcoIris from './BordaArcoIris';
+import { ComSeloFundador } from './SeloFundador';
 import { buscarIdsFundadores } from '../lib/vitrine';
 // Campos de `locais` que as listas precisam (inclui o que deveIncluirEm/abertoAgora leem).
 export const CAMPOS_LOCAL =
@@ -346,10 +346,11 @@ export default function ListaPadrao({ titulo, subtitulo, itens, carregando, vazi
             }
             ListFooterComponent={rodape ? <View>{rodape}</View> : undefined}
             renderItem={({ item }) => {
-              // Rodada 137 — Membro Fundador ganha a borda de arco-íris na listagem.
+              // Membro Fundador: selo oficial no canto da foto (substituiu a borda neon/arco-íris).
               const fundadorItem = item.rota.startsWith('/business/') && idsFundadorLista.has(item.rota.slice('/business/'.length));
               const cartao = (
-              <TouchableOpacity style={[styles.placeCard, fundadorItem && { borderWidth: 0, marginBottom: 0 }]} activeOpacity={0.88} onPress={() => router.push(item.rota as any)}>
+              <TouchableOpacity style={styles.placeCard} activeOpacity={0.88} onPress={() => router.push(item.rota as any)}>
+                <ComSeloFundador ativo={fundadorItem} tamanho={24} sobra={5}>
                 <View style={[styles.placeThumb, !item.foto && !!item.logo && { backgroundColor: '#F4F1FA' }]}>
                   {item.foto ? (
                     <Image source={{ uri: item.foto }} style={styles.placeThumbImg} resizeMode="cover" />
@@ -359,6 +360,7 @@ export default function ListaPadrao({ titulo, subtitulo, itens, carregando, vazi
                     <Feather name={(item.iconeVazio || 'map-pin') as any} size={20} color={COLORS.pink} />
                   )}
                 </View>
+                </ComSeloFundador>
 
                 <View style={{ flex: 1 }}>
                   <View style={styles.placeHeaderRow}>
@@ -398,7 +400,7 @@ export default function ListaPadrao({ titulo, subtitulo, itens, carregando, vazi
                 <Feather name="chevron-right" size={18} color={COLORS.textMuted} />
               </TouchableOpacity>
               );
-              return fundadorItem ? <BordaArcoIris raio={17} espessura={2} style={{ marginBottom: 12 }}>{cartao}</BordaArcoIris> : cartao;
+              return cartao;
             }}
           />
         )}
@@ -421,7 +423,7 @@ const styles = StyleSheet.create({
 
   // Mesma pílula da busca da Home: 46 de altura, borda totalmente arredondada, fundo #232230.
   searchContainer: { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 16, marginBottom: 10, paddingHorizontal: 18, height: 46, borderRadius: 23, backgroundColor: '#232230' },
-  searchInput: { flex: 1, color: COLORS.textPrimary, fontSize: 14, fontWeight: '700' },
+  searchInput: { flex: 1, color: COLORS.textPrimary, fontSize: 14, fontWeight: '600', letterSpacing: 0 },
 
   filterSection: { marginBottom: 10 },
   chipsContainer: { paddingHorizontal: 16, gap: 8 },

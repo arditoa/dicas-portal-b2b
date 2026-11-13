@@ -79,6 +79,9 @@ type EventoPendente = {
   contato_nome: string | null;
   contato_whatsapp: string | null;
   created_at: string;
+  // Festa subida por uma casa parceira (portal ou Modo parceiro): o cadastro da casa já tem os dados dela.
+  local_id?: string | null;
+  locais?: { nome: string } | null;
 };
 
 // Rodada 26 — compatibilidade com eventos cadastrados ANTES da migration
@@ -781,7 +784,7 @@ export default function AdminPage() {
           .order('created_at', { ascending: true }),
         supabase
           .from('eventos')
-          .select('id, titulo, tipo, descricao, data_inicio, data_fim, contato_nome, contato_whatsapp, created_at')
+          .select('id, titulo, tipo, descricao, data_inicio, data_fim, contato_nome, contato_whatsapp, created_at, local_id, locais(nome)')
           .eq('status', 'pendente')
           .order('created_at', { ascending: true }),
         supabase
@@ -848,10 +851,10 @@ export default function AdminPage() {
       ]);
 
     setLocaisPendentes((locaisData as LocalPendente[]) || []);
-    setEventosPendentes((eventosData as EventoPendente[]) || []);
+    setEventosPendentes((eventosData as unknown as EventoPendente[]) || []);
     {
       // CPF/CNPJ do organizador (só controle; tabela privada que só o admin lê). Se a migração 087 ainda não rodou, ignora.
-      const idsEv = ((eventosData as EventoPendente[]) || []).map((e) => e.id);
+      const idsEv = ((eventosData as unknown as EventoPendente[]) || []).map((e) => e.id);
       if (idsEv.length > 0) {
         const { data: docs } = await supabase.from('eventos_documentos').select('evento_id, documento').in('evento_id', idsEv);
         setDocsEventos(Object.fromEntries(((docs as { evento_id: string; documento: string }[]) || []).map((d) => [d.evento_id, d.documento])));
@@ -2134,6 +2137,8 @@ Dicas LGBT+`;
                   <p className="text-xs text-[#A0A0B2] mt-1">
                     {docsEventos[ev.id].length === 11 ? 'CPF' : 'CNPJ'} do organizador (controle): <b className="text-white">{docsEventos[ev.id]}</b>
                   </p>
+                ) : ev.local_id ? (
+                  <p className="text-xs text-[#4CAF7D] mt-1">Festa da casa parceira {ev.locais?.nome || ''} · dados no cadastro da casa (não precisa de CPF/CNPJ).</p>
                 ) : (
                   <p className="text-xs text-amber-400 mt-1">Sem CPF/CNPJ informado.</p>
                 )}

@@ -30,6 +30,7 @@ import { IDIOMAS, useI18n } from '../../lib/i18n';
 import { supabase } from '../../lib/supabase';
 import { carregarDestinos, Destino, DESTINOS_PADRAO, destinoAberto } from '../../lib/destinos';
 import { useRastrearTela } from '../../lib/usoTelas';
+import { TITULO_SECAO } from '../../constants/theme';
 
 const C = {
   bg: '#0B0B0E',
@@ -77,6 +78,14 @@ const DICAS: readonly { secao: string; icone: string; degrade: [string, string];
   { secao: 'transporte', icone: 'navigation', degrade: ['#1D4FBF', '#002776'], texto: '#FFFFFF' },
   { secao: 'pagamentos', icone: 'credit-card', degrade: ['#009C3B', '#12337F'], texto: '#FFFFFF' },
 ];
+
+// Rodada 147 — linha de apoio de cada dica (lista no mesmo estilo da Conta › Comunidade).
+const SUB_DICA: Record<string, Record<string, string>> = {
+  seguranca: { pt: 'Telefones de emergência e onde pedir ajuda', en: 'Emergency numbers and where to get help', es: 'Teléfonos de emergencia y dónde pedir ayuda' },
+  direitos: { pt: 'O que a lei garante para você no Brasil', en: 'What the law guarantees you in Brazil', es: 'Lo que la ley te garantiza en Brasil' },
+  transporte: { pt: 'Apps, metrô, ônibus e táxi', en: 'Apps, subway, buses and taxis', es: 'Apps, metro, autobús y taxi' },
+  pagamentos: { pt: 'Como pagar com Pix, cartão e dinheiro', en: 'How to pay with Pix, card and cash', es: 'Cómo pagar con Pix, tarjeta y efectivo' },
+};
 
 const TITULO_DICA: Record<string, Record<string, string>> = {
   seguranca: { pt: 'Segurança e ajuda', en: 'Safety & help', es: 'Seguridad y ayuda' },
@@ -280,20 +289,29 @@ export default function TripScreen() {
         )}
 
         {/* Dicas úteis sobre o Brasil */}
-        <Text style={styles.secao}>{t('trip.dicasBrasil')}</Text>
-        <View style={styles.gradeDicas}>
-          {DICAS.map((d) => (
-            <TouchableOpacity
-              key={d.secao}
-              style={styles.dica}
-              onPress={() => router.push({ pathname: '/dicas-brasil' as any, params: { secao: d.secao } })}
-              accessibilityRole="button"
-            >
-              <FundoCaixaDegrade id={`dica-${d.secao}`} cores={d.degrade} />
-              <Feather name={d.icone as any} size={20} color={d.texto} />
-              <Text style={[styles.dicaTxt, { color: d.texto }]} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8} maxFontSizeMultiplier={1}>{TITULO_DICA[d.secao][idioma]}</Text>
-            </TouchableOpacity>
-          ))}
+        <Text style={styles.grupoTitulo}>{t('trip.dicasBrasil')}</Text>
+        <View style={styles.grupoCard}>
+          {DICAS.map((d, i) => {
+            const cor = d.secao === 'direitos' ? '#F5B800' : d.secao === 'transporte' ? '#5B8DEF' : d.degrade[0];
+            return (
+              <TouchableOpacity
+                key={d.secao}
+                style={[styles.linhaDica, i < DICAS.length - 1 && styles.linhaDicaBorda]}
+                onPress={() => router.push({ pathname: '/dicas-brasil' as any, params: { secao: d.secao } })}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+              >
+                <View style={[styles.dicaIcone, { backgroundColor: `${cor}26` }]}>
+                  <Feather name={d.icone as any} size={16} color={cor} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.dicaTitulo}>{TITULO_DICA[d.secao][idioma]}</Text>
+                  <Text style={styles.dicaSub} numberOfLines={1}>{SUB_DICA[d.secao][idioma]}</Text>
+                </View>
+                <Feather name="chevron-right" size={16} color="#8E8BA3" />
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </ScrollView>
     </View>
@@ -366,6 +384,13 @@ const styles = StyleSheet.create({
   pacoteMeta: { fontSize: 12, color: C.dim, marginTop: 2 },
   pacotePreco: { fontSize: 12, fontWeight: '700', color: C.pink, marginTop: 2 },
   gradeDicas: { flexDirection: 'row', gap: 8, paddingHorizontal: 16 },
+  grupoTitulo: { ...TITULO_SECAO, marginTop: 28, marginBottom: 10, marginLeft: 16 },
+  grupoCard: { backgroundColor: C.card, borderRadius: 16, borderWidth: 1, borderColor: C.border, overflow: 'hidden', marginHorizontal: 16, marginBottom: 18 },
+  linhaDica: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 13 },
+  linhaDicaBorda: { borderBottomWidth: 1, borderBottomColor: C.border },
+  dicaIcone: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  dicaTitulo: { fontSize: 13, fontWeight: '700', color: C.text },
+  dicaSub: { fontSize: 11, color: '#8E8BA3', marginTop: 1 },
   dica: { flex: 1, height: 92, borderRadius: 14, backgroundColor: C.card, overflow: 'hidden', paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center', gap: 8 },
   dicaTxt: { fontSize: 11, fontWeight: '800', color: C.text, textAlign: 'center' },
 });

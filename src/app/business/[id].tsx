@@ -22,6 +22,7 @@ import { registrarCliqueInstagram, registrarCliqueRota, registrarCliqueWhatsapp,
 import { supabase } from '../../lib/supabase';
 import { CLASSIFICACOES_LGBT } from '../../lib/classificacaoLgbt';
 import HospedagemDetalhes from '../../components/HospedagemDetalhes';
+import { ComSeloFundador } from '../../components/SeloFundador';
 import { useRastrearTela } from '../../lib/usoTelas';
 import { dentroDaJanela, textoJanela } from '../../lib/janelaCupom';
 
@@ -671,6 +672,8 @@ export default function BusinessDetailScreen() {
 
           <View style={styles.detailBody}>
             <View style={styles.identidade}>
+              {/* Membro Fundador: selo oficial no canto do logo. */}
+              <ComSeloFundador ativo={local.plano_comercial === 'fundador' || badges.some((b) => /fundador/i.test(b.rotulo))} tamanho={30} sobra={2}>
               <View style={styles.logoBola}>
                 {local.logo_url ? (
                   <Image source={{ uri: local.logo_url }} style={styles.logoImg} resizeMode="contain" />
@@ -678,13 +681,11 @@ export default function BusinessDetailScreen() {
                   <Text style={styles.logoInicial}>{local.nome.trim().charAt(0).toUpperCase()}</Text>
                 )}
               </View>
+              </ComSeloFundador>
               <View style={styles.identidadeTexto}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <Text style={[styles.detailTitle, { flexShrink: 1, marginBottom: 0 }]} numberOfLines={2}>{local.nome}</Text>
                   {local.safe_space && <Feather name="shield" size={15} color="#4CAF7D" />}
-                  {(local.plano_comercial === 'fundador' || badges.some((b) => /fundador/i.test(b.rotulo))) && (
-                    <Feather name="award" size={16} color="#FFD54F" />
-                  )}
                 </View>
                 <Text style={styles.detailSubtext} numberOfLines={1}>
                   {local.subcategoria || CATEGORIA_LABEL[local.categoria] || local.categoria} • {local.bairro || local.cidade}

@@ -70,10 +70,10 @@ export function AvatarEditavel({ userId, iniciais, compacto = false }: { userId:
     <View style={{ alignItems: 'center', marginBottom: compacto ? 0 : 6 }}>
       <TouchableOpacity onPress={escolher} onLongPress={remover} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Foto de perfil (opcional)">
         <View style={[s.avatar, compacto && s.avatarCompacto]}>
-          {url ? <Image source={{ uri: url }} style={[s.foto, compacto && s.avatarCompacto]} /> : <Text style={s.iniciais}>{iniciais}</Text>}
+          {url ? <Image source={{ uri: url }} style={[s.foto, compacto && s.avatarCompacto]} /> : <Text style={[s.iniciais, compacto && s.iniciaisCompacto]}>{iniciais}</Text>}
           {enviando && <View style={s.carregando}><ActivityIndicator color="#FFF" /></View>}
         </View>
-        <View style={s.camera}><Feather name="camera" size={12} color="#FFF" /></View>
+        <View style={[s.camera, compacto && s.cameraCompacta]}><Feather name="camera" size={compacto ? 10 : 12} color="#FFF" /></View>
       </TouchableOpacity>
       {!compacto && <Text style={s.dica}>{url ? 'Toque para trocar · segure para remover' : 'Foto de perfil (opcional)'}</Text>}
     </View>
@@ -167,11 +167,13 @@ export function StatusRelacionamento({ userId }: { userId: string }) {
 const s = StyleSheet.create({
   avatar: { width: 76, height: 76, borderRadius: 38, backgroundColor: COR, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   foto: { width: 76, height: 76 },
-  avatarCompacto: { width: 60, height: 60, borderRadius: 30 },
+  avatarCompacto: { width: 48, height: 48, borderRadius: 24 },
   linhaResumo: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   resumoTitulo: { fontSize: 13, fontWeight: '700', color: '#E9E7F3' },
   resumoValor: { fontSize: 12, color: '#8E8BA3', marginTop: 1 },
   iniciais: { fontSize: 20, fontWeight: '800', color: '#FFF' },
+  iniciaisCompacto: { fontSize: 16 },
+  cameraCompacta: { width: 20, height: 20, borderRadius: 10, right: -4, bottom: -4 },
   carregando: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' },
   camera: { position: 'absolute', right: -2, bottom: -2, width: 26, height: 26, borderRadius: 13, backgroundColor: '#E1306C', borderWidth: 2, borderColor: '#1A1A22', alignItems: 'center', justifyContent: 'center' },
   dica: { marginTop: 8, fontSize: 11, color: '#8E8BA3' },

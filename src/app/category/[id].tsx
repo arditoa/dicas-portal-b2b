@@ -31,8 +31,7 @@ import { useRastrearTela } from '../../lib/usoTelas';
 import FiltrosPilulas, { FiltroDef } from '../../components/FiltrosPilulas';
 import CabecalhoTela from '../../components/CabecalhoTela';
 import VitrineCategoria from '../../components/VitrineCategoria';
-import BordaArcoIris from '../../components/BordaArcoIris';
-import SeloFundador from '../../components/SeloFundador';
+import { ComSeloFundador } from '../../components/SeloFundador';
 import SubcategoriaBanners, { agruparSubcategorias, chaveDoLocal } from '../../components/SubcategoriaBanners';
 import { SUBCATEGORIAS } from '../../lib/subcategorias';
 import { EstadoSubcategorias, buscarEstadoSubcategorias, buscarSubcategoriasDesligadas } from '../../lib/vitrine';
@@ -567,7 +566,7 @@ export default function CategoryListScreen() {
                       const rotulo = c ? ROTULO_CAT_DESTAQUES[c] || CATEGORIA_REAL_LABEL[c] || c : 'Todos';
                       return (
                         <TouchableOpacity key={c || 'todos'} style={[styles.chip, ativo && styles.chipActive]} onPress={() => setCatDestaques(c)} activeOpacity={0.8} accessibilityRole="button" accessibilityState={{ selected: ativo }}>
-                          <Text style={[styles.chipText, ativo && styles.chipTextActive]}>{rotulo.toLocaleUpperCase('pt-BR')}</Text>
+                          <Text style={[styles.chipText, ativo && styles.chipTextActive]}>{rotulo}</Text>
                         </TouchableOpacity>
                       );
                     })}
@@ -611,20 +610,22 @@ export default function CategoryListScreen() {
               const fundador = (item.plano_comercial === 'fundador' && (item.plano_comercial_status ?? 'ativo') === 'ativo') || idsSeloFundador.has(item.id);
               const cartao = (
                 <TouchableOpacity
-                  style={[styles.placeCard, premium && styles.placeCardPremium, fundador && styles.placeCardFundador]}
+                  style={[styles.placeCard, premium && styles.placeCardPremium]}
                   onPress={() => router.push(`/business/${item.id}` as any)}
                   activeOpacity={0.88}
                 >
-                  <View style={styles.placeThumb}>
-                    {item.foto_capa_url ? (
-                      <Image source={{ uri: item.foto_capa_url }} style={styles.placeThumbImg} />
-                    ) : (
-                      <Feather name="map-pin" size={20} color={COLORS.pink} />
-                    )}
-                  </View>
+                  {/* Membro Fundador: selo oficial no canto da foto (no lugar do contorno neon). */}
+                  <ComSeloFundador ativo={fundador} tamanho={26}>
+                    <View style={styles.placeThumb}>
+                      {item.foto_capa_url ? (
+                        <Image source={{ uri: item.foto_capa_url }} style={styles.placeThumbImg} />
+                      ) : (
+                        <Feather name="map-pin" size={20} color={COLORS.pink} />
+                      )}
+                    </View>
+                  </ComSeloFundador>
 
                   <View style={{ flex: 1, gap: 3 }}>
-                    {fundador && <SeloFundador />}
                     <Text style={styles.placeName} numberOfLines={1}>{nomeNaLista(item.nome)}</Text>
                     <Text style={styles.placeSubcat} numberOfLines={1}>{tipo}</Text>
                     <Text style={styles.placeAddress} numberOfLines={1}>{lugar}</Text>
@@ -652,7 +653,7 @@ export default function CategoryListScreen() {
                   </TouchableOpacity>
                 </TouchableOpacity>
               );
-              return fundador ? <BordaArcoIris raio={18} espessura={2}>{cartao}</BordaArcoIris> : cartao;
+              return cartao;
             }}
           />
         )}
@@ -673,7 +674,7 @@ const styles = StyleSheet.create({
 
   // Mesma pílula da busca da Home: 46 de altura, borda totalmente arredondada, fundo #232230.
   searchContainer: { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 16, marginBottom: 10, paddingHorizontal: 18, height: 46, borderRadius: 23, backgroundColor: '#232230' },
-  searchInput: { flex: 1, color: COLORS.textPrimary, fontSize: 14, fontWeight: '700' },
+  searchInput: { flex: 1, color: COLORS.textPrimary, fontSize: 14, fontWeight: '600', letterSpacing: 0 },
 
   filterSection: { marginBottom: 10 },
   chipsContainer: { paddingHorizontal: 16, gap: 8 },

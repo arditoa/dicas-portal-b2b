@@ -226,12 +226,15 @@ export function EuVouCompacto({ alvo, contagem, aoMudar }: { alvo: AlvoEuVou; co
 
   return (
     <View style={s.compacto}>
-      <TouchableOpacity style={[s.pilula, c.eu && s.botaoOn]} onPress={() => void alternar()} disabled={enviando} hitSlop={{ top: 6, bottom: 6 }} accessibilityRole="button" accessibilityState={{ selected: c.eu, busy: enviando }} accessibilityLabel={c.eu ? 'Eu vou, marcado. Toque para desmarcar' : 'Marcar Eu vou'}>
-        {enviando ? <ActivityIndicator size="small" color="#FFF" /> : <Feather name={c.eu ? 'check' : 'plus'} size={12} color="#FFF" />}
-        <Text style={s.pilulaTxt}>Eu vou</Text>
+      <TouchableOpacity style={[s.pilula, c.eu && s.pilulaOn]} onPress={() => void alternar()} disabled={enviando} hitSlop={{ top: 6, bottom: 6 }} accessibilityRole="button" accessibilityState={{ selected: c.eu, busy: enviando }} accessibilityLabel={c.eu ? 'Eu vou, marcado. Toque para desmarcar' : 'Marcar Eu vou'}>
+        {enviando ? <ActivityIndicator size="small" color={c.eu ? '#FFF' : C.rosa} /> : <Feather name={c.eu ? 'check' : 'plus'} size={13} color={c.eu ? '#FFF' : C.rosa} />}
+        <Text style={[s.pilulaTxt, c.eu && { color: '#FFF' }]}>Eu vou</Text>
       </TouchableOpacity>
       <TouchableOpacity onPress={() => setAberto(true)} hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }} accessibilityRole="button" accessibilityLabel={`${c.total ? textoTotal(c.total) : 'Ninguém marcou ainda'}. Ver quem vai`}>
-        <Text style={s.compactoTxt}>{c.total ? (c.total === 1 ? '1 vai' : `${c.total} vão`) : 'Ver quem vai'}</Text>
+        <View style={s.quemVai}>
+          <Feather name="users" size={13} color="#A9A6BD" />
+          <Text style={s.compactoTxt}>{c.total ? (c.total === 1 ? '1 pessoa vai' : `${c.total} pessoas vão`) : 'Ver quem vai'}</Text>
+        </View>
       </TouchableOpacity>
       <Modal visible={aberto} transparent animationType="slide" onRequestClose={() => setAberto(false)}>
         <Pressable style={s.veu} onPress={() => setAberto(false)}>
@@ -273,8 +276,11 @@ const s = StyleSheet.create({
   opcaoTxt: { color: C.texto, fontSize: 14, fontWeight: '600' },
   fechar: { alignItems: 'center', justifyContent: 'center', minHeight: 44, marginTop: 10 },
   fecharTxt: { color: C.dim, fontSize: 14, fontWeight: '700' },
-  compacto: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 },
-  pilula: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.rosa, borderRadius: 999, paddingHorizontal: 12, minHeight: 30 },
-  pilulaTxt: { color: '#FFF', fontSize: 12, fontWeight: '800' },
-  compactoTxt: { color: '#B39DDB', fontSize: 12, fontWeight: '700' },
+  // Rodada 147 — rodapé discreto: "Eu vou" com contorno rosa (cheio verde quando marcado) e "Ver quem vai" à direita.
+  compacto: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  pilula: { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderColor: C.rosa, borderRadius: 999, paddingHorizontal: 12, minHeight: 30 },
+  pilulaOn: { backgroundColor: C.verde, borderColor: C.verde },
+  pilulaTxt: { color: C.rosa, fontSize: 12.5, fontWeight: '800' },
+  quemVai: { flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 32 },
+  compactoTxt: { color: '#A9A6BD', fontSize: 12, fontWeight: '700' },
 });

@@ -50,6 +50,8 @@ export default function ContaAtividade({ userId, abaInicial }: { userId: string 
   const [comunicados, setComunicados] = useState<Comunicado[]>([]);
   const [acoes, setAcoes] = useState<Acao[]>([]);
   const [carregando, setCarregando] = useState(true);
+  // Mostra só as 3 mais recentes; "Ver tudo" abre o resto (deixa a Conta mais limpa).
+  const [verTudo, setVerTudo] = useState(false);
 
   useEffect(() => {
     if (abaInicial) setAba(abaInicial);
@@ -133,12 +135,13 @@ export default function ContaAtividade({ userId, abaInicial }: { userId: string 
 
   return (
     <View style={styles.bloco}>
+      <Text style={styles.secao}>ATIVIDADE</Text>
       <View style={styles.abas} accessibilityRole="tablist">
         {(['inbox', 'acoes'] as Aba[]).map((a) => (
           <TouchableOpacity
             key={a}
             style={[styles.aba, aba === a && styles.abaAtiva]}
-            onPress={() => setAba(a)}
+            onPress={() => { setAba(a); setVerTudo(false); }}
             accessibilityRole="tab"
             accessibilityState={{ selected: aba === a }}
           >
@@ -155,10 +158,10 @@ export default function ContaAtividade({ userId, abaInicial }: { userId: string 
         comunicados.length === 0 ? (
           <Text style={styles.vazio}>{t('conta.semInbox')}</Text>
         ) : (
-          comunicados.map((c) => (
+          comunicados.slice(0, verTudo ? undefined : 3).map((c) => (
             <View key={c.id} style={styles.item}>
               <View style={[styles.icone, c.icone_tipo === 'seguranca' && { backgroundColor: '#E1306C' }]}>
-                <Feather name={ICONE_COMUNICADO[c.icone_tipo] as any} size={18} color="#FFFFFF" />
+                <Feather name={ICONE_COMUNICADO[c.icone_tipo] as any} size={16} color="#FFFFFF" />
               </View>
               <View style={{ flex: 1 }}>
                 <View style={styles.linhaTopo}>
@@ -175,7 +178,7 @@ export default function ContaAtividade({ userId, abaInicial }: { userId: string 
       ) : acoes.length === 0 ? (
         <Text style={styles.vazio}>{t('conta.semAcoes')}</Text>
       ) : (
-        acoes.map((a) => (
+        acoes.slice(0, verTudo ? undefined : 3).map((a) => (
           <TouchableOpacity
             key={a.id}
             style={styles.item}
@@ -196,21 +199,30 @@ export default function ContaAtividade({ userId, abaInicial }: { userId: string 
           </TouchableOpacity>
         ))
       )}
+      {!carregando && !verTudo && (aba === 'inbox' ? comunicados.length : acoes.length) > 3 && (
+        <TouchableOpacity onPress={() => setVerTudo(true)} style={styles.verTudo} accessibilityRole="button">
+          <Text style={styles.verTudoTxt}>Ver tudo ({aba === 'inbox' ? comunicados.length : acoes.length})</Text>
+          <Feather name="chevron-down" size={14} color="#A0A0B2" />
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   bloco: { marginBottom: 20 },
-  abas: { flexDirection: 'row', backgroundColor: '#161520', borderRadius: 24, padding: 4, gap: 4, marginBottom: 6 },
-  aba: { flex: 1, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  abaAtiva: { backgroundColor: '#E1306C' },
-  abaTxt: { fontSize: 13, fontWeight: '800', color: '#F5F5F7' },
+  secao: { fontSize: 11, fontWeight: '800', color: '#8E8BA3', letterSpacing: 1.2, marginBottom: 8, marginLeft: 4 },
+  abas: { flexDirection: 'row', backgroundColor: '#161520', borderColor: '#232230', borderWidth: 1, borderRadius: 12, padding: 3, gap: 3, marginBottom: 4 },
+  aba: { flex: 1, height: 32, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  abaAtiva: { backgroundColor: '#2A2938' },
+  abaTxt: { fontSize: 12, fontWeight: '700', color: '#A0A0B2' },
+  verTudo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 10 },
+  verTudoTxt: { fontSize: 12, fontWeight: '700', color: '#A0A0B2' },
   vazio: { fontSize: 13, color: '#A0A0B2', paddingVertical: 16, lineHeight: 19 },
-  item: { flexDirection: 'row', gap: 12, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#232230', alignItems: 'center' },
-  icone: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#232230', alignItems: 'center', justifyContent: 'center' },
+  item: { flexDirection: 'row', gap: 12, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: '#232230', alignItems: 'center' },
+  icone: { width: 34, height: 34, borderRadius: 10, backgroundColor: '#232230', alignItems: 'center', justifyContent: 'center' },
   linhaTopo: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
-  titulo: { flexShrink: 1, fontSize: 14, fontWeight: '800', color: '#F5F5F7' },
+  titulo: { flexShrink: 1, fontSize: 13, fontWeight: '800', color: '#F5F5F7' },
   data: { fontSize: 12, color: '#A0A0B2' },
   corpo: { fontSize: 12, color: '#A0A0B2', marginTop: 2, lineHeight: 17 },
   tag: { fontSize: 11, fontWeight: '800', letterSpacing: 0.4 },

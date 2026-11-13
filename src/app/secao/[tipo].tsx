@@ -47,6 +47,7 @@ type MetaHoje = { tipo: string; quando: string[]; musica: string[]; publico: str
 const CHAVE_GOSTOS_HOJE = 'dicas_hoje_gostos_v1';
 const TIPO_FESTA = 'Festas e eventos';
 const TIPO_LUGAR = 'Lugares';
+const TIPO_AGENDA = 'Agenda dos bares';
 
 function eventoTemTag(ev: any, slug: string): boolean {
   if (ev.tags?.includes(slug)) return true;
@@ -100,7 +101,7 @@ const CONFIG: Record<Tipo, { titulo: string; sub: string; icone: string }> = {
   servicos: { titulo: 'home.servicosDestaque', sub: 'secao.subServicos', icone: 'briefcase' },
   trip: { titulo: 'home.boxTrip', sub: 'secao.subTrip', icone: 'compass' },
   'em-alta': { titulo: 'home.emAlta', sub: 'secao.subEmAlta', icone: 'trending-up' },
-  hoje: { titulo: 'home.hojeTitulo', sub: 'secao.subHoje', icone: 'zap' },
+  hoje: { titulo: 'home.tile.hoje', sub: 'secao.subHoje', icone: 'zap' },
   semana: { titulo: 'home.tile.semana', sub: 'secao.subSemana', icone: 'star' },
   experiencia: { titulo: 'home.experiencia', sub: 'secao.subExperiencia', icone: 'heart' },
 };
@@ -286,7 +287,39 @@ function SecaoPadrao() {
             const r = await locQ(`${CAMPOS_LOCAL}, experiencias`, fixados);
             return r.error ? locQ(CAMPOS_LOCAL, fixados) : r;
           };
-          const [evHoje, evFixados, locFix, locTodos] = await Promise.all([comFallback(evHojeQ), comFallback(evFixQ), locFallback(true), locFallback(false)]);
+          // Rodada 147 — "Hoje na cidade" mostra só festas e a agenda dos bares do dia (sem lugares abertos).
+          const agendaQ = (): any =>
+            (supabase.from('agenda_semanal') as any)
+              .select('id, local_id, dia_semana, data, tipo, horario, titulo, foto_url, locais!inner(nome, bairro, bairro_exibicao, status)')
+              .eq('ativo', true)
+              .eq('locais.status', 'aprovado')
+              .limit(400);
+          const [evHoje, evFixados, agRes] = await Promise.all([comFallback(evHojeQ), comFallback(evFixQ), agendaQ()]);
+          const chaveDiaLocal = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          const diasPeriodo: Date[] = [];
+          for (let d = new Date(inicio); d <= fim; d.setDate(d.getDate() + 1)) diasPeriodo.push(new Date(d));
+          const agTodas = (((agRes?.data as any[]) || []) as any[]).filter((a) => a.tipo !== 'semana');
+          const agendaItens: ItemLista[] = [];
+          for (const dia of diasPeriodo) {
+            const chave = chaveDiaLocal(dia);
+            const datados = agTodas.filter((a) => a.data === chave);
+            const fixos = agTodas.filter((a) => !a.data && a.dia_semana === dia.getDay() && !datados.some((x) => x.local_id === a.local_id));
+            for (const a of [...datados, ...fixos]) {
+              const item: ItemLista = {
+                chave: `a-${a.id}-${chave}`,
+                rota: `/business/${a.local_id}`,
+                titulo: a.titulo,
+                linha1: [diasPeriodo.length > 1 ? dia.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' }) : null, a.horario || 'Agenda do bar'].filter(Boolean).join(' · '),
+                linha2: [a.locais?.nome, a.locais && (a.locais.bairro_exibicao || a.locais.bairro)].filter(Boolean).join(' • ') || undefined,
+                linha3: 'Agenda do bar',
+                linha3Cor: '#B39DDB',
+                foto: a.foto_url || null,
+                iconeVazio: 'music',
+              };
+              metaTmp[item.chave] = { tipo: TIPO_AGENDA, quando: [], musica: [], publico: [], clima: [], ingresso: [], estrutura: [], classificacao: [] };
+              agendaItens.push(item);
+            }
+          }
           const auto = (evHoje.data as any[]) || [];
           const idsEv = new Set(auto.map((e) => e.id));
           const fixados = ((evFixados.data as any[]) || []).filter(
@@ -325,24 +358,7 @@ function SecaoPadrao() {
             };
             return item;
           };
-          // Lugares abertos/fixados só fazem sentido para hoje; amanhã e fim de semana mostram as festas.
-          const locaisFix = periodo !== 'hoje' ? [] : ((locFix.data as any[]) || []).filter((l) => estaFixadoParaHoje(l));
-          const idsLoc = new Set(locaisFix.map((l) => l.id));
-          const abertos = periodo !== 'hoje' ? [] : ((locTodos.data as any[]) || []).filter((l) => !idsLoc.has(l.id) && abertoAgora(l));
-          lista = [
-            ...eventos,
-            ...locaisFix.map((l) => metaLocal(l, localParaItem(l, { linha3: 'Aberto hoje', linha3Cor: C.green }))),
-            ...abertos.map((l) =>
-              metaLocal(
-                l,
-                localParaItem(l, {
-                  linha3: `Aberto agora${fechaAs(l) ? ` · até ${fechaAs(l)}` : ''}`,
-                  linha3Cor: C.green,
-                  iconeVazio: 'clock',
-                })
-              )
-            ),
-          ];
+          lista = [...eventos, ...agendaItens];
         }
       } catch (err) {
         console.error('Erro ao carregar seção:', err);

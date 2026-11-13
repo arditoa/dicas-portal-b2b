@@ -27,6 +27,7 @@ import { supabase } from '../../lib/supabase';
 import { GRUPOS_DESTINO, rotuloTag, slugTag } from '../../lib/taxonomia';
 import { listarRoteiros, Roteiro } from '../../lib/roteiros';
 import { useRastrearTela } from '../../lib/usoTelas';
+import { TITULO_SECAO } from '../../constants/theme';
 
 const C = {
   bg: '#0B0B0E',
@@ -538,7 +539,7 @@ const styles = StyleSheet.create({
   pill: { borderWidth: 1, borderColor: C.purple, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6, backgroundColor: '#1B1430' },
   pillTxt: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
   descricao: { color: '#C0C0D0', fontSize: 13, lineHeight: 19, paddingHorizontal: 16, marginBottom: 4 },
-  secao: { color: C.text, fontSize: 17, fontWeight: '800', paddingHorizontal: 16, marginTop: 12, marginBottom: 10 },
+  secao: { ...TITULO_SECAO, paddingHorizontal: 16, marginTop: 12, marginBottom: 10 },
   grade: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: 16 },
   tile: { width: '48.5%', minHeight: 132, borderRadius: 16, padding: 14, gap: 6, backgroundColor: C.card, borderWidth: 2, borderColor: 'transparent', overflow: 'hidden' },
   tileAtivo: { borderColor: '#FFFFFF' },

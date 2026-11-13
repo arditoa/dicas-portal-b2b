@@ -37,7 +37,7 @@ export default function ApoiadorScreen() {
       <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Voltar">
         <Feather name="arrow-left" size={18} color="#F5F5F7" />
       </TouchableOpacity>
-      <MarcaApp />
+      <MarcaApp semFrase />
     </View>
   );
 

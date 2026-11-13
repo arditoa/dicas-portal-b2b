@@ -17,31 +17,23 @@ export default function CartaoAreaParceiro() {
   const nome = `${localAtivo.nome}${locais.length > 1 ? ` +${locais.length - 1}` : ''}`;
 
   return (
-    <View style={s.trilho} accessibilityRole="tablist">
-      <View style={[s.lado, s.ativo]} accessibilityRole="tab" accessibilityState={{ selected: true }}>
-        <Feather name="smartphone" size={14} color="#FFFFFF" />
-        <Text style={s.ativoTxt}>Cliente</Text>
+    <TouchableOpacity style={s.linha} onPress={abrir} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={`Ir para a Área do parceiro de ${localAtivo.nome}`}>
+      <View style={s.icone}><Feather name="briefcase" size={15} color="#E1306C" /></View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={s.rotulo}>Área do parceiro</Text>
+        <Text style={s.txt} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>{nome}</Text>
       </View>
-      <TouchableOpacity style={s.lado} onPress={abrir} activeOpacity={0.8} accessibilityRole="tab" accessibilityLabel={`Ir para a Área do parceiro de ${localAtivo.nome}`}>
-        <Feather name="briefcase" size={14} color="#E1306C" />
-        <View style={{ flexShrink: 1 }}>
-          <Text style={s.parceiroTxt}>Área do parceiro</Text>
-          <Text style={s.nome} numberOfLines={1}>{nome}</Text>
-        </View>
-        <Feather name="chevron-right" size={16} color="#A0A0B2" />
-      </TouchableOpacity>
-    </View>
+      <Feather name="chevron-right" size={15} color="#A0A0B2" />
+    </TouchableOpacity>
   );
 }
 
 const s = StyleSheet.create({
-  trilho: {
-    flexDirection: 'row', backgroundColor: '#161520', borderColor: '#232230', borderWidth: 1,
-    borderRadius: 16, padding: 4, gap: 4, marginBottom: 12,
+  linha: {
+    flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48, paddingVertical: 6, paddingHorizontal: 10,
+    backgroundColor: '#161520', borderColor: '#232230', borderWidth: 1, borderRadius: 12, marginBottom: 10,
   },
-  lado: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 12, minHeight: 48, paddingHorizontal: 10 },
-  ativo: { flex: 0.7, backgroundColor: '#2A2938' },
-  ativoTxt: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
-  parceiroTxt: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
-  nome: { color: '#A0A0B2', fontSize: 11, marginTop: 1 },
+  icone: { width: 30, height: 30, borderRadius: 9, backgroundColor: '#E1306C1F', alignItems: 'center', justifyContent: 'center' },
+  rotulo: { color: '#E1306C', fontSize: 10.5, fontWeight: '800', letterSpacing: 0.4 },
+  txt: { color: '#FFFFFF', fontSize: 13.5, fontWeight: '700', marginTop: 1 },
 });

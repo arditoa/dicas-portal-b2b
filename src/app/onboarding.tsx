@@ -122,7 +122,7 @@ export default function Onboarding() {
       <FundoDegrade />
       {/* topo igual ao da Home: logo + frase à esquerda; idioma (um botão só) à direita */}
       <View style={[styles.topo, { paddingTop: insets.top + 8 }]}>
-        <MarcaApp />
+        <MarcaApp semFrase />
         <TouchableOpacity
           style={styles.idiomaBtn}
           onPress={proximoIdioma}

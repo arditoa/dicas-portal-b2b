@@ -87,6 +87,7 @@ export default function ProfileScreen() {
   const { localAtivo: localParceiro } = useModoParceiro();
   const contaWhats = ehContaWhatsApp(user?.email);
   const whatsDaConta = contaWhats ? (user?.email || '').replace(/^parceiro\./, '').replace(/@.*$/, '') : '';
+  const [dadosAbertos, setDadosAbertos] = useState(false);
   const [isModoCadastro, setIsModoCadastro] = useState(true);
 
   const [nomeSocial, setNomeSocial] = useState('');
@@ -652,12 +653,18 @@ export default function ProfileScreen() {
                       : perfil?.display_name || 'Sem nome cadastrado'}
                   </Text>
                   <Text style={styles.userEmail} numberOfLines={1}>
-                    {contaWhats ? 'Conta de parceiro · entra com WhatsApp' : user?.email}
+                    {contaWhats ? 'Conta de parceiro' : user?.email}
                   </Text>
-                  <Text style={styles.heroDica}>Toque na foto para trocar</Text>
                 </View>
               </View>
 
+              <TouchableOpacity style={styles.dadosResumo} onPress={() => setDadosAbertos((v) => !v)} activeOpacity={0.7} accessibilityRole="button" accessibilityState={{ expanded: dadosAbertos }}>
+                <Feather name="user" size={14} color={COLORS.textMuted} />
+                <Text style={styles.dadosResumoTxt}>Meus dados</Text>
+                <Text style={styles.dadosResumoSub} numberOfLines={1}>Telefone, aniversário e status</Text>
+                <Feather name={dadosAbertos ? 'chevron-up' : 'chevron-down'} size={16} color={COLORS.textMuted} />
+              </TouchableOpacity>
+              {dadosAbertos && (
               <View style={styles.heroBase}>
                 <View style={styles.dadosLinha}>
                   <View style={styles.dadoItem}>
@@ -682,6 +689,7 @@ export default function ProfileScreen() {
                   </>
                 )}
               </View>
+              )}
             </View>
             </>
           )}
@@ -712,6 +720,16 @@ export default function ProfileScreen() {
               <Text style={styles.statNum}>{isLogado ? totalCupons : 0}</Text>
               <Text style={styles.statLabel} numberOfLines={1}>Meus cupons</Text>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.statBox}
+              onPress={() => router.push('/minhas-reservas' as any)}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.statIcone, { backgroundColor: '#7E57C226' }]}><Feather name="calendar" size={15} color="#B39DDB" /></View>
+              <Text style={styles.statNum}> </Text>
+              <Text style={styles.statLabel} numberOfLines={1}>Reservas</Text>
+            </TouchableOpacity>
           </View>
           )}
 
@@ -720,14 +738,6 @@ export default function ProfileScreen() {
               atalho da caixa de entrada na Home cair direto nela. */}
           <ContaAtividade userId={user?.id ?? null} abaInicial={aba === 'inbox' ? 'inbox' : undefined} />
 
-          {/* Reservas fase 2 — as reservas que a pessoa fez */}
-          {isLogado && (
-            <TouchableOpacity style={styles.linhaReservas} onPress={() => router.push('/minhas-reservas' as any)} accessibilityRole="button">
-              <Feather name="bookmark" size={18} color="#A0A0B2" />
-              <Text style={styles.linhaReservasTxt}>Minhas reservas</Text>
-              <Feather name="chevron-right" size={18} color="#626274" />
-            </TouchableOpacity>
-          )}
 
           {/* Etapa 6 — código de equipe e entrada do porteiro (ou o cartão do modo porta, se já entrou) */}
           <EntradaEquipe />
@@ -868,18 +878,18 @@ const styles = StyleSheet.create({
   // Rodada 146 — mais compacto e no mesmo padrão dos grupos da Conta: cartão escuro, ícone em quadradinho arredondado.
   statBox: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    height: 52,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 2,
+    paddingVertical: 10,
     borderRadius: 14,
     paddingHorizontal: 12,
     backgroundColor: COLORS.card,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  statIcone: { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
-  statNum: { fontSize: 16, fontWeight: '800', color: '#FFFFFF' },
+  statIcone: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  statNum: { position: 'absolute', top: 12, right: 12, fontSize: 15, fontWeight: '800', color: '#FFFFFF' },
   statLabel: { flexShrink: 1, fontSize: 12, fontWeight: '600', color: COLORS.textMuted },
 
   authBox: {
@@ -961,8 +971,11 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 14,
   },
-  heroTopo: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 16, gap: 14 },
-  heroBase: { paddingHorizontal: 16, paddingVertical: 12 },
+  heroTopo: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 14, gap: 12 },
+  heroBase: { paddingHorizontal: 14, paddingBottom: 12, paddingTop: 4 },
+  dadosResumo: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, height: 44 },
+  dadosResumoTxt: { fontSize: 13, fontWeight: '700', color: COLORS.textPrimary },
+  dadosResumoSub: { flex: 1, fontSize: 12, color: COLORS.textMuted },
   heroDica: { fontSize: 11, color: 'rgba(255,255,255,0.7)', marginTop: 4 },
   dadosLinha: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
   dadoItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -976,7 +989,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   avatarInitials: { fontSize: 17, fontWeight: '800', color: '#FFF' },
-  userName: { fontSize: 18, fontWeight: '800', color: '#FFFFFF' },
+  userName: { fontSize: 16, fontWeight: '800', color: '#FFFFFF' },
   userEmail: { fontSize: 12, color: 'rgba(255,255,255,0.85)', marginTop: 2 },
   infoDivider: { height: 1, backgroundColor: COLORS.border, width: '100%', marginVertical: 12 },
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },

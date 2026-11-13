@@ -22,6 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CarrosselAnuncios, { Anuncio } from '../../components/CarrosselAnuncios';
 import { MODO_DEMONSTRACAO } from '../../lib/demo';
 import FundadoresMini from '../../components/FundadoresMini';
+import SeloFundador from '../../components/SeloFundador';
 import FundoCaixaDegrade from '../../components/FundoCaixaDegrade';
 import MarcaApp from '../../components/MarcaApp';
 import DestaqueHora, { ParceiroHora } from '../../components/DestaqueHora';
@@ -1206,15 +1207,21 @@ export default function HomeScreen() {
         {fundadoresFaixa.length >= 3 && (
           <View style={[styles.secaoBloco, { marginTop: 28, marginBottom: 0 }]}>
             <TouchableOpacity
-              style={[styles.fundadoresCabecalho, { marginBottom: 4 }]}
+              style={[styles.fundadoresCabecalho, { marginBottom: 10 }]}
               activeOpacity={0.8}
               onPress={() => router.push({ pathname: '/category/destaques' as any, params: { title: encodeURIComponent('Destaques') } })}
               accessibilityRole="button"
               accessibilityLabel={t('banner.fundadorTitulo')}
             >
               {/* Rodada 143 — título discreto (pedido da Andrea: a letra grande estava feia). */}
-              <Text style={styles.tituloFundadoresRodape}>{t('banner.fundadorTitulo')}</Text>
-              <Feather name="chevron-right" size={14} color="#8E8BA3" />
+              <View style={styles.fundadoresTituloLinha}>
+                <SeloFundador tamanho={34} />
+                <View style={{ flexShrink: 1 }}>
+                  <Text style={styles.tituloFundadoresRodape}>{t('banner.fundadorTitulo')}</Text>
+                  <Text style={styles.subFundadoresRodape}>Casas que apoiam a causa desde o começo</Text>
+                </View>
+              </View>
+              <Feather name="chevron-right" size={16} color="#8E8BA3" />
             </TouchableOpacity>
             <FaixaPremium itens={fundadoresFaixa} onAbrir={(id) => router.push(`/business/${id}` as any)} />
           </View>
@@ -1285,7 +1292,11 @@ const styles = StyleSheet.create({
   slideTagTexto: { fontSize: 10, fontWeight: '800', color: '#000', letterSpacing: 0.4 },
   fundadoresCabecalho: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: 16, marginBottom: 10 },
   tituloSecaoHomeInline: { fontSize: 17, fontWeight: '800', color: COLORS.textPrimary },
-  tituloFundadoresRodape: { fontSize: 12, fontWeight: '700', letterSpacing: 1.4, textTransform: 'uppercase', color: '#B9B6CC' },
+  // Rodada 147 — título em caixa normal (sem letras espaçadas), com selo dourado e uma linha de apoio.
+  tituloFundadoresRodape: { fontSize: 16, fontWeight: '800', letterSpacing: -0.2, color: '#FFFFFF' },
+  subFundadoresRodape: { fontSize: 12, color: '#8E8BA3', marginTop: 1 },
+  fundadoresTituloLinha: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
+  fundadoresSelo: { width: 28, height: 28, borderRadius: 8, backgroundColor: '#F2C94C1F', borderWidth: 1, borderColor: '#F2C94C55', alignItems: 'center', justifyContent: 'center' },
   fundadoresVer: { fontSize: 13, fontWeight: '700', color: COLORS.gold },
   tituloSecaoHome: { fontSize: 17, fontWeight: '800', color: COLORS.textPrimary, marginHorizontal: 16, marginBottom: 10 },
   slideNome: { fontSize: 14, fontWeight: '800', color: '#FFFFFF' },

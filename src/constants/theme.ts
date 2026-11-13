@@ -42,6 +42,15 @@ export const BADGES = {
   },
 };
 
+// Título de seção padrão do app (nov/2026): frase normal, branco, 18/800.
+// Usado em "Festas em destaque", "Agenda de hoje", "Roteiros e experiências" e "Dicas úteis sobre o Brasil".
+export const TITULO_SECAO = {
+  fontSize: 18,
+  fontWeight: '800' as const,
+  letterSpacing: -0.2,
+  color: '#FFFFFF',
+};
+
 export default {
   THEME,
   COLORS,

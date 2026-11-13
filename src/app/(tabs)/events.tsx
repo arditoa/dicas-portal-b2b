@@ -36,6 +36,7 @@ import { supabase } from '../../lib/supabase';
 import { ESTILO_ALIAS, GRUPOS_EVENTO, LEGADO_EVENTO, PUBLICO_FESTA_CADASTRO, TAGS_EVENTO_AUTOMATICAS, rotuloTag, slugTag } from '../../lib/taxonomia';
 import { useRastrearTela } from '../../lib/usoTelas';
 import { useSlotHora } from '../../hooks/useSlotHora';
+import { TITULO_SECAO } from '../../constants/theme';
 
 const COLORS = {
   background: '#0B0B0E',
@@ -745,45 +746,46 @@ export default function EventsScreen() {
     return () => { vivo = false; };
   }, [chavesEuVou, user?.id]);
 
+  // Rodada 147 — cartão da agenda do bar mais limpo: foto maior, selo discreto e o "Eu vou" num rodapé separado.
   const renderAgendaBar = (a: AgendaBar, dia: string) => (
-    <TouchableOpacity
-      key={a.id}
-      style={styles.eventCard}
-      onPress={() => router.push(`/business/${a.local_id}` as any)}
-      activeOpacity={0.85}
-    >
-      <View style={styles.eventThumb}>
-        {a.foto_url ? (
-          <Image source={{ uri: a.foto_url }} style={styles.eventThumbImg} />
-        ) : (
-          <Feather name="music" size={20} color={COLORS.purple} />
-        )}
-      </View>
-      <View style={{ flex: 1 }}>
-        <View style={styles.eventHeaderRow}>
-          <Text style={styles.eventDate}>{a.horario || 'Programação do dia'}</Text>
-          <View style={styles.agendaBadge}>
-            <Text style={styles.agendaBadgeText}>AGENDA DO BAR</Text>
+    <View key={a.id} style={styles.agCard}>
+      <TouchableOpacity style={styles.agTopo} onPress={() => router.push(`/business/${a.local_id}` as any)} activeOpacity={0.85} accessibilityRole="button">
+        <View style={styles.agThumb}>
+          {a.foto_url ? (
+            <Image source={{ uri: a.foto_url }} style={styles.agThumbImg} />
+          ) : (
+            <Feather name="music" size={22} color="#B39DDB" />
+          )}
+        </View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <View style={styles.agLinhaHora}>
+            <Feather name="clock" size={12} color={COLORS.pink} />
+            <Text style={styles.agHora} numberOfLines={1}>{a.horario || 'Programação do dia'}</Text>
+            <View style={styles.agSelo}><Text style={styles.agSeloTxt}>Agenda do bar</Text></View>
+          </View>
+          <Text style={styles.agTitulo} numberOfLines={2}>{a.titulo}</Text>
+          <View style={styles.agLocalLinha}>
+            <Feather name="map-pin" size={12} color={COLORS.textMuted} />
+            <Text style={styles.agLocal} numberOfLines={1}>
+              {a.locais ? `${a.locais.nome} · ${a.locais.bairro || a.locais.cidade}` : 'Local a confirmar'}
+            </Text>
+          </View>
+          {!!a.descricao && <Text style={styles.agDesc} numberOfLines={2}>{a.descricao}</Text>}
+          {!!a.link && (
+            <TouchableOpacity onPress={() => Linking.openURL(urlSegura(a.link!))} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+              <Text style={styles.agendaLink}>Ver mais</Text>
+            </TouchableOpacity>
+          )}
+          <View style={styles.agRodape}>
+            <EuVouCompacto
+              alvo={{ agenda: a.id, data: dia }}
+              contagem={euVou[`a:${a.id}:${dia}`]}
+              aoMudar={(c) => setEuVou((x) => ({ ...x, [`a:${a.id}:${dia}`]: c }))}
+            />
           </View>
         </View>
-        <Text style={styles.eventTitle}>{a.titulo}</Text>
-        <Text style={styles.eventLocation}>
-          {a.locais ? `${a.locais.nome} • ${a.locais.bairro || a.locais.cidade}` : 'Local a confirmar'}
-        </Text>
-        {!!a.descricao && <Text style={styles.agendaDesc} numberOfLines={2}>{a.descricao}</Text>}
-        {!!a.link && (
-          <TouchableOpacity onPress={() => Linking.openURL(urlSegura(a.link!))} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
-            <Text style={styles.agendaLink}>Ver mais</Text>
-          </TouchableOpacity>
-        )}
-        <EuVouCompacto
-          alvo={{ agenda: a.id, data: dia }}
-          contagem={euVou[`a:${a.id}:${dia}`]}
-          aoMudar={(c) => setEuVou((x) => ({ ...x, [`a:${a.id}:${dia}`]: c }))}
-        />
-      </View>
-      <Feather name="chevron-right" size={18} color="#606070" />
-    </TouchableOpacity>
+      </TouchableOpacity>
+    </View>
   );
 
   const renderCartaz = (c: AgendaBar) => (
@@ -1329,6 +1331,20 @@ const styles = StyleSheet.create({
   dateBtnText: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary },
   dateBtnTextActive: { color: '#FFF', fontWeight: '700' },
   diaSemanaTitulo: { fontSize: 13, fontWeight: '800', color: COLORS.pink, textTransform: 'uppercase', letterSpacing: 0.6, marginTop: 10, marginBottom: 8 },
+  // Rodada 147 — sem caixa: lista leve, separada só por uma linha fina.
+  agCard: { borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  agTopo: { flexDirection: 'row', gap: 12, paddingVertical: 14, alignItems: 'flex-start' },
+  agThumb: { width: 64, height: 64, borderRadius: 12, backgroundColor: 'rgba(126,87,194,0.16)', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  agThumbImg: { width: 64, height: 64 },
+  agLinhaHora: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  agHora: { flexShrink: 1, fontSize: 12, fontWeight: '800', color: COLORS.pink },
+  agSelo: { marginLeft: 'auto' },
+  agSeloTxt: { fontSize: 11, fontWeight: '600', color: '#8E8BA3' },
+  agTitulo: { fontSize: 15, fontWeight: '800', color: COLORS.textPrimary, marginTop: 4, lineHeight: 19 },
+  agLocalLinha: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
+  agLocal: { flexShrink: 1, fontSize: 12, color: COLORS.textSecondary },
+  agDesc: { fontSize: 12, color: COLORS.textMuted, marginTop: 4, lineHeight: 16 },
+  agRodape: { marginTop: 10 },
   agendaBadge: { backgroundColor: 'rgba(126,87,194,0.22)', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
   agendaBadgeText: { fontSize: 8, fontWeight: '800', color: '#B39DDB', letterSpacing: 0.5 },
   agendaDesc: { fontSize: 12, color: COLORS.textSecondary, marginTop: 4 },
@@ -1360,7 +1376,7 @@ const styles = StyleSheet.create({
   listArea: { paddingHorizontal: 16, marginTop: 8 },
   listHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   // Rodada 143 — títulos de seção discretos, iguais ao "Membros Fundadores" da Home.
-  sectionTitle: { fontSize: 12, fontWeight: '700', letterSpacing: 1.4, textTransform: 'uppercase', color: '#B9B6CC' },
+  sectionTitle: { ...TITULO_SECAO },
   eventCount: { fontSize: 12, color: COLORS.textSecondary, fontWeight: '600' },
 
   eventCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.card, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 14, gap: 12, marginBottom: 8 },
@@ -1384,7 +1400,7 @@ const styles = StyleSheet.create({
   eventLocation: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
   eventLocationLink: { textDecorationLine: 'underline', color: COLORS.pink },
   eventPrice: { fontSize: 11, fontWeight: '700', color: COLORS.gold, marginTop: 4 },
-  festasPagasTitulo: { fontSize: 12, fontWeight: '700', letterSpacing: 1.4, textTransform: 'uppercase', color: '#B9B6CC', marginBottom: 8 },
+  festasPagasTitulo: { ...TITULO_SECAO, marginBottom: 10 },
   festasGrade: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   festasVerTodas: { fontSize: 12, fontWeight: '800', color: '#E1306C' },
   // Rodada 142 — flier em pé (4:5), como as festas fazem: nada cortado.
