@@ -1,5 +1,5 @@
 'use client';
-import { Loader2, Plus, QrCode, Tag, Trash2 } from 'lucide-react';
+import { Loader2, Lock, Plus, QrCode, Tag, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -8,6 +8,10 @@ import { idsMarcaAtiva } from '../../../lib/marcaAtiva';
 import { NOMES_DIAS, textoJanela } from '../../../lib/janelaCupom';
 import { useParceiro } from '../../../components/parceiro/ParceiroContext';
 import { recursosDaLocal } from '../../../lib/parceiro';
+
+// Decisão da Andrea (13/11/2026): plano Gratuito NÃO cria cupom. Mesma mensagem do app (src/lib/parceiroMenu.ts)
+// e o banco trava de verdade (migração 104, gatilho exigir_plano_pago_no_cupom; o admin pode).
+const MSG_CUPOM_PLANO_PAGO = 'Os cupons aparecem na página da casa e na busca e estão incluídos nos planos pagos.';
 
 // Cupons são 100% do dono do local — a policy `cupons_write_dono_ou_admin`
 // (001_migrar_para_locais.sql) já deixa o dono criar/editar/apagar cupom
@@ -103,9 +107,16 @@ export default function CupomPage() {
     })();
   }, [router, carregarCupons]);
 
+  // Plano pago E com status ativo (planoEfetivo). Sem o contexto (organizador/admin), não trava aqui: o banco decide.
+  const semPlanoPago = !!parceiro && !parceiro.pago;
+
   const criarCupom = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!localId) return;
+    if (semPlanoPago) {
+      setErro(MSG_CUPOM_PLANO_PAGO);
+      return;
+    }
     setSalvando(true);
     setErro('');
 
@@ -197,10 +208,12 @@ export default function CupomPage() {
           <p className="text-[#A0A0B2] text-xs mt-1">Cupons de desconto que aparecem no perfil do seu local no app.</p>
         </div>
         <button
-          onClick={() => setMostrarForm(!mostrarForm)}
-          className="bg-[#E1306C] hover:bg-[#C2285C] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center gap-2"
+          onClick={() => !semPlanoPago && setMostrarForm(!mostrarForm)}
+          disabled={semPlanoPago}
+          title={semPlanoPago ? MSG_CUPOM_PLANO_PAGO : undefined}
+          className="bg-[#E1306C] hover:bg-[#C2285C] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[#E1306C]"
         >
-          <Plus size={14} /> Novo cupom
+          {semPlanoPago ? <Lock size={14} /> : <Plus size={14} />} Novo cupom
         </button>
       </div>
 
@@ -242,7 +255,17 @@ export default function CupomPage() {
         )}
       </div>
 
-      {uso && (
+      {semPlanoPago && (
+        <div className="bg-[#161520] border border-[#232230] rounded-2xl p-4 mb-6 text-xs text-[#A0A0B2] flex items-start gap-3">
+          <Lock size={16} className="text-[#E1306C] shrink-0 mt-0.5" />
+          <div>
+            {MSG_CUPOM_PLANO_PAGO}{' '}
+            <Link href="/planos" className="underline font-bold text-white">Conheça os planos</Link>.
+          </div>
+        </div>
+      )}
+
+      {uso && !semPlanoPago && (
         <div className={`border rounded-2xl p-4 mb-6 text-xs ${uso.limite !== null && uso.usadas >= uso.limite ? 'bg-amber-500/10 border-amber-500/30 text-amber-300' : 'bg-[#161520] border-[#232230] text-[#A0A0B2]'}`}>
           {uso.periodo === 'dias' ? (
             <>
@@ -268,7 +291,7 @@ export default function CupomPage() {
 
       {erro && <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl text-xs mb-6">{erro}</div>}
 
-      {mostrarForm && (
+      {mostrarForm && !semPlanoPago && (
         <form onSubmit={criarCupom} className="bg-[#161520] border border-[#232230] rounded-2xl p-6 mb-8 space-y-4">
           <div>
             <label className="text-[11px] font-bold text-[#A0A0B2] uppercase block mb-2">Título</label>

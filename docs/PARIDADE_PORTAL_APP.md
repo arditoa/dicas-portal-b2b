@@ -17,7 +17,7 @@ Nenhum código foi alterado nesta auditoria.
 | ✅ Já igual | Recursos por categoria (POR_CATEGORIA), troca de senha provisória, troca de local, agenda da semana, situação do cupom (libera em dd/mm) e do banner (dias desde a troca), cota de 4 destaques, validar check-in, porta com QR. |
 | ❌ Telas que faltam | Festa (nova/editar/lista), cupons, banner, fidelidade, histórico de check-ins, Minha página, equipe, **produtos**, **hospedagem**, **pacotes**, central de ajuda. |
 | ❌ Regras do Início que faltam | Primeiros passos (checklist com %), perfil incompleto, cadastro em análise/rejeitado, lembretes com "lembrar amanhã", sino de lembretes e caixa "Como funciona". |
-| ⚠️ Para decidir | Cupom no plano Gratuito (o portal deixa criar só no perfil, o app tranca) · "Aprovar e liberar" na porta (o portal já marca a entrada, o app só aprova) · janela da festa de hoje (o app usa 18h antes/2h depois, o banco usa 12h/12h) · no portal só o dono mexe em cupons; no app (e no banco, desde a 099) a equipe com permissão também mexe. |
+| ⚠️ Para decidir (decidido na etapa 0, ver §12) | Cupom no plano Gratuito (o portal deixa criar só no perfil, o app tranca) · "Aprovar e liberar" na porta (o portal já marca a entrada, o app só aprova) · janela da festa de hoje (o app usa 18h antes/2h depois, o banco usa 12h/12h) · no portal só o dono mexe em cupons; no app (e no banco, desde a 099) a equipe com permissão também mexe. |
 
 ---
 
@@ -123,7 +123,7 @@ Nenhum código foi alterado nesta auditoria.
 | Dias da semana (vazio ou 7 = todos → null), atalhos Ter–Qui / Sex–Dom / Todos | `cupons/page.tsx` | `cupons.dias_semana` | ❌ | 4 |
 | Horário início/fim; check-in só na janela (Brasília) | `cupons/page.tsx` | `hora_inicio/fim` (078) | ❌ | 4 |
 | Limite: Premium/Fundador 1 a cada 7 dias, Intermediário 1 a cada 14, "libera em dd/mm" | `cupons/page.tsx` | `uso_ofertas_periodo` | 🟡 só a etiqueta | 4 |
-| Gratuito: cupom só no perfil (a faixa da categoria é dos pagos) | `cupons/page.tsx` | — | ⚠️ o app tranca com cadeado | 4 |
+| Gratuito: cupom só no perfil (a faixa da categoria é dos pagos) | `cupons/page.tsx` | — | ✅ **mudou (decisão da Andrea):** Gratuito não cria cupom em lugar nenhum (app, portal e banco, 104) | 0 |
 | Plano mensal antigo: "X de Y ofertas do mês" | `cupons/page.tsx` | — | ❌ (ver se ainda existe alguém nele) | 4 |
 | Ativar/desativar, excluir, resgates x/limite | `cupons/page.tsx` | `cupons_resgatados` | ❌ | 4 |
 | Validar check-in pelo código (libera o cupom) | `cupons/page.tsx` | `validar_checkin` | ✅ (e o app lê QR ➕) | — |
@@ -210,6 +210,7 @@ Papéis e permissões da equipe, porteiro por PIN, foto de conferência na porta
 | Lista VIP recusar | `'rejeitada'` em `pendencias.ts` (`responderPedido`), Aprovações e Porta ✅ |
 | Plano efetivo | `meus_locais_parceiro` devolve `plano_comercial_status` (**migração 104**). `modoParceiro` calcula `planoEfetivo` ao carregar: `plano_comercial` já chega efetivo para `nivelDoPlano`, `statusDivulgar`, Divulgar, Meu espaço, Início, Reservas. Meu espaço mostra "Seu plano · Premium aguardando pagamento". Sem status = ativo (igual ao banco) ✅ |
 | Equipe | `'lista_vip'` cria Lista VIP (104); `'cupons'` já vinha da 099 (recriada na 104) ✅ |
-| Cupom no Gratuito | Pode criar (só na página da casa); cadeado só na linha "Faixa de cupons" do quadro de planos, com "Quer aparecer na faixa de cupons? Planos pagos" ✅ |
+| Cupom no Gratuito | **Decisão da Andrea: Gratuito NÃO cria cupom.** App mantém o cadeado; portal (`dashboard/cupons`) trava "Novo cupom" com a mesma frase ("Os cupons aparecem na página da casa e na busca e estão incluídos nos planos pagos."); banco trava na 104 (gatilho `exigir_plano_pago_no_cupom`, o admin pode). Cupons antigos de Gratuito ficam como estão (a 104 lista quais são) ✅ |
+| "Libera em dd/mm" para a equipe | `uso_ofertas_periodo` respondia só ao dono; na 104 responde a quem tem `'cupons'` ✅ |
 | Porta | "Aprovar e liberar" num toque (aprova e confirma a entrada; grava em 2 passos para o banco conferir a lista cheia). Aprovações continua só "Aprovar" ✅ |
 | Festa de hoje | 12h antes do início até 12h depois do fim (sem fim, conta o início), igual a `evento_na_janela_da_porta`: `festaNaJanelaDaPorta` em `pendencias.ts`, usada também no Início ✅ |

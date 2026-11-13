@@ -42,7 +42,8 @@ export const NOME_NIVEL: Record<NivelPlano, string> = {
   intermediario: 'Intermediário',
   premium: 'Premium / Fundador',
 };
-export const AVISO_FAIXA_CUPONS = 'Quer aparecer na faixa de cupons? Planos pagos';
+// Mesma frase no portal (dashboard/cupons) e na trava do banco (migração 104).
+export const MSG_CUPOM_PLANO_PAGO = 'Os cupons aparecem na página da casa e na busca e estão incluídos nos planos pagos.';
 export const WHATSAPP_EQUIPE = '5511942942028';
 export async function falarComEquipe(texto: string) {
   const t = encodeURIComponent(texto);
@@ -75,13 +76,10 @@ export function itensDaAba(aba: Aba, local: LocalDoParceiro, pode: (p: Permissao
           { chave: 'festa', titulo: 'Nova festa', sub: 'Flyer, data e Lista VIP', icone: 'plus-circle', cor: '#9B3CFF', mostrar: pode('festa') && r.eventos },
           { chave: 'eventos', titulo: ehFesta ? 'Minhas festas' : 'Meus eventos', sub: 'Criar, editar, repetir e destacar', icone: 'star', cor: '#9B3CFF', mostrar: pode('festa') && r.eventos },
           { chave: 'agenda', titulo: 'Agenda da semana', sub: 'O que rola em cada dia', icone: 'calendar', cor: '#3FA0A7', rota: '/parceiro/agenda', mostrar: pode('festa') && r.agenda },
-          // Gratuito cria cupom igual ao portal: aparece só na página da casa. A faixa de cupons da categoria
-          // (quadradinhos que passam de lado) é dos planos pagos: o cadeado fica só nela (quadro de planos).
-          { chave: 'cupons', titulo: desconto ? 'Cupons de desconto' : 'Cupons', sub: nivel === 'gratuito' ? 'Na página da casa' : 'Na página da casa e na faixa da categoria', icone: 'tag', cor: '#F2A900',
-            selo: nivel === 'premium' ? '1 a cada 7 dias' : nivel === 'intermediario' ? '1 a cada 14 dias' : 'Na página da casa',
-            seloTom: nivel === 'gratuito' ? 'neutro' : undefined,
-            aviso: nivel === 'gratuito' ? `No plano Gratuito, o cupom aparece na página da casa.\n\n${AVISO_FAIXA_CUPONS}\n\nChega no app na próxima versão. Por enquanto, crie pelo portal do parceiro: entra com o mesmo WhatsApp e senha.` : undefined,
-            mostrar: pode('cupons') && r.cupom !== false },
+          // Gratuito NÃO cria cupom (decisão da Andrea, 13/11/2026): cadeado aqui, no portal e no banco (migração 104).
+          { chave: 'cupons', titulo: desconto ? 'Cupons de desconto' : 'Cupons', sub: 'Na página da casa e na busca', icone: 'tag', cor: '#F2A900',
+            selo: nivel === 'premium' ? '1 a cada 7 dias' : nivel === 'intermediario' ? '1 a cada 14 dias' : 'Planos pagos',
+            bloqueado: nivel === 'gratuito', mostrar: pode('cupons') && r.cupom !== false },
           { chave: 'banner', titulo: 'Banner', sub: 'Na Home e no topo da categoria', icone: 'image', cor: '#E07A5F',
             selo: nivel === 'premium' ? 'Incluído' : 'Premium / Fundador', bloqueado: nivel !== 'premium', mostrar: pode('banner') && !ehFesta },
         ]
@@ -111,7 +109,7 @@ export function abrirItem(router: { push: (r: any) => void }, item: ItemParceiro
         ? 'O banner aparece na Home e no topo da categoria e está incluído nos planos Premium e Fundador.'
         : item.chave === 'reservas'
         ? 'Com reserva, o cliente escolhe a área (rooftop, salão, sacada…), o dia e o horário pelo app, ou chama vocês no WhatsApp. Está incluída nos planos pagos.'
-        : 'Os cupons aparecem na página da casa e na busca e estão incluídos nos planos pagos.',
+        : MSG_CUPOM_PLANO_PAGO,
       [
         { text: 'Agora não', style: 'cancel' },
         { text: 'Falar com a equipe', onPress: () => void falarComEquipe(`Olá! Sou do ${nomeLocal || 'meu local'} e quero saber como liberar "${item.titulo}" no app.`) },
