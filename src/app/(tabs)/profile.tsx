@@ -628,6 +628,9 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </View>
           ) : (
+            <>
+            {/* Troca Cliente ↔ Área do parceiro no topo da Conta (só para quem é de alguma casa) */}
+            <CartaoAreaParceiro />
             <View style={styles.profileCard}>
               {/* Rodada 141 — cabeçalho em linha (foto à esquerda, nome e e-mail ao lado): mais proporcional. */}
               <View style={styles.heroTopo}>
@@ -679,11 +682,8 @@ export default function ProfileScreen() {
                 )}
               </View>
             </View>
+            </>
           )}
-
-          {isLogado && <CartaoAreaParceiro />}
-          {/* Etapa 6 — código de equipe e entrada do porteiro (ou o cartão do modo porta, se já entrou) */}
-          <EntradaEquipe />
 
           {isLogado && (
           <View style={styles.statsRow}>
@@ -697,12 +697,9 @@ export default function ProfileScreen() {
                   qualquer card da Home usa o coração (handleToggleFavorito),
                   então o stat de "Locais Salvos" aqui devia usar o MESMO
                   ícone do resto do app — um só símbolo pro mesmo conceito. */}
-              <FundoCaixaDegrade id="stat-salvos" cores={['#E1306C', '#9B3CFF']} />
-              <Feather name="heart" size={20} color="#FFFFFF" />
-              <View>
-                <Text style={styles.statNum}>{isLogado ? totalSalvos : 0}</Text>
-                <Text style={styles.statLabel}>Locais salvos</Text>
-              </View>
+              <View style={[styles.statIcone, { backgroundColor: '#E1306C26' }]}><Feather name="heart" size={15} color="#F06292" /></View>
+              <Text style={styles.statNum}>{isLogado ? totalSalvos : 0}</Text>
+              <Text style={styles.statLabel} numberOfLines={1}>Locais salvos</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -710,12 +707,9 @@ export default function ProfileScreen() {
               onPress={() => handleCliqueExigente('/coupons')}
               activeOpacity={0.8}
             >
-              <FundoCaixaDegrade id="stat-cupons" cores={['#F2A900', '#C2410C']} />
-              <Feather name="tag" size={20} color="#FFFFFF" />
-              <View>
-                <Text style={styles.statNum}>{isLogado ? totalCupons : 0}</Text>
-                <Text style={styles.statLabel}>Meus cupons</Text>
-              </View>
+              <View style={[styles.statIcone, { backgroundColor: '#F2A90026' }]}><Feather name="tag" size={15} color="#F2A900" /></View>
+              <Text style={styles.statNum}>{isLogado ? totalCupons : 0}</Text>
+              <Text style={styles.statLabel} numberOfLines={1}>Meus cupons</Text>
             </TouchableOpacity>
           </View>
           )}
@@ -724,6 +718,9 @@ export default function ProfileScreen() {
               junto das últimas ações (check-ins, cupons, listas VIP). Fica no topo pra o
               atalho da caixa de entrada na Home cair direto nela. */}
           <ContaAtividade userId={user?.id ?? null} abaInicial={aba === 'inbox' ? 'inbox' : undefined} />
+
+          {/* Etapa 6 — código de equipe e entrada do porteiro (ou o cartão do modo porta, se já entrou) */}
+          <EntradaEquipe />
 
           <Text style={styles.grupoTitulo}>COMUNIDADE</Text>
           <View style={styles.grupoCard}>
@@ -855,19 +852,22 @@ const styles = StyleSheet.create({
   scrollContent: { paddingHorizontal: 16, paddingBottom: 40 },
 
   statsRow: { flexDirection: 'row', gap: 8, marginTop: 0, marginBottom: 14 },
+  // Rodada 146 — mais compacto e no mesmo padrão dos grupos da Conta: cartão escuro, ícone em quadradinho arredondado.
   statBox: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    height: 64,
+    gap: 8,
+    height: 52,
     borderRadius: 14,
-    overflow: 'hidden',
+    paddingHorizontal: 12,
     backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
-  statNum: { fontSize: 18, fontWeight: '800', color: '#FFFFFF' },
-  statLabel: { fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.92)' },
+  statIcone: { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  statNum: { fontSize: 16, fontWeight: '800', color: '#FFFFFF' },
+  statLabel: { flexShrink: 1, fontSize: 12, fontWeight: '600', color: COLORS.textMuted },
 
   authBox: {
     backgroundColor: COLORS.card,

@@ -7,6 +7,7 @@ import {
   FlatList,
   Image,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -31,6 +32,7 @@ import FiltrosPilulas, { FiltroDef } from '../../components/FiltrosPilulas';
 import CabecalhoTela from '../../components/CabecalhoTela';
 import VitrineCategoria from '../../components/VitrineCategoria';
 import BordaArcoIris from '../../components/BordaArcoIris';
+import SeloFundador from '../../components/SeloFundador';
 import SubcategoriaBanners, { agruparSubcategorias, chaveDoLocal } from '../../components/SubcategoriaBanners';
 import { SUBCATEGORIAS } from '../../lib/subcategorias';
 import { EstadoSubcategorias, buscarEstadoSubcategorias, buscarSubcategoriasDesligadas } from '../../lib/vitrine';
@@ -398,6 +400,14 @@ export default function CategoryListScreen() {
   // Destaques (Fundadores) e Dicas Trip têm layout próprio: não recebem os ícones de subcategoria.
   const defsSub = !modoTrip && !experienciaSlug && categoriaReal && slug !== 'destaques' && slug !== 'turismo' ? SUBCATEGORIAS[categoriaReal] : undefined;
 
+  // Design nov/2026 — página Destaques: categorias dos fundadores (Bares, Restaurantes, Festas & Eventos…) para filtrar a lista.
+  const ROTULO_CAT_DESTAQUES: Record<string, string> = { lugares: 'Bares', gastronomia: 'Restaurantes', eventos: 'Festas & Eventos' };
+  const [catDestaques, setCatDestaques] = useState<string | null>(null);
+  const catsDestaques = useMemo(() => {
+    if (slug !== 'destaques') return [] as string[];
+    return Array.from(new Set(locais.map((l) => l.categoria).filter(Boolean))) as string[];
+  }, [locais, slug]);
+
   const filteredPlaces = locais
     .map((item) => {
       const distanceKm =
@@ -438,7 +448,9 @@ export default function CategoryListScreen() {
         (item.bairro || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.cidade.toLowerCase().includes(searchQuery.toLowerCase());
 
-      return matchesFiltros && matchesSubcat && matchesTipo && matchesDistance && matchesSearch;
+      const matchesCatDestaques = !catDestaques || item.categoria === catDestaques;
+
+      return matchesFiltros && matchesSubcat && matchesTipo && matchesDistance && matchesSearch && matchesCatDestaques;
     });
 
   // Subcategorias em ícones redondos: logo abaixo das ofertas. Tocar filtra a lista; tocar de novo limpa.
@@ -548,8 +560,21 @@ export default function CategoryListScreen() {
                     aposOfertas={subNode}
                   />
                 )}
+                {catsDestaques.length > 1 && (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.chipsContainer, { paddingHorizontal: 0 }]} style={{ marginTop: 14 }}>
+                    {[null, ...catsDestaques].map((c) => {
+                      const ativo = catDestaques === c;
+                      const rotulo = c ? ROTULO_CAT_DESTAQUES[c] || CATEGORIA_REAL_LABEL[c] || c : 'Todos';
+                      return (
+                        <TouchableOpacity key={c || 'todos'} style={[styles.chip, ativo && styles.chipActive]} onPress={() => setCatDestaques(c)} activeOpacity={0.8} accessibilityRole="button" accessibilityState={{ selected: ativo }}>
+                          <Text style={[styles.chipText, ativo && styles.chipTextActive]}>{rotulo.toLocaleUpperCase('pt-BR')}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                )}
                 <View style={styles.contagemRow}>
-                  <Text style={styles.contagemTxt}>{slug === 'destaques' ? 'Membros Fundadores' : 'Locais'}</Text>
+                  <Text style={styles.contagemTxt}>{slug === 'destaques' ? 'Destaques' : 'Locais'}</Text>
                   <Text style={styles.contagemQtd}>{filteredPlaces.length} {filteredPlaces.length === 1 ? 'resultado' : 'resultados'}</Text>
                 </View>
               </>
@@ -599,6 +624,7 @@ export default function CategoryListScreen() {
                   </View>
 
                   <View style={{ flex: 1, gap: 3 }}>
+                    {fundador && <SeloFundador />}
                     <Text style={styles.placeName} numberOfLines={1}>{nomeNaLista(item.nome)}</Text>
                     <Text style={styles.placeSubcat} numberOfLines={1}>{tipo}</Text>
                     <Text style={styles.placeAddress} numberOfLines={1}>{lugar}</Text>

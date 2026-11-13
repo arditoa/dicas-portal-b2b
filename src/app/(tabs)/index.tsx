@@ -532,7 +532,11 @@ export default function HomeScreen() {
     supabase.from('home_caixas').select('chave, titulo, icone, cor1, cor2, ordem, ativo, tipo, destino, traducoes')
       .then(({ data, error }) => setCaixasDB(error || !data || data.length === 0 ? null : (data as CaixaDB[])), () => setCaixasDB(null));
   }, []);
+  // Títulos e cores que as 6 caixas tinham antes do design nov/2026 (ainda gravados em home_caixas). Enquanto o /admin
+  // não for editado, a caixa com o valor antigo mostra o novo (Para você, Hoje na cidade, Hits da semana e os degradês
+  // por categoria). Se a equipe trocar nome ou cor no /admin, vale o que ela escolheu.
   const TITULO_PADRAO_PT: Record<string, string> = { 'em-alta': 'Em Alta', recomendados: 'Recomendados', hoje: 'O que fazer hoje', semana: 'Top da semana', experiencia: 'Experiências', servicos: 'Serviços' };
+  const CORES_ANTIGAS: Record<string, string> = { 'em-alta': '#CC7A0A|#9A4A0A', recomendados: '#0DA372|#0E7490', hoje: '#C026A3|#6D3FD1', semana: '#F2692A|#C42660', experiencia: '#0A8FD0|#7048B8', servicos: '#0F9F90|#5558E3' };
   type CaixaHome = { tipo: string; titulo: string; icone: string; degrade: [string, string]; qtd: number; rota: string };
   const montarCaixas = (padrao: CaixaHome[]): CaixaHome[] => {
     if (!caixasDB) return padrao;
@@ -549,10 +553,11 @@ export default function HomeScreen() {
         const base = padrao.find((p) => p.tipo === c.chave);
         if (c.tipo === 'padrao' && !base) return null; // ex.: Serviços sem nenhum serviço cadastrado
         const tr = idioma !== 'pt' ? c.traducoes?.[idioma]?.titulo : undefined;
-        const titulo = tr || (base && idioma !== 'pt' && c.titulo === TITULO_PADRAO_PT[c.chave] ? base.titulo : c.titulo);
+        const titulo = tr || (base && c.titulo === TITULO_PADRAO_PT[c.chave] ? base.titulo : c.titulo);
+        const corAntiga = `${c.cor1}|${c.cor2}`.toUpperCase() === (CORES_ANTIGAS[c.chave] || '').toUpperCase();
         return {
           tipo: c.chave, titulo, icone: c.icone || base?.icone || 'star',
-          degrade: [c.cor1, c.cor2] as [string, string], qtd: base?.qtd ?? 0,
+          degrade: (corAntiga && base ? base.degrade : [c.cor1, c.cor2]) as [string, string], qtd: base?.qtd ?? 0,
           rota: c.tipo === 'padrao' && base ? base.rota : rotaDe(c),
         };
       })
@@ -629,6 +634,8 @@ export default function HomeScreen() {
         cta: com?.variantes?.home?.cta || com?.cta || 'Conhecer',
         // Rodada 140 — estilo escolhido no portal: degradê, foto (direita/esquerda/fundo), cor dos dizeres e palavra de impacto.
         ...estiloDoCartao(com?.variantes?.home?.chamada ? com.variantes!.home : com, ['#B45309', '#9D174D'] as [string, string]),
+        // Design nov/2026 — foto completa no fundo: sem foto escolhida no banner, usa a foto do próprio local.
+        fotoUrl: estiloDoCartao(com?.variantes?.home?.chamada ? com.variantes!.home : com, ['#B45309', '#9D174D'] as [string, string]).fotoUrl || (!d.ehLogo ? d.foto : null),
         icone: 'star',
         cor: estiloDoCartao(com?.variantes?.home?.chamada ? com.variantes!.home : com, ['#B45309', '#9D174D'] as [string, string]).degrade[0],
         onPress: () => {
@@ -965,7 +972,8 @@ export default function HomeScreen() {
           permissão no toque (nunca ao abrir o app — App Store 5.1.1). */}
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <View style={styles.headerEsquerda}>
-          <MarcaApp />
+          {/* Design nov/2026 — no topo da Home fica só o logo, sem a frase. */}
+          <MarcaApp semFrase />
         </View>
         <View style={styles.headerDireita}>
           <TouchableOpacity
@@ -1137,13 +1145,15 @@ export default function HomeScreen() {
             com a contagem; as listas completas ficam nas páginas. */}
         <View style={styles.gradeSecoes}>
           {montarCaixas([
-            { tipo: 'em-alta', titulo: t('home.tile.emAlta'), icone: 'trending-up', degrade: ['#CC7A0A', '#9A4A0A'] as [string, string], qtd: emAlta.length, rota: '/secao/em-alta' },
-            { tipo: 'recomendados', titulo: t('home.tile.recomendados'), icone: 'check-circle', degrade: ['#0DA372', '#0E7490'] as [string, string], qtd: 0, rota: '/experience/Selo%20Dicas%20LGBT%2B' },
-            { tipo: 'hoje', titulo: t('home.tile.hoje'), icone: 'zap', degrade: ['#C026A3', '#6D3FD1'] as [string, string], qtd: agendaHoje.length + locaisHoje.length + abertosAgora.length, rota: '/secao/hoje' },
-            { tipo: 'semana', titulo: t('home.tile.semana'), icone: 'star', degrade: ['#F2692A', '#C42660'] as [string, string], qtd: destaqueSemana.length, rota: '/secao/semana' },
-            { tipo: 'experiencia', titulo: t('home.tile.experiencia'), icone: 'heart', degrade: ['#0A8FD0', '#7048B8'] as [string, string], qtd: EXPERIENCIAS_HOME.length, rota: '/secao/experiencia' },
+            // Design nov/2026 — um degradê por categoria: Em alta magenta/rosa, Para você azul, Hoje na cidade violeta,
+            // Hits da semana laranja/pink, Experiências roxo/lilás, Serviços verde/turquesa (com textura ondulada).
+            { tipo: 'em-alta', titulo: t('home.tile.emAlta'), icone: 'trending-up', degrade: ['#D1127A', '#FF5FA2'] as [string, string], qtd: emAlta.length, rota: '/secao/em-alta' },
+            { tipo: 'recomendados', titulo: t('home.tile.recomendados'), icone: 'check-circle', degrade: ['#1D3FD8', '#1FA8F2'] as [string, string], qtd: 0, rota: '/experience/Selo%20Dicas%20LGBT%2B' },
+            { tipo: 'hoje', titulo: t('home.tile.hoje'), icone: 'zap', degrade: ['#5B21D6', '#A855F7'] as [string, string], qtd: agendaHoje.length + locaisHoje.length + abertosAgora.length, rota: '/secao/hoje' },
+            { tipo: 'semana', titulo: t('home.tile.semana'), icone: 'star', degrade: ['#F97316', '#EC1E8C'] as [string, string], qtd: destaqueSemana.length, rota: '/secao/semana' },
+            { tipo: 'experiencia', titulo: t('home.tile.experiencia'), icone: 'heart', degrade: ['#7E22CE', '#D8A5FF'] as [string, string], qtd: EXPERIENCIAS_HOME.length, rota: '/secao/experiencia' },
             ...(servicosPool.length > 0
-              ? [{ tipo: 'servicos', titulo: t('home.tile.servicos'), icone: 'briefcase', degrade: ['#0F9F90', '#5558E3'] as [string, string], qtd: servicosPool.length, rota: '/secao/servicos' }]
+              ? [{ tipo: 'servicos', titulo: t('home.tile.servicos'), icone: 'briefcase', degrade: ['#059669', '#14C8C0'] as [string, string], qtd: servicosPool.length, rota: '/secao/servicos' }]
               : []),
           ]).map((b) => (
             <TouchableOpacity
@@ -1155,7 +1165,7 @@ export default function HomeScreen() {
               accessibilityLabel={b.titulo}
             >
               <View style={styles.secaoBox}>
-                <FundoCaixaDegrade id={`cx-${b.tipo}`} cores={b.degrade} />
+                <FundoCaixaDegrade id={`cx-${b.tipo}`} cores={b.degrade} ondas />
                 <Feather name={b.icone as any} size={22} color="#FFFFFF" />
                 <Text style={styles.secaoBoxTitulo} numberOfLines={2}>{b.titulo}</Text>
               </View>
@@ -1317,7 +1327,7 @@ const styles = StyleSheet.create({
   rodapeAssinatura: { fontSize: 11, color: COLORS.textMuted, textAlign: 'center', marginTop: 4 },
   gradeSecoes: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, marginBottom: 18 },
   secaoBoxTouch: { width: '31.5%' },
-  secaoBox: { height: 92, borderRadius: 14, overflow: 'hidden', backgroundColor: COLORS.card, alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 6 },
+  secaoBox: { height: 92, borderRadius: 14, overflow: 'hidden', backgroundColor: COLORS.card, alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)' },
   secaoBoxTitulo: { fontSize: 12, fontWeight: '700', color: '#FFFFFF', textAlign: 'center', textShadowColor: 'rgba(0,0,0,0.28)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 },
   recomendadosCard: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 16, overflow: 'hidden', backgroundColor: COLORS.card },
   recomendadosIcone: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.85)', backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },

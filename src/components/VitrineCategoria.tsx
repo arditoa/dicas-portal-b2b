@@ -4,7 +4,7 @@
 //   3) OFERTAS E BENEFÍCIOS — cupons dos parceiros da categoria, girando por hora
 // Cada bloco mede exibições e toques (vitrine_eventos) para a equipe comercial mostrar resultado.
 import { estiloDoCartao } from '../lib/estiloBanner';
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { MODO_DEMONSTRACAO } from '../lib/demo';
 import { useRouter } from 'expo-router';
 import { ReactNode, useEffect, useMemo, useState } from 'react';
@@ -26,7 +26,9 @@ import {
   buscarSubcategoriasDesligadas,
   registrarVitrine,
 } from '../lib/vitrine';
-import CarrosselAnuncios, { Anuncio } from './CarrosselAnuncios';
+import CarrosselAnuncios, { Anuncio, VeuFoto } from './CarrosselAnuncios';
+import BordaArcoIris from './BordaArcoIris';
+import BotaoCta from './BotaoCta';
 import { useAnunciosApp } from '../lib/banners';
 import FundoCaixaDegrade from './FundoCaixaDegrade';
 
@@ -93,6 +95,21 @@ const PATROCINIO_VEZPA: Patrocinio = {
   cor2: '#7E57C2',
 };
 const URL_PARCEIRO = 'https://www.dicaslgbt.com.br/parceiro-fundador';
+// Design nov/2026 — cupons no degradê do logo (magenta → roxo → azul).
+const DEGRADE_CUPOM: [string, string] = ['#E0197D', '#3D3BEF'];
+// "Drink em dobro até as 19:00" → oferta "DRINK EM DOBRO" + detalhe "Até as 19:00" (menor e sem negrito).
+function partesCupom(o: { titulo: string; descricao: string | null; valido_ate: string | null }): { oferta: string; detalhe: string } {
+  const t = (o.titulo || '').trim();
+  const m = t.match(/^(.+?)\s+((?:at[eé]|v[aá]lido|das|a partir)\s.+)$/i);
+  if (m) return { oferta: m[1], detalhe: m[2].charAt(0).toUpperCase() + m[2].slice(1) };
+  const desc = (o.descricao || '').trim();
+  if (desc && desc.length <= 40) return { oferta: t, detalhe: desc };
+  if (o.valido_ate) {
+    const d = new Date(o.valido_ate);
+    if (!isNaN(d.getTime())) return { oferta: t, detalhe: `Válido até ${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}` };
+  }
+  return { oferta: t, detalhe: '' };
+}
 
 export type LocalVitrine = {
   id: string;
@@ -153,6 +170,15 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
     ? { categoria: slug, local_id: null, tag: 'PATROCÍNIO MASTER · CATEGORIA', titulo: `Espaço do patrocinador master de ${titulo}`, subtitulo: null, cta: 'Quero este espaço', destino: URL_PARCEIRO, imagem_url: null, cor1: '#7E57C2', cor2: '#E1306C' }
     : null;
   const patrocinio = patrocinioDb ?? (patrocinioLido ? (fundadores ? PATROCINIO_VEZPA : patrocinioPadrao ?? patrocinioDemo) : null);
+  // Design nov/2026 — foto completa no fundo do patrocinador master: a do banner; sem ela, a foto do próprio local
+  // (pelo id ou, no padrão da página Destaques, pelo nome).
+  const fotoPatrocinio = useMemo(() => {
+    if (!patrocinio) return null;
+    if (patrocinio.imagem_url) return patrocinio.imagem_url;
+    const nome = (patrocinio.titulo || '').trim().toLowerCase();
+    const l = locais.find((x) => (patrocinio.local_id && x.id === patrocinio.local_id) || (!!nome && x.nome.trim().toLowerCase() === nome));
+    return l ? l.foto_capa_url || l.galeria_fotos?.[0] || null : null;
+  }, [patrocinio, locais]);
   const [ofertas, setOfertas] = useState<OfertaVitrine[]>([]);
   const [comunicacao, setComunicacao] = useState<Record<string, Comunicacao>>({});
 
@@ -348,6 +374,8 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
         cta: vari?.cta || com?.cta || 'Conhecer',
         // Rodada 140 — estilo escolhido no portal: degradê, foto (direita/esquerda/fundo), cor dos dizeres e palavra de impacto.
         ...estiloDoCartao(vari?.chamada ? vari : com, cor),
+        // Design nov/2026 — foto completa no fundo: sem foto escolhida no banner, usa a foto do local.
+        fotoUrl: estiloDoCartao(vari?.chamada ? vari : com, cor).fotoUrl || l.foto_capa_url || l.galeria_fotos?.[0] || null,
         icone: fundadores ? 'star' : 'map-pin',
         cor: estiloDoCartao(vari?.chamada ? vari : com, cor).degrade[0],
         onPress: () => {
@@ -367,21 +395,18 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
   return (
     <View style={s.raiz}>
       {fundadores && (
+        // Design nov/2026 — roxo escuro no tom do fundo do app e o mesmo contorno de arco-íris dos cartões dos fundadores.
+        <BordaArcoIris raio={16} espessura={2} style={{ marginBottom: 14 }}>
         <View style={s.agradece}>
-          <FundoCaixaDegrade id="agradece-fundadores" cores={['#4C1D95', '#BE185D']} />
-          <View style={s.agradeceFaixa}>
-            {['#E40303', '#FF8C00', '#FFED00', '#008026', '#24408E', '#732982'].map((c) => (
-              <View key={c} style={{ flex: 1, backgroundColor: c }} />
-            ))}
-          </View>
+          <FundoCaixaDegrade id="agradece-fundadores" cores={['#3B1670', '#160B22']} />
           {/* Rodada 138 — cartão mais leve, sem "agradecimento": título curto + logos dos Fundadores. */}
           <View style={s.agradeceCorpo}>
             <View style={s.agradecePilula}>
               <Feather name="star" size={10} color="#FFFFFF" />
               <Text style={s.agradecePilulaTxt}>MEMBROS FUNDADORES</Text>
             </View>
-            <Text style={s.agradeceTitulo}>Quem abriu as portas primeiro</Text>
-            <Text style={s.agradeceTexto}>Negócios que apostam na comunidade LGBT+ desde o começo.</Text>
+            <Text style={s.agradeceTitulo}>Quem fez história</Text>
+            <Text style={s.agradeceTexto}>Marcas que investem no mercado LGBT+ e impulsionam novas conexões.</Text>
             {locais.length > 0 && (
               <View style={s.agradeceLogos}>
                 {locais.slice(0, 6).map((l, i) => {
@@ -401,6 +426,7 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
             )}
           </View>
         </View>
+        </BordaArcoIris>
       )}
 
       {/* 0) BANNER PRINCIPAL ESTÁTICO (patrocínio master) — logo abaixo da busca, emoldurado na mesma margem dos outros cartões, 76 de altura. Só aparece se a categoria tem patrocinador. */}
@@ -416,17 +442,14 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
           accessibilityLabel={`${patrocinio.titulo}. ${patrocinio.tag}`}
         >
           <FundoCaixaDegrade id={`pt-${slug}`} cores={[patrocinio.cor1, patrocinio.cor2]} />
-          {!!patrocinio.imagem_url && <Image source={{ uri: patrocinio.imagem_url }} style={StyleSheet.absoluteFill} resizeMode="cover" />}
-          {!!patrocinio.imagem_url && <View style={s.patrocVeu} />}
+          {!!fotoPatrocinio && <Image source={{ uri: fotoPatrocinio }} style={StyleSheet.absoluteFill} resizeMode="cover" />}
+          {!!fotoPatrocinio && <VeuFoto id={`veu-pt-${slug.replace(/[^a-zA-Z0-9]/g, '')}`} />}
           <View style={s.patrocCorpo}>
             <View style={s.patrocPilula}>
               <Text style={s.patrocTag} numberOfLines={1}>{patrocinio.tag}</Text>
             </View>
             <Text style={s.patrocTitulo} numberOfLines={2}>{patrocinio.titulo}</Text>
-            <View style={s.patrocBtn}>
-              <Text style={s.patrocBtnTxt}>{patrocinio.cta}</Text>
-              <Feather name="arrow-right" size={14} color="#1A1020" />
-            </View>
+            <BotaoCta texto={patrocinio.cta} />
           </View>
         </TouchableOpacity>
       )}
@@ -437,7 +460,8 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
       )}
 
       {/* 1) BANNER ROTATIVO — mesmo cartão em degradê da Home (ex.: "Apoio cultural"): etiqueta, chamada, botão, pontinhos. */}
-      {bannersDaPagina.length > 0 && !secoesOff.has('__banner') && (
+      {/* Design nov/2026 — na página Destaques este banner saiu (o patrocinador master e a lista já mostram os fundadores). */}
+      {!fundadores && bannersDaPagina.length > 0 && !secoesOff.has('__banner') && (
         <View style={{ marginHorizontal: -16, marginBottom: -8 }}>
           <CarrosselAnuncios anuncios={bannersDaPagina} onExibir={(id) => { exibirParceiro(id); const l = destaques.find((x) => `dest-${x.id}` === id); if (l) registrarVitrine(l.id, `destaques:${slug}`, 'exibicao'); }} />
         </View>
@@ -453,40 +477,51 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
       {!semOfertas && !secoesOff.has('__cupons') && (
       <View style={{ marginTop: 10 }}>
         {slotsOferta.length > 0 || MODO_DEMONSTRACAO ? (
-          <View style={s.linhaOfertas}>
-            {slotsOferta.map((sl, idx) => {
-              const o = sl.oferta;
-              if (!o) {
-                if (!MODO_DEMONSTRACAO) return null;
-                return (
-                  <View key={`demo-${idx}`} style={s.cardOferta} accessibilityLabel={sl.rotulo}>
-                    <FundoCaixaDegrade id={`ofd-${slug}-${idx}`} cores={DEGRADES_OFERTA[(idx + 1) % DEGRADES_OFERTA.length]} />
-                    <Feather name="tag" size={20} color="#FFFFFF" />
-                    <Text style={[s.ofertaTitulo, { fontSize: 11 }]} numberOfLines={3}>{sl.rotulo}</Text>
-                  </View>
+          <>
+            {/* Design nov/2026 — título "Cupons" e cartões no degradê do logo: nome do local numa caixinha no topo,
+                oferta em CAIXA ALTA e o detalhe menor, sem negrito; o cupom fica desenhado no fundo. */}
+            <Text style={s.tituloCupons}>Cupons</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.linhaOfertas} style={{ marginHorizontal: -16 }}>
+              {slotsOferta.map((sl, idx) => {
+                const o = sl.oferta;
+                if (!o && !MODO_DEMONSTRACAO) return null;
+                const partes = o ? partesCupom(o) : { oferta: sl.rotulo, detalhe: '' };
+                const nomeLocal = o ? (o.equipe && !o.nome_local ? 'Dicas LGBT+' : formatarNome(o.nome_local)) : 'Seu local aqui';
+                const corpo = (
+                  <>
+                    <FundoCaixaDegrade id={`cup-${slug}-${idx}`} cores={DEGRADE_CUPOM} />
+                    <MaterialCommunityIcons name="ticket-percent-outline" size={78} color="rgba(255,255,255,0.28)" style={s.cupomIcone} />
+                    <View style={s.cupomLocal}>
+                      <Feather name="map-pin" size={9} color="#FFFFFF" />
+                      <Text style={s.cupomLocalTxt} numberOfLines={1}>{nomeLocal}</Text>
+                    </View>
+                    <Text style={s.cupomOferta} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>{partes.oferta.toLocaleUpperCase('pt-BR')}</Text>
+                    {!!partes.detalhe && <Text style={s.cupomDetalhe} numberOfLines={1}>{partes.detalhe}</Text>}
+                  </>
                 );
-              }
-              return (
-                <TouchableOpacity
-                  key={`${o.id}-${idx}`}
-                  activeOpacity={0.9}
-                  style={s.cardOferta}
-                  onPress={() => {
-                    registrarVitrine(o.local_id, `oferta:${slug}`, 'clique');
-                    router.push(`/business/${o.local_id}` as any);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel={o.titulo}
-                >
-                  <FundoCaixaDegrade id={`of-${o.id}`} cores={DEGRADES_OFERTA[(idx + slot) % DEGRADES_OFERTA.length]} />
-                  {!!o.imagem_url && <Image source={{ uri: o.imagem_url }} style={StyleSheet.absoluteFill} resizeMode="cover" />}
-                  {!!o.imagem_url && <View style={s.ofertaVeu} />}
-                  <Feather name="tag" size={22} color="#FFFFFF" />
-                  <Text style={s.ofertaTitulo} numberOfLines={2}>{o.titulo}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+                if (!o) {
+                  return (
+                    <View key={`demo-${idx}`} style={s.cardOferta} accessibilityLabel={sl.rotulo}>{corpo}</View>
+                  );
+                }
+                return (
+                  <TouchableOpacity
+                    key={`${o.id}-${idx}`}
+                    activeOpacity={0.9}
+                    style={s.cardOferta}
+                    onPress={() => {
+                      registrarVitrine(o.local_id, `oferta:${slug}`, 'clique');
+                      router.push(`/business/${o.local_id}` as any);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Cupom de ${nomeLocal}: ${o.titulo}`}
+                  >
+                    {corpo}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </>
         ) : null /* sem cupons: não mostra aviso "Ofertas chegando" */}
       </View>
       )}
@@ -519,7 +554,7 @@ const s = StyleSheet.create({
   vazioCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 16, overflow: 'hidden', backgroundColor: C.card, borderWidth: 1, borderColor: C.border },
   vazioTitulo: { fontSize: 14, fontWeight: '800', color: C.text },
   vazioSub: { fontSize: 12, color: C.dim, lineHeight: 16, marginTop: 2 },
-  agradece: { marginBottom: 14, borderRadius: 16, overflow: 'hidden', backgroundColor: C.card },
+  agradece: { borderRadius: 14, overflow: 'hidden', backgroundColor: '#160B22' },
   agradeceFaixa: { flexDirection: 'row', height: 4 },
   agradeceCorpo: { padding: 16, gap: 6 },
   agradeceLogos: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
@@ -538,12 +573,18 @@ const s = StyleSheet.create({
   patrocCorpo: { padding: 14, gap: 6, paddingRight: 24 },
   patrocPilula: { alignSelf: 'flex-start', maxWidth: '100%', backgroundColor: 'rgba(255,255,255,0.22)', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 },
   patrocTag: { fontSize: 10, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.6 },
-  patrocTitulo: { fontSize: 15, fontWeight: '900', color: '#FFFFFF', lineHeight: 19 },
+  patrocTitulo: { fontSize: 16, fontWeight: '900', color: '#FFFFFF', lineHeight: 20, textTransform: 'uppercase', letterSpacing: 0.2 },
   patrocBtn: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FFFFFF', borderRadius: 18, paddingHorizontal: 13, minHeight: 30 },
   patrocBtnTxt: { fontSize: 12, fontWeight: '800', color: '#1A1020' },
   ofertaVeu: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8,6,16,0.5)' },
-  linhaOfertas: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  cardOferta: { width: '31.5%', height: 92, borderRadius: 14, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 6, backgroundColor: C.card },
+  linhaOfertas: { flexDirection: 'row', gap: 10, paddingHorizontal: 16 },
+  tituloCupons: { fontSize: 16, fontWeight: '800', color: '#FFFFFF', marginBottom: 10 },
+  cupomIcone: { position: 'absolute', right: -10, bottom: -8, transform: [{ rotate: '-14deg' }] },
+  cupomLocal: { alignSelf: 'flex-start', maxWidth: '100%', flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.24)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, marginBottom: 8 },
+  cupomLocalTxt: { fontSize: 10, fontWeight: '700', color: '#FFFFFF', flexShrink: 1 },
+  cupomOferta: { fontSize: 17, lineHeight: 20, fontWeight: '900', color: '#FFFFFF', letterSpacing: 0.2, paddingRight: 18 },
+  cupomDetalhe: { fontSize: 11, fontWeight: '400', color: 'rgba(255,255,255,0.9)', marginTop: 5 },
+  cardOferta: { width: 176, height: 116, borderRadius: 16, overflow: 'hidden', padding: 12, justifyContent: 'flex-start', backgroundColor: C.card, borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' },
   ofertaTitulo: { fontSize: 12, fontWeight: '700', color: '#FFFFFF', textAlign: 'center', textShadowColor: 'rgba(0,0,0,0.28)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 },
   ofertaAte: { position: 'absolute', right: 6, top: 5, fontSize: 8, color: 'rgba(255,255,255,0.85)', fontWeight: '700' },
   vazioOfertas: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },

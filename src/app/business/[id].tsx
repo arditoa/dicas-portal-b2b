@@ -260,6 +260,9 @@ export default function BusinessDetailScreen() {
   const [cupons, setCupons] = useState<CupomLocal[]>([]);
   const [meuCheckin, setMeuCheckin] = useState<CheckinAtivo | null>(null);
   const [fazendoCheckin, setFazendoCheckin] = useState(false);
+  // Rodada 146 — cupons e cartão começam resumidos (só o que vale agora); abre ao tocar.
+  const [verTodosCupons, setVerTodosCupons] = useState(false);
+  const [fidAberto, setFidAberto] = useState(false);
   const [fidelidade, setFidelidade] = useState<ProgressoFidelidade[]>([]);
 
   const carregarDados = useCallback(async () => {
@@ -774,8 +777,11 @@ export default function BusinessDetailScreen() {
                 <View style={styles.cupomCard}>
                   <View style={styles.cupomHeaderRow}>
                     <Feather name="tag" size={14} color="#FFD54F" />
-                    <Text style={styles.cupomHeaderText}>Cupom disponível</Text>
+                    <Text style={styles.cupomHeaderText}>{cupons.length > 1 ? `Cupons da casa · ${cupons.length}` : 'Cupom da casa'}</Text>
                   </View>
+                  {!meuCheckin && (verTodosCupons || cupons.some((c) => dentroDaJanela(c.dias_semana, c.hora_inicio, c.hora_fim))) && (
+                    <Text style={styles.cupomExplica}>Ao chegar, toque em Usar no cupom que vale agora. Ele vira seu check-in e conta 1 visita no cartão.</Text>
+                  )}
 
                   {checkinSemCupom && (
                     <Text style={styles.fidDica}>Seu check-in de hoje já conta como visita. Escolha o cupom que quer usar:</Text>
@@ -801,31 +807,53 @@ export default function BusinessDetailScreen() {
                       </View>
                     </>
                   ) : (
-                    cupons.map((cupom) => (
-                      <View key={cupom.id} style={{ marginBottom: 8 }}>
-                        <Text style={styles.cupomTitulo}>{cupom.titulo}</Text>
-                        {cupom.descricao && <Text style={styles.cupomDescricao}>{cupom.descricao}</Text>}
-                        {!!textoJanela(cupom.dias_semana, cupom.hora_inicio, cupom.hora_fim) && (
-                          <Text style={[styles.cupomDescricao, { color: '#FFD54F', fontWeight: '700' }]}>
-                            Vale: {textoJanela(cupom.dias_semana, cupom.hora_inicio, cupom.hora_fim)}
-                          </Text>
-                        )}
-                        <TouchableOpacity
-                          style={[styles.actionBtn, styles.cupomBtn, (fazendoCheckin || !dentroDaJanela(cupom.dias_semana, cupom.hora_inicio, cupom.hora_fim)) && { opacity: 0.5 }]}
-                          onPress={() => (checkinSemCupom ? handleUsarCupom(cupom.id) : handleFazerCheckin(cupom.id))}
-                          disabled={fazendoCheckin || !dentroDaJanela(cupom.dias_semana, cupom.hora_inicio, cupom.hora_fim)}
-                        >
-                          <Feather name="check-circle" size={18} color="#FFF" style={{ marginRight: 8 }} />
-                          <Text style={styles.actionBtnText}>
-                            {fazendoCheckin
-                              ? 'Fazendo check-in...'
-                              : dentroDaJanela(cupom.dias_semana, cupom.hora_inicio, cupom.hora_fim)
-                                ? (checkinSemCupom ? 'Usar este cupom' : 'Fazer check-in pra resgatar')
-                                : 'Fora do dia/horário deste cupom'}
-                          </Text>
+                    <>
+                    {(() => {
+                      const valeAgora = cupons.filter((c) => dentroDaJanela(c.dias_semana, c.hora_inicio, c.hora_fim));
+                      if (verTodosCupons || valeAgora.length > 0) return null;
+                      const prox = textoJanela(cupons[0].dias_semana, cupons[0].hora_inicio, cupons[0].hora_fim);
+                      return <Text style={styles.cupomResumo}>Nenhum vale agora{prox ? ` · próximo: ${prox}` : ''}</Text>;
+                    })()}
+                    {(verTodosCupons ? cupons : cupons.filter((c) => dentroDaJanela(c.dias_semana, c.hora_inicio, c.hora_fim)).slice(0, 1)).map((cupom, i) => {
+                      // Rodada 146 — cupom em linha de "ticket": nome e quando vale à esquerda, ação à direita.
+                      const vale = dentroDaJanela(cupom.dias_semana, cupom.hora_inicio, cupom.hora_fim);
+                      const janela = textoJanela(cupom.dias_semana, cupom.hora_inicio, cupom.hora_fim);
+                      return (
+                        <View key={cupom.id} style={[styles.ticket, i > 0 && styles.ticketBorda]}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.ticketTitulo} numberOfLines={2}>{cupom.titulo}</Text>
+                            {!!cupom.descricao && <Text style={styles.ticketDesc} numberOfLines={2}>{cupom.descricao}</Text>}
+                            <Text style={[styles.ticketJanela, vale && { color: '#5BD69A' }]}>
+                              {vale ? 'Vale agora' : janela ? `Vale ${janela}` : 'Hoje não'}
+                            </Text>
+                          </View>
+                          {vale ? (
+                            <TouchableOpacity
+                              style={[styles.ticketBtn, fazendoCheckin && { opacity: 0.5 }]}
+                              onPress={() => (checkinSemCupom ? handleUsarCupom(cupom.id) : handleFazerCheckin(cupom.id))}
+                              disabled={fazendoCheckin}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Usar o cupom ${cupom.titulo}`}
+                            >
+                              <Text style={styles.ticketBtnTxt}>{fazendoCheckin ? '...' : 'Usar'}</Text>
+                            </TouchableOpacity>
+                          ) : (
+                            <View style={styles.ticketFora}><Text style={styles.ticketForaTxt}>Hoje não</Text></View>
+                          )}
+                        </View>
+                      );
+                    })}
+                    {(() => {
+                      const mostrados = verTodosCupons ? cupons.length : Math.min(1, cupons.filter((c) => dentroDaJanela(c.dias_semana, c.hora_inicio, c.hora_fim)).length);
+                      if (cupons.length <= mostrados && !verTodosCupons) return null;
+                      return (
+                        <TouchableOpacity style={styles.verTodos} onPress={() => setVerTodosCupons((v) => !v)} accessibilityRole="button">
+                          <Text style={styles.verTodosTxt}>{verTodosCupons ? 'Mostrar menos' : `Ver ${cupons.length === 1 ? 'o cupom' : `todos os cupons (${cupons.length})`}`}</Text>
+                          <Feather name={verTodosCupons ? 'chevron-up' : 'chevron-down'} size={14} color="#FFD54F" />
                         </TouchableOpacity>
-                      </View>
-                    ))
+                      );
+                    })()}
+                    </>
                   )}
 
                   {meuCheckin && checkinExpirado && (
@@ -848,12 +876,31 @@ export default function BusinessDetailScreen() {
               const ehVip = !!vipN && noPeriodo >= vipN;
               const checkinConfirmado = !!meuCheckin?.validado_em;
               const checkinAberto = !!meuCheckin && !checkinConfirmado && new Date(meuCheckin.expira_em).getTime() >= Date.now();
+              const resumido = !fidAberto && !checkinAberto && !checkinConfirmado && !meta && !f.ja_ganhou;
+              if (resumido) {
+                return (
+                  <TouchableOpacity key={f.programa_id} style={[styles.fidCard, styles.fidResumo]} onPress={() => setFidAberto(true)} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={`Cartão fidelidade: ${f.recompensa} a cada ${n} visitas. Toque para ver`}>
+                    <View style={styles.fidIcone}><Feather name="gift" size={16} color="#FFD54F" /></View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.fidResumoTitulo} numberOfLines={1}>{f.recompensa}</Text>
+                      <View style={styles.fidResumoLinha}>
+                        {n <= 12 && Array.from({ length: n }).map((_, i) => <View key={i} style={[styles.fidMini, i < v && styles.fidMiniOn]} />)}
+                        <Text style={styles.fidResumoSub}>{user ? `${f.visitas}/${n}` : `a cada ${n}`} visitas{noMes ? ' no mês' : ''}</Text>
+                      </View>
+                    </View>
+                    <TouchableOpacity style={[styles.ticketBtn, fazendoCheckin && { opacity: 0.5 }]} onPress={() => handleFazerCheckin(null)} disabled={fazendoCheckin} accessibilityRole="button">
+                      <Text style={styles.ticketBtnTxt}>{fazendoCheckin ? '...' : 'Check-in'}</Text>
+                    </TouchableOpacity>
+                  </TouchableOpacity>
+                );
+              }
               return (
                 <View key={f.programa_id} style={styles.fidCard}>
-                  <View style={styles.cupomHeaderRow}>
+                  <TouchableOpacity style={styles.cupomHeaderRow} onPress={() => setFidAberto(false)} disabled={checkinAberto || checkinConfirmado} accessibilityRole="button">
                     <Feather name="gift" size={14} color="#FFD54F" />
-                    <Text style={styles.cupomHeaderText}>{f.nome || 'Cartão fidelidade'}</Text>
-                  </View>
+                    <Text style={[styles.cupomHeaderText, { flex: 1 }]}>{f.nome || 'Cartão fidelidade'}</Text>
+                    {!checkinAberto && !checkinConfirmado && <Feather name="chevron-up" size={14} color="#A0A0B2" />}
+                  </TouchableOpacity>
                   <Text style={styles.fidRegra}>
                     A cada {n} visita{n === 1 ? '' : 's'}{noMes ? ' no mês' : ''}, ganhe:{' '}
                     <Text style={{ color: '#FFD54F' }}>{f.recompensa}</Text>
@@ -886,11 +933,8 @@ export default function BusinessDetailScreen() {
                           : `Você tem ${f.visitas} de ${n} visitas${noMes ? ' neste mês' : ''}.`}
                   </Text>
 
-                  {!!user && (
-                    <Text style={styles.fidVezes}>
-                      Você já foi {noPeriodo} {noPeriodo === 1 ? 'vez' : 'vezes'}{noMes ? ' neste mês' : ''} a esta casa
-                      {totalVisitas > noPeriodo ? ` · ${totalVisitas} no total` : ''}.
-                    </Text>
+                  {!!user && totalVisitas > noPeriodo && (
+                    <Text style={styles.fidVezes}>{totalVisitas} visitas no total nesta casa.</Text>
                   )}
 
                   {!!vipN && !!f.beneficio_vip && (
@@ -932,11 +976,11 @@ export default function BusinessDetailScreen() {
                       disabled={fazendoCheckin}
                     >
                       <Feather name="check-circle" size={18} color="#FFF" style={{ marginRight: 8 }} />
-                      <Text style={styles.actionBtnText}>{fazendoCheckin ? 'Fazendo check-in...' : cupons.length > 0 ? 'Fazer check-in (visita + cupons)' : 'Fazer check-in (conta 1 visita)'}</Text>
+                      <Text style={styles.actionBtnText}>{fazendoCheckin ? 'Fazendo check-in...' : 'Fazer check-in'}</Text>
                     </TouchableOpacity>
                   )}
                   {cupons.length > 0 && !checkinAberto && !checkinConfirmado && (
-                    <Text style={styles.fidDica}>Um check-in só: conta a visita aqui e libera o cupom que você escolher.</Text>
+                    <Text style={styles.fidDica}>Conta 1 visita. Se for usar um cupom, toque em Usar no cupom: vale como check-in também.</Text>
                   )}
                   {!!user && (
                     <TouchableOpacity onPress={carregarDados} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -1210,7 +1254,27 @@ const styles = StyleSheet.create({
   actionBtn: { flexDirection: 'row', height: 48, backgroundColor: '#E1306C', borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
   mapBtn: { backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230' },
   // Rodada 59 (parte 8) — card de cupom ativo/check-in.
-  cupomCard: { backgroundColor: '#161520', borderWidth: 1, borderColor: '#FFD54F30', borderRadius: 18, padding: 16, marginTop: 14 },
+  cupomCard: { backgroundColor: '#161520', borderWidth: 1, borderColor: '#FFD54F30', borderRadius: 16, padding: 14, marginTop: 12 },
+  cupomResumo: { fontSize: 12, color: '#A0A0B2', marginBottom: 2 },
+  verTodos: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', paddingTop: 8 },
+  verTodosTxt: { fontSize: 12, fontWeight: '800', color: '#FFD54F' },
+  fidResumo: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
+  fidIcone: { width: 34, height: 34, borderRadius: 10, backgroundColor: 'rgba(255,213,79,0.12)', alignItems: 'center', justifyContent: 'center' },
+  fidResumoTitulo: { fontSize: 14, fontWeight: '800', color: '#FFF' },
+  fidResumoLinha: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+  fidMini: { width: 8, height: 8, borderRadius: 4, borderWidth: 1, borderColor: '#5A5970' },
+  fidMiniOn: { backgroundColor: '#FFD54F', borderColor: '#FFD54F' },
+  fidResumoSub: { fontSize: 11, color: '#A0A0B2', fontWeight: '700', marginLeft: 4 },
+  cupomExplica: { fontSize: 12, color: '#A0A0B2', lineHeight: 17, marginTop: -4, marginBottom: 6 },
+  ticket: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
+  ticketBorda: { borderTopWidth: 1, borderStyle: 'dashed', borderTopColor: '#3A3950' },
+  ticketTitulo: { fontSize: 14, fontWeight: '800', color: '#FFF' },
+  ticketDesc: { fontSize: 12, color: '#A0A0B2', marginTop: 1, lineHeight: 16 },
+  ticketJanela: { fontSize: 12, fontWeight: '700', color: '#FFD54F', marginTop: 3 },
+  ticketBtn: { backgroundColor: '#7E57C2', borderRadius: 12, paddingHorizontal: 16, height: 38, justifyContent: 'center' },
+  ticketBtnTxt: { color: '#FFF', fontSize: 13, fontWeight: '800' },
+  ticketFora: { borderRadius: 12, paddingHorizontal: 10, height: 30, justifyContent: 'center', backgroundColor: '#232230' },
+  ticketForaTxt: { color: '#8A8AA0', fontSize: 11, fontWeight: '700' },
   // Rodada 60 — selo de classificação da relação com a comunidade LGBT+
   // (Câmara de Comércio LGBT+), pedido pra ficar visível perto do cupom.
   classificacaoCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: '#161520', borderWidth: 1, borderColor: '#7E57C230', borderRadius: 18, padding: 16, marginTop: 14 },
@@ -1252,20 +1316,20 @@ const styles = StyleSheet.create({
   progLinha: { flexDirection: 'row', gap: 10, paddingVertical: 7, borderBottomWidth: 1, borderBottomColor: '#232230' },
   progDia: { width: 74, fontSize: 12, fontWeight: '800', color: '#E1306C', textTransform: 'uppercase' },
   progTexto: { flex: 1, fontSize: 13, color: '#D0D0E0', lineHeight: 18 },
-  fidCard: { backgroundColor: '#161520', borderWidth: 1, borderColor: '#FFD54F30', borderRadius: 18, padding: 16, marginTop: 14 },
-  fidRegra: { fontSize: 15, fontWeight: '800', color: '#FFF', lineHeight: 21, marginBottom: 4 },
+  fidCard: { backgroundColor: '#161520', borderWidth: 1, borderColor: '#FFD54F30', borderRadius: 16, padding: 14, marginTop: 12 },
+  fidRegra: { fontSize: 14, fontWeight: '800', color: '#FFF', lineHeight: 19, marginBottom: 2 },
   fidBolinhas: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12, marginBottom: 4 },
-  fidBolinha: { width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, borderColor: '#3A3950', alignItems: 'center', justifyContent: 'center' },
+  fidBolinha: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: '#3A3950', alignItems: 'center', justifyContent: 'center' },
   fidBolinhaOn: { backgroundColor: '#FFD54F', borderColor: '#FFD54F' },
   fidBarra: { height: 8, borderRadius: 4, backgroundColor: '#232230', overflow: 'hidden', marginTop: 12, marginBottom: 4 },
   fidBarraOn: { height: 8, backgroundColor: '#FFD54F' },
-  fidProgresso: { fontSize: 13, color: '#D0D0E0', marginTop: 8 },
+  fidProgresso: { fontSize: 12, color: '#D0D0E0', marginTop: 6 },
   fidDica: { fontSize: 11, color: '#A0A0B2', marginTop: 8 },
   fidVezes: { color: '#D0D0E0', fontSize: 12, fontWeight: '700', marginTop: 6 },
   fidVip: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10, padding: 10, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,213,79,0.35)', backgroundColor: 'rgba(255,213,79,0.08)' },
   fidVipOn: { backgroundColor: '#FFD54F', borderColor: '#FFD54F' },
   fidVipTexto: { flex: 1, color: '#FFD54F', fontSize: 12, fontWeight: '700' },
-  fidAtualizar: { fontSize: 11, fontWeight: '700', color: '#E1306C', marginTop: 10, textDecorationLine: 'underline' },
+  fidAtualizar: { fontSize: 11, fontWeight: '700', color: '#A0A0B2', marginTop: 10 },
 
   videoCard: { marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230', borderRadius: 18, padding: 16 },
   videoPlay: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#E1306C', alignItems: 'center', justifyContent: 'center' },

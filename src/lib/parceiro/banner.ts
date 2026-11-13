@@ -123,3 +123,71 @@ export const PLANO_TEXTO: Record<'fundador' | 'premium', { nome: string; cor: st
     'Se você faz festas: destaque até 4 por mês em “Festas em destaque” (só o flyer), todos os dias até a festa. Ative em Minhas festas › Destacar com o plano.',
   ] },
 };
+
+// ---------------------------------------------------------------------------------------------------------------
+// Rodada 146 — escolher QUAL banner mudar: Home (Membro Fundador) ou topo da categoria.
+//   • Categoria = colunas normais de destaque_chamada (banner padrão).
+//   • Home = destaque_chamada.variantes.home (migração 096; a Home já lê primeiro essa variante).
+//   • Sem nada salvo ainda, a Home mostra a frase da equipe de comunicação (fundador_comunicacao.headline,
+//     ex.: "Já ouviu falar do Vezpa Queen?"): ela vem preenchida para a pessoa só ajustar.
+//   • Salvar a categoria de um Fundador guarda a frase atual da Home em variantes.home, para a Home não mudar junto.
+export type LugarBanner = 'home' | 'categoria';
+type VarianteSalva = Partial<Record<'chamada' | 'cta' | 'imagem_url' | 'estilo' | 'cor1' | 'cor2' | 'cor_texto' | 'destaque_texto' | 'cor_destaque', string | null>>;
+
+const deVariante = (v: VarianteSalva): Banner => ({
+  chamada: v.chamada || '', cta: v.cta || 'Conhecer', imagem_url: v.imagem_url || null,
+  estilo: ((v.estilo as EstiloBanner) || (v.imagem_url ? 'foto_metade' : 'degrade')),
+  cor1: v.cor1 ?? null, cor2: v.cor2 ?? null, cor_texto: v.cor_texto ?? null, destaque_texto: v.destaque_texto || '', cor_destaque: v.cor_destaque ?? null,
+});
+const paraVariante = (b: Banner): VarianteSalva => ({
+  chamada: b.chamada.trim(), cta: b.cta.trim() || 'Conhecer', imagem_url: b.imagem_url || null, estilo: b.estilo,
+  cor1: b.cor1, cor2: b.cor2, cor_texto: b.cor_texto, destaque_texto: b.destaque_texto.trim() || null, cor_destaque: b.cor_destaque,
+});
+const colunas = (b: Banner) => ({
+  chamada: b.chamada.trim(), cta: b.cta.trim() || 'Conhecer', imagem_url: b.imagem_url || null, estilo: b.estilo,
+  cor1: b.cor1, cor2: b.cor2, cor_texto: b.cor_texto, destaque_texto: b.destaque_texto.trim() || null, cor_destaque: b.cor_destaque,
+});
+
+async function linhaAtual(localId: string): Promise<{ existe: boolean; variantes: Record<string, VarianteSalva> }> {
+  const { data, error } = await (supabase.from('destaque_chamada') as any).select('local_id, variantes').eq('local_id', localId).maybeSingle();
+  if (error) return { existe: false, variantes: {} };
+  return { existe: !!data, variantes: ((data as any)?.variantes as Record<string, VarianteSalva>) || {} };
+}
+
+export async function obterBanners(localId: string): Promise<{ categoria: Banner; home: Banner; atualizado: string | null; existe: boolean }> {
+  const base = await obterBanner(localId);
+  const [{ variantes }, fc] = await Promise.all([
+    linhaAtual(localId),
+    (supabase.from('fundador_comunicacao') as any).select('headline, cta').eq('local_id', localId).maybeSingle(),
+  ]);
+  const frase = (fc?.data as { headline?: string | null; cta?: string | null } | null) || null;
+  const categoria = base.existe ? base.banner : { ...BANNER_VAZIO, chamada: frase?.headline || '' };
+  const home = variantes.home?.chamada
+    ? deVariante(variantes.home)
+    : base.existe
+    ? base.banner
+    : { ...BANNER_VAZIO, chamada: frase?.headline || '', cta: frase?.cta || 'Conhecer' };
+  return { categoria, home, atualizado: base.atualizado, existe: base.existe };
+}
+
+// homeAtual: como a Home está salva agora (para não mudar junto quando se salva a categoria de um Fundador).
+export async function salvarBannerNoLugar(localId: string, lugar: LugarBanner, b: Banner, opc: { fundador: boolean; homeAtual: Banner; categoriaAtual: Banner }) {
+  const erro = Object.values(validarBanner(b))[0];
+  if (erro) throw new Error(erro);
+  const { existe, variantes } = await linhaAtual(localId);
+  if (lugar === 'categoria') {
+    const novas = { ...variantes };
+    if (opc.fundador && !novas.home?.chamada && opc.homeAtual.chamada.trim()) novas.home = paraVariante(opc.homeAtual);
+    const { error } = await (supabase.from('destaque_chamada') as any).upsert({ local_id: localId, ...colunas(b), variantes: novas });
+    if (error) throw new Error(traduzirErro(error));
+  } else {
+    const novas = { ...variantes, home: paraVariante(b) };
+    const q = existe
+      ? (supabase.from('destaque_chamada') as any).update({ variantes: novas }).eq('local_id', localId)
+      : (supabase.from('destaque_chamada') as any).insert({ local_id: localId, ...colunas(opc.categoriaAtual.chamada.trim() ? opc.categoriaAtual : b), variantes: novas });
+    const { error } = await q;
+    if (error) throw new Error(traduzirErro(error));
+  }
+  const salvo = await obterBanner(localId);
+  return { atualizado: salvo.atualizado || new Date().toISOString() };
+}

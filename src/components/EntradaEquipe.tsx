@@ -105,17 +105,26 @@ export default function EntradaEquipe() {
   }
 
   return (
-    <View style={{ gap: 8, marginBottom: 14 }}>
-      <TouchableOpacity style={s.linhaBotao} onPress={abrirConvite} accessibilityRole="button">
-        <Feather name="users" size={18} color={C.dim} />
-        <Text style={s.linhaTxt}>Tenho um código de equipe</Text>
-        <Feather name="chevron-right" size={18} color={C.fraco} />
-      </TouchableOpacity>
-      <TouchableOpacity style={s.linhaBotao} onPress={() => setAberto('porta')} accessibilityRole="button">
-        <Feather name="key" size={18} color={C.dim} />
-        <Text style={s.linhaTxt}>Sou da equipe da porta</Text>
-        <Feather name="chevron-right" size={18} color={C.fraco} />
-      </TouchableOpacity>
+    <View>
+      <Text style={s.grupo}>TRABALHA EM UMA CASA PARCEIRA?</Text>
+      <View style={s.grupoCard}>
+        <TouchableOpacity style={[s.linhaBotao, s.borda]} onPress={abrirConvite} accessibilityRole="button">
+          <View style={[s.mini, { backgroundColor: '#7E57C226' }]}><Feather name="users" size={16} color="#B39DDB" /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.linhaTxt}>Tenho um código de equipe</Text>
+            <Text style={s.linhaSub}>Gerente ou social media de um bar</Text>
+          </View>
+          <Feather name="chevron-right" size={18} color={C.fraco} />
+        </TouchableOpacity>
+        <TouchableOpacity style={s.linhaBotao} onPress={() => setAberto('porta')} accessibilityRole="button">
+          <View style={[s.mini, { backgroundColor: '#E1306C26' }]}><Feather name="key" size={16} color={C.rosa} /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.linhaTxt}>Sou da equipe da porta</Text>
+            <Text style={s.linhaSub}>Código da casa e senha de 6 números</Text>
+          </View>
+          <Feather name="chevron-right" size={18} color={C.fraco} />
+        </TouchableOpacity>
+      </View>
 
       <Modal visible={!!aberto} transparent animationType="slide" onRequestClose={fechar}>
         <KeyboardAvoidingView style={s.fundo} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -166,8 +175,13 @@ export default function EntradaEquipe() {
 }
 
 const s = StyleSheet.create({
-  linhaBotao: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.card, borderColor: C.borda, borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, minHeight: 52 },
-  linhaTxt: { flex: 1, color: C.texto, fontSize: 14, fontWeight: '700' },
+  grupo: { fontSize: 11, fontWeight: '800', color: '#8A8A9E', letterSpacing: 0.8, marginTop: 8, marginBottom: 8, marginLeft: 6 },
+  grupoCard: { backgroundColor: C.card, borderRadius: 16, borderWidth: 1, borderColor: C.borda, overflow: 'hidden', marginBottom: 18 },
+  linhaBotao: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12, minHeight: 56 },
+  borda: { borderBottomWidth: 1, borderBottomColor: C.borda },
+  mini: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  linhaTxt: { color: C.texto, fontSize: 14, fontWeight: '700' },
+  linhaSub: { color: C.dim, fontSize: 12, marginTop: 1 },
   cartao: { backgroundColor: C.card, borderColor: '#3A1D2A', borderWidth: 1, borderRadius: 16, padding: 14, marginBottom: 14 },
   linha: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   icone: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#2A1420', alignItems: 'center', justifyContent: 'center' },

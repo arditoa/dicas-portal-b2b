@@ -7,7 +7,7 @@ import { normTxt, SUBCATEGORIAS } from '../../lib/subcategorias';
 import { EstadoSubcategorias, buscarEstadoSubcategorias, buscarSubcategoriasDesligadas, buscarIdsFundadores, buscarVagas } from '../../lib/vitrine';
 import MarcaApp from '../../components/MarcaApp';
 import { Feather } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import FiltrosPilulas from '../../components/FiltrosPilulas';
 import { useLocation } from '../../hooks/useLocation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -300,10 +300,11 @@ export default function EventsScreen() {
   }, []);
   const [showFiltrosModal, setShowFiltrosModal] = useState(false);
 
-  // Agenda dos bares (portal B2B) — só alimenta o filtro "Essa semana".
+  // Agenda dos bares (portal B2B e Modo parceiro): "Essa semana", e também "Hoje"/"Amanhã" (13/11).
   const [agendaBares, setAgendaBares] = useState<AgendaBar[]>([]);
   const [cartazAberto, setCartazAberto] = useState<AgendaBar | null>(null);
-  useEffect(() => {
+  // Recarrega sempre que a aba Eventos ganha foco: o bar sobe a programação e ela aparece sem fechar o app.
+  useFocusEffect(useCallback(() => {
     let vivo = true;
     (async () => {
       const seg = segundaDestaSemana();
@@ -320,7 +321,7 @@ export default function EventsScreen() {
       if (vivo && !error && data) setAgendaBares(data as AgendaBar[]);
     })();
     return () => { vivo = false; };
-  }, []);
+  }, []));
 
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
@@ -723,6 +724,9 @@ export default function EventsScreen() {
     .filter((b) => b.evs.length + b.ag.length > 0);
   const totalSemana = blocosSemana.reduce((n, b) => n + b.evs.length + b.ag.length, 0) + cartazesSemana.length;
 
+  const amanha = new Date(); amanha.setDate(amanha.getDate() + 1);
+  const agendaDaLista: AgendaBar[] = dateFilter === 'hoje' ? agendaDoDia(new Date()) : dateFilter === 'amanha' ? agendaDoDia(amanha) : [];
+
   const renderAgendaBar = (a: AgendaBar) => (
     <TouchableOpacity
       key={a.id}
@@ -1034,7 +1038,7 @@ export default function EventsScreen() {
             <Text style={styles.eventCount}>
               {dateFilter === 'semana'
                 ? `${totalSemana} ${totalSemana === 1 ? 'programação' : 'programações'}`
-                : `${eventosDaLista.length} ${eventosDaLista.length === 1 ? 'evento' : 'eventos'}`}
+                : `${eventosDaLista.length + agendaDaLista.length} ${eventosDaLista.length + agendaDaLista.length === 1 ? 'programação' : 'programações'}`}
             </Text>
           </View>
 
@@ -1044,7 +1048,7 @@ export default function EventsScreen() {
             </View>
           ) : dateFilter === 'semana' ? (
             renderSemana()
-          ) : eventosDaLista.length === 0 ? (
+          ) : eventosDaLista.length === 0 && agendaDaLista.length === 0 ? (
             <View style={styles.emptyBox}>
               <Feather name="calendar" size={32} color={COLORS.textMuted} />
               <Text style={styles.emptyText}>
@@ -1054,7 +1058,10 @@ export default function EventsScreen() {
               </Text>
             </View>
           ) : (
-            eventosDaLista.map(renderEventCard)
+            <>
+              {eventosDaLista.map(renderEventCard)}
+              {agendaDaLista.map(renderAgendaBar)}
+            </>
           )}
         </View>
 

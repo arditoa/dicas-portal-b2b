@@ -56,7 +56,7 @@ export default function FestaEditar() {
   const [onde, setOnde] = useState<string | undefined>(undefined);
 
   const sujo = JSON.stringify(form) !== base;
-  useAvisoSairSemSalvar(sujo && !salvando);
+  const voltar = useAvisoSairSemSalvar(sujo && !salvando);
 
   const carregar = useCallback(async () => {
     const alvo = id || repetir;
@@ -186,7 +186,7 @@ export default function FestaEditar() {
     return (
       <TelaParceiro titulo="Festa">
         <Text style={a.aviso}>Seu acesso não inclui as festas deste local. Peça para o dono liberar a permissão de festas.</Text>
-        <TouchableOpacity style={a.voltar} onPress={() => router.back()}><Feather name="chevron-left" size={16} color={CP.dim} /><Text style={a.voltarTxt}>Voltar</Text></TouchableOpacity>
+        <TouchableOpacity style={a.voltar} onPress={voltar}><Feather name="chevron-left" size={16} color={CP.dim} /><Text style={a.voltarTxt}>Voltar</Text></TouchableOpacity>
       </TelaParceiro>
     );
   }
@@ -200,7 +200,7 @@ export default function FestaEditar() {
   return (
     <View style={a.tela}>
       <TelaParceiro titulo={titulo} subtitulo={sub}>
-        <TouchableOpacity style={a.voltar} onPress={() => router.back()} accessibilityRole="button"><Feather name="chevron-left" size={16} color={CP.dim} /><Text style={a.voltarTxt}>Voltar</Text></TouchableOpacity>
+        <TouchableOpacity style={a.voltar} onPress={voltar} accessibilityRole="button"><Feather name="chevron-left" size={16} color={CP.dim} /><Text style={a.voltarTxt}>Voltar</Text></TouchableOpacity>
 
         {sit && (
           <View style={[a.situacao, { borderColor: sit.cor + '66' }]}>

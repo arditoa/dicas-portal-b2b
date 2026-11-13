@@ -38,10 +38,10 @@ export default function Clientes() {
     <TelaParceiro atualizando={carregando && clientes.length > 0} aoAtualizar={recarregar}>
       <TouchableOpacity style={c.voltar} onPress={() => router.back()} accessibilityRole="button">
         <Feather name="chevron-left" size={18} color={CP.texto} />
-        <Text style={c.voltarTxt}>Fidelizar</Text>
+        <Text style={c.voltarTxt}>Voltar</Text>
       </TouchableOpacity>
       <Text style={c.titulo}>Clientes VIP</Text>
-      <Text style={c.sub}>VIP = {meta} visitas ou mais nos últimos 90 dias (meta do seu cartão fidelidade).</Text>
+      <Text style={c.sub}>Só quem já fez check-in na casa ou entrou pela Lista VIP. VIP = {meta} visitas ou mais nos últimos 90 dias.</Text>
 
       <View style={c.filtros}>
         {([
@@ -69,8 +69,8 @@ export default function Clientes() {
       ) : !carregando && lista.length === 0 ? (
         <Text style={c.vazio}>
           {filtro === 'aniversario'
-            ? 'Ninguém faz aniversário nos próximos 30 dias, ou os clientes ainda não autorizaram mostrar a data.'
-            : 'Nenhum cliente por aqui ainda.'}
+            ? 'Nenhum cliente que já veio à casa faz aniversário nos próximos 30 dias (ou ainda não autorizou mostrar a data).'
+            : 'Ainda ninguém fez check-in na casa. Quem fizer check-in ou entrar pela Lista VIP aparece aqui.'}
         </Text>
       ) : (
         <View style={c.lista}>

@@ -16,8 +16,8 @@ import { CP, ESP, RAIO, TelaParceiro, TituloSecao } from '../../components/parce
 import { CORES_DESTAQUE_BANNER, CORES_TEXTO_BANNER, DEGRADES_BANNER, ESTILOS_BANNER, estiloDoCartao } from '../../lib/estiloBanner';
 import { useModoParceiro } from '../../lib/modoParceiro';
 import {
-  Banner, BANNER_VAZIO, diasDesde, ErrosBanner, MAX_CTA, MAX_DESTAQUE, maxChamada, meioBanner, obterBanner, PLANO_TEXTO, salvarBanner,
-  textoDaVaga, Vaga, vagasDoLocal, validarBanner,
+  Banner, BANNER_VAZIO, diasDesde, ErrosBanner, LugarBanner, MAX_CTA, MAX_DESTAQUE, maxChamada, meioBanner, NOME_CATEGORIA_APP, obterBanners, PLANO_TEXTO,
+  salvarBannerNoLugar, textoDaVaga, Vaga, vagasDoLocal, validarBanner,
 } from '../../lib/parceiro/banner';
 import { falarComEquipe, nivelDoPlano } from '../../lib/parceiroMenu';
 import { formatarNome } from '../../lib/texto';
@@ -34,8 +34,11 @@ export default function BannerParceiro() {
   const premium = nivelDoPlano(localAtivo?.plano_comercial) === 'premium'; // Premium ou Fundador, plano efetivo
   const fundador = localAtivo?.plano_comercial === 'fundador';
 
-  const [b, setB] = useState<Banner>({ ...BANNER_VAZIO });
-  const [base, setBase] = useState(() => JSON.stringify(BANNER_VAZIO));
+  // Rodada 146 — dois banners: Home (Fundador) e topo da categoria. A pessoa escolhe qual está editando.
+  const [lugar, setLugar] = useState<LugarBanner>('categoria');
+  const [bs, setBs] = useState<Record<LugarBanner, Banner>>({ home: { ...BANNER_VAZIO }, categoria: { ...BANNER_VAZIO } });
+  const [bases, setBases] = useState<Record<LugarBanner, string>>({ home: JSON.stringify(BANNER_VAZIO), categoria: JSON.stringify(BANNER_VAZIO) });
+  const b = bs[lugar];
   const [atualizado, setAtualizado] = useState<string | null>(null);
   const [vagas, setVagas] = useState<Vaga[]>([]);
   const [carregando, setCarregando] = useState(true);
@@ -43,15 +46,17 @@ export default function BannerParceiro() {
   const [erros, setErros] = useState<ErrosBanner>({});
   const [verPlano, setVerPlano] = useState(false);
 
-  const sujo = JSON.stringify(b) !== base;
-  useAvisoSairSemSalvar(sujo && !salvando);
+  const sujoEm = (l: LugarBanner) => JSON.stringify(bs[l]) !== bases[l];
+  const sujo = sujoEm('home') || sujoEm('categoria');
+  const voltar = useAvisoSairSemSalvar(sujo && !salvando);
 
   const carregar = useCallback(async () => {
     if (!localId || !premium) { setCarregando(false); return; }
     try {
-      const [r, v] = await Promise.all([obterBanner(localId), vagasDoLocal(localId)]);
-      setB(r.banner);
-      setBase(JSON.stringify(r.banner));
+      const [r, v] = await Promise.all([obterBanners(localId), vagasDoLocal(localId)]);
+      setBs({ home: r.home, categoria: r.categoria });
+      setBases({ home: JSON.stringify(r.home), categoria: JSON.stringify(r.categoria) });
+      if (fundador) setLugar('home');
       setAtualizado(r.atualizado);
       setVagas(v);
     } catch (e: any) {
@@ -59,31 +64,42 @@ export default function BannerParceiro() {
     } finally {
       setCarregando(false);
     }
-  }, [localId, premium]);
+  }, [localId, premium, fundador]);
   useEffect(() => { void carregar(); }, [carregar]);
 
   const mudar = (p: Partial<Banner>) => {
-    setB((x) => {
+    setBs((todos) => {
+      const x = todos[lugar];
       const novo = { ...x, ...p };
       // Igual ao portal: subiu foto com "Só cor" → passa para "Foto à direita".
       if ('imagem_url' in p && p.imagem_url && x.estilo === 'degrade') novo.estilo = 'foto_metade';
-      return novo;
+      return { ...todos, [lugar]: novo };
     });
     setErros({});
   };
 
   const salvar = async () => {
-    const e = validarBanner(b);
-    if (Object.keys(e).length) {
-      setErros(e);
-      return Alert.alert('Falta ajustar', Object.values(e).join('\n'));
+    const sujos = (['categoria', 'home'] as LugarBanner[]).filter(sujoEm);
+    for (const l of sujos) {
+      const e = validarBanner(bs[l]);
+      if (Object.keys(e).length) {
+        setLugar(l);
+        setErros(e);
+        return Alert.alert('Falta ajustar', `${l === 'home' ? 'Banner da Home' : 'Banner da categoria'}:\n${Object.values(e).join('\n')}`);
+      }
     }
     setSalvando(true);
     try {
-      const r = await salvarBanner(localId, b);
-      setBase(JSON.stringify(b));
-      setAtualizado(r.atualizado);
-      Alert.alert(r.aviso ? 'Salvo em parte' : 'Banner salvo', r.aviso || 'O banner já usa essa frase no app.');
+      let ult: string | null = null;
+      const salvos = { home: JSON.parse(bases.home) as Banner, categoria: JSON.parse(bases.categoria) as Banner };
+      for (const l of sujos) {
+        const r = await salvarBannerNoLugar(localId, l, bs[l], { fundador, homeAtual: salvos.home, categoriaAtual: salvos.categoria });
+        salvos[l] = bs[l];
+        ult = r.atualizado;
+      }
+      setBases({ home: JSON.stringify(salvos.home), categoria: JSON.stringify(salvos.categoria) });
+      if (ult) setAtualizado(ult);
+      Alert.alert('Banner salvo', sujos.length > 1 ? 'Os dois banners já estão atualizados no app.' : sujos[0] === 'home' ? 'O banner da Home já usa essa frase.' : 'O banner da categoria já usa essa frase.');
     } catch (x: any) {
       Alert.alert('Banner', x?.message || 'Não deu para salvar.');
     } finally {
@@ -105,7 +121,7 @@ export default function BannerParceiro() {
     return (
       <TelaParceiro titulo="Banner">
         <Text style={a.aviso}>Seu acesso não inclui o banner deste local. Peça para o dono liberar a permissão de banner.</Text>
-        <TouchableOpacity style={a.voltar} onPress={() => router.back()}><Feather name="chevron-left" size={16} color={CP.dim} /><Text style={a.voltarTxt}>Voltar</Text></TouchableOpacity>
+        <TouchableOpacity style={a.voltar} onPress={voltar}><Feather name="chevron-left" size={16} color={CP.dim} /><Text style={a.voltarTxt}>Voltar</Text></TouchableOpacity>
       </TelaParceiro>
     );
   }
@@ -113,7 +129,7 @@ export default function BannerParceiro() {
   if (!premium) {
     return (
       <TelaParceiro titulo="Banner" subtitulo="Na Home e no topo da categoria.">
-        <TouchableOpacity style={a.voltar} onPress={() => router.back()} accessibilityRole="button"><Feather name="chevron-left" size={16} color={CP.dim} /><Text style={a.voltarTxt}>Voltar</Text></TouchableOpacity>
+        <TouchableOpacity style={a.voltar} onPress={voltar} accessibilityRole="button"><Feather name="chevron-left" size={16} color={CP.dim} /><Text style={a.voltarTxt}>Voltar</Text></TouchableOpacity>
         <View style={a.trava}>
           <View style={a.travaIcone}><Feather name="lock" size={18} color="#FFF" /></View>
           <Text style={a.travaTitulo}>Banner nos planos Premium e Fundador</Text>
@@ -137,7 +153,7 @@ export default function BannerParceiro() {
   return (
     <View style={a.tela}>
       <TelaParceiro titulo="Banner" subtitulo={fundador ? 'Na Home, nos Destaques e no topo da categoria.' : 'No topo da sua categoria.'}>
-        <TouchableOpacity style={a.voltar} onPress={() => router.back()} accessibilityRole="button"><Feather name="chevron-left" size={16} color={CP.dim} /><Text style={a.voltarTxt}>Voltar</Text></TouchableOpacity>
+        <TouchableOpacity style={a.voltar} onPress={voltar} accessibilityRole="button"><Feather name="chevron-left" size={16} color={CP.dim} /><Text style={a.voltarTxt}>Voltar</Text></TouchableOpacity>
 
         {/* Trocado há N dias */}
         <View style={[a.dias, dias !== null && dias >= 7 && a.diasAlerta]}>
@@ -167,6 +183,30 @@ export default function BannerParceiro() {
           ))}
         </TouchableOpacity>
 
+        {/* Qual banner (Fundador tem Home e categoria; Premium só categoria) */}
+        {fundador && (
+          <>
+            <TituloSecao texto="Qual banner você quer mudar?" />
+            <View style={a.lugares}>
+              {([
+                ['home', 'Home', 'Membros Fundadores', 'star'],
+                ['categoria', 'Categoria', NOME_CATEGORIA_APP[localAtivo.categoria === 'lugares' ? 'bares' : localAtivo.categoria] || 'Topo da categoria', 'grid'],
+              ] as [LugarBanner, string, string, keyof typeof Feather.glyphMap][]).map(([l, t1, t2, ic]) => {
+                const on = lugar === l;
+                return (
+                  <TouchableOpacity key={l} style={[a.lugar, on && a.lugarOn]} onPress={() => { setLugar(l); setErros({}); }} accessibilityRole="radio" accessibilityState={{ selected: on }}>
+                    <Feather name={ic} size={15} color={on ? '#FFF' : CP.dim} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[a.lugarTitulo, on && { color: '#FFF' }]}>{t1}{sujoEm(l) ? ' •' : ''}</Text>
+                      <Text style={a.lugarSub} numberOfLines={1}>{t2}</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </>
+        )}
+
         {/* 1 · Frase */}
         <TituloSecao texto="1 · Frase" info="No banner do topo da categoria seu nome não aparece: aparece uma chamada que dá vontade de conhecer. Quem toca vai para a página da casa." />
         <Campo
@@ -176,7 +216,10 @@ export default function BannerParceiro() {
           max={max}
           erro={erros.chamada}
           linhas
-          exemplo="Ex.: Conheça o nosso queridinho drink de Lichia"
+          exemplo={lugar === 'home' ? 'Ex.: Já conhece o Vezpa Queen?' : 'Ex.: Conheça o nosso queridinho drink de Lichia'}
+          ajuda={b.chamada.trim() && b.chamada === (JSON.parse(bases[lugar]) as Banner).chamada
+            ? `É o texto que aparece hoje ${lugar === 'home' ? 'na Home' : 'na categoria'}. Pode mudar quando quiser.`
+            : undefined}
         />
         <Campo rotulo="Texto do botão" valor={b.cta} aoMudar={(v) => mudar({ cta: v })} max={MAX_CTA} erro={erros.cta} exemplo="Conhecer" />
 
@@ -241,14 +284,15 @@ export default function BannerParceiro() {
         {/* Prévia ao vivo */}
         <TituloSecao texto="Como aparece no app" />
         <View style={{ gap: ESP.s }}>
-          {fundador && (
+          {lugar === 'home' ? (
             <Previa onde="Home · Membros Fundadores">
               <CarrosselAnuncios anuncios={[anuncio(nomeTag, PADRAO_HOME, 'star')]} />
             </Previa>
+          ) : (
+            <Previa onde="Topo da categoria">
+              <CarrosselAnuncios anuncios={[anuncio('', PADRAO_CATEGORIA, fundador ? 'star' : 'map-pin')]} />
+            </Previa>
           )}
-          <Previa onde="Topo da categoria">
-            <CarrosselAnuncios anuncios={[anuncio('', PADRAO_CATEGORIA, fundador ? 'star' : 'map-pin')]} />
-          </Previa>
         </View>
         <View style={{ height: ESP.xl }} />
       </TelaParceiro>
@@ -277,6 +321,11 @@ function CorChips({ rotulo, opcoes, valor, aoMudar }: { rotulo: string; opcoes: 
 }
 
 const a = StyleSheet.create({
+  lugares: { flexDirection: 'row', gap: ESP.s },
+  lugar: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: CP.card, borderColor: CP.borda, borderWidth: 1, borderRadius: RAIO.m, padding: ESP.m, minHeight: 56 },
+  lugarOn: { backgroundColor: '#E1306C1F', borderColor: CP.rosa },
+  lugarTitulo: { color: CP.dim, fontSize: 14, fontWeight: '800' },
+  lugarSub: { color: CP.fraco, fontSize: 11, marginTop: 1 },
   tela: { flex: 1, backgroundColor: CP.bg },
   centro: { alignItems: 'center', justifyContent: 'center' },
   voltar: { flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: ESP.s, minHeight: 44, alignSelf: 'flex-start' },

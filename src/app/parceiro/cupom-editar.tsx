@@ -46,7 +46,7 @@ export default function CupomEditar() {
   const [original, setOriginal] = useState<{ valido_de: string | null; valido_ate: string | null; limite_uso: number | null; ativo: boolean } | null>(null);
 
   const sujo = JSON.stringify(form) !== base;
-  useAvisoSairSemSalvar(sujo && !salvando);
+  const voltar = useAvisoSairSemSalvar(sujo && !salvando);
 
   const carregar = useCallback(async () => {
     if (!localId) return;
@@ -117,7 +117,7 @@ export default function CupomEditar() {
     return (
       <TelaParceiro titulo="Cupom">
         <Text style={a.aviso}>Seu acesso não inclui os cupons deste local. Peça para o dono liberar a permissão de cupons.</Text>
-        <TouchableOpacity style={a.voltar} onPress={() => router.back()}><Feather name="chevron-left" size={16} color={CP.dim} /><Text style={a.voltarTxt}>Voltar</Text></TouchableOpacity>
+        <TouchableOpacity style={a.voltar} onPress={voltar}><Feather name="chevron-left" size={16} color={CP.dim} /><Text style={a.voltarTxt}>Voltar</Text></TouchableOpacity>
       </TelaParceiro>
     );
   }
@@ -130,7 +130,7 @@ export default function CupomEditar() {
   return (
     <View style={a.tela}>
       <TelaParceiro titulo={form.id ? 'Editar cupom' : 'Novo cupom'} subtitulo="Aparece na página da casa e na faixa de cupons da categoria.">
-        <TouchableOpacity style={a.voltar} onPress={() => router.back()} accessibilityRole="button"><Feather name="chevron-left" size={16} color={CP.dim} /><Text style={a.voltarTxt}>Voltar</Text></TouchableOpacity>
+        <TouchableOpacity style={a.voltar} onPress={voltar} accessibilityRole="button"><Feather name="chevron-left" size={16} color={CP.dim} /><Text style={a.voltarTxt}>Voltar</Text></TouchableOpacity>
 
         {/* Bloqueio do plano (só para cupom novo) */}
         {travadoNovo && (

@@ -1,8 +1,8 @@
 // Barra fixa embaixo com a ação principal (Salvar / Publicar). Trava enquanto salva.
 // Para avisar ao sair sem salvar: `useAvisoSairSemSalvar(sujo)` (voltar do Android e gesto de voltar)
 // e `confirmarSair(sujo, sair)` para fechar folhas/modais.
-import { usePreventRemove, useNavigation } from 'expo-router';
-import { useEffect } from 'react';
+import { usePreventRemove, useNavigation, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef } from 'react';
 import { ActivityIndicator, Alert, BackHandler, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CP, ESP, RAIO } from '../TelaParceiro';
@@ -16,17 +16,34 @@ export function confirmarSair(sujo: boolean, sair: () => void) {
   ]);
 }
 
+// Devolve `voltar()`: use no botão "Voltar" da tela. Com mudança não salva, pergunta antes de sair.
+// Também trava o gesto de arrastar para voltar (iPhone) e o voltar do Android enquanto houver mudança.
 export function useAvisoSairSemSalvar(sujo: boolean) {
   const navigation = useNavigation();
-  usePreventRemove(sujo, ({ data }) => confirmarSair(true, () => navigation.dispatch(data.action)));
+  const router = useRouter();
+  const liberado = useRef(false);
+  const sair = useCallback(() => {
+    liberado.current = true;
+    if (router.canGoBack()) router.back();
+    else router.replace('/parceiro');
+  }, [router]);
+  // Rede de segurança para qualquer outra saída (ex.: router.replace de outro lugar).
+  usePreventRemove(sujo, ({ data }) => {
+    if (liberado.current) return navigation.dispatch(data.action);
+    confirmarSair(true, () => { liberado.current = true; navigation.dispatch(data.action); });
+  });
+  useEffect(() => {
+    navigation.setOptions({ gestureEnabled: !sujo });
+  }, [sujo, navigation]);
   useEffect(() => {
     if (!sujo) return;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      confirmarSair(true, () => navigation.goBack());
+      confirmarSair(true, sair);
       return true;
     });
     return () => sub.remove();
-  }, [sujo, navigation]);
+  }, [sujo, sair]);
+  return useCallback(() => confirmarSair(sujo, sair), [sujo, sair]);
 }
 
 export function BarraSalvar({ rotulo = 'Salvar', salvando, aoSalvar, desabilitado, secundario, emFolha }: {

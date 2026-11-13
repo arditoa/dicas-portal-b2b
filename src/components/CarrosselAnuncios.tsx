@@ -3,6 +3,8 @@ import { ReactNode, useEffect, useRef, useState } from 'react';
 import { Image, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useReduzirMovimento } from '../hooks/useReduzirMovimento';
 import FundoCaixaDegrade from './FundoCaixaDegrade';
+import BotaoCta, { ctaImperativo } from './BotaoCta';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { partesDaFrase } from '../lib/estiloBanner';
 
 // Carrossel de anúncios da Home (no lugar do antigo cartão único da Copa):
@@ -34,15 +36,26 @@ export type Anuncio = {
 };
 
 const INTERVALO_MS = 5000;
-// Texto legível sobre a cor do botão: escuro em cores claras (amarelo, branco), branco nas demais.
-function textoSobre(hex: string): string {
-  const n = parseInt(hex.slice(1), 16);
-  const lum = 0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255);
-  return lum > 170 ? '#1A1020' : '#FFFFFF';
+
+// Design nov/2026 — foto sempre no cartão inteiro, com um véu escuro mais forte à esquerda (onde ficam os dizeres)
+// que clareia para a direita, para a foto aparecer e o texto continuar legível.
+export function VeuFoto({ id }: { id: string }) {
+  return (
+    <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" preserveAspectRatio="none" pointerEvents="none">
+      <Defs>
+        <LinearGradient id={id} x1="0" y1="0" x2="1" y2="0">
+          <Stop offset="0" stopColor="#0A0614" stopOpacity="0.86" />
+          <Stop offset="0.55" stopColor="#0A0614" stopOpacity="0.55" />
+          <Stop offset="1" stopColor="#0A0614" stopOpacity="0.12" />
+        </LinearGradient>
+      </Defs>
+      <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${id})`} />
+    </Svg>
+  );
 }
-// Cartões de anúncio (futebol feminino, comércio LGBT, Câmara, Embratur): roxo escuro, texto claro.
-const COR_TILE = '#2B1259';
-const COR_TEXTO = '#FFFFFF';
+// Cartões de notícia/anúncio (Câmara, Embratur, Brasil 2027): design nov/2026 — fundo claro, texto escuro.
+const COR_TILE = '#F5F2FB';
+const COR_TEXTO = '#1A1020';
 const FAIXA = 72;
 // Altura única dos cartões em degradê (Museu, Viaje pelo Brasil, fundadores…): todos do mesmo tamanho,
 // não importa se a chamada tem 1 ou 2 linhas.
@@ -121,28 +134,24 @@ export default function CarrosselAnuncios({ anuncios, onExibir, compacto = false
                 )}
               </View>
             ) : (
-            <View style={[styles.cardDegrade, altura ? { height: altura } : null, a.fotoUrl ? styles.cardComFoto : null]}>
+            <View style={[styles.cardDegrade, altura ? { height: altura } : null]}>
               <FundoCaixaDegrade id={`anc-${a.id}`} cores={a.degrade} />
-              {a.fotoUrl && a.fotoModo === 'fundo' ? (
+              {a.fotoUrl ? (
                 <>
                   <Image source={{ uri: a.fotoUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-                  <View style={styles.veuFundo} />
+                  <VeuFoto id={`veu-${a.id.replace(/[^a-zA-Z0-9]/g, '')}`} />
                 </>
-              ) : a.fotoUrl ? (
-                <View style={[styles.fotoMetade, a.fotoModo === 'esquerda' ? { right: undefined, left: 0 } : null]}>
-                  <Image source={{ uri: a.fotoUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-                </View>
               ) : (
               <Feather name={a.icone} size={132} color="rgba(255,255,255,0.16)" style={styles.marcaDagua} />
               )}
-              <View style={[styles.corpoDegrade, altura ? { paddingVertical: 10, gap: 4 } : null, a.fotoUrl && a.fotoModo !== 'fundo' ? styles.corpoComFoto : null, a.fotoUrl && a.fotoModo === 'esquerda' ? { marginLeft: '45%', paddingRight: 14, paddingLeft: 14 } : null]}>
+              <View style={[styles.corpoDegrade, altura ? { paddingVertical: 10, gap: 4 } : null, a.fotoUrl ? styles.corpoComFoto : null]}>
                 {!!a.tag && (
                   <View style={styles.pilulaDegrade}>
-                    <Feather name={a.icone} size={11} color={a.corTexto || '#FFFFFF'} />
-                    <Text style={[styles.pilulaDegradeTxt, a.corTexto ? { color: a.corTexto } : null]} numberOfLines={1}>{a.tag}</Text>
+                    <Feather name={a.icone} size={11} color={(!a.fotoUrl && a.corTexto) || '#FFFFFF'} />
+                    <Text style={[styles.pilulaDegradeTxt, !a.fotoUrl && a.corTexto ? { color: a.corTexto } : null]} numberOfLines={1}>{a.tag}</Text>
                   </View>
                 )}
-                <Text style={[styles.tituloDegrade, a.fotoUrl && a.fotoModo !== 'fundo' ? styles.tituloComFoto : null, a.corTexto ? { color: a.corTexto } : null]} numberOfLines={a.fotoUrl && a.fotoModo !== 'fundo' ? 3 : 2}>
+                <Text style={[styles.tituloDegrade, !a.fotoUrl && a.corTexto ? { color: a.corTexto } : null]} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>
                   {(() => {
                     const p = partesDaFrase(a.titulo, a.destaqueTexto);
                     return (
@@ -154,10 +163,7 @@ export default function CarrosselAnuncios({ anuncios, onExibir, compacto = false
                     );
                   })()}
                 </Text>
-                <View style={[styles.btnDegrade, a.corDestaque ? { backgroundColor: a.corDestaque } : null]}>
-                  <Text style={[styles.btnDegradeTxt, a.corDestaque ? { color: textoSobre(a.corDestaque) } : null]}>{a.cta}</Text>
-                  <Feather name="arrow-right" size={14} color={a.corDestaque ? textoSobre(a.corDestaque) : '#1A1020'} />
-                </View>
+                <BotaoCta texto={a.cta} />
               </View>
             </View>
             )}
@@ -169,7 +175,7 @@ export default function CarrosselAnuncios({ anuncios, onExibir, compacto = false
               {!!a.rotulo && <Text style={styles.rotulo} numberOfLines={1}>{a.rotulo}</Text>}
               <Text style={styles.titulo} numberOfLines={2}>{a.titulo}</Text>
               <TouchableOpacity style={styles.btn} activeOpacity={0.85} onPress={a.onPress} accessibilityRole="button" accessibilityLabel={`${a.cta}: ${a.titulo}`}>
-                <Text style={styles.btnTexto}>{a.cta}</Text>
+                <Text style={styles.btnTexto}>{ctaImperativo(a.cta).toLocaleUpperCase('pt-BR')}</Text>
               </TouchableOpacity>
             </View>
             <TouchableOpacity style={[styles.faixa, { backgroundColor: a.cor }]} activeOpacity={0.85} onPress={a.onPress} accessibilityElementsHidden importantForAccessibility="no">
@@ -203,29 +209,23 @@ const styles = StyleSheet.create({
   wrapCompacto: { marginBottom: 8, minHeight: 0 },
   cardCompacto: { height: 80, borderRadius: 14, overflow: 'hidden', backgroundColor: '#1C1B26', flexDirection: 'row', alignItems: 'center', paddingLeft: 14, paddingRight: 12, gap: 10 },
   corpoCompacto: { flex: 1, gap: 5 },
-  tituloCompacto: { fontSize: 14, fontWeight: '800', color: '#FFFFFF', lineHeight: 17 },
+  tituloCompacto: { fontSize: 13, fontWeight: '900', color: '#FFFFFF', lineHeight: 17, textTransform: 'uppercase' },
   setaCompacto: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
   marcaDagua: { position: 'absolute', right: -14, bottom: -18 },
-  cardComFoto: {},
-  veuFundo: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(10,6,20,0.45)' },
-  fotoMetade: { position: 'absolute', top: 0, right: 0, bottom: 0, width: '45%', backgroundColor: '#1C1B26' },
-  corpoComFoto: { width: '55%', paddingRight: 12 },
-  tituloComFoto: { fontSize: 13, lineHeight: 17 },
+  corpoComFoto: { paddingRight: 40 },
   fotoCompacto: { width: 96, alignSelf: 'stretch', marginRight: -12, overflow: 'hidden', backgroundColor: '#1C1B26' },
   corpoDegrade: { padding: 14, gap: 6, paddingRight: 96 },
   pilulaDegrade: { alignSelf: 'flex-start', maxWidth: '100%', flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.22)', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 },
   pilulaDegradeTxt: { fontSize: 10, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.6 },
-  tituloDegrade: { fontSize: 15, fontWeight: '900', color: '#FFFFFF', lineHeight: 19 },
-  btnDegrade: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FFFFFF', borderRadius: 18, paddingHorizontal: 13, minHeight: 30 },
-  btnDegradeTxt: { fontSize: 12, fontWeight: '800', color: '#1A1020' },
+  tituloDegrade: { fontSize: 15, fontWeight: '900', color: '#FFFFFF', lineHeight: 19, textTransform: 'uppercase', letterSpacing: 0.2, textShadowColor: 'rgba(0,0,0,0.25)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
   corpo: { padding: 14, gap: 4, justifyContent: 'center' },
-  tag: { fontSize: 11, fontWeight: '800', color: '#C4B5FD', letterSpacing: 0.6 },
+  tag: { fontSize: 11, fontWeight: '800', color: '#7C3AED', letterSpacing: 0.6 },
   titulo: { fontSize: 14, fontWeight: '800', color: COR_TEXTO, lineHeight: 18, flexShrink: 1 },
-  rotulo: { fontSize: 9, fontWeight: '800', color: '#A99BD0', letterSpacing: 0.5 },
+  rotulo: { fontSize: 9, fontWeight: '800', color: '#8A7FA8', letterSpacing: 0.5 },
   logoBox: { width: 56, height: 56, borderRadius: 14, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', padding: 4 },
   logoImg: { width: '100%', height: '100%' },
-  btn: { alignSelf: 'flex-start', marginTop: 6, backgroundColor: '#FFFFFF', borderRadius: 18, paddingHorizontal: 14, minHeight: 32, justifyContent: 'center' },
-  btnTexto: { fontSize: 12, fontWeight: '800', color: '#1A1020' },
+  btn: { alignSelf: 'flex-start', marginTop: 6, backgroundColor: '#1A1020', borderRadius: 18, paddingHorizontal: 14, minHeight: 32, justifyContent: 'center' },
+  btnTexto: { fontSize: 12, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.4 },
   faixa: { width: FAIXA, alignItems: 'center', justifyContent: 'center' },
   pontos: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 8 },
   ponto: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.25)' },
