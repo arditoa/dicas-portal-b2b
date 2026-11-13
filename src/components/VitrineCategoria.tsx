@@ -3,8 +3,9 @@
 //   2) PATROCÍNIO — banner fixo da categoria (editável no /admin e no portal do patrocinador)
 //   3) OFERTAS E BENEFÍCIOS — cupons dos parceiros da categoria, girando por hora
 // Cada bloco mede exibições e toques (vitrine_eventos) para a equipe comercial mostrar resultado.
+import { CorpoCupomVitrine } from './CartaoCupomVitrine';
 import { estiloDoCartao } from '../lib/estiloBanner';
-import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import { MODO_DEMONSTRACAO } from '../lib/demo';
 import { useRouter } from 'expo-router';
 import { ReactNode, useEffect, useMemo, useState } from 'react';
@@ -95,21 +96,7 @@ const PATROCINIO_VEZPA: Patrocinio = {
   cor2: '#7E57C2',
 };
 const URL_PARCEIRO = 'https://www.dicaslgbt.com.br/parceiro-fundador';
-// Design nov/2026 — cupons no degradê do logo (magenta → roxo → azul).
-const DEGRADE_CUPOM: [string, string] = ['#E0197D', '#3D3BEF'];
-// "Drink em dobro até as 19:00" → oferta "DRINK EM DOBRO" + detalhe "Até as 19:00" (menor e sem negrito).
-function partesCupom(o: { titulo: string; descricao: string | null; valido_ate: string | null }): { oferta: string; detalhe: string } {
-  const t = (o.titulo || '').trim();
-  const m = t.match(/^(.+?)\s+((?:at[eé]|v[aá]lido|das|a partir)\s.+)$/i);
-  if (m) return { oferta: m[1], detalhe: m[2].charAt(0).toUpperCase() + m[2].slice(1) };
-  const desc = (o.descricao || '').trim();
-  if (desc && desc.length <= 40) return { oferta: t, detalhe: desc };
-  if (o.valido_ate) {
-    const d = new Date(o.valido_ate);
-    if (!isNaN(d.getTime())) return { oferta: t, detalhe: `Válido até ${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}` };
-  }
-  return { oferta: t, detalhe: '' };
-}
+// Cartão do cupom da faixa de Ofertas: src/components/CartaoCupomVitrine.tsx ("um cupom, dois lugares", migração 109).
 
 export type LocalVitrine = {
   id: string;
@@ -485,19 +472,10 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
               {slotsOferta.map((sl, idx) => {
                 const o = sl.oferta;
                 if (!o && !MODO_DEMONSTRACAO) return null;
-                const partes = o ? partesCupom(o) : { oferta: sl.rotulo, detalhe: '' };
                 const nomeLocal = o ? (o.equipe && !o.nome_local ? 'Dicas LGBT+' : formatarNome(o.nome_local)) : 'Seu local aqui';
+                // Mesmo cartão da prévia do Modo parceiro: aparência própria quando o parceiro escolheu; senão, automático.
                 const corpo = (
-                  <>
-                    <FundoCaixaDegrade id={`cup-${slug}-${idx}`} cores={DEGRADE_CUPOM} />
-                    <MaterialCommunityIcons name="ticket-percent-outline" size={78} color="rgba(255,255,255,0.28)" style={s.cupomIcone} />
-                    <View style={s.cupomLocal}>
-                      <Feather name="map-pin" size={9} color="#FFFFFF" />
-                      <Text style={s.cupomLocalTxt} numberOfLines={1}>{nomeLocal}</Text>
-                    </View>
-                    <Text style={s.cupomOferta} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>{partes.oferta.toLocaleUpperCase('pt-BR')}</Text>
-                    {!!partes.detalhe && <Text style={s.cupomDetalhe} numberOfLines={1}>{partes.detalhe}</Text>}
-                  </>
+                  <CorpoCupomVitrine id={`cup-${slug}-${idx}`} cupom={o || { titulo: sl.rotulo, descricao: null, valido_ate: null }} nomeLocal={nomeLocal} />
                 );
                 if (!o) {
                   return (
@@ -511,7 +489,8 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
                     style={s.cardOferta}
                     onPress={() => {
                       registrarVitrine(o.local_id, `oferta:${slug}`, 'clique');
-                      router.push(`/business/${o.local_id}` as any);
+                      // Abre a página da casa já com este cupom aberto e destacado.
+                      router.push(`/business/${o.local_id}?cupom=${o.id}` as any);
                     }}
                     accessibilityRole="button"
                     accessibilityLabel={`Cupom de ${nomeLocal}: ${o.titulo}`}

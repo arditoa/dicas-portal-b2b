@@ -321,3 +321,15 @@ Papéis e permissões da equipe, porteiro por PIN, foto de conferência na porta
 | Lembrete "falta foto / descrição / Instagram / horário" (desligado para festa avulsa; horário só se `pedeHorario`) | ✅ `oQueFalta` (resumo da página); `recursosDaCategoria` agora tem `pedeHorario` e `pedePagina` |
 | Categoria e subcategoria editáveis | ⚠️ **Decisão:** no app só aparecem (mudar = falar com a equipe), para a casa não sair da vitrine por engano. O portal continua deixando |
 | Trocar senha | ✅ já existia (Meu espaço › Trocar minha senha) |
+
+## 20. Um cupom, dois lugares (13/11/2026)
+
+| O quê | Onde |
+|---|---|
+| O mesmo cupom (nome, regra, dias, horário, validade, limite do plano) aparece na página da casa (linha de ticket com "Usar") e na faixa de Ofertas da categoria | app e portal |
+| Aparência opcional só do cartão da faixa: oferta em destaque (24), detalhe (30), fundo degradê do app ou foto com véu escuro, cor dos dizeres. Sem aparência, automático como antes (`partesCupom`, degradê magenta→azul) | **109** (colunas `vitrine_*` em `cupons`, foto em `fotos-locais/<local>/cupom-…`) |
+| Cartão único | `src/components/CartaoCupomVitrine.tsx`, usado pela `VitrineCategoria` e pela prévia do editor |
+| Editor | `parceiro/cupom-editar.tsx` seção 4 + prévias "Na faixa da categoria" e "Na sua página" (`PreviaCupom` agora é a linha de ticket); portal `dashboard/cupons`: mesmos campos e prévias no formulário de novo cupom |
+| Tocar no cartão da faixa | abre `/business/<local>?cupom=<id>`: a lista de cupons já vem aberta ("Ver todos") e o cupom destacado |
+| Validade no portal | ✅ corrigida: "válido até" grava 23h59 do dia (Brasília), igual ao app (antes vencia às 21h do dia anterior) |
+| Sem a 109 | o cupom salva normalmente sem a aparência (app avisa "Salvo em parte"; portal salva sem os campos) |

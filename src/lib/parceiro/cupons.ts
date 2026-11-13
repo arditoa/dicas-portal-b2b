@@ -24,8 +24,19 @@ export type Cupom = {
   hora_fim: string | null;
   ativo: boolean;
   created_at: string;
+  // Aparência opcional na faixa de Ofertas (migração 109, "um cupom, dois lugares")
+  vitrine_oferta?: string | null;
+  vitrine_detalhe?: string | null;
+  vitrine_foto_url?: string | null;
+  vitrine_estilo?: string | null;
+  vitrine_cor1?: string | null;
+  vitrine_cor2?: string | null;
+  vitrine_cor_texto?: string | null;
 };
 const CAMPOS = 'id, titulo, descricao, codigo, valido_de, valido_ate, limite_uso, dias_semana, hora_inicio, hora_fim, ativo, created_at';
+const CAMPOS_VITRINE = 'vitrine_oferta, vitrine_detalhe, vitrine_foto_url, vitrine_estilo, vitrine_cor1, vitrine_cor2, vitrine_cor_texto';
+export const MAX_VITRINE_OFERTA = 24;
+export const MAX_VITRINE_DETALHE = 30;
 
 export type UsoPlano = { plano: string; periodo: 'dias' | 'mes'; limite: number | null; usadas: number; dias: number; liberaEm: string | null };
 export type UsoCupom = { resgates: number; ultimoUso: string | null };
@@ -84,9 +95,10 @@ export async function listarCupons(localId: string): Promise<Cupom[]> {
 }
 
 export async function obterCupom(id: string): Promise<Cupom | null> {
-  const { data, error } = await supabase.from('cupons').select(CAMPOS).eq('id', id).maybeSingle();
-  if (error) throw new Error(traduzirErro(error));
-  return (data as unknown as Cupom) || null;
+  let r: any = await supabase.from('cupons').select(`${CAMPOS}, ${CAMPOS_VITRINE}`).eq('id', id).maybeSingle();
+  if (r.error) r = await supabase.from('cupons').select(CAMPOS).eq('id', id).maybeSingle(); // sem a 109
+  if (r.error) throw new Error(traduzirErro(r.error));
+  return (r.data as Cupom) || null;
 }
 
 export async function usoDoPlano(localId: string): Promise<UsoPlano | null> {
@@ -118,10 +130,13 @@ export type FormCupom = {
   horaFim: string | null;
   ativo: boolean;
   validoDe: string | null; // preservado do cadastro (o portal não preenche)
+  // Aparência na faixa de Ofertas. Oferta vazia = automático (como antes).
+  vitrine: { oferta: string; detalhe: string; foto: string | null; estilo: 'degrade' | 'foto'; cor1: string | null; cor2: string | null; corTexto: string | null };
 };
+const VITRINE_VAZIA: FormCupom['vitrine'] = { oferta: '', detalhe: '', foto: null, estilo: 'degrade', cor1: null, cor2: null, corTexto: null };
 
 export function formVazio(): FormCupom {
-  return { id: null, titulo: '', descricao: '', codigo: '', validoAte: null, limiteUso: '', dias: [], horaInicio: null, horaFim: null, ativo: true, validoDe: null };
+  return { id: null, titulo: '', descricao: '', codigo: '', validoAte: null, limiteUso: '', dias: [], horaInicio: null, horaFim: null, ativo: true, validoDe: null, vitrine: { ...VITRINE_VAZIA } };
 }
 
 export function formDoCupom(c: Cupom): FormCupom {
@@ -136,10 +151,14 @@ export function formDoCupom(c: Cupom): FormCupom {
     dias: c.dias_semana && c.dias_semana.length < 7 ? [...c.dias_semana].sort((a, b) => a - b) : [],
     horaInicio: c.hora_inicio ? c.hora_inicio.slice(0, 5) : null, horaFim: c.hora_fim ? c.hora_fim.slice(0, 5) : null,
     ativo: c.ativo, validoDe: c.valido_de,
+    vitrine: {
+      oferta: c.vitrine_oferta || '', detalhe: c.vitrine_detalhe || '', foto: c.vitrine_foto_url || null,
+      estilo: c.vitrine_estilo === 'foto' ? 'foto' : 'degrade', cor1: c.vitrine_cor1 || null, cor2: c.vitrine_cor2 || null, corTexto: c.vitrine_cor_texto || null,
+    },
   };
 }
 
-export type ErrosCupom = Partial<Record<'titulo' | 'limite' | 'validade', string>>;
+export type ErrosCupom = Partial<Record<'titulo' | 'limite' | 'validade' | 'vitrine', string>>;
 export function validarCupom(f: FormCupom, usadas = 0): ErrosCupom {
   const e: ErrosCupom = {};
   if (!f.titulo.trim()) e.titulo = 'Escreva o que o cliente ganha.';
@@ -149,6 +168,11 @@ export function validarCupom(f: FormCupom, usadas = 0): ErrosCupom {
     else if (f.id && n < usadas) e.limite = `Este cupom já foi usado ${usadas} vezes. Use ${usadas} ou mais.`;
   }
   if (!f.id && f.validoAte && f.validoAte < chaveHoje()) e.validade = 'A data já passou.';
+  const v = f.vitrine;
+  if (v.oferta.trim().length > MAX_VITRINE_OFERTA) e.vitrine = `A oferta em destaque tem até ${MAX_VITRINE_OFERTA} letras.`;
+  else if (v.detalhe.trim().length > MAX_VITRINE_DETALHE) e.vitrine = `O detalhe tem até ${MAX_VITRINE_DETALHE} letras.`;
+  else if (v.oferta.trim() && v.estilo === 'foto' && !v.foto) e.vitrine = 'Suba a foto do cartão (ou escolha "Degradê").';
+  else if (!v.oferta.trim() && (v.detalhe.trim() || v.foto)) e.vitrine = 'Escreva a oferta em destaque (ou deixe tudo vazio para o cartão automático).';
   return e;
 }
 
@@ -169,15 +193,35 @@ export async function salvarCupom(localId: string, f: FormCupom, usadas = 0): Pr
     hora_fim: f.horaFim || null,
     ativo: f.ativo,
   };
+  // Aparência na faixa (109). Sem oferta em destaque = tudo null = cartão automático.
+  const v = f.vitrine;
+  const proprio = !!v.oferta.trim();
+  const vitrine = {
+    vitrine_oferta: proprio ? v.oferta.trim() : null,
+    vitrine_detalhe: proprio ? v.detalhe.trim() || null : null,
+    vitrine_estilo: proprio ? v.estilo : null,
+    vitrine_foto_url: proprio && v.estilo === 'foto' ? v.foto : null,
+    vitrine_cor1: proprio ? v.cor1 : null,
+    vitrine_cor2: proprio ? v.cor2 : null,
+    vitrine_cor_texto: proprio ? v.corTexto : null,
+  };
+  const semColunas = (e: { message?: string } | null) => !!e && /vitrine_/.test(e.message || '');
   if (f.id) {
-    const { error } = await supabase.from('cupons').update(campos).eq('id', f.id);
+    let { error } = await supabase.from('cupons').update({ ...campos, ...vitrine }).eq('id', f.id);
+    if (semColunas(error)) { ultimoAvisoVitrine = AVISO_SEM_109; ({ error } = await supabase.from('cupons').update(campos).eq('id', f.id)); } else ultimoAvisoVitrine = null;
     if (error) throw new Error(traduzirErro(error));
     return f.id;
   }
-  const { data, error } = await supabase.from('cupons').insert({ local_id: localId, ...campos }).select('id').maybeSingle();
-  if (error) throw new Error(traduzirErro(error));
-  return (data as { id: string } | null)?.id || '';
+  let r = await supabase.from('cupons').insert({ local_id: localId, ...campos, ...vitrine }).select('id').maybeSingle();
+  if (semColunas(r.error)) { ultimoAvisoVitrine = AVISO_SEM_109; r = await supabase.from('cupons').insert({ local_id: localId, ...campos }).select('id').maybeSingle(); } else ultimoAvisoVitrine = null;
+  if (r.error) throw new Error(traduzirErro(r.error));
+  return (r.data as { id: string } | null)?.id || '';
 }
+
+const AVISO_SEM_109 = 'O cupom foi salvo, mas a aparência na faixa de Ofertas ainda não: falta a atualização 109 no banco. Avise a equipe Dicas.';
+// Aviso do último salvarCupom (aparência não gravada porque o banco não tem a 109).
+let ultimoAvisoVitrine: string | null = null;
+export const avisoDaAparencia = () => ultimoAvisoVitrine;
 
 export async function pausarCupom(id: string, ativo: boolean): Promise<void> {
   const { error } = await supabase.from('cupons').update({ ativo }).eq('id', id);

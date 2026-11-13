@@ -8,6 +8,22 @@ import { idsMarcaAtiva } from '../../../lib/marcaAtiva';
 import { NOMES_DIAS, textoJanela } from '../../../lib/janelaCupom';
 import { useParceiro } from '../../../components/parceiro/ParceiroContext';
 import { recursosDaLocal } from '../../../lib/parceiro';
+import { CORES_TEXTO_BANNER, DEGRADES_BANNER } from '../../../lib/estiloBanner';
+import { erroFotoNaoSuportada } from '../../../lib/validarFoto';
+
+// "Um cupom, dois lugares" (migração 109): o mesmo cupom aparece na página da casa (linha com "Usar") e na faixa de
+// Ofertas da categoria. Aqui a aparência opcional do cartão da faixa — igual ao editor do Modo parceiro no app
+// (src/app/parceiro/cupom-editar.tsx) e ao cartão do app (src/components/CartaoCupomVitrine.tsx).
+const DEGRADE_CUPOM: [string, string] = ['#E0197D', '#3D3BEF'];
+function partesCupom(titulo: string, descricao: string, validoAte: string): { oferta: string; detalhe: string } {
+  const t = titulo.trim();
+  const m = t.match(/^(.+?)\s+((?:at[eé]|v[aá]lido|das|a partir)\s.+)$/i);
+  if (m) return { oferta: m[1], detalhe: m[2].charAt(0).toUpperCase() + m[2].slice(1) };
+  const d = descricao.trim();
+  if (d && d.length <= 40) return { oferta: t, detalhe: d };
+  if (validoAte) { const [, mm, dd] = validoAte.split('-'); return { oferta: t, detalhe: `Válido até ${dd}/${mm}` }; }
+  return { oferta: t, detalhe: '' };
+}
 
 // Decisão da Andrea (13/11/2026): plano Gratuito NÃO cria cupom. Mesma mensagem do app (src/lib/parceiroMenu.ts)
 // e o banco trava de verdade (migração 104, gatilho exigir_plano_pago_no_cupom; o admin pode).
@@ -64,6 +80,14 @@ export default function CupomPage() {
   const [dias, setDias] = useState<number[]>([]);
   const [horaInicio, setHoraInicio] = useState('');
   const [horaFim, setHoraFim] = useState('');
+  // Aparência na faixa de Ofertas (109). Oferta vazia = cartão automático.
+  const [vOferta, setVOferta] = useState('');
+  const [vDetalhe, setVDetalhe] = useState('');
+  const [vEstilo, setVEstilo] = useState<'degrade' | 'foto'>('degrade');
+  const [vFoto, setVFoto] = useState('');
+  const [vCores, setVCores] = useState<[string, string] | null>(null);
+  const [vCorTexto, setVCorTexto] = useState<string | null>(null);
+  const [enviandoFotoCupom, setEnviandoFotoCupom] = useState(false);
   // Migration 066 — quantas ofertas o plano permite por período (Premium/Fundador: 1 a cada 7 dias; Intermediário: 1 a cada 14 dias; null = sem limite).
   const [uso, setUso] = useState<{ plano: string; periodo: 'semana' | 'mes' | 'dias'; limite: number | null; usadas: number; dias: number; liberaEm: string | null } | null>(null);
 
@@ -117,21 +141,37 @@ export default function CupomPage() {
       setErro(MSG_CUPOM_PLANO_PAGO);
       return;
     }
+    if (vOferta.trim().length > 24 || vDetalhe.trim().length > 30) { setErro('Na faixa de Ofertas: oferta até 24 letras e detalhe até 30.'); return; }
+    if (vOferta.trim() && vEstilo === 'foto' && !vFoto) { setErro('Suba a foto do cartão da faixa (ou escolha Degradê).'); return; }
     setSalvando(true);
     setErro('');
 
-    const { error } = await supabase.from('cupons').insert({
+    const proprio = !!vOferta.trim();
+    const vitrine = {
+      vitrine_oferta: proprio ? vOferta.trim() : null,
+      vitrine_detalhe: proprio ? vDetalhe.trim() || null : null,
+      vitrine_estilo: proprio ? vEstilo : null,
+      vitrine_foto_url: proprio && vEstilo === 'foto' ? vFoto : null,
+      vitrine_cor1: proprio && vCores ? vCores[0] : null,
+      vitrine_cor2: proprio && vCores ? vCores[1] : null,
+      vitrine_cor_texto: proprio ? vCorTexto : null,
+    };
+    const base = {
       local_id: localId,
       titulo,
       descricao: descricao || null,
       codigo: codigo || null,
       valido_de: validoDe ? new Date(validoDe).toISOString() : null,
-      valido_ate: validoAte ? new Date(validoAte).toISOString() : null,
+      // Válido até as 23h59 do dia (Brasília), igual ao app. Antes: meia-noite UTC = 21h do dia anterior.
+      valido_ate: validoAte ? `${validoAte}T23:59:59-03:00` : null,
       limite_uso: limiteUso ? Number(limiteUso) : null,
       dias_semana: dias.length > 0 && dias.length < 7 ? dias : null,
       hora_inicio: horaInicio || null,
       hora_fim: horaFim || null,
-    });
+    };
+    let { error } = await supabase.from('cupons').insert({ ...base, ...vitrine });
+    // Sem a migração 109: salva o cupom sem a aparência.
+    if (error && /vitrine_/.test(error.message)) ({ error } = await supabase.from('cupons').insert(base));
 
     if (error) {
       setErro(error.message);
@@ -145,10 +185,24 @@ export default function CupomPage() {
       setDias([]);
       setHoraInicio('');
       setHoraFim('');
+      setVOferta(''); setVDetalhe(''); setVEstilo('degrade'); setVFoto(''); setVCores(null); setVCorTexto(null);
       setMostrarForm(false);
       await carregarCupons(localId);
     }
     setSalvando(false);
+  };
+
+  const enviarFotoCupom = async (arquivo: File | undefined) => {
+    if (!arquivo || !localId) return;
+    const problema = erroFotoNaoSuportada(arquivo);
+    if (problema) { setErro(problema); return; }
+    setEnviandoFotoCupom(true); setErro('');
+    const ext = (arquivo.name.split('.').pop() || 'jpg').toLowerCase();
+    const caminho = `${localId}/cupom-${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from('fotos-locais').upload(caminho, arquivo, { cacheControl: '3600', upsert: false });
+    if (error) setErro(`Não deu para enviar a foto: ${error.message}`);
+    else setVFoto(supabase.storage.from('fotos-locais').getPublicUrl(caminho).data.publicUrl);
+    setEnviandoFotoCupom(false);
   };
 
   const alternarAtivo = async (cupom: Cupom) => {
@@ -377,6 +431,81 @@ export default function CupomPage() {
             </div>
           </div>
           <p className="text-[11px] text-[#626274]">Sem nada marcado, o cupom vale todos os dias e o dia todo. O app só libera o check-in nos dias e horários escolhidos (horário de Brasília).</p>
+          {/* "Um cupom, dois lugares": aparência opcional na faixa de Ofertas + prévias */}
+          {(() => {
+            const auto = partesCupom(titulo, descricao, validoAte);
+            const proprio = !!vOferta.trim();
+            const oferta = proprio ? vOferta.trim() : auto.oferta;
+            const detalhe = proprio ? vDetalhe.trim() : auto.detalhe;
+            const cores = proprio && vCores ? vCores : DEGRADE_CUPOM;
+            const corTxt = proprio && vCorTexto ? vCorTexto : '#FFFFFF';
+            const comFoto = proprio && vEstilo === 'foto' && !!vFoto;
+            const chip = (on: boolean) => `text-[11px] font-bold px-2.5 py-1.5 rounded-lg border ${on ? 'border-[#E1306C] bg-[#E1306C]/15 text-white' : 'border-[#232230] text-[#A0A0B2]'}`;
+            return (
+              <div className="border-t border-[#232230] pt-4 space-y-3">
+                <p className="text-[11px] font-bold text-[#A0A0B2] uppercase">Como aparece na faixa de Ofertas (opcional)</p>
+                <p className="text-[11px] text-[#626274]">O mesmo cupom aparece na página da casa e na faixa de Ofertas da categoria. Sem oferta em destaque, o cartão é automático.</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <input className="w-full bg-[#0B0B0E] border border-[#232230] rounded-xl py-2.5 px-3 text-white text-sm" maxLength={24} placeholder="Oferta em destaque (até 24)" value={vOferta} onChange={(e) => setVOferta(e.target.value)} />
+                  <input className="w-full bg-[#0B0B0E] border border-[#232230] rounded-xl py-2.5 px-3 text-white text-sm disabled:opacity-40" maxLength={30} placeholder="Detalhe (até 30)" value={vDetalhe} disabled={!proprio} onChange={(e) => setVDetalhe(e.target.value)} />
+                </div>
+                {proprio && (
+                  <>
+                    <div className="flex flex-wrap gap-1.5 items-center">
+                      <button type="button" className={chip(vEstilo === 'degrade')} onClick={() => setVEstilo('degrade')}>Degradê</button>
+                      <button type="button" className={chip(vEstilo === 'foto')} onClick={() => setVEstilo('foto')}>Foto</button>
+                      {vEstilo === 'foto' && (
+                        <label className="text-xs font-bold text-[#E1306C] cursor-pointer ml-2">
+                          {enviandoFotoCupom ? 'Enviando...' : vFoto ? 'Trocar foto' : 'Subir foto'}
+                          <input type="file" accept="image/*" className="hidden" disabled={enviandoFotoCupom} onChange={(e) => { enviarFotoCupom(e.target.files?.[0]); e.target.value = ''; }} />
+                        </label>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {DEGRADES_BANNER.map((d) => {
+                        const on = !!vCores && vCores[0] === d.cores[0] && vCores[1] === d.cores[1];
+                        return <button key={d.chave} type="button" title={d.rotulo} onClick={() => setVCores(on ? null : d.cores)} className={`w-9 h-9 rounded-lg border-2 ${on ? 'border-white' : 'border-transparent'}`} style={{ background: `linear-gradient(135deg, ${d.cores[0]}, ${d.cores[1]})` }} aria-label={d.rotulo} />;
+                      })}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {CORES_TEXTO_BANNER.map((c) => (
+                        <button key={c.cor} type="button" className={chip((vCorTexto || '#FFFFFF') === c.cor)} onClick={() => setVCorTexto(c.cor === '#FFFFFF' ? null : c.cor)}>
+                          <span className="inline-block w-3 h-3 rounded-full mr-1 align-[-1px] border border-white/30" style={{ background: c.cor }} />{c.rotulo}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+                <div className="flex flex-wrap gap-4 items-start">
+                  <div>
+                    <p className="text-[10px] font-bold text-[#A0A0B2] mb-1">Na faixa da categoria</p>
+                    <div className="relative w-[176px] h-[116px] rounded-2xl overflow-hidden p-3 border border-white/15" style={{ background: `linear-gradient(135deg, ${cores[0]}, ${cores[1]})` }}>
+                      {comFoto && (<>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={vFoto} alt="" className="absolute inset-0 w-full h-full object-cover" /><div className="absolute inset-0" style={{ background: 'rgba(10,6,20,0.45)' }} /></>)}
+                      <div className="relative">
+                        <span className="inline-block max-w-full truncate text-[10px] font-bold text-white bg-white/25 rounded-full px-2 py-0.5 mb-2">{parceiro?.local.nome || 'Sua casa'}</span>
+                        <p className="text-[17px] leading-5 font-black uppercase line-clamp-2" style={{ color: corTxt }}>{oferta || 'Sua oferta'}</p>
+                        {detalhe && <p className="text-[11px] mt-1 truncate" style={{ color: corTxt, opacity: 0.9 }}>{detalhe}</p>}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-[220px]">
+                    <p className="text-[10px] font-bold text-[#A0A0B2] mb-1">Na sua página</p>
+                    <div className="bg-[#161520] border border-[#FFD54F30] rounded-2xl p-4">
+                      <p className="text-[11px] font-black uppercase tracking-wide text-[#FFD54F] mb-2">Cupom da casa</p>
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-black text-white">{titulo || 'O que o cliente ganha'}</p>
+                          {descricao && <p className="text-xs text-[#A0A0B2]">{descricao}</p>}
+                          <p className="text-xs font-bold text-[#FFD54F] mt-1">{textoJanela(dias, horaInicio, horaFim) ? `Vale ${textoJanela(dias, horaInicio, horaFim)}` : 'Vale todos os dias'}</p>
+                        </div>
+                        <span className="bg-[#7E57C2] text-white text-xs font-black rounded-xl px-4 py-2">Usar</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
           <button
             type="submit"
             disabled={salvando}

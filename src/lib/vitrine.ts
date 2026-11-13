@@ -30,6 +30,14 @@ export type OfertaVitrine = {
   plano_comercial: string | null;
   plano_comercial_status: string | null;
   criado_em?: string | null;
+  // Aparência opcional na faixa de Ofertas (migração 109). Sem ela, o cartão é automático.
+  vitrine_oferta?: string | null;
+  vitrine_detalhe?: string | null;
+  vitrine_foto_url?: string | null;
+  vitrine_estilo?: string | null;
+  vitrine_cor1?: string | null;
+  vitrine_cor2?: string | null;
+  vitrine_cor_texto?: string | null;
 };
 
 export type Comunicacao = {
@@ -107,7 +115,8 @@ export async function buscarOfertas(opts: { categoriaReal?: string | string[] | 
       if (opts.idsLocais) q = q.in('local_id', opts.idsLocais.length ? opts.idsLocais : ['00000000-0000-0000-0000-000000000000']);
       return q;
     };
-    let r = await montar('id, local_id, titulo, descricao, valido_de, valido_ate, imagem_url, criado_pela_equipe, created_at');
+    let r = await montar('id, local_id, titulo, descricao, valido_de, valido_ate, imagem_url, criado_pela_equipe, created_at, vitrine_oferta, vitrine_detalhe, vitrine_foto_url, vitrine_estilo, vitrine_cor1, vitrine_cor2, vitrine_cor_texto');
+    if (r.error) r = await montar('id, local_id, titulo, descricao, valido_de, valido_ate, imagem_url, criado_pela_equipe, created_at'); // sem a 109
     if (r.error) r = await montar('id, local_id, titulo, descricao, valido_de, valido_ate, created_at');
     if (r.error || !r.data) return [];
     const agora = Date.now();
@@ -122,6 +131,13 @@ export async function buscarOfertas(opts: { categoriaReal?: string | string[] | 
         imagem_url: c.imagem_url ?? null,
         equipe: !!c.criado_pela_equipe,
         criado_em: c.created_at ?? null,
+        vitrine_oferta: c.vitrine_oferta ?? null,
+        vitrine_detalhe: c.vitrine_detalhe ?? null,
+        vitrine_foto_url: c.vitrine_foto_url ?? null,
+        vitrine_estilo: c.vitrine_estilo ?? null,
+        vitrine_cor1: c.vitrine_cor1 ?? null,
+        vitrine_cor2: c.vitrine_cor2 ?? null,
+        vitrine_cor_texto: c.vitrine_cor_texto ?? null,
         nome_local: c.locais?.nome ?? '',
         foto_local: c.locais?.logo_url || c.locais?.foto_capa_url || null,
         plano_comercial: c.locais?.plano_comercial ?? null,

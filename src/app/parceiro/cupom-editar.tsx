@@ -8,14 +8,17 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import {
-  BarraSalvar, Campo, CampoData, CampoHora, Chips, Interruptor, Previa, estiloForm as f, useAvisoSairSemSalvar,
+  BarraSalvar, Campo, CampoData, CampoHora, Chips, FotoUpload, Interruptor, Previa, SeletorCor, estiloForm as f, useAvisoSairSemSalvar,
 } from '../../components/parceiro/form';
 import { PreviaCupom } from '../../components/parceiro/PreviaCupom';
+import { CartaoCupomVitrine } from '../../components/CartaoCupomVitrine';
+import { CORES_TEXTO_BANNER, DEGRADES_BANNER } from '../../lib/estiloBanner';
+import { formatarNome } from '../../lib/texto';
 import { CP, ESP, RAIO, TelaParceiro, TituloSecao } from '../../components/parceiro/TelaParceiro';
 import { NOMES_DIAS, textoJanela } from '../../lib/janelaCupom';
 import { recursosDaCategoria, useModoParceiro } from '../../lib/modoParceiro';
 import {
-  chaveHoje, ErrosCupom, etiquetaDoPlano, FormCupom, formDoCupom, formVazio, MAX_CODIGO, MAX_REGRA, MAX_TITULO, obterCupom,
+  avisoDaAparencia, chaveHoje, ErrosCupom, etiquetaDoPlano, FormCupom, formDoCupom, formVazio, MAX_CODIGO, MAX_REGRA, MAX_TITULO, MAX_VITRINE_DETALHE, MAX_VITRINE_OFERTA, obterCupom,
   salvarCupom, situacaoDoCupom, textoDoLimite, usoDoPlano, UsoPlano, usoDosCupons, validarCupom,
 } from '../../lib/parceiro/cupons';
 import { falarComEquipe, MSG_CUPOM_PLANO_PAGO, nivelDoPlano } from '../../lib/parceiroMenu';
@@ -75,6 +78,7 @@ export default function CupomEditar() {
 
   useEffect(() => { void carregar(); }, [carregar]);
 
+  const mudarVitrine = (v: Partial<FormCupom['vitrine']>) => { setForm((x) => ({ ...x, vitrine: { ...x.vitrine, ...v } })); setErros((e) => ({ ...e, vitrine: undefined })); };
   const mudar = (p: Partial<FormCupom>) => {
     setForm((x) => ({ ...x, ...p }));
     setErros((e) => {
@@ -101,9 +105,10 @@ export default function CupomEditar() {
     try {
       await salvarCupom(localId, form, usadas);
       setBase(JSON.stringify(form)); // não perguntar "sair sem salvar"
+      const aviso = avisoDaAparencia();
       Alert.alert(
-        form.id ? 'Cupom salvo' : 'Cupom publicado',
-        form.ativo ? 'Já aparece na página da casa e na faixa de cupons da categoria.' : 'Está pausado: não aparece para o público até você retomar.',
+        aviso ? 'Salvo em parte' : form.id ? 'Cupom salvo' : 'Cupom publicado',
+        aviso || (form.ativo ? 'Já aparece na página da casa e na faixa de cupons da categoria.' : 'Está pausado: não aparece para o público até você retomar.'),
         [{ text: 'OK', onPress: () => router.replace('/parceiro/cupons') }],
       );
     } catch (x: any) {
@@ -208,11 +213,51 @@ export default function CupomEditar() {
           aoMudar={(v) => mudar({ ativo: v })}
         />
 
-        {/* Prévia */}
+        {/* 4 · Faixa de Ofertas ("um cupom, dois lugares", migração 109): aparência opcional, mesma regra do cupom */}
+        <TituloSecao texto="4 · Como aparece na faixa de Ofertas" info="O mesmo cupom aparece na página da casa (linha com Usar) e na faixa de Ofertas da categoria. Aqui você escolhe só a aparência do cartão da faixa. Sem oferta em destaque, o cartão é automático." />
+        <Campo rotulo="Oferta em destaque (opcional)" valor={form.vitrine.oferta} aoMudar={(v) => mudarVitrine({ oferta: v })} max={MAX_VITRINE_OFERTA} exemplo="Ex.: Drink em dobro" ajuda="Vazio = automático, pelo nome do cupom." />
+        {!!form.vitrine.oferta.trim() && (
+          <>
+            <Campo rotulo="Detalhe (opcional)" valor={form.vitrine.detalhe} aoMudar={(v) => mudarVitrine({ detalhe: v })} max={MAX_VITRINE_DETALHE} exemplo="Ex.: Até as 19h" />
+            <Chips rotulo="Fundo" preencher opcoes={[{ valor: 'degrade', rotulo: 'Degradê' }, { valor: 'foto', rotulo: 'Foto' }]} valor={form.vitrine.estilo} aoMudar={(v) => mudarVitrine({ estilo: v as 'degrade' | 'foto' })} />
+            {form.vitrine.estilo === 'foto' && (
+              <FotoUpload rotulo="Foto do cartão" valor={form.vitrine.foto} aoMudar={(u) => mudarVitrine({ foto: u })} bucket="fotos-locais" pasta={localId} prefixo="cupom" altura={130} ajuda="Fica com um véu escuro por cima para a oferta aparecer. Prefira foto sem texto escrito." />
+            )}
+            <SeletorCor
+              rotulo={form.vitrine.estilo === 'foto' ? 'Cores (aparecem se a foto não carregar)' : 'Cores do fundo'}
+              valor={DEGRADES_BANNER.find((d) => d.cores[0] === form.vitrine.cor1 && d.cores[1] === form.vitrine.cor2)?.chave ?? null}
+              aoMudar={(o) => mudarVitrine(form.vitrine.cor1 === o.cores[0] && form.vitrine.cor2 === o.cores[1] ? { cor1: null, cor2: null } : { cor1: o.cores[0], cor2: o.cores[1] })}
+              ajuda="Toque de novo para voltar ao degradê do app."
+            />
+            <Chips
+              rotulo="Cor dos dizeres"
+              opcoes={CORES_TEXTO_BANNER.map((c) => ({ valor: c.cor, rotulo: c.rotulo }))}
+              valor={form.vitrine.corTexto || '#FFFFFF'}
+              aoMudar={(c) => mudarVitrine({ corTexto: c === '#FFFFFF' ? null : c })}
+            />
+          </>
+        )}
+        {!!erros.vitrine && <Text style={[f.erro, { marginTop: ESP.s }]}>{erros.vitrine}</Text>}
+
+        {/* Prévias: o mesmo cupom nos dois lugares */}
         <TituloSecao texto="Como o cliente vê" />
-        <Previa onde="Página da casa">
-          <PreviaCupom titulo={form.titulo} descricao={form.descricao} dias={form.dias} horaInicio={form.horaInicio} horaFim={form.horaFim} />
-        </Previa>
+        <View style={{ gap: ESP.s }}>
+          <Previa onde="Na faixa da categoria">
+            <CartaoCupomVitrine
+              id="previa-cupom"
+              nomeLocal={formatarNome(localAtivo.nome)}
+              cupom={{
+                titulo: form.titulo || 'O que o cliente ganha', descricao: form.descricao || null,
+                valido_ate: form.validoAte ? `${form.validoAte}T23:59:59-03:00` : null,
+                vitrine_oferta: form.vitrine.oferta, vitrine_detalhe: form.vitrine.detalhe, vitrine_foto_url: form.vitrine.foto,
+                vitrine_estilo: form.vitrine.estilo, vitrine_cor1: form.vitrine.cor1, vitrine_cor2: form.vitrine.cor2, vitrine_cor_texto: form.vitrine.corTexto,
+              }}
+            />
+          </Previa>
+          <Previa onde="Na sua página">
+            <PreviaCupom titulo={form.titulo} descricao={form.descricao} dias={form.dias} horaInicio={form.horaInicio} horaFim={form.horaFim} />
+          </Previa>
+        </View>
         <View style={{ height: ESP.xl }} />
       </TelaParceiro>
       <BarraSalvar rotulo={form.id ? 'Salvar' : 'Publicar cupom'} salvando={salvando} aoSalvar={() => void salvar()} desabilitado={travadoNovo || (!!form.id && !sujo)} />

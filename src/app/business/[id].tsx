@@ -239,7 +239,8 @@ interface CheckinAtivo {
 export default function BusinessDetailScreen() {
   useRastrearTela('perfil_local', { localParam: 'id' });
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // ?cupom=<id>: veio da faixa de Ofertas da categoria → abre a lista de cupons e destaca esse cupom.
+  const { id, cupom: cupomAlvo } = useLocalSearchParams<{ id: string; cupom?: string }>();
   const { user, session } = useAuth();
 
   const [loading, setLoading] = useState(true);
@@ -261,7 +262,7 @@ export default function BusinessDetailScreen() {
   const [meuCheckin, setMeuCheckin] = useState<CheckinAtivo | null>(null);
   const [fazendoCheckin, setFazendoCheckin] = useState(false);
   // Rodada 146 — cupons e cartão começam resumidos (só o que vale agora); abre ao tocar.
-  const [verTodosCupons, setVerTodosCupons] = useState(false);
+  const [verTodosCupons, setVerTodosCupons] = useState(!!cupomAlvo);
   const [fidAberto, setFidAberto] = useState(false);
   const [fidelidade, setFidelidade] = useState<ProgressoFidelidade[]>([]);
 
@@ -819,7 +820,7 @@ export default function BusinessDetailScreen() {
                       const vale = dentroDaJanela(cupom.dias_semana, cupom.hora_inicio, cupom.hora_fim);
                       const janela = textoJanela(cupom.dias_semana, cupom.hora_inicio, cupom.hora_fim);
                       return (
-                        <View key={cupom.id} style={[styles.ticket, i > 0 && styles.ticketBorda]}>
+                        <View key={cupom.id} style={[styles.ticket, i > 0 && styles.ticketBorda, cupom.id === cupomAlvo && styles.ticketAlvo]}>
                           <View style={{ flex: 1 }}>
                             <Text style={styles.ticketTitulo} numberOfLines={2}>{cupom.titulo}</Text>
                             {!!cupom.descricao && <Text style={styles.ticketDesc} numberOfLines={2}>{cupom.descricao}</Text>}
@@ -1272,6 +1273,8 @@ const styles = StyleSheet.create({
   ticketDesc: { fontSize: 12, color: '#A0A0B2', marginTop: 1, lineHeight: 16 },
   ticketJanela: { fontSize: 12, fontWeight: '700', color: '#FFD54F', marginTop: 3 },
   ticketBtn: { backgroundColor: '#7E57C2', borderRadius: 12, paddingHorizontal: 16, height: 38, justifyContent: 'center' },
+  // Cupom que a pessoa tocou na faixa de Ofertas ("um cupom, dois lugares")
+  ticketAlvo: { backgroundColor: 'rgba(255,213,79,0.10)', borderRadius: 12, paddingHorizontal: 10, marginHorizontal: -10, borderTopColor: 'transparent' },
   ticketBtnTxt: { color: '#FFF', fontSize: 13, fontWeight: '800' },
   ticketFora: { borderRadius: 12, paddingHorizontal: 10, height: 30, justifyContent: 'center', backgroundColor: '#232230' },
   ticketForaTxt: { color: '#8A8AA0', fontSize: 11, fontWeight: '700' },
