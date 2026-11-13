@@ -306,3 +306,18 @@ Papéis e permissões da equipe, porteiro por PIN, foto de conferência na porta
 | Só o dono | ✅ (as funções do banco conferem owner_id). **Decisão:** igual ao portal, a equipe não entrega brinde |
 | Histórico 24h/2/7/30 dias, confirmado/pendente/cancelado, como foi, cancelar com confirmação (inclusive confirmadas) | ✅ `parceiro/historico.tsx` + contagem de cupons usados; recarrega a cada 30 s |
 | Meta VIP de Clientes VIP | ✅ **108**: `clientes_vip_do_local` passa a usar o mesmo cartão (o mais antigo), igual ao portal e ao app |
+
+## 19. Etapa 8 — Minha página (13/11/2026)
+
+| Regra do portal | No app agora |
+|---|---|
+| Só o dono; status, selo e destaque só aparecem | ✅ `parceiro/pagina.tsx` |
+| Capa e logo (sem logo, usa a capa); galeria até 6; vídeo só link; galeria/vídeo só aparecem com Premium/Fundador (aviso, não trava) | ✅ seção Fotos e vídeo (fotos até 8 MB, limite do bucket; o portal pede 5 MB) |
+| Nome obrigatório; descrição até 800 (lembrete pede 20) | ✅ seção Sobre |
+| Relação com a comunidade LGBT+ (tocar de novo desmarca); público, nenhum = ['todos'] | ✅ |
+| Horário por dia, música ao vivo; dia fechado não guarda horário (`limparHorarioFuncionamento`) | ✅ seção Horários (mesmo formato do banco) |
+| Instagram, WhatsApp (aviso sem DDD), e-mail, contato; serviços: atendimento + especialidade; produtos: link da loja | ✅ seção Contato |
+| Cidade obrigatória exceto serviços/turismo/produtos; bairro para exibir; coordenadas | ✅ seção Endereço e mapa: pelo endereço (geocodificação do aparelho) ou "Estou na casa agora" (GPS) |
+| Lembrete "falta foto / descrição / Instagram / horário" (desligado para festa avulsa; horário só se `pedeHorario`) | ✅ `oQueFalta` (resumo da página); `recursosDaCategoria` agora tem `pedeHorario` e `pedePagina` |
+| Categoria e subcategoria editáveis | ⚠️ **Decisão:** no app só aparecem (mudar = falar com a equipe), para a casa não sair da vitrine por engano. O portal continua deixando |
+| Trocar senha | ✅ já existia (Meu espaço › Trocar minha senha) |

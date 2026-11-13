@@ -93,7 +93,7 @@ export function itensDaAba(aba: Aba, local: LocalDoParceiro, pode: (p: Permissao
           { chave: 'vip', titulo: 'Nível VIP', sub: 'Benefício para quem vem sempre', icone: 'award', cor: '#C8853C', rota: '/parceiro/fidelidade', mostrar: dono && r.fidelidade },
         ]
       : [
-          { chave: 'pagina', titulo: 'Minha página', sub: 'Fotos, textos, horários e Instagram', icone: 'home', cor: '#E1306C', mostrar: dono },
+          { chave: 'pagina', titulo: 'Minha página', sub: 'Fotos, textos, horários e Instagram', icone: 'home', cor: '#E1306C', rota: '/parceiro/pagina', mostrar: dono },
           { chave: 'reservas', titulo: 'Reservas', sub: 'Áreas do quiz, horários e como receber', icone: 'bookmark', cor: '#4B5BD6', rota: '/parceiro/reservas',
             selo: nivel === 'gratuito' ? 'Planos pagos' : undefined, bloqueado: nivel === 'gratuito', mostrar: dono && r.reservas },
           { chave: 'equipe', titulo: 'Equipe e senha da porta', sub: 'Quem pode fazer o quê', icone: 'shield', cor: '#7E57C2', rota: '/parceiro/equipe', mostrar: dono },

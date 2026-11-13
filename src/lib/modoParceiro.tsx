@@ -38,16 +38,18 @@ export type Recursos = {
   checkins: boolean;
   fidelidade: boolean;
   reservas: boolean; // Rodada 146 — reserva de mesa (bares, restaurantes e afins)
+  pedeHorario: boolean; // pede horário de funcionamento na página (espelho do portal)
+  pedePagina: boolean; // false = não cobrar "completar a página" (festa avulsa)
 };
-const PADRAO: Recursos = { cupom: 'cupom', agenda: true, eventos: true, listaVip: true, checkins: true, fidelidade: true, reservas: true };
+const PADRAO: Recursos = { cupom: 'cupom', agenda: true, eventos: true, listaVip: true, checkins: true, fidelidade: true, reservas: true, pedeHorario: true, pedePagina: true };
 const POR_CATEGORIA: Record<string, Partial<Recursos>> = {
-  eventos: { cupom: false, agenda: false, checkins: false, fidelidade: false, reservas: false },
+  eventos: { cupom: false, agenda: false, checkins: false, fidelidade: false, reservas: false, pedeHorario: false },
   saude: { cupom: 'desconto', agenda: false, eventos: false, listaVip: false, checkins: false, fidelidade: false, reservas: false },
   lojas: { cupom: 'desconto', agenda: false, eventos: false, listaVip: false, reservas: false },
-  produtos: { cupom: 'desconto', agenda: false, eventos: false, listaVip: false, reservas: false },
+  produtos: { cupom: 'desconto', agenda: false, eventos: false, listaVip: false, reservas: false, pedeHorario: false },
   beleza: { cupom: 'desconto', agenda: false, eventos: false, listaVip: false, reservas: false },
-  servicos: { cupom: 'desconto', agenda: false, eventos: false, listaVip: false, reservas: false },
-  turismo: { agenda: false, eventos: false, listaVip: false, reservas: false },
+  servicos: { cupom: 'desconto', agenda: false, eventos: false, listaVip: false, reservas: false, pedeHorario: false },
+  turismo: { agenda: false, eventos: false, listaVip: false, reservas: false, pedeHorario: false },
 };
 // Plano efetivo (espelho de planoEfetivo em portal-b2b-lgbt/src/lib/parceiro.ts): plano pago só conta com
 // status 'ativo'. Sem status (antes da migração 104, ou campo vazio) vale como 'ativo', igual ao banco
@@ -58,8 +60,11 @@ export function planoEfetivo(plano: string | null | undefined, status: string | 
   return (status ?? 'ativo') === 'ativo' ? plano : null;
 }
 
-export function recursosDaCategoria(categoria: string): Recursos {
-  return { ...PADRAO, ...(POR_CATEGORIA[categoria] ?? {}) };
+export function recursosDaCategoria(categoria: string, subcategoria?: string | null): Recursos {
+  const r = { ...PADRAO, ...(POR_CATEGORIA[categoria] ?? {}) };
+  // Festa avulsa: o organizador só quer divulgar a festa; não cobramos página completa (igual ao portal).
+  if (categoria === 'eventos' && (subcategoria || '').trim().toLowerCase() === 'festa avulsa') r.pedePagina = false;
+  return r;
 }
 
 export const NOME_PAPEL: Record<LocalDoParceiro['papel'], string> = {
