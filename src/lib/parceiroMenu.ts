@@ -96,6 +96,10 @@ export function itensDaAba(aba: Aba, local: LocalDoParceiro, pode: (p: Permissao
           { chave: 'pagina', titulo: 'Minha página', sub: 'Fotos, textos, horários e Instagram', icone: 'home', cor: '#E1306C', rota: '/parceiro/pagina', mostrar: dono },
           { chave: 'reservas', titulo: 'Reservas', sub: 'Áreas do quiz, horários e como receber', icone: 'bookmark', cor: '#4B5BD6', rota: '/parceiro/reservas',
             selo: nivel === 'gratuito' ? 'Planos pagos' : undefined, bloqueado: nivel === 'gratuito', mostrar: dono && r.reservas },
+          // Etapas 12–14 — só para as categorias/liberações certas (igual ao portal)
+          { chave: 'produtos', titulo: 'Catálogo de produtos', sub: 'Produtos na página da casa', icone: 'package', cor: '#F2A900', rota: '/parceiro/produtos', mostrar: dono && local.categoria === 'produtos' },
+          { chave: 'pacotes', titulo: 'Pacotes e roteiros', sub: 'Na página da casa e em Pacotes', icone: 'map', cor: '#3FA0A7', rota: '/parceiro/pacotes', mostrar: dono && (local.pode_subir_pacotes ?? local.categoria === 'turismo') },
+          { chave: 'hospedagem', titulo: 'Cadastro da hospedagem', sub: 'Quartos, comodidades e validação', icone: 'home', cor: '#7E57C2', rota: '/parceiro/hospedagem', mostrar: dono && local.categoria === 'turismo' },
           { chave: 'equipe', titulo: 'Equipe e senha da porta', sub: 'Quem pode fazer o quê', icone: 'shield', cor: '#7E57C2', rota: '/parceiro/equipe', mostrar: dono },
           { chave: 'plano', titulo: 'Meu plano', sub: 'O que está incluído', icone: 'award', cor: '#C8853C', rota: '/parceiro/espaco', mostrar: false },
           { chave: 'senha', titulo: 'Trocar minha senha', sub: 'Vale no app e no portal', icone: 'lock', cor: '#3FA0A7', rota: '/parceiro/trocar-senha', mostrar: local.papel !== 'porta_pin' },
