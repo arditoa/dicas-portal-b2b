@@ -245,3 +245,19 @@ Papéis e permissões da equipe, porteiro por PIN, foto de conferência na porta
 | Destaques da agenda no ar (`destaques_agenda` com `data_fim` ≥ hoje) na faixa "Festas em destaque", depois das festas do plano; com foto, só a foto; sem foto, ícone + nome; abre a página da casa. Fora quando um tipo de festa está escolhido | `src/app/(tabs)/events.tsx` | ✅ |
 | `visualizacao_festa` e `clique_ingresso` com `evento_id`; `clique_rota` (festa e casa); `clique_whatsapp` (reserva e hospedagem); `favoritou` (ao salvar); `visualizacao_banner`/`clique_banner` (patrocínio e destaques, Home e categorias, pelo `registrarVitrine`) | `src/lib/analytics.ts`, `src/lib/vitrine.ts`, `business/[id].tsx`, `HospedagemDetalhes.tsx`, Home | ✅ não grava 2× a mesma visualização em 30 s nem o mesmo clique em 3 s |
 | `clique_telefone` | `analytics.ts` (`registrarCliqueTelefone`) | 🟡 pronto, mas o app cliente não tem botão de telefone |
+
+## 15. Etapa 4 — cupons (13/11/2026)
+
+| Regra do portal | No app agora |
+|---|---|
+| Título obrigatório; descrição, código (maiúsculo), validade, limite de uso ≥ 1 | ✅ `cupom-editar.tsx` + `lib/parceiro/cupons.ts` (o limite não pode ficar abaixo dos usos que já aconteceram) |
+| Dias (vazio ou 7 = todos → null), atalhos Ter–Qui / Sex–Dom / Todos, horário início/fim (Brasília) | ✅ (mesmo `janelaCupom.ts`) |
+| Limite do plano 1/7 dias (Premium/Fundador), 1/14 (Intermediário), "libera em dd/mm" | ✅ `uso_ofertas_periodo`; botão "Novo cupom" trava até liberar |
+| Gratuito não cria cupom | ✅ cadeado + "Falar com a equipe", sem preço (o banco trava pela 104) |
+| Ativar/desativar | ✅ pausar/retomar na lista e no editor |
+| Excluir cupom | ⚠️ não copiado de propósito: apagar libera a cota do período e apaga os usos |
+| Contagem "X resgatados" | ✅ pela nova `uso_dos_cupons` (**106**). No portal a contagem dá sempre 0 para o dono: `cupons_resgatados` só deixa cada pessoa ler os próprios resgates (corrigir lá trocando pela função) |
+| "Válido até" | ✅ até 23h59 do dia (Brasília). O portal grava meia-noite UTC, ou seja, o cupom vence às 21h do dia anterior: corrigir lá |
+| Validar check-in pelo código | ✅ já existia em Aprovações (com QR) |
+| Plano mensal antigo ("X de Y ofertas do mês") | ✅ o texto do limite cobre o período "mês" se algum local ainda estiver nele |
+| Editar cupom antigo / retomar pausado não contam no limite | ⚠️ igual ao banco (o limite só conta cupom novo). Decidir se é para travar |

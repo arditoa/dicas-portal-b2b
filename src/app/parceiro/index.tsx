@@ -267,7 +267,11 @@ export default function InicioParceiro() {
       case 'agenda':
         return { item: it, titulo: 'Agenda da semana', situacao: s?.txt || 'Programação de cada dia', tom: s?.tom || 'neutro', acao: s?.tom === 'ok' ? 'Ver' : 'Subir' };
       case 'cupons':
-        return { item: it, titulo: 'Cupom', situacao: s?.txt || 'Na página da casa', tom: s?.tom || 'neutro', acao: s?.tom === 'ok' ? 'Criar' : 'Ver' };
+        // "Novo cupom": liberado → abre direto a criação; senão, a lista (mostra quando libera).
+        return {
+          item: it, titulo: 'Cupom', situacao: s?.txt || 'Na página da casa', tom: s?.tom || 'neutro', acao: s?.tom === 'ok' ? 'Criar' : 'Ver',
+          aoTocar: s?.tom === 'ok' ? () => router.push('/parceiro/cupom-editar') : undefined,
+        };
       case 'banner':
         return { item: it, titulo: 'Banner', situacao: s?.txt || 'Na Home e na categoria', tom: s?.tom || 'neutro', acao: 'Trocar' };
       case 'festa': {

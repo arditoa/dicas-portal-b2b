@@ -77,7 +77,7 @@ export function itensDaAba(aba: Aba, local: LocalDoParceiro, pode: (p: Permissao
           { chave: 'eventos', titulo: ehFesta ? 'Minhas festas' : 'Meus eventos', sub: 'Criar, editar, repetir e destacar', icone: 'star', cor: '#9B3CFF', rota: '/parceiro/festas', mostrar: pode('festa') && r.eventos },
           { chave: 'agenda', titulo: 'Agenda da semana', sub: 'O que rola em cada dia', icone: 'calendar', cor: '#3FA0A7', rota: '/parceiro/agenda', mostrar: pode('festa') && r.agenda },
           // Gratuito NÃO cria cupom (decisão da Andrea, 13/11/2026): cadeado aqui, no portal e no banco (migração 104).
-          { chave: 'cupons', titulo: desconto ? 'Cupons de desconto' : 'Cupons', sub: 'Na página da casa e na busca', icone: 'tag', cor: '#F2A900',
+          { chave: 'cupons', titulo: desconto ? 'Cupons de desconto' : 'Cupons', sub: 'Na página da casa e na busca', icone: 'tag', cor: '#F2A900', rota: '/parceiro/cupons',
             selo: nivel === 'premium' ? '1 a cada 7 dias' : nivel === 'intermediario' ? '1 a cada 14 dias' : 'Planos pagos',
             bloqueado: nivel === 'gratuito', mostrar: pode('cupons') && r.cupom !== false },
           { chave: 'banner', titulo: 'Banner', sub: 'Na Home e no topo da categoria', icone: 'image', cor: '#E07A5F',
