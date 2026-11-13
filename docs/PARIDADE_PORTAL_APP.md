@@ -261,3 +261,19 @@ Papéis e permissões da equipe, porteiro por PIN, foto de conferência na porta
 | Validar check-in pelo código | ✅ já existia em Aprovações (com QR) |
 | Plano mensal antigo ("X de Y ofertas do mês") | ✅ o texto do limite cobre o período "mês" se algum local ainda estiver nele |
 | Editar cupom antigo / retomar pausado não contam no limite | ⚠️ igual ao banco (o limite só conta cupom novo). Decidir se é para travar |
+
+## 16. Etapa 5 — banner (13/11/2026)
+
+| Regra do portal | No app agora |
+|---|---|
+| Só Premium/Fundador com plano ativo edita | ✅ plano efetivo; demais planos: cadeado + "Falar com a equipe", sem preço |
+| Frase obrigatória: 60 com foto, 90 sem | ✅ 60 com foto em meio banner (à direita/esquerda), 90 só cor ou foto de fundo (o banco aceita até 90) |
+| Botão até 24 ("Conhecer") | ✅ |
+| Foto em `fotos-locais/<local>/banner-*`; ao subir com "Só cor" vira "Foto à direita"; dica de foto sem texto | ✅ |
+| Estilo, cores do fundo (DEGRADES_BANNER ou padrão), cor dos dizeres, palavra de impacto (30) com cor (ou botão branco) | ✅ mesmo `estiloBanner.ts` |
+| Prévia Home (Fundador, nome na etiqueta) e categoria | ✅ com o próprio `CarrosselAnuncios` do app (o portal desenha uma prévia à parte) |
+| "Trocado há N dias", aviso a partir de 7 | ✅ |
+| "Sua vaga no app" e o que o plano inclui | ✅ |
+| Variantes por lugar (096) | ❌ continuam no portal; o salvar do app não mexe nelas |
+| Comunicação do Fundador, Patrocínio Master, números da vitrine | ❌ continuam no portal |
+| 🔴 Foto do banner salva pelo parceiro | O gatilho `touch_destaque_chamada` (060) descartava a foto de quem não é admin, **também no portal**. Corrigido na **107** (aceita só foto do próprio local em `fotos-locais/<local>/banner-…`); o app avisa se a foto não ficou salva |

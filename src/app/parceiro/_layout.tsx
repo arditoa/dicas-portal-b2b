@@ -88,6 +88,7 @@ export default function ParceiroLayout() {
       <Tabs.Screen name="festa-editar" options={{ href: null }} />
       <Tabs.Screen name="cupons" options={{ href: null }} />
       <Tabs.Screen name="cupom-editar" options={{ href: null }} />
+      <Tabs.Screen name="banner" options={{ href: null }} />
     </Tabs>
   );
 }

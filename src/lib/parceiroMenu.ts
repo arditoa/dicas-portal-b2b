@@ -80,7 +80,7 @@ export function itensDaAba(aba: Aba, local: LocalDoParceiro, pode: (p: Permissao
           { chave: 'cupons', titulo: desconto ? 'Cupons de desconto' : 'Cupons', sub: 'Na página da casa e na busca', icone: 'tag', cor: '#F2A900', rota: '/parceiro/cupons',
             selo: nivel === 'premium' ? '1 a cada 7 dias' : nivel === 'intermediario' ? '1 a cada 14 dias' : 'Planos pagos',
             bloqueado: nivel === 'gratuito', mostrar: pode('cupons') && r.cupom !== false },
-          { chave: 'banner', titulo: 'Banner', sub: 'Na Home e no topo da categoria', icone: 'image', cor: '#E07A5F',
+          { chave: 'banner', titulo: 'Banner', sub: 'Na Home e no topo da categoria', icone: 'image', cor: '#E07A5F', rota: '/parceiro/banner',
             selo: nivel === 'premium' ? 'Incluído' : 'Premium / Fundador', bloqueado: nivel !== 'premium', mostrar: pode('banner') && !ehFesta },
         ]
       : aba === 'fidelizar'
@@ -121,7 +121,7 @@ export function abrirItem(router: { push: (r: any) => void }, item: ItemParceiro
   if (item.portal) {
     return Alert.alert(item.titulo, item.aviso || 'Chega no app na próxima versão. Por enquanto, faça pelo portal do parceiro: entra com o mesmo WhatsApp e senha.', [
       { text: 'Agora não', style: 'cancel' },
-      { text: item.chave === 'banner' ? 'Trocar no portal' : 'Abrir no portal', onPress: () => void Linking.openURL(URL_PORTAL + item.portal) },
+      { text: 'Abrir no portal', onPress: () => void Linking.openURL(URL_PORTAL + item.portal) },
     ]);
   }
   Alert.alert(item.titulo, 'Chega no app na próxima versão. Enquanto isso, a equipe Dicas faz para você.', [
