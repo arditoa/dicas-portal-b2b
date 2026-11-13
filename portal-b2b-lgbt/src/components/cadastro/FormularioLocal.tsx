@@ -269,6 +269,37 @@ export default function FormularioLocal({
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [tentouEnviar, setTentouEnviar] = useState(false);
+
+  // O que ainda falta para o cadastro poder ser enviado, na ordem em que os campos aparecem na tela.
+  // Depois da primeira tentativa de envio a lista se atualiza sozinha: cada item some assim que é resolvido.
+  const calcularFaltando = (): { campo: string; texto: string }[] => {
+    const f: { campo: string; texto: string }[] = [];
+    const vazio = (v: string) => !v.trim();
+    const docLen = documento.replace(/\D/g, '').length;
+    if (docLen !== 11 && docLen !== 14) f.push({ campo: 'documento', texto: 'CNPJ (14 números) ou CPF (11 números)' });
+    if (vazio(nomeResponsavel)) f.push({ campo: 'responsavel', texto: 'Nome do responsável' });
+    if (vazio(whatsapp)) f.push({ campo: 'whatsapp', texto: 'WhatsApp' });
+    if (vazio(nomeEspaco)) f.push({ campo: 'nome', texto: 'Nome do local' });
+    if (!categoria) f.push({ campo: 'categoria', texto: 'Categoria' });
+    if (categoria === '__outra__' && vazio(categoriaSugerida)) f.push({ campo: 'categoriaSugerida', texto: 'Nome da categoria que você sugere' });
+    if (SUBCATEGORIAS_APP[categoria] && !subcategoria) f.push({ campo: 'subcategoria', texto: 'Subcategoria (escolha uma da lista ou "Outros")' });
+    if (subcategoria === '__outros__' && vazio(subcategoriaLivre)) f.push({ campo: 'subcategoria', texto: 'Nome da sua subcategoria' });
+    if (!classificacaoLgbt) f.push({ campo: 'relacao', texto: 'Relação com a comunidade LGBT+: toque em uma das 4 opções' });
+    if (enderecoObrigatorio) {
+      if (vazio(logradouro)) f.push({ campo: 'logradouro', texto: 'Endereço: logradouro' });
+      if (vazio(numero)) f.push({ campo: 'numero', texto: 'Endereço: número' });
+      if (vazio(bairro)) f.push({ campo: 'bairro', texto: 'Endereço: bairro' });
+      if (vazio(cidade)) f.push({ campo: 'cidade', texto: 'Endereço: cidade' });
+      if (vazio(uf)) f.push({ campo: 'uf', texto: 'Endereço: UF' });
+    }
+    if (!aceitouTermos) f.push({ campo: 'termos', texto: 'Marcar que leu e aceita os termos' });
+    return f;
+  };
+  const faltando = tentouEnviar ? calcularFaltando() : [];
+  const temErro = (campo: string) => faltando.some((x) => x.campo === campo);
+  const irParaCampo = (campo: string) =>
+    document.getElementById(`campo-${campo}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
   const digitsOnly = (v: string) => v.replace(/\D/g, '');
 
@@ -353,32 +384,10 @@ export default function FormularioLocal({
     e.preventDefault();
     setErrorMsg('');
 
-    if (!aceitouTermos) {
-      setErrorMsg('É preciso aceitar os termos pra continuar.');
-      return;
-    }
-    if (digitsOnly(documento).length !== 11 && digitsOnly(documento).length !== 14) {
-      setErrorMsg('Informe um CNPJ (14 números) ou CPF (11 números) válido.');
-      return;
-    }
-    if (!categoria) {
-      setErrorMsg('Escolha uma categoria.');
-      return;
-    }
-    if (categoria === '__outra__' && !categoriaSugerida.trim()) {
-      setErrorMsg('Escreva o nome da categoria que você sugere.');
-      return;
-    }
-    if (SUBCATEGORIAS_APP[categoria] && !subcategoria) {
-      setErrorMsg('Escolha a subcategoria (ou "Outros" para escrever a sua).');
-      return;
-    }
-    if (subcategoria === '__outros__' && !subcategoriaLivre.trim()) {
-      setErrorMsg('Escreva o nome da sua subcategoria.');
-      return;
-    }
-    if (!classificacaoLgbt) {
-      setErrorMsg('Escolha a relação do espaço com a comunidade LGBT+.');
+    setTentouEnviar(true);
+    if (calcularFaltando().length > 0) {
+      // fica na região do botão, onde a pessoa está, e mostra o que falta
+      setTimeout(() => document.getElementById('aviso-faltando')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
       return;
     }
 
@@ -489,17 +498,12 @@ export default function FormularioLocal({
 
   return (
     <div>
-        {errorMsg && (
-          <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl text-sm mb-6">
-            {errorMsg}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} noValidate className="space-y-6">
+          <style>{`[data-erro="true"]{outline:1px solid rgba(248,113,113,.75);outline-offset:6px;border-radius:12px}`}</style>
           <div className="bg-[#12121A] border border-[#232230] rounded-2xl p-6 space-y-4">
             <h2 className="text-sm font-bold text-white">Dados do responsável</h2>
 
-            <div>
+            <div id="campo-documento" data-erro={temErro('documento')}>
               <label className={labelClass}>CNPJ ou CPF</label>
               <input
                 type="text"
@@ -525,7 +529,7 @@ export default function FormularioLocal({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
+              <div id="campo-responsavel" data-erro={temErro('responsavel')}>
                 <label className={labelClass}>Nome do responsável</label>
                 <input
                   type="text"
@@ -537,7 +541,7 @@ export default function FormularioLocal({
                   disabled={loading}
                 />
               </div>
-              <div>
+              <div id="campo-whatsapp" data-erro={temErro('whatsapp')}>
                 <label className={labelClass}>WhatsApp</label>
                 <input
                   type="tel"
@@ -560,7 +564,7 @@ export default function FormularioLocal({
           <div className="bg-[#12121A] border border-[#232230] rounded-2xl p-6 space-y-4">
             <h2 className="text-sm font-bold text-white">Dados do espaço</h2>
 
-            <div>
+            <div id="campo-nome" data-erro={temErro('nome')}>
               <label className={labelClass}>Nome do local (como vai aparecer no app)</label>
               <input
                 type="text"
@@ -588,7 +592,7 @@ export default function FormularioLocal({
               )}
             </div>
 
-            <div>
+            <div id="campo-categoria" data-erro={temErro('categoria')}>
               <label className={labelClass}>Categoria</label>
               <select
                 required
@@ -623,7 +627,7 @@ export default function FormularioLocal({
             </div>
 
             {categoria === '__outra__' && (
-              <div>
+              <div id="campo-categoriaSugerida" data-erro={temErro('categoriaSugerida')}>
                 <label className={labelClass}>Qual categoria você sugere?</label>
                 <input
                   type="text"
@@ -657,7 +661,7 @@ export default function FormularioLocal({
             )}
 
             {(!categoria || SUBCATEGORIAS_APP[categoria]) && (
-              <div>
+              <div id="campo-subcategoria" data-erro={temErro('subcategoria')}>
                 <label className={labelClass}>Subcategoria</label>
                 <select
                   value={subcategoria}
@@ -736,8 +740,10 @@ export default function FormularioLocal({
               </div>
             )}
 
-            <div>
-              <label className={labelClass}>Relação com a comunidade LGBT+ *</label>
+            <div id="campo-relacao" data-erro={temErro('relacao')}>
+              <label className={labelClass}>
+                Relação com a comunidade LGBT+ * <span className="normal-case font-semibold text-[#F9A8C9]">— toque em uma das opções abaixo</span>
+              </label>
               <div className="flex flex-col gap-2">
                 {CLASSIFICACOES_LGBT.map((c) => {
                   const ativo = classificacaoLgbt === c.value;
@@ -764,6 +770,9 @@ export default function FormularioLocal({
               <p className="text-xs text-[#626274] mt-2">
                 Escolha a opção que melhor descreve o espaço, seguindo a metodologia da Câmara de Comércio LGBT+. Selecione uma — clique de novo pra desmarcar.
               </p>
+              {temErro('relacao') && (
+                <p className="text-xs font-semibold text-red-400 mt-2">Falta escolher: toque em um dos quadros acima para marcar.</p>
+              )}
             </div>
 
             <CampoFotoCapa arquivo={fotoCapa} onSelect={setFotoCapa} disabled={loading} />
@@ -826,7 +835,7 @@ export default function FormularioLocal({
                   <p className="text-xs text-amber-400 mt-2">CEP não encontrado — preencha o endereço manualmente.</p>
                 )}
               </div>
-              <div className="md:col-span-2">
+              <div className="md:col-span-2" id="campo-logradouro" data-erro={temErro('logradouro')}>
                 <label className={labelClass}>Logradouro{enderecoObrigatorio ? '' : ' (opcional)'}</label>
                 <input
                   type="text"
@@ -841,7 +850,7 @@ export default function FormularioLocal({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
+              <div id="campo-numero" data-erro={temErro('numero')}>
                 <label className={labelClass}>Número{enderecoObrigatorio ? '' : ' (opcional)'}</label>
                 <input
                   type="text"
@@ -866,7 +875,7 @@ export default function FormularioLocal({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="md:col-span-2">
+              <div className="md:col-span-2" id="campo-bairro" data-erro={temErro('bairro')}>
                 <label className={labelClass}>Bairro{enderecoObrigatorio ? '' : ' (opcional)'}</label>
                 <input
                   type="text"
@@ -877,7 +886,7 @@ export default function FormularioLocal({
                   disabled={loading}
                 />
               </div>
-              <div>
+              <div id="campo-cidade" data-erro={temErro('cidade')}>
                 <label className={labelClass}>Cidade{enderecoObrigatorio ? '' : ' (opcional)'}</label>
                 <input
                   type="text"
@@ -888,7 +897,7 @@ export default function FormularioLocal({
                   disabled={loading}
                 />
               </div>
-              <div>
+              <div id="campo-uf" data-erro={temErro('uf')}>
                 <label className={labelClass}>UF{enderecoObrigatorio ? '' : ' (opcional)'}</label>
                 <select
                   required={enderecoObrigatorio}
@@ -916,7 +925,7 @@ export default function FormularioLocal({
             <CampoHorarioFuncionamento value={horario} onChange={setHorario} disabled={loading} />
           </div>
 
-          <label className="flex items-start gap-3 text-sm text-[#A0A0B2] cursor-pointer">
+          <label id="campo-termos" data-erro={temErro('termos')} className="flex items-start gap-3 text-sm text-[#A0A0B2] cursor-pointer">
             <input
               type="checkbox"
               checked={aceitouTermos}
@@ -932,6 +941,28 @@ export default function FormularioLocal({
               e autorizo o contato por WhatsApp sobre a análise do meu cadastro.
             </span>
           </label>
+
+          {faltando.length > 0 && (
+            <div id="aviso-faltando" role="alert" className="bg-red-500/10 border border-red-500/30 text-red-300 p-4 rounded-xl text-sm">
+              <p className="font-bold mb-2">Ainda não deu para enviar. Falta:</p>
+              <ul className="space-y-1.5">
+                {faltando.map((x, i) => (
+                  <li key={`${x.campo}-${i}`}>
+                    <button type="button" onClick={() => irParaCampo(x.campo)} className="text-left underline decoration-dotted underline-offset-2">
+                      {x.texto}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs text-red-300/80 mt-2">Toque em um item para ir até o campo. Os campos que faltam estão marcados em vermelho.</p>
+            </div>
+          )}
+
+          {errorMsg && (
+            <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl text-sm">
+              {errorMsg}
+            </div>
+          )}
 
           <button
             type="submit"
