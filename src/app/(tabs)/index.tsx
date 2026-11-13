@@ -1010,7 +1010,8 @@ export default function HomeScreen() {
 
         {/* FUNDADORES (pequenos) + VITRINE DE DESTAQUES — abaixo dos quadradinhos giram, a cada 5 s,
             banners do Museu e dos Recomendados (mesmo tamanho dos de parceiros). */}
-        <CarrosselAnuncios anuncios={anunciosVitrine} />
+        {/* Etapa 3 — banner de Fundador que apareceu conta no painel do parceiro (registrarVitrine também grava visualizacao_banner). */}
+        <CarrosselAnuncios anuncios={anunciosVitrine} onExibir={(id) => { if (id.startsWith('fund-') && !id.startsWith('fund-demo-')) registrarVitrine(id.slice(5), 'home:destaques', 'exibicao'); }} />
 
         {/* ANÚNCIOS (acima das categorias) — carrossel que passa sozinho (Copa 2027, Embratur, Câmara LGBT).
             Para trocar os anúncios (ex.: durante a Copa), mude só esta lista. */}

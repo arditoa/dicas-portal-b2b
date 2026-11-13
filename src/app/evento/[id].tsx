@@ -12,12 +12,15 @@
 // WhatsApp" do organizador (uso interno da equipe) — essas linhas são
 // removidas aqui pra não expor o telefone do organizador.
 import { Feather } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Linking, Platform, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import FundoFesta, { coresDaFesta } from '../../components/FundoFesta';
+import { registrarCliqueIngresso, registrarCliqueRota, registrarVisualizacaoFesta } from '../../lib/analytics';
 import { useAuth } from '../../lib/authContext';
 import { SELO_FESTA } from '../../lib/categorias';
 import { estaFixadoEm, deveExibirGlow } from '../../lib/destaque';
@@ -66,7 +69,16 @@ type Evento = {
   local_id: string | null;
   locais: { id: string; nome: string; bairro: string | null; bairro_exibicao?: string | null; cidade: string | null; endereco: string | null; lat: number | null; lng: number | null } | null;
   listas_vip: ListaVip[] | null;
+  // Etapa 3 — o que o parceiro salva no Modo parceiro (migração 099). Sem a 099, ficam vazios.
+  cor1?: string | null;
+  cor2?: string | null;
+  textura?: string | null;
+  chamada?: string | null;
+  destaques?: string[] | null;
+  link_ingresso?: string | null;
+  exigir_foto?: boolean | null;
 };
+const CAMPOS_VISUAL = 'cor1, cor2, textura, chamada, destaques, link_ingresso, exigir_foto';
 
 const CAMPOS =
   'id, titulo, descricao, data_inicio, data_fim, estilos_musicais, publico_tags, foto_capa_url, plano_destaque, destaque_secoes, destaque_ate, local_id, locais(id, nome, bairro, bairro_exibicao, cidade, endereco, lat, lng), listas_vip(id, titulo, vagas_limite, vagas_ocupadas, ativa)';
@@ -124,6 +136,10 @@ export default function EventoScreen() {
   const [solicitacaoId, setSolicitacaoId] = useState<string | null>(null);
   const [acompanhantes, setAcompanhantes] = useState(0);
   const [enviando, setEnviando] = useState(false);
+  // Etapa 3 — Lista VIP que pede foto de conferência (eventos.exigir_foto). A foto é privada
+  // (bucket fotos-conferencia, "<user_id>/foto.jpg"): só a portaria da festa vê, na janela da festa.
+  const [temFotoConferencia, setTemFotoConferencia] = useState<boolean | null>(null);
+  const [enviandoFoto, setEnviandoFoto] = useState(false);
 
   const lista = ev?.listas_vip?.find((l) => l.ativa) || null;
 
@@ -132,10 +148,13 @@ export default function EventoScreen() {
     setCarregando(true);
     try {
       // `tags` vem da migration 036; sem ela, segue com os campos antigos.
-      let r: any = await supabase.from('eventos').select(`${CAMPOS}, tags`).eq('id', id).maybeSingle();
+      // Etapa 3 — visual, ingresso e "exigir foto" vêm da 099; sem ela, cai para os campos de antes.
+      let r: any = await supabase.from('eventos').select(`${CAMPOS}, tags, ${CAMPOS_VISUAL}`).eq('id', id).maybeSingle();
+      if (r.error) r = await supabase.from('eventos').select(`${CAMPOS}, tags`).eq('id', id).maybeSingle();
       if (r.error) r = await supabase.from('eventos').select(CAMPOS).eq('id', id).maybeSingle();
       const dado = (r.data as Evento) || null;
       setEv(dado);
+      if (dado) registrarVisualizacaoFesta(dado.local_id, dado.id);
       const listaAtiva = dado?.listas_vip?.find((l) => l.ativa);
       if (user?.id && listaAtiva) {
         const { data: minha } = await supabase
@@ -158,6 +177,49 @@ export default function EventoScreen() {
   useEffect(() => {
     carregar();
   }, [carregar]);
+
+  const pedeFoto = !!ev?.exigir_foto;
+  useEffect(() => {
+    if (!pedeFoto || !user?.id) { setTemFotoConferencia(null); return; }
+    let vivo = true;
+    (async () => {
+      const { data, error } = await supabase.from('profiles').select('foto_conferencia_path').eq('id', user.id).maybeSingle();
+      if (vivo) setTemFotoConferencia(error ? null : !!(data as { foto_conferencia_path: string | null } | null)?.foto_conferencia_path);
+    })();
+    return () => { vivo = false; };
+  }, [pedeFoto, user?.id]);
+
+  const enviarFotoConferencia = async () => {
+    if (!user) return exigirLogin();
+    const escolher = async (origem: 'camera' | 'galeria') => {
+      try {
+        const perm = origem === 'camera' ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!perm.granted) return Alert.alert('Permissão', origem === 'camera' ? 'Libere a câmera nos Ajustes do celular para tirar a foto.' : 'Libere o acesso às fotos nos Ajustes do celular.');
+        const opcoes: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.6, cameraType: ImagePicker.CameraType.front };
+        const res = origem === 'camera' ? await ImagePicker.launchCameraAsync(opcoes) : await ImagePicker.launchImageLibraryAsync(opcoes);
+        if (res.canceled || !res.assets?.[0]) return;
+        setEnviandoFoto(true);
+        const buf = await (await fetch(res.assets[0].uri)).arrayBuffer();
+        if (buf.byteLength > 5 * 1024 * 1024) throw new Error('A foto passou de 5 MB. Tente de novo.');
+        const caminho = `${user.id}/foto.jpg`;
+        const up = await supabase.storage.from('fotos-conferencia').upload(caminho, buf, { contentType: 'image/jpeg', upsert: true });
+        if (up.error) throw new Error('Não deu para enviar a foto agora. Tente de novo em instantes.');
+        const { error } = await supabase.from('profiles').update({ foto_conferencia_path: caminho }).eq('id', user.id);
+        if (error) throw new Error('A foto subiu, mas não foi salva no seu perfil. Tente de novo.');
+        setTemFotoConferencia(true);
+        Alert.alert('Foto enviada', 'Pronto! Agora você já pode colocar seu nome na lista.');
+      } catch (e: any) {
+        Alert.alert('Foto de conferência', e?.message || 'Não foi possível enviar a foto.');
+      } finally {
+        setEnviandoFoto(false);
+      }
+    };
+    Alert.alert('Foto para a portaria', 'Uma foto do seu rosto, de frente e sem óculos escuros. Ela é privada: só a portaria desta festa vê, para conferir na entrada.', [
+      { text: 'Tirar foto agora', onPress: () => void escolher('camera') },
+      { text: 'Escolher da galeria', onPress: () => void escolher('galeria') },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
+  };
 
   // Com o QR na tela, o app percebe sozinho quando a casa confirma a entrada (ou aprova o pedido):
   // consulta só o status a cada 10 s, sem recarregar a página toda.
@@ -190,6 +252,13 @@ export default function EventoScreen() {
     setEnviando(true);
     try {
       const { error } = await supabase.from('listas_vip_solicitacoes').insert({ lista_vip_id: lista.id, acompanhantes });
+      if (error && (error.hint === 'FOTO_CONFERENCIA' || /foto para confer/i.test(error.message || ''))) {
+        setTemFotoConferencia(false);
+        return Alert.alert('Falta a sua foto', 'Esta lista pede uma foto para conferência na portaria. Envie a sua foto e tente de novo.', [
+          { text: 'Agora não', style: 'cancel' },
+          { text: 'Enviar foto', onPress: () => void enviarFotoConferencia() },
+        ]);
+      }
       if (error && error.code !== '23505') throw error;
       Alert.alert('Nome enviado!', `Seu nome foi para a lista VIP de ${ev?.titulo}. Leve um documento com foto na portaria.`);
       await carregar();
@@ -219,6 +288,7 @@ export default function EventoScreen() {
     if (!l) return;
     const destino = l.lat != null && l.lng != null ? `${l.lat},${l.lng}` : encodeURIComponent([l.endereco || l.nome, l.cidade].filter(Boolean).join(', '));
     const url = Platform.OS === 'ios' ? `http://maps.apple.com/?daddr=${destino}` : `https://www.google.com/maps/dir/?api=1&destination=${destino}`;
+    registrarCliqueRota(ev?.local_id, ev?.id);
     Linking.openURL(url);
   };
 
@@ -252,6 +322,16 @@ export default function EventoScreen() {
   const vagas = lista?.vagas_limite != null ? Math.max(0, lista.vagas_limite - lista.vagas_ocupadas) : null;
   const destaque = ev.plano_destaque !== 'basico' || deveExibirGlow(ev as any);
   const st = status ? STATUS_LABEL[status] : null;
+  const cores = coresDaFesta(ev.cor1, ev.cor2);
+  const destaquesFesta = (ev.destaques || []).map((d) => d.trim()).filter(Boolean).slice(0, 6);
+  const temVisual = !!(cores || ev.textura || ev.chamada?.trim() || destaquesFesta.length);
+  const linkIngresso = ev.link_ingresso && /^https?:\/\//i.test(ev.link_ingresso) ? ev.link_ingresso : null;
+  const faltaFoto = pedeFoto && temFotoConferencia === false;
+  const comprarIngresso = () => {
+    if (!linkIngresso) return;
+    registrarCliqueIngresso(ev.local_id, ev.id);
+    Linking.openURL(linkIngresso).catch(() => Alert.alert('Ingresso', 'Não foi possível abrir o link agora.'));
+  };
 
   return (
     <View style={styles.container}>
@@ -262,11 +342,14 @@ export default function EventoScreen() {
             <>
               <Image source={{ uri: ev.foto_capa_url }} style={StyleSheet.absoluteFill} resizeMode="cover" blurRadius={30} />
               <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(11,11,14,0.55)' }]} />
+              {/* Etapa 3 — cores e textura da festa por trás do flyer */}
+              <FundoFesta id={`topo-${ev.id}`} cores={cores} textura={ev.textura} opacidade={0.55} />
               <Image source={{ uri: ev.foto_capa_url }} style={styles.flier} resizeMode="contain" />
             </>
           ) : (
             <View style={[StyleSheet.absoluteFill, styles.centro, { backgroundColor: '#2A1530' }]}>
-              <Feather name="music" size={42} color={C.pink} />
+              <FundoFesta id={`topo-${ev.id}`} cores={cores} textura={ev.textura} />
+              <Feather name="music" size={42} color={cores ? '#FFFFFF' : C.pink} />
             </View>
           )}
           <View style={[styles.topoBotoes, { top: insets.top + 8 }]}>
@@ -303,6 +386,21 @@ export default function EventoScreen() {
           </View>
 
           <Text style={styles.titulo}>{ev.titulo}</Text>
+
+          {/* Etapa 3 — chamada e destaques da festa (com as cores e a textura escolhidas) */}
+          {temVisual && (!!ev.chamada?.trim() || destaquesFesta.length > 0) && (
+            <View style={[styles.visual, !cores && { backgroundColor: C.card }]}>
+              <FundoFesta id={`faixa-${ev.id}`} cores={cores} textura={ev.textura} />
+              {!!ev.chamada?.trim() && <Text style={styles.chamada}>{ev.chamada.trim()}</Text>}
+              {destaquesFesta.length > 0 && (
+                <View style={styles.destaquesLinha}>
+                  {destaquesFesta.map((d) => (
+                    <View key={d} style={styles.destaqueChip}><Text style={styles.destaqueChipTxt}>{d}</Text></View>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
 
           {/* Quando */}
           <View style={styles.infoLinha}>
@@ -342,6 +440,14 @@ export default function EventoScreen() {
             </View>
           )}
 
+          {/* Etapa 3 — ingresso */}
+          {linkIngresso && (
+            <TouchableOpacity style={[styles.btnPrincipal, { marginTop: 6, marginBottom: 10 }]} onPress={comprarIngresso} accessibilityRole="button">
+              <Feather name="credit-card" size={16} color="#FFF" />
+              <Text style={styles.btnPrincipalTxt}>Comprar ingresso</Text>
+            </TouchableOpacity>
+          )}
+
           {/* Lista VIP */}
           {lista && (
             <View style={styles.vipCard}>
@@ -377,7 +483,20 @@ export default function EventoScreen() {
                     </TouchableOpacity>
                   )}
                 </View>
-              ) : vagas === 0 ? null : (
+              ) : vagas === 0 ? null : faltaFoto ? (
+                // Etapa 3 — a festa pede foto de conferência e a pessoa ainda não tem: pede a foto antes da lista.
+                <View style={{ marginTop: 12, gap: 10 }}>
+                  <View style={styles.statusLinha}>
+                    <Feather name="camera" size={16} color={C.gold} />
+                    <Text style={[styles.statusTxt, { color: C.gold }]}>Esta lista pede uma foto sua para conferência na portaria.</Text>
+                  </View>
+                  <TouchableOpacity style={styles.btnPrincipal} onPress={() => void enviarFotoConferencia()} disabled={enviandoFoto} accessibilityRole="button">
+                    {enviandoFoto ? <ActivityIndicator color="#FFF" /> : <Feather name="camera" size={16} color="#FFF" />}
+                    <Text style={styles.btnPrincipalTxt}>{enviandoFoto ? 'Enviando...' : 'Enviar minha foto'}</Text>
+                  </TouchableOpacity>
+                  <Text style={[styles.dim, { fontSize: 11 }]}>A foto é privada: não aparece no app, só a portaria desta festa vê, perto do horário.</Text>
+                </View>
+              ) : (
                 <View style={{ marginTop: 12, gap: 12 }}>
                   <View style={styles.acompRow}>
                     <Text style={styles.infoTitulo}>Acompanhantes</Text>
@@ -474,5 +593,10 @@ const styles = StyleSheet.create({
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
   chipTxt: { color: '#D0D0E0', fontSize: 12, fontWeight: '700' },
+  visual: { borderRadius: 16, overflow: 'hidden', padding: 16, gap: 10, marginBottom: 14, borderWidth: 1, borderColor: C.border },
+  chamada: { color: '#FFFFFF', fontSize: 17, fontWeight: '900', lineHeight: 23 },
+  destaquesLinha: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  destaqueChip: { backgroundColor: 'rgba(0,0,0,0.35)', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5 },
+  destaqueChipTxt: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
   verAgenda: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 28 },
 });

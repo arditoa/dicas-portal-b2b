@@ -1,6 +1,7 @@
 // Vitrine de vendas (out/2026): banner fixo de patrocínio por categoria, ofertas e benefícios,
 // comunicação dos Membros Fundadores (escrita pela equipe) e medição "você está em destaque".
 // Tudo tolera as tabelas ainda não existirem (migration 059): sem elas, os blocos mostram o padrão.
+import { registrarCliqueBanner, registrarVisualizacaoBanner } from './analytics';
 import { supabase } from './supabase';
 
 export type Patrocinio = {
@@ -231,7 +232,15 @@ export async function buscarIdsFundadores(): Promise<string[]> {
 
 // Medição anônima. Exibição é registrada uma vez por sessão e por seção/local.
 const jaVistos = new Set<string>();
+// Seções que são BANNER da casa (patrocínio e destaques Fundador/Premium). Ofertas/cupons ficam de fora.
+const SECAO_BANNER = /^(patrocinio:|destaques:|home:destaques)/;
+
 export function registrarVitrine(localId: string | null, secao: string, tipo: 'exibicao' | 'clique') {
+  // Etapa 3 — o mesmo banner também conta no painel do parceiro (eventos_analytics, migração 098).
+  if (localId && SECAO_BANNER.test(secao)) {
+    if (tipo === 'exibicao') registrarVisualizacaoBanner(localId);
+    else registrarCliqueBanner(localId);
+  }
   try {
     if (tipo === 'exibicao') {
       const k = `${localId ?? '-'}|${secao}`;

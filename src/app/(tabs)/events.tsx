@@ -458,6 +458,30 @@ export default function EventsScreen() {
   const slotFestas = useSlotHora(10);
   const [idsFundadorEv, setIdsFundadorEv] = useState<Set<string>>(new Set());
   useEffect(() => { buscarIdsFundadores().then((ids) => setIdsFundadorEv(new Set(ids))).catch(() => {}); }, []);
+  // Etapa 3 — destaques da agenda (migração 101) entram na mesma faixa, logo depois das festas do plano:
+  // o dia destacado fica no ar até o fim do dia; o cartaz, a semana toda. Ao tocar, abre a página da casa.
+  type DestaqueAgenda = { id: string; local_id: string; titulo: string; foto_url: string | null };
+  const [destaquesAgenda, setDestaquesAgenda] = useState<DestaqueAgenda[]>([]);
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      const { data, error } = await (supabase.from('destaques_agenda') as any)
+        .select('id, local_id, data_inicio, agenda_semanal!inner(titulo, foto_url, ativo), locais!inner(nome, status)')
+        .gte('data_fim', chaveDia(new Date()))
+        .eq('agenda_semanal.ativo', true)
+        .eq('locais.status', 'aprovado')
+        .order('data_inicio', { ascending: true })
+        .limit(24);
+      if (!vivo || error || !data) return; // sem a 101, a faixa segue só com as festas
+      setDestaquesAgenda((data as { id: string; local_id: string; agenda_semanal: { titulo: string; foto_url: string | null }; locais: { nome: string } }[])
+        .map((d) => ({
+          id: d.id, local_id: d.local_id, foto_url: d.agenda_semanal?.foto_url || null,
+          titulo: d.agenda_semanal?.titulo && d.agenda_semanal.titulo !== 'Programação da semana' ? d.agenda_semanal.titulo : d.locais?.nome || 'Agenda',
+        })));
+    })();
+    return () => { vivo = false; };
+  }, []);
+
   const festasPagas = useMemo(() => {
     const agora = Date.now();
     const fimDe = (ev: EventItem) => new Date(ev.data_fim || ev.data_inicio).getTime() + 6 * 3600 * 1000;
@@ -782,39 +806,49 @@ export default function EventsScreen() {
   const { width: larguraTela } = useWindowDimensions();
   const larguraFlier = Math.floor((Math.min(larguraTela, 600) - 32 - 16) / 3);
   const tamanhoFlier = { width: larguraFlier, height: Math.round(larguraFlier * 1.25) };
+  // Itens da faixa: festas do plano → destaques da agenda → festas avulsas. Com um tipo de festa escolhido,
+  // a agenda fica de fora (ela não tem tipo).
+  type ItemFaixa = { chave: string; foto: string | null; titulo: string; festaId: string | null; abrir: () => void };
+  const itemDaFesta = (ev: EventItem): ItemFaixa => ({ chave: ev.id, foto: ev.foto_capa_url, titulo: ev.titulo, festaId: ev.id, abrir: () => router.push(`/evento/${ev.id}` as any) });
+  const itemDaAgenda = (d: DestaqueAgenda): ItemFaixa => ({ chave: `ag-${d.id}`, foto: d.foto_url, titulo: d.titulo, festaId: null, abrir: () => router.push(`/business/${d.local_id}` as any) });
+  const itensFaixa: ItemFaixa[] = [
+    ...festasPaginadas.filter((ev) => (ev.destaque_secoes || []).includes('plano_festa')).map(itemDaFesta),
+    ...(selectedSub ? [] : destaquesAgenda.map(itemDaAgenda)),
+    ...festasPaginadas.filter((ev) => !(ev.destaque_secoes || []).includes('plano_festa')).map(itemDaFesta),
+  ];
   const festasVisiveis = subDesligadas.has('__festas')
     ? []
-    : verTodasFestas || festasPaginadas.length <= 6
-      ? festasPaginadas
-      : Array.from({ length: 6 }, (_, k) => festasPaginadas[(((slotFestas * 6) % festasPaginadas.length) + k) % festasPaginadas.length]);
+    : verTodasFestas || itensFaixa.length <= 6
+      ? itensFaixa
+      : Array.from({ length: 6 }, (_, k) => itensFaixa[(((slotFestas * 6) % itensFaixa.length) + k) % itensFaixa.length]);
   // Rodada 142 — o que já está em "Festas em destaque" não se repete na agenda logo abaixo.
-  const idsNaVitrine = new Set(festasVisiveis.map((ev) => ev.id));
+  const idsNaVitrine = new Set(festasVisiveis.filter((x) => x.festaId).map((x) => x.festaId as string));
   const eventosDaLista = filteredEvents.filter((ev) => !idsNaVitrine.has(ev.id));
 
   const faixaPagas = (
     <>
-                  {festasPaginadas.length > 0 && !subDesligadas.has('__festas') && (
+                  {itensFaixa.length > 0 && !subDesligadas.has('__festas') && (
                     <View style={{ marginTop: 14 }}>
                       <Text style={styles.festasPagasTitulo}>Festas em destaque</Text>
                       {/* Rodada 136 — mesmo tamanho dos quadradinhos de ofertas de Bares e Trip (3 por linha), flier em cima e texto embaixo. */}
                       <View style={styles.festasGrade}>
-                        {festasVisiveis.map((ev) => (
-                          <TouchableOpacity key={ev.id} activeOpacity={0.9} style={[styles.festaPagaCard, tamanhoFlier]} onPress={() => router.push(`/evento/${ev.id}` as any)} accessibilityRole="button" accessibilityLabel={ev.titulo}>
+                        {festasVisiveis.map((it) => (
+                          <TouchableOpacity key={it.chave} activeOpacity={0.9} style={[styles.festaPagaCard, tamanhoFlier]} onPress={it.abrir} accessibilityRole="button" accessibilityLabel={it.titulo}>
                             {/* Rodada 138 — só o flier, como os quadradinhos de ofertas (pedido da Andrea: "mais bonito"). */}
-                            {ev.foto_capa_url ? (
-                              <Image source={{ uri: ev.foto_capa_url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                            {it.foto ? (
+                              <Image source={{ uri: it.foto }} style={StyleSheet.absoluteFill} resizeMode="cover" />
                             ) : (
                               <View style={styles.festaSemFlier}>
-                                <Feather name="music" size={18} color="rgba(255,255,255,0.5)" />
-                                <Text style={styles.festaSemFlierTxt} numberOfLines={3}>{ev.titulo}</Text>
+                                <Feather name={it.festaId ? 'music' : 'calendar'} size={18} color="rgba(255,255,255,0.5)" />
+                                <Text style={styles.festaSemFlierTxt} numberOfLines={3}>{it.titulo}</Text>
                               </View>
                             )}
                           </TouchableOpacity>
                         ))}
                       </View>
-                      {festasPaginadas.length > 6 && (
+                      {itensFaixa.length > 6 && (
                         <TouchableOpacity onPress={() => setVerTodasFestas((v) => !v)} style={{ marginTop: 8 }} accessibilityRole="button">
-                          <Text style={styles.festasVerTodas}>{verTodasFestas ? 'Ver menos' : `Ver todas (${festasPaginadas.length})`}</Text>
+                          <Text style={styles.festasVerTodas}>{verTodasFestas ? 'Ver menos' : `Ver todas (${itensFaixa.length})`}</Text>
                         </TouchableOpacity>
                       )}
                     </View>

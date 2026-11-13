@@ -12,6 +12,7 @@
 // Busca os próprios dados em consultas separadas: se a migration 036 ainda
 // não tiver rodado no Supabase, as consultas falham em silêncio e a página
 // do local continua exatamente como era (nada quebra).
+import { registrarCliqueWhatsapp } from '../lib/analytics';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -70,9 +71,10 @@ type PerfilHosp = {
 };
 const rotuloDe = (lista: string[], slug: string) => lista.find((l) => slugTag(l) === slug) || slug;
 
-function abrirReserva(p: PerfilHosp) {
+function abrirReserva(p: PerfilHosp, localId?: string) {
   if (p.link_reserva) return Linking.openURL(p.link_reserva);
   if (p.whatsapp_reserva) {
+    registrarCliqueWhatsapp(localId);
     let n = p.whatsapp_reserva.replace(/\D/g, '');
     if (n.length <= 11) n = `55${n}`;
     return Linking.openURL(`https://wa.me/${n}?text=${encodeURIComponent('Olá! Vi vocês no app Dicas LGBT+ e queria consultar disponibilidade.')}`);
@@ -320,7 +322,7 @@ export default function HospedagemDetalhes({ localId, lat, lng, cidade, premium 
             </View>
           )}
           {!!(perfil.link_reserva || perfil.whatsapp_reserva || perfil.site || perfil.email_reserva) && (
-            <TouchableOpacity style={s.btnReserva} onPress={() => abrirReserva(perfil)} activeOpacity={0.85}>
+            <TouchableOpacity style={s.btnReserva} onPress={() => abrirReserva(perfil, localId)} activeOpacity={0.85}>
               <Feather name="calendar" size={18} color="#FFF" />
               <View style={{ flex: 1 }}>
                 <Text style={s.btnReservaTitulo}>Consultar disponibilidade</Text>

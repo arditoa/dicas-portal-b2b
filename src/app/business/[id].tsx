@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 
 import { useAuth } from '../../lib/authContext';
-import { registrarCliqueInstagram, registrarVisualizacaoPerfil } from '../../lib/analytics';
+import { registrarCliqueInstagram, registrarCliqueRota, registrarCliqueWhatsapp, registrarFavoritou, registrarVisualizacaoPerfil } from '../../lib/analytics';
 import { supabase } from '../../lib/supabase';
 import { CLASSIFICACOES_LGBT } from '../../lib/classificacaoLgbt';
 import HospedagemDetalhes from '../../components/HospedagemDetalhes';
@@ -484,6 +484,7 @@ export default function BusinessDetailScreen() {
           .insert({ local_id: local.id, user_id: user.id });
         if (error) throw error;
         setIsFavorito(true);
+        registrarFavoritou(local.id);
       }
     } catch (err: any) {
       Alert.alert('Erro', err?.message || 'Não foi possível atualizar seus favoritos.');
@@ -604,6 +605,7 @@ export default function BusinessDetailScreen() {
 
   const handleAbrirMapa = () => {
     if (local?.lat != null && local?.lng != null) {
+      registrarCliqueRota(local.id);
       Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${local.lat},${local.lng}`);
     } else {
       Alert.alert('Localização não disponível', 'Este local ainda não informou coordenadas no mapa.');
@@ -717,6 +719,7 @@ export default function BusinessDetailScreen() {
                 onPress={() => {
                   if (reserva.modo === 'app') return router.push(`/reserva/${local.id}` as any);
                   const texto = encodeURIComponent(`Olá! Vi vocês no Dicas LGBT+ e queria fazer uma reserva.`);
+                  registrarCliqueWhatsapp(local.id);
                   void Linking.openURL(`https://api.whatsapp.com/send?phone=${reserva.whatsapp}&text=${texto}`);
                 }}
               >

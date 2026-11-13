@@ -233,3 +233,15 @@ Papéis e permissões da equipe, porteiro por PIN, foto de conferência na porta
 | Festas avulsas (sem local) do organizador | ❌ o Modo parceiro é por local; continuam no portal |
 | Contato na descrição ("Contato: nome — WhatsApp") | ⚠️ não copiado de propósito: vai só em `contato_nome`/`contato_whatsapp` (a descrição é pública) |
 | CPF/CNPJ do organizador avulso | — não se aplica (festa sempre ligada ao local) |
+
+## 14. Etapa 3 — app cliente mostra o que o parceiro salva (13/11/2026)
+
+| O quê | Onde no app cliente | Situação |
+|---|---|---|
+| Cores (cor1/cor2) e textura no topo, por trás do flyer (sem flyer: fundo da festa) | `src/app/evento/[id].tsx` + `src/components/FundoFesta.tsx` | ✅ |
+| Chamada e até 6 destaques, numa faixa com as cores/textura, logo abaixo do título | `evento/[id].tsx` | ✅ (sem esses campos, a página fica como antes) |
+| Botão "Comprar ingresso" quando há `link_ingresso` (só `http(s)://`) | `evento/[id].tsx` | ✅ |
+| Lista VIP com "exigir foto": pede a foto de conferência antes de pedir o nome (bucket privado `fotos-conferencia`, `<user_id>/foto.jpg`, `profiles.foto_conferencia_path`); se o banco recusar por falta de foto, oferece enviar | `evento/[id].tsx` | ✅ |
+| Destaques da agenda no ar (`destaques_agenda` com `data_fim` ≥ hoje) na faixa "Festas em destaque", depois das festas do plano; com foto, só a foto; sem foto, ícone + nome; abre a página da casa. Fora quando um tipo de festa está escolhido | `src/app/(tabs)/events.tsx` | ✅ |
+| `visualizacao_festa` e `clique_ingresso` com `evento_id`; `clique_rota` (festa e casa); `clique_whatsapp` (reserva e hospedagem); `favoritou` (ao salvar); `visualizacao_banner`/`clique_banner` (patrocínio e destaques, Home e categorias, pelo `registrarVitrine`) | `src/lib/analytics.ts`, `src/lib/vitrine.ts`, `business/[id].tsx`, `HospedagemDetalhes.tsx`, Home | ✅ não grava 2× a mesma visualização em 30 s nem o mesmo clique em 3 s |
+| `clique_telefone` | `analytics.ts` (`registrarCliqueTelefone`) | 🟡 pronto, mas o app cliente não tem botão de telefone |
