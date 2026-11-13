@@ -4,6 +4,7 @@ import { useRouter, useSegments } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { useAuth } from '../lib/authContext';
 import { useModoParceiro } from '../lib/modoParceiro';
+import GuardaDoAcesso from './GuardaDoAcesso';
 
 export default function EntradaModoParceiro() {
   const router = useRouter();
@@ -25,5 +26,6 @@ export default function EntradaModoParceiro() {
     if (!user) jaLevouParaUsuario.current = null;
   }, [user]);
 
-  return null;
+  // Etapa 6 — vencimento do acesso da porta e porteiro só em Aprovações.
+  return <GuardaDoAcesso />;
 }

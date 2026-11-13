@@ -14,6 +14,13 @@ Expo SDK 58 · expo-router · Supabase. Leia também `AGENTS.md`.
 | Pendências (Lista VIP, check-ins) | `src/lib/pendencias.ts` |
 | Banco: equipe, PIN da porta, foto de conferência, analytics, clientes VIP | `supabase-migration/098`, `099`, `100` |
 
+### Estrutura de navegação (13/11)
+- `src/app/parceiro/_layout.tsx` é um **Stack** com as guardas (parceiro, senha provisória).
+- `src/app/parceiro/(abas)/` guarda só as 5 abas do rodapé: index, divulgar, fidelizar, aprovacoes, espaco, com o `_layout.tsx` de Tabs.
+- **Toda tela nova** (agenda, festas, cupons, banner, equipe, porta…) é um arquivo direto em `src/app/parceiro/`. **Não registre em Tabs** nem use `href: null`: o Stack já empilha a tela por cima das abas.
+- As rotas não mudam (`/parceiro/agenda` etc.).
+- Antes, as telas eram abas escondidas e qualquer toque voltava para o Início.
+
 ## 2. Telas a construir (hoje abrem "Abrir no portal")
 Cada tela nova = 1 rota em `src/app/parceiro/`, registrada no `_layout.tsx` com `href: null`, e `rota` preenchida no item de `parceiroMenu.ts` (aí o aviso some sozinho).
 A regra de negócio NÃO se inventa: copie da tela equivalente do portal (`portal-b2b-lgbt/src/app/dashboard/...`).
@@ -32,6 +39,7 @@ O que cada etapa precisa cobrir, regra por regra, está em `docs/PARIDADE_PORTAL
 | 5 | `banner` (foto, cores, textura, frase da semana, prévia ao vivo) | banner, destaque_festa | `dashboard/destaques` | `destaque_chamada`, `vitrine_vaga`, `resumo_vitrine_local` | `banner` |
 | ✅ | **Feito** · `banner` (13/11/2026): só Premium/Fundador efetivo (demais: cadeado + Falar com a equipe), frase 60/90, botão, foto, estilo, cores do fundo, cor dos dizeres, palavra de impacto, prévia ao vivo com o `CarrosselAnuncios` (Home com o nome do Fundador e topo da categoria), "trocado há N dias", vaga e o que o plano inclui. Dados em `src/lib/parceiro/banner.ts`. Precisa da migração `107_foto_do_banner_pelo_parceiro.sql`: sem ela o banco descarta a foto que o parceiro sobe (no portal também). Fica no portal: variantes por lugar, comunicação do Fundador, Patrocínio Master e números da vitrine | | | | |
 | 6 | `equipe` (convidar por código, modelos de permissão, PIN da porta) | equipe | migração 099 | `local_equipe`, `criar_convite_equipe`, `definir_pin_porta`, `porta_do_local` | só dono |
+| ✅ | **Feito** · `equipe` + entrada do porteiro (13/11/2026): equipe com papel e permissões em linguagem simples (editar/remover), convite por código de 8 letras (7 dias) com mensagem pronta no WhatsApp, convites esperando, senha da porta (definir/trocar, código da casa, aparelhos conectados), e na Conta do app cliente "Tenho um código de equipe" e "Sou da equipe da porta" (login anônimo + `entrar_modo_porta`, erros e bloqueio). Aparelho da porta: só Aprovações (com a Porta) e Meu espaço; vence às 6h sozinho (`src/components/GuardaDoAcesso.tsx`). Dados em `src/lib/parceiro/equipe.ts`. Sem migração nova. Precisa ligar no Supabase: Authentication › Allow anonymous sign-ins | | | | |
 | 7 | `fidelidade` (cartão: meta, brinde, nível VIP) | fidelidade, vip | `dashboard/fidelidade` | `programas_fidelidade`, `fidelidade_clientes` | só dono |
 | 8 | `pagina` (fotos, textos, horários, Instagram) | pagina | `dashboard/perfil` (grande: dividir em seções) | `locais`, storage `fotos-locais` | só dono |
 | 9 | `historico` (visitas e cupons usados) | checkins (Fidelizar) | `dashboard/checkins` | `checkins_do_local` | `checkins` |

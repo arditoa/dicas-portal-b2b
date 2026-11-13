@@ -277,3 +277,17 @@ Papéis e permissões da equipe, porteiro por PIN, foto de conferência na porta
 | Variantes por lugar (096) | ❌ continuam no portal; o salvar do app não mexe nelas |
 | Comunicação do Fundador, Patrocínio Master, números da vitrine | ❌ continuam no portal |
 | 🔴 Foto do banner salva pelo parceiro | O gatilho `touch_destaque_chamada` (060) descartava a foto de quem não é admin, **também no portal**. Corrigido na **107** (aceita só foto do próprio local em `fotos-locais/<local>/banner-…`); o app avisa se a foto não ficou salva |
+
+## 17. Etapa 6 — equipe e porta (13/11/2026)
+
+| O quê | No app agora |
+|---|---|
+| Lista da equipe (nome, papel, permissões em linguagem simples), editar papel/permissões/nome, remover | ✅ `parceiro/equipe.tsx` (só dono; `local_equipe`, 099) |
+| Convidar: modelo (gerente, porteiro, social media, personalizado), código de 8 letras, vale 7 dias | ✅ `criar_convite_equipe`; mensagem pronta no WhatsApp com o passo a passo; convites esperando (reenviar/cancelar) |
+| Aceitar convite | ✅ Conta › "Tenho um código de equipe" (`aceitar_convite_equipe`; precisa de conta, não anônima) → abre o Modo parceiro com a casa |
+| Senha da porta: definir/trocar PIN (6 números, sem óbvios), código da casa, aparelhos conectados (desconectar) | ✅ `definir_pin_porta`, `porta_do_local`; aviso de que trocar derruba quem entrou com a antiga |
+| Entrada do porteiro | ✅ Conta › "Sou da equipe da porta": login anônimo + `entrar_modo_porta`; mostra o erro do banco, as tentativas que restam e o bloqueio de 15 min |
+| Porteiro vê só a Porta e as Aprovações da festa de hoje | ✅ Divulgar e Fidelizar somem (`parceiroMenu`), Início leva para Aprovações (`GuardaDoAcesso`); as permissões `porta`/`checkins` e a janela da porta (099) fazem o resto |
+| Acesso expira sozinho (6h) | ✅ `GuardaDoAcesso` recarrega na hora de vencer e encerra a sessão anônima |
+| Sessão anônima na Conta | ✅ não conta como cliente logado: mostra "Modo porta · casa · vale até…", "Abrir a porta" e "Sair do modo porta" |
+| No portal | ❌ não há tela de equipe nem de senha da porta (só no app) |

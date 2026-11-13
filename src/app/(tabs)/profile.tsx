@@ -35,6 +35,7 @@ import { traduzErroAuth } from '../../lib/erroAuth';
 import { ehContaWhatsApp, emailDeLogin, pareceWhatsApp } from '../../lib/parceiroAuth';
 import { useModoParceiro } from '../../lib/modoParceiro';
 import CartaoAreaParceiro from '../../components/CartaoAreaParceiro';
+import EntradaEquipe from '../../components/EntradaEquipe';
 import AniversarioCasas from '../../components/AniversarioCasas';
 import { ativarTodosAvisos } from '../../lib/push';
 import { useRastrearTela } from '../../lib/usoTelas';
@@ -79,7 +80,8 @@ export default function ProfileScreen() {
   const { t, idioma, proximoIdioma } = useI18n();
   const idiomaAtual = IDIOMAS.find((i) => i.code === idioma) || IDIOMAS[0];
   const { aba } = useLocalSearchParams<{ aba?: string }>();
-  const isLogado = !!session;
+  // Etapa 6 — sessão anônima é o aparelho da porta: não é conta de cliente (vê o cartão do modo porta).
+  const isLogado = !!session && !session.user?.is_anonymous;
   // Rodada 145 — conta de parceiro criada pelo WhatsApp: mostra o nome do local e o WhatsApp, nunca o e-mail interno.
   const { localAtivo: localParceiro } = useModoParceiro();
   const contaWhats = ehContaWhatsApp(user?.email);
@@ -680,6 +682,8 @@ export default function ProfileScreen() {
           )}
 
           {isLogado && <CartaoAreaParceiro />}
+          {/* Etapa 6 — código de equipe e entrada do porteiro (ou o cartão do modo porta, se já entrou) */}
+          <EntradaEquipe />
 
           {isLogado && (
           <View style={styles.statsRow}>
