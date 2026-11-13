@@ -32,6 +32,10 @@ import { IDIOMAS, useI18n } from '../../lib/i18n';
 const URL_SITE = 'https://www.dicaslgbt.com.br';
 import { supabase } from '../../lib/supabase';
 import { traduzErroAuth } from '../../lib/erroAuth';
+import { ehContaWhatsApp, emailDeLogin, pareceWhatsApp } from '../../lib/parceiroAuth';
+import { useModoParceiro } from '../../lib/modoParceiro';
+import CartaoAreaParceiro from '../../components/CartaoAreaParceiro';
+import AniversarioCasas from '../../components/AniversarioCasas';
 import { ativarTodosAvisos } from '../../lib/push';
 import { useRastrearTela } from '../../lib/usoTelas';
 
@@ -76,6 +80,10 @@ export default function ProfileScreen() {
   const idiomaAtual = IDIOMAS.find((i) => i.code === idioma) || IDIOMAS[0];
   const { aba } = useLocalSearchParams<{ aba?: string }>();
   const isLogado = !!session;
+  // Rodada 145 — conta de parceiro criada pelo WhatsApp: mostra o nome do local e o WhatsApp, nunca o e-mail interno.
+  const { localAtivo: localParceiro } = useModoParceiro();
+  const contaWhats = ehContaWhatsApp(user?.email);
+  const whatsDaConta = contaWhats ? (user?.email || '').replace(/^parceiro\./, '').replace(/@.*$/, '') : '';
   const [isModoCadastro, setIsModoCadastro] = useState(true);
 
   const [nomeSocial, setNomeSocial] = useState('');
@@ -251,16 +259,24 @@ export default function ProfileScreen() {
 
   const handleEntrar = async () => {
     if (!email || !senha) {
-      Alert.alert('Atenção', 'Informe e-mail e senha.');
+      Alert.alert('Atenção', 'Informe e-mail (ou WhatsApp, se você é parceiro) e senha.');
       return;
     }
 
+    // Rodada 145 — parceiro entra com WhatsApp + senha, igual ao portal (e-mail interno calculado do número).
+    const viaWhatsApp = pareceWhatsApp(email);
     setSubmitting(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
+      const { error } = await supabase.auth.signInWithPassword({ email: emailDeLogin(email), password: senha });
       if (error) throw error;
     } catch (err: any) {
-      Alert.alert('Não foi possível entrar', traduzErroAuth(err));
+      const msg = traduzErroAuth(err);
+      Alert.alert(
+        'Não foi possível entrar',
+        viaWhatsApp && msg === 'E-mail ou senha incorretos.'
+          ? 'WhatsApp ou senha incorretos. Confira o número com DDD. Se for o primeiro acesso, use a senha que a equipe Dicas enviou.'
+          : msg
+      );
     } finally {
       setSubmitting(false);
     }
@@ -271,6 +287,14 @@ export default function ProfileScreen() {
   // não conta com esse e-mail, para não revelar quem tem cadastro.
   const handleEsqueciSenha = async () => {
     const alvo = email.trim();
+    // Conta de parceiro por WhatsApp não tem caixa de e-mail: a equipe gera uma senha nova.
+    if (pareceWhatsApp(alvo)) {
+      Alert.alert(
+        'Esqueci minha senha',
+        'Quem entra com WhatsApp recebe uma senha nova da equipe Dicas. Chame a equipe no WhatsApp pelo botão "Indicar parceiro" aqui na Conta, ou fale com quem te enviou o acesso.'
+      );
+      return;
+    }
     if (!alvo) {
       Alert.alert('Esqueci minha senha', 'Digite seu e-mail no campo acima e toque em "Esqueci minha senha" de novo.');
       return;
@@ -390,6 +414,7 @@ export default function ProfileScreen() {
         <TopoApp comInsets={false} />
         <TituloTela
           titulo={t('conta.titulo')}
+          discreto
           tituloMenu="Ir para"
           opcoes={[
             { id: '/favorites', label: 'Locais salvos', icone: 'heart' },
@@ -447,14 +472,14 @@ export default function ProfileScreen() {
               )}
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>E-mail *</Text>
+                <Text style={styles.label}>{isModoCadastro ? 'E-mail *' : 'E-mail ou WhatsApp *'}</Text>
                 <View style={styles.inputContainer}>
                   <Feather name="mail" size={16} color={COLORS.textMuted} />
                   <TextInput
                     style={styles.input}
-                    placeholder="seuemail@exemplo.com"
+                    placeholder={isModoCadastro ? 'seuemail@exemplo.com' : 'seuemail@exemplo.com ou (11) 99999-9999'}
                     placeholderTextColor={COLORS.textMuted}
-                    keyboardType="email-address"
+                    keyboardType={isModoCadastro ? 'email-address' : 'default'}
                     autoCapitalize="none"
                     value={email}
                     onChangeText={setEmail}
@@ -606,17 +631,23 @@ export default function ProfileScreen() {
               <View style={styles.heroTopo}>
                 <FundoCaixaDegrade id="conta-hero" cores={['#4C1D95', '#BE185D']} />
                 {user?.id ? (
-                  <AvatarEditavel compacto userId={user.id} iniciais={(perfil?.display_name || user?.email || 'US').substring(0, 2).toUpperCase()} />
+                  <AvatarEditavel compacto userId={user.id} iniciais={((contaWhats ? localParceiro?.nome : perfil?.display_name) || perfil?.display_name || user?.email || 'US').substring(0, 2).toUpperCase()} />
                 ) : (
                   <View style={styles.avatarCircle}>
                     <Text style={styles.avatarInitials}>
-                      {(perfil?.display_name || user?.email || 'US').substring(0, 2).toUpperCase()}
+                      {((contaWhats ? localParceiro?.nome : perfil?.display_name) || perfil?.display_name || user?.email || 'US').substring(0, 2).toUpperCase()}
                     </Text>
                   </View>
                 )}
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={styles.userName} numberOfLines={1}>{perfil?.display_name || 'Sem nome cadastrado'}</Text>
-                  <Text style={styles.userEmail} numberOfLines={1}>{user?.email}</Text>
+                  <Text style={styles.userName} numberOfLines={1}>
+                    {contaWhats && (!perfil?.display_name || perfil.display_name.startsWith('parceiro.'))
+                      ? localParceiro?.nome || 'Conta de parceiro'
+                      : perfil?.display_name || 'Sem nome cadastrado'}
+                  </Text>
+                  <Text style={styles.userEmail} numberOfLines={1}>
+                    {contaWhats ? 'Conta de parceiro · entra com WhatsApp' : user?.email}
+                  </Text>
                   <Text style={styles.heroDica}>Toque na foto para trocar</Text>
                 </View>
               </View>
@@ -625,7 +656,7 @@ export default function ProfileScreen() {
                 <View style={styles.dadosLinha}>
                   <View style={styles.dadoItem}>
                     <Feather name="phone" size={14} color={COLORS.textMuted} />
-                    <Text style={styles.infoText} numberOfLines={1}>{formatarTelefoneConta(perfil?.phone)}</Text>
+                    <Text style={styles.infoText} numberOfLines={1}>{formatarTelefoneConta(perfil?.phone || whatsDaConta)}</Text>
                   </View>
                   <View style={styles.dadoItem}>
                     <Feather name="calendar" size={14} color={COLORS.textMuted} />
@@ -636,11 +667,19 @@ export default function ProfileScreen() {
                   <>
                     <View style={styles.infoDivider} />
                     <StatusRelacionamento userId={user.id} />
+                    {!contaWhats && !!perfil?.birth_date && (
+                      <>
+                        <View style={styles.infoDivider} />
+                        <AniversarioCasas userId={user.id} temNascimento />
+                      </>
+                    )}
                   </>
                 )}
               </View>
             </View>
           )}
+
+          {isLogado && <CartaoAreaParceiro />}
 
           {isLogado && (
           <View style={styles.statsRow}>

@@ -6,6 +6,8 @@ import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from '../lib/authContext';
 import { I18nProvider } from '../lib/i18n';
+import { ModoParceiroProvider } from '../lib/modoParceiro';
+import EntradaModoParceiro from '../components/EntradaModoParceiro';
 import { configurarNotificacoes, ouvirToqueNaNotificacao } from '../lib/push';
 
 configurarNotificacoes();
@@ -38,9 +40,14 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <I18nProvider>
         <AuthProvider>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          </Stack>
+          {/* Rodada 145 — Modo parceiro: quem é dono ou equipe de um local já entra no /parceiro. */}
+          <ModoParceiroProvider>
+            <EntradaModoParceiro />
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="parceiro" options={{ headerShown: false }} />
+            </Stack>
+          </ModoParceiroProvider>
         </AuthProvider>
       </I18nProvider>
     </SafeAreaProvider>

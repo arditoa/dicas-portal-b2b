@@ -61,11 +61,11 @@ export default function TopoApp({ voltar = true, comInsets = true }: { voltar?: 
 
 const s = StyleSheet.create({
   topo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 14 },
-  esquerda: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
-  direita: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 36, maxWidth: 130, paddingHorizontal: 10, borderRadius: 18, backgroundColor: C.card, borderWidth: 1, borderColor: C.border },
+  esquerda: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1, minWidth: 0 },
+  direita: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1, minWidth: 0, marginLeft: 8 },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 36, maxWidth: 104, paddingHorizontal: 9, flexShrink: 1, borderRadius: 18, backgroundColor: C.card, borderWidth: 1, borderColor: C.border },
   pin: { width: 18, height: 14 },
   chipTxt: { fontSize: 12, fontWeight: '700', color: C.text, flexShrink: 1 },
-  idioma: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 36, paddingHorizontal: 12, borderRadius: 18, backgroundColor: C.card, borderWidth: 1, borderColor: C.border },
+  idioma: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 36, paddingHorizontal: 10, borderRadius: 18, backgroundColor: C.card, borderWidth: 1, borderColor: C.border },
   idiomaTxt: { fontSize: 12, fontWeight: '800', color: C.text },
 });

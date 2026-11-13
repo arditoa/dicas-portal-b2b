@@ -66,6 +66,13 @@
           "resizeMode": "contain",
           "backgroundColor": "#111217"
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "O Dicas LGBT+ usa a câmera para a casa ler o QR da Lista VIP na portaria.",
+          "recordAudioAndroid": false
+        }
       ]
     ],
     "runtimeVersion": {

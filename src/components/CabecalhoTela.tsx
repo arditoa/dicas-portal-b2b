@@ -39,9 +39,12 @@ type TituloProps = {
   tituloMenu?: string;
   // Espaços laterais (as abas usam 16 como as demais telas).
   semMargem?: boolean;
+  // Rodada 145 — título discreto (maiúsculas 12px), igual ao "Agenda de hoje" e "Membros Fundadores".
+  discreto?: boolean;
 };
 
-export function TituloTela({ titulo, subtitulo, opcoes, valor, onEscolher, tituloMenu, semMargem }: TituloProps) {
+export function TituloTela({ titulo, subtitulo, opcoes, valor, onEscolher, tituloMenu, semMargem, discreto }: TituloProps) {
+  const estiloTitulo = discreto ? [styles.titulo, styles.tituloDiscreto] : styles.titulo;
   const [aberto, setAberto] = useState(false);
   const menu = !!opcoes && opcoes.length > 0 && !!onEscolher;
 
@@ -49,11 +52,11 @@ export function TituloTela({ titulo, subtitulo, opcoes, valor, onEscolher, titul
     <View style={[styles.bloco, semMargem && { paddingHorizontal: 0, paddingBottom: 0 }]}>
       {menu ? (
         <TouchableOpacity style={styles.tituloLinha} onPress={() => setAberto(true)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${titulo}. Toque para escolher a visão`}>
-          <Text style={styles.titulo} numberOfLines={2}>{titulo}</Text>
-          <Feather name="chevron-down" size={20} color={C.chevron} style={{ marginLeft: 6 }} />
+          <Text style={estiloTitulo} numberOfLines={2}>{titulo}</Text>
+          <Feather name="chevron-down" size={discreto ? 14 : 20} color={C.chevron} style={{ marginLeft: 6 }} />
         </TouchableOpacity>
       ) : (
-        <Text style={styles.titulo} numberOfLines={2}>{titulo}</Text>
+        <Text style={estiloTitulo} numberOfLines={2}>{titulo}</Text>
       )}
       {!!subtitulo && <Text style={styles.sub}>{subtitulo}</Text>}
 
@@ -143,6 +146,7 @@ const styles = StyleSheet.create({
   bloco: { paddingHorizontal: 16, paddingBottom: 10 },
   tituloLinha: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start' },
   titulo: { fontSize: 22, fontWeight: '700', color: C.text, letterSpacing: -0.3, lineHeight: 28, flexShrink: 1 },
+  tituloDiscreto: { fontSize: 12, fontWeight: '700', letterSpacing: 1.4, textTransform: 'uppercase', color: '#B9B6CC', lineHeight: 16 },
   sub: { fontSize: 13, fontWeight: '400', color: C.dim, marginTop: 0, lineHeight: 18 },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24 },
   sheet: { backgroundColor: C.card, borderRadius: 18, padding: 8, borderWidth: 1, borderColor: C.border },

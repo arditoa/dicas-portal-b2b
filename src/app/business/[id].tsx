@@ -244,6 +244,8 @@ export default function BusinessDetailScreen() {
 
   const [loading, setLoading] = useState(true);
   const [local, setLocal] = useState<LocalRow | null>(null);
+  // Rodada 146 — reserva (migração 102): só aparece para casa com plano pago (o RLS já filtra).
+  const [reserva, setReserva] = useState<{ modo: string; whatsapp: string | null; chamada: string | null } | null>(null);
   const [badges, setBadges] = useState<LocalBadge[]>([]);
   const [avaliacoes, setAvaliacoes] = useState<Avaliacao[]>([]);
   const [minhaAvaliacao, setMinhaAvaliacao] = useState<Avaliacao | null>(null);
@@ -301,6 +303,12 @@ export default function BusinessDetailScreen() {
       // ANALYTICS: 1 visualização por local/dispositivo/dia (dedupe em
       // registrarVisualizacaoPerfil) — alimenta o dashboard do parceiro.
       registrarVisualizacaoPerfil((localRes.data as unknown as LocalRow).id);
+      supabase
+        .from('reserva_config')
+        .select('modo, whatsapp, chamada')
+        .eq('local_id', (localRes.data as unknown as LocalRow).id)
+        .maybeSingle()
+        .then(({ data }) => setReserva((data as { modo: string; whatsapp: string | null; chamada: string | null } | null) ?? null));
       setBadges((badgesRes.data as any) || []);
       setAvaliacoes((avaliacoesRes.data as any) || []);
       setCupons((cuponsRes.data as any) || []);
@@ -700,6 +708,21 @@ export default function BusinessDetailScreen() {
                   </TouchableOpacity>
                 )}
               </View>
+            )}
+
+            {reserva && (reserva.modo === 'app' || (reserva.modo === 'whatsapp' && !!reserva.whatsapp)) && (
+              <TouchableOpacity
+                style={[styles.actionBtn, { marginTop: 14, marginBottom: 0 }]}
+                accessibilityRole="button"
+                onPress={() => {
+                  if (reserva.modo === 'app') return router.push(`/reserva/${local.id}` as any);
+                  const texto = encodeURIComponent(`Olá! Vi vocês no Dicas LGBT+ e queria fazer uma reserva.`);
+                  void Linking.openURL(`https://api.whatsapp.com/send?phone=${reserva.whatsapp}&text=${texto}`);
+                }}
+              >
+                <Feather name={reserva.modo === 'app' ? 'bookmark' : 'message-circle'} size={17} color="#FFF" style={{ marginRight: 8 }} />
+                <Text style={styles.actionBtnText}>{reserva.chamada || 'Fazer reserva'}</Text>
+              </TouchableOpacity>
             )}
 
             <View style={styles.acoesRow}>
