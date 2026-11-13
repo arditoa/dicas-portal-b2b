@@ -8,7 +8,7 @@ import { Bucket, enviarFoto } from '../../../lib/parceiro/fotos';
 import { CP, ESP, RAIO } from '../TelaParceiro';
 import { CORES_FORM, f } from './estilo';
 
-export function FotoUpload({ rotulo, valor, aoMudar, bucket, pasta, prefixo = 'foto', aspecto, ajuda, altura = 160, encaixe = 'cover' }: {
+export function FotoUpload({ rotulo, valor, aoMudar, bucket, pasta, prefixo = 'foto', aspecto, ajuda, altura = 160, encaixe = 'cover', enviarDepois }: {
   rotulo: string;
   valor: string | null;
   aoMudar: (url: string | null) => void;
@@ -19,6 +19,9 @@ export function FotoUpload({ rotulo, valor, aoMudar, bucket, pasta, prefixo = 'f
   ajuda?: string;
   altura?: number;
   encaixe?: 'cover' | 'contain';
+  // true = não sobe agora: devolve o endereço da foto no aparelho (file://...) e quem usa sobe depois
+  // com enviarFoto (ex.: festa nova, que só pode receber arquivo depois de existir no banco).
+  enviarDepois?: boolean;
 }) {
   const [enviando, setEnviando] = useState(false);
 
@@ -31,6 +34,7 @@ export function FotoUpload({ rotulo, valor, aoMudar, bucket, pasta, prefixo = 'f
       const opcoes: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], allowsEditing: true, aspect: aspecto, quality: 0.7 };
       const r = origem === 'camera' ? await ImagePicker.launchCameraAsync(opcoes) : await ImagePicker.launchImageLibraryAsync(opcoes);
       if (r.canceled || !r.assets?.[0]) return;
+      if (enviarDepois) return aoMudar(r.assets[0].uri);
       setEnviando(true);
       const url = await enviarFoto(bucket, pasta, prefixo, r.assets[0].uri, r.assets[0].mimeType);
       aoMudar(url);

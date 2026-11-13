@@ -214,3 +214,22 @@ Papéis e permissões da equipe, porteiro por PIN, foto de conferência na porta
 | "Libera em dd/mm" para a equipe | `uso_ofertas_periodo` respondia só ao dono; na 104 responde a quem tem `'cupons'` ✅ |
 | Porta | "Aprovar e liberar" num toque (aprova e confirma a entrada; grava em 2 passos para o banco conferir a lista cheia). Aprovações continua só "Aprovar" ✅ |
 | Festa de hoje | 12h antes do início até 12h depois do fim (sem fim, conta o início), igual a `evento_na_janela_da_porta`: `festaNaJanelaDaPorta` em `pendencias.ts`, usada também no Início ✅ |
+
+## 13. Etapas 1 e 2 — festas (13/11/2026)
+
+| Regra do portal | No app agora |
+|---|---|
+| Nova festa: nome e início obrigatórios, nome formatado, relação LGBT+, tipo, para quem, 1–3 estilos (festa/show), formato e grupos opcionais | ✅ `festa-editar.tsx` + `lib/parceiro/festas.ts` (mesmas listas de `taxonomia.ts`) |
+| Campos antigos `estilos_musicais`/`publico_tags` derivados das tags; tipo sem música limpa estilos | ✅ |
+| Festa nova entra em análise; aprovada que muda nome/data volta para análise (aviso antes de salvar) | ✅ (o banco decide; o app recarrega e avisa) |
+| Flyer em `fotos-eventos/<id>/` | ✅ festa nova sobe depois de criada; dono e equipe precisam da **105** |
+| Cancelar (não apaga; só o admin reativa) | ✅ |
+| Lista VIP: criar com vagas (≥ 1, não abaixo das ocupadas), desligar | ✅ (`'lista_vip'`; sem ela, fica marcada `quer_lista_vip` e nasce na aprovação) |
+| Link do ingresso (`http(s)://`) e exigir foto | ✅ (as duas pontas: o portal ainda não tem) |
+| Repetir festa | ✅ "Repetir da semana passada" e "Repetir +7 dias" (o portal não tem) |
+| Destacar com o plano, X de 4 | ✅ só dono, aprovada e futura; cota do mês da festa |
+| Status Aprovado / Em análise / Cancelado / Rejeitado | ✅ + "Encerrada" |
+| Números por festa | 🟡 Lista VIP ok; vistas/cliques dependem do app cliente gravar `evento_id` |
+| Festas avulsas (sem local) do organizador | ❌ o Modo parceiro é por local; continuam no portal |
+| Contato na descrição ("Contato: nome — WhatsApp") | ⚠️ não copiado de propósito: vai só em `contato_nome`/`contato_whatsapp` (a descrição é pública) |
+| CPF/CNPJ do organizador avulso | — não se aplica (festa sempre ligada ao local) |

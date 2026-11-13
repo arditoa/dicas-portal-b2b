@@ -194,14 +194,14 @@ export default function InicioParceiro() {
       detalhe: `${diaHora(proxima.data_inicio)}${temLista ? ` · ${l.aguardando + l.aprovados} pedidos na lista` : ''}`,
       botoes: [
         ...(p('lista_vip') && l.aguardando > 0 ? [{ titulo: `Aprovar ${l.aguardando}`, chave: 'lista', rota: '/parceiro/aprovacoes', principal: true }] : []),
-        ...(p('festa') ? [{ titulo: 'Editar festa', chave: 'eventos' }] : []),
+        ...(p('festa') ? [{ titulo: 'Editar festa', chave: 'eventos', rota: `/parceiro/festa-editar?id=${proxima.id}` }] : []),
       ],
     };
   } else if (r.eventos && p('festa') && ehFesta) {
     agora = {
       icone: 'plus-circle', cores: ['#4A1C8C', '#C2185B'], rotulo: 'Nenhuma festa nos próximos 7 dias',
       titulo: 'Suba a próxima festa', detalhe: 'Com flyer, data e público. Aparece em Eventos depois da aprovação.',
-      botoes: [{ titulo: 'Subir festa', chave: 'festa', principal: true }],
+      botoes: [{ titulo: 'Subir festa', chave: 'festa', rota: '/parceiro/festa-editar', principal: true }],
     };
   }
 

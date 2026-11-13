@@ -84,6 +84,8 @@ export default function ParceiroLayout() {
       <Tabs.Screen name="clientes" options={{ href: null }} />
       <Tabs.Screen name="reservas" options={{ href: null }} />
       <Tabs.Screen name="agenda" options={{ href: null }} />
+      <Tabs.Screen name="festas" options={{ href: null }} />
+      <Tabs.Screen name="festa-editar" options={{ href: null }} />
     </Tabs>
   );
 }

@@ -73,8 +73,8 @@ export function itensDaAba(aba: Aba, local: LocalDoParceiro, pode: (p: Permissao
         ]
       : aba === 'divulgar'
       ? [
-          { chave: 'festa', titulo: 'Nova festa', sub: 'Flyer, data e Lista VIP', icone: 'plus-circle', cor: '#9B3CFF', mostrar: pode('festa') && r.eventos },
-          { chave: 'eventos', titulo: ehFesta ? 'Minhas festas' : 'Meus eventos', sub: 'Criar, editar, repetir e destacar', icone: 'star', cor: '#9B3CFF', mostrar: pode('festa') && r.eventos },
+          { chave: 'festa', titulo: 'Nova festa', sub: 'Flyer, data e Lista VIP', icone: 'plus-circle', cor: '#9B3CFF', rota: '/parceiro/festa-editar', mostrar: pode('festa') && r.eventos },
+          { chave: 'eventos', titulo: ehFesta ? 'Minhas festas' : 'Meus eventos', sub: 'Criar, editar, repetir e destacar', icone: 'star', cor: '#9B3CFF', rota: '/parceiro/festas', mostrar: pode('festa') && r.eventos },
           { chave: 'agenda', titulo: 'Agenda da semana', sub: 'O que rola em cada dia', icone: 'calendar', cor: '#3FA0A7', rota: '/parceiro/agenda', mostrar: pode('festa') && r.agenda },
           // Gratuito NÃO cria cupom (decisão da Andrea, 13/11/2026): cadeado aqui, no portal e no banco (migração 104).
           { chave: 'cupons', titulo: desconto ? 'Cupons de desconto' : 'Cupons', sub: 'Na página da casa e na busca', icone: 'tag', cor: '#F2A900',
