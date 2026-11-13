@@ -157,6 +157,8 @@ export function usePendencias(local: LocalDoParceiro | null, pode: (p: Permissao
 
 export async function responderReserva(id: string, status: 'confirmada' | 'recusada', resposta?: string) {
   const { error } = await supabase.rpc('responder_reserva', { p_reserva: id, p_status: status, p_resposta: resposta ?? null });
+  // Reservas fase 2: avisa o cliente por push (Edge Function avisar-reserva). Não espera nem trava a tela.
+  if (!error) void supabase.functions.invoke('avisar-reserva', { body: { reserva_id: id } }).catch(() => {});
   return error ? error.message : null;
 }
 

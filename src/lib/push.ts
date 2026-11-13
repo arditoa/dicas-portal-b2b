@@ -11,7 +11,8 @@ export type PrefsPush = Record<TipoPush, boolean>;
 export const PREFS_VAZIAS: PrefsPush = { festas: false, cupons: false, lembretes: false, novidades: false };
 
 // Telas que o toque numa notificação pode abrir (mesma regra da função de envio).
-const ROTA_OK = /^\/(evento\/[\w-]+|business\/[\w-]+|coupons|roteiro\/[\w-]+|roteiros|plans|\(tabs\)(\/\w+)?)?$/;
+// minhas-reservas: aviso da reserva confirmada/recusada (Edge Function avisar-reserva).
+const ROTA_OK = /^\/(evento\/[\w-]+|business\/[\w-]+|coupons|roteiro\/[\w-]+|roteiros|plans|minhas-reservas|\(tabs\)(\/\w+)?)?$/;
 export function rotaSegura(rota: unknown): string | null {
   return typeof rota === 'string' && ROTA_OK.test(rota) ? rota : null;
 }

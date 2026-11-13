@@ -719,6 +719,15 @@ export default function ProfileScreen() {
               atalho da caixa de entrada na Home cair direto nela. */}
           <ContaAtividade userId={user?.id ?? null} abaInicial={aba === 'inbox' ? 'inbox' : undefined} />
 
+          {/* Reservas fase 2 — as reservas que a pessoa fez */}
+          {isLogado && (
+            <TouchableOpacity style={styles.linhaReservas} onPress={() => router.push('/minhas-reservas' as any)} accessibilityRole="button">
+              <Feather name="bookmark" size={18} color="#A0A0B2" />
+              <Text style={styles.linhaReservasTxt}>Minhas reservas</Text>
+              <Feather name="chevron-right" size={18} color="#626274" />
+            </TouchableOpacity>
+          )}
+
           {/* Etapa 6 — código de equipe e entrada do porteiro (ou o cartão do modo porta, se já entrou) */}
           <EntradaEquipe />
 
@@ -843,6 +852,8 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  linhaReservas: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#161520', borderColor: '#232230', borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, minHeight: 52, marginBottom: 8 },
+  linhaReservasTxt: { flex: 1, color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
   container: { flex: 1, backgroundColor: COLORS.background },
   safeArea: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 8, marginBottom: 16 },

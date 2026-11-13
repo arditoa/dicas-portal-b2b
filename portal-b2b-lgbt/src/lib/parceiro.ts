@@ -60,22 +60,23 @@ export type Recursos = {
   fidelidade: boolean;
   pedeHorario: boolean;
   pedePagina: boolean; // false = não cobrar "completar a página" (festa avulsa)
+  reservas: boolean; // reserva de mesa (migração 102) — espelho de recursosDaCategoria do app
 };
 
-const PADRAO: Recursos = { cupom: 'cupom', agenda: true, eventos: true, listaVip: true, checkins: true, fidelidade: true, pedeHorario: true, pedePagina: true };
+const PADRAO: Recursos = { cupom: 'cupom', agenda: true, eventos: true, listaVip: true, checkins: true, fidelidade: true, pedeHorario: true, pedePagina: true, reservas: true };
 
 const POR_CATEGORIA: Record<string, Partial<Recursos>> = {
   // Festas & Eventos: festa não tem cupom, agenda de casa, check-in nem cartão fidelidade; tem Meus eventos e Lista VIP.
-  eventos: { cupom: false, agenda: false, checkins: false, fidelidade: false, pedeHorario: false },
+  eventos: { cupom: false, agenda: false, checkins: false, fidelidade: false, pedeHorario: false, reservas: false },
   // Saúde: cupom de desconto; sem agenda de casa, eventos, Lista VIP, check-in nem fidelidade.
-  saude: { cupom: 'desconto', agenda: false, eventos: false, listaVip: false, checkins: false, fidelidade: false },
+  saude: { cupom: 'desconto', agenda: false, eventos: false, listaVip: false, checkins: false, fidelidade: false, reservas: false },
   // Lojas e Moda: cupom de desconto; sem agenda, eventos nem Lista VIP.
-  lojas: { cupom: 'desconto', agenda: false, eventos: false, listaVip: false },
-  produtos: { cupom: 'desconto', agenda: false, eventos: false, listaVip: false, pedeHorario: false },
+  lojas: { cupom: 'desconto', agenda: false, eventos: false, listaVip: false, reservas: false },
+  produtos: { cupom: 'desconto', agenda: false, eventos: false, listaVip: false, pedeHorario: false, reservas: false },
   // Beleza: cupom de desconto; sem agenda, eventos nem Lista VIP.
-  beleza: { cupom: 'desconto', agenda: false, eventos: false, listaVip: false },
-  servicos: { cupom: 'desconto', agenda: false, eventos: false, listaVip: false, pedeHorario: false },
-  turismo: { agenda: false, eventos: false, listaVip: false, pedeHorario: false },
+  beleza: { cupom: 'desconto', agenda: false, eventos: false, listaVip: false, reservas: false },
+  servicos: { cupom: 'desconto', agenda: false, eventos: false, listaVip: false, pedeHorario: false, reservas: false },
+  turismo: { agenda: false, eventos: false, listaVip: false, pedeHorario: false, reservas: false },
 };
 
 export function recursosDaLocal(l: { categoria: string; subcategoria?: string | null }): Recursos {

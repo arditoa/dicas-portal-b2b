@@ -14,7 +14,7 @@ import {
   TouchableOpacity, Vibration, View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useModoParceiro } from '../../lib/modoParceiro';
+import { useModoParceiro, recursosDaCategoria } from '../../lib/modoParceiro';
 import { supabase } from '../../lib/supabase';
 
 const C = {
@@ -41,7 +41,7 @@ const hora = (iso: string) => new Date(iso).toLocaleTimeString('pt-BR', { hour: 
 export default function Porta() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { localAtivo } = useModoParceiro();
+  const { localAtivo, pode } = useModoParceiro();
   const [permissao, pedirPermissao] = useCameraPermissions();
   // vindo da aba Aprovações (QR ou código): abre direto a ficha deste pedido
   const { pedido: pedidoAlvo } = useLocalSearchParams<{ pedido?: string }>();
@@ -257,6 +257,13 @@ export default function Porta() {
           </TouchableOpacity>
           {!!festa && <Text style={s.festaHora}>{new Date(festa.data_inicio).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' })} · {hora(festa.data_inicio)}</Text>}
         </View>
+        {/* Reservas fase 2 — lista do dia (compareceu / não veio) */}
+        {!!localAtivo && recursosDaCategoria(localAtivo.categoria).reservas && (pode('porta') || pode('lista_vip')) && (
+          <TouchableOpacity onPress={() => router.push('/parceiro/reservas-hoje')} style={s.reservasHoje} accessibilityRole="button" accessibilityLabel="Reservas de hoje">
+            <Feather name="bookmark" size={16} color={C.texto} />
+            <Text style={s.reservasHojeTxt}>Reservas</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {escolhendoFesta && (
@@ -422,6 +429,8 @@ function BotaoFicha({ texto, icone, onPress, cor, secundario }: {
 }
 
 const s = StyleSheet.create({
+  reservasHoje: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 12, borderRadius: 22, backgroundColor: '#232230', alignSelf: 'center' },
+  reservasHojeTxt: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
   tela: { flex: 1, backgroundColor: C.bg },
   centro: { alignItems: 'center', justifyContent: 'center' },
   topo: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingHorizontal: 16, paddingBottom: 10 },

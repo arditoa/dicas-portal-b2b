@@ -12,6 +12,7 @@ import type { User } from '@supabase/supabase-js';
 import {
   Bell,
   BedDouble,
+  Bookmark,
   CalendarDays,
   CircleHelp,
   ClipboardCheck,
@@ -104,6 +105,10 @@ const GRUPOS: { titulo: string | null; itens: ItemMenu[] }[] = [
     titulo: 'Meu espaço',
     itens: [
       { href: '/dashboard/perfil', rotulo: 'Minha página', icone: Store },
+      {
+        href: '/dashboard/reservas', rotulo: 'Reservas', icone: Bookmark, visivel: (l) => recursosDaLocal(l).reservas,
+        bloqueio: (p) => (p === 'freemium' ? 'Reservas estão incluídas nos planos pagos.' : null),
+      },
       { href: '/planos', rotulo: 'Meu plano', icone: CreditCard },
     ],
   },

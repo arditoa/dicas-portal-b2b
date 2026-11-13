@@ -333,3 +333,13 @@ Papéis e permissões da equipe, porteiro por PIN, foto de conferência na porta
 | Tocar no cartão da faixa | abre `/business/<local>?cupom=<id>`: a lista de cupons já vem aberta ("Ver todos") e o cupom destacado |
 | Validade no portal | ✅ corrigida: "válido até" grava 23h59 do dia (Brasília), igual ao app (antes vencia às 21h do dia anterior) |
 | Sem a 109 | o cupom salva normalmente sem a aparência (app avisa "Salvo em parte"; portal salva sem os campos) |
+
+## 21. Etapa 9 — Reservas fase 2 (13/11/2026)
+
+| O quê | Onde |
+|---|---|
+| Aviso por push ao cliente quando a casa confirma ou recusa | Edge Function **`avisar-reserva`** (nova, publicar com `supabase functions deploy avisar-reserva`). O app (Aprovações, via `responderReserva`) e o portal chamam depois de responder. Confere a permissão pela RLS de `reservas`; uma vez por resposta; vai para os aparelhos do cliente com avisos ligados. **Decisão:** é aviso transacional, não depende do tipo escolhido em Conta › Notificações |
+| "Minhas reservas" na Conta do cliente | `src/app/minhas-reservas.tsx` (próximas e anteriores, cancelar, reservar de novo); linha "Minhas reservas" na Conta; o toque no aviso abre essa tela |
+| Lista do dia na Porta (compareceu / não veio) | `src/app/parceiro/reservas-hoje.tsx`, botão "Reservas" no topo da Porta; **110** deixa quem tem `porta` ver as reservas de hoje e marcar só compareceu/não veio |
+| Reservas no portal do parceiro | `portal dashboard/reservas` (novo): como receber, regras, áreas e pedidos (confirmar/recusar com recado opcional, hoje: compareceu/não veio); item "Reservas" em Meu espaço, com cadeado no Gratuito; `recursosDaLocal().reservas` no portal (espelho do app) |
+| Histórico dos avisos | os avisos ficam em `push_envios` (tipo "lembretes", rota `/minhas-reservas`, título `reserva:<id>:<situação>`) e aparecem no histórico de envios do admin |
