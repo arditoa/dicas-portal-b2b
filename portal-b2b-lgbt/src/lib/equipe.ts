@@ -9,5 +9,5 @@ export const WHATSAPP_EQUIPE = (process.env.NEXT_PUBLIC_WHATSAPP_EQUIPE || '').r
 
 export function linkWhatsappEquipe(texto: string): string | null {
   if (!WHATSAPP_EQUIPE) return null;
-  return `https://wa.me/${WHATSAPP_EQUIPE}?text=${encodeURIComponent(texto)}`;
+  return `https://api.whatsapp.com/send?phone=${WHATSAPP_EQUIPE}&text=${encodeURIComponent(texto)}`;
 }

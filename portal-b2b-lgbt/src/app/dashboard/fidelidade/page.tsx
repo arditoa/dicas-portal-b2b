@@ -64,6 +64,7 @@ function FidelidadeConteudo() {
   const [salvando, setSalvando] = useState(false);
   const [salvo, setSalvo] = useState(false);
   const [erro, setErro] = useState('');
+  const parceiro = useParceiro();
 
   const [codigo, setCodigo] = useState('');
   const [validando, setValidando] = useState(false);
@@ -253,6 +254,14 @@ function FidelidadeConteudo() {
           Faça seus clientes voltarem: defina quantas visitas valem um brinde e acompanhe tudo por aqui.
         </p>
       </div>
+
+      {/* Rodada 148 — Gratuito: só festa com Lista VIP. Fidelidade e check-in nos planos pagos (migração 120). */}
+      {!!parceiro && !parceiro.pago && (
+        <div className="bg-[#161520] border border-[#232230] rounded-2xl p-4 mb-6 text-xs text-[#A0A0B2]">
+          O cartão fidelidade e o check-in pelo app estão incluídos nos planos pagos. No plano Gratuito, sua casa sobe festas com Lista VIP e o público marca &quot;Eu vou&quot;.{' '}
+          <Link href="/planos" className="underline font-bold text-white">Conheça os planos</Link>.
+        </div>
+      )}
 
       <div className="bg-[#7E57C2]/10 border border-[#7E57C2]/30 rounded-2xl p-4 mb-6 flex gap-3">
         <Info size={16} className="text-[#B39DDB] shrink-0 mt-0.5" />

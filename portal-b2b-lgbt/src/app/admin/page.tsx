@@ -29,6 +29,7 @@ import { deveIncluirEm, estaFixadoEm, estaFixadoParaHoje, pagaPlanoComDireitoADe
 import PainelOcorrencias from '../../components/PainelOcorrencias';
 import PainelDenunciasComunidade from '../../components/PainelDenunciasComunidade';
 import PainelRelatorioPublico from '../../components/PainelRelatorioPublico';
+import PainelAcoesMarca from '../../components/PainelAcoesMarca';
 import { CLASSIFICACOES_LGBT } from '../../lib/classificacaoLgbt';
 import { GRUPOS_EVENTO, PUBLICO_FESTA_CADASTRO, TIPOS_EVENTO_CADASTRO, slugTag } from '../../lib/taxonomia';
 
@@ -503,7 +504,7 @@ type LeadInstitucional = {
 // Rodada 89 — menu lateral do /admin, agrupado por tarefa do dia.
 type SubAprov = 'todas' | 'interesse' | 'locais' | 'eventos' | 'vinculos' | 'leads' | 'hospedagem' | 'acesso';
 type ItemSub = { id: SubAprov; rotulo: string; badge?: number };
-type ItemMenu = { subs?: ItemSub[]; id: 'visao' | 'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos' | 'roteiros' | 'push' | 'rodizio' | 'banners' | 'vitrine' | 'categorias' | 'denuncias' | 'comunidade' | 'publico' | 'mapa'; rotulo: string; icone: typeof Store; badge?: number; alerta?: boolean };
+type ItemMenu = { subs?: ItemSub[]; id: 'visao' | 'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos' | 'roteiros' | 'push' | 'rodizio' | 'banners' | 'vitrine' | 'categorias' | 'denuncias' | 'comunidade' | 'publico' | 'acoes' | 'mapa'; rotulo: string; icone: typeof Store; badge?: number; alerta?: boolean };
 function MENU_ADMIN(pendentes: number, locais: number, eventos: number, fundadores: number, filas: { interesse: number; locais: number; eventos: number; vinculos: number; leads: number; acesso: number }): { grupo: string; itens: ItemMenu[] }[] {
   return [
     // Rodada 135 — 5 grupos: o que precisa de resposta, parceiros, vitrine, Trip e comunicação.
@@ -530,6 +531,7 @@ function MENU_ADMIN(pendentes: number, locais: number, eventos: number, fundador
         { id: 'locais', rotulo: 'Locais e marcas', icone: Store, badge: locais },
         { id: 'eventos', rotulo: 'Festas e eventos', icone: CalendarDays, badge: eventos },
         { id: 'publico', rotulo: 'Relatório de público', icone: BarChart3 },
+        { id: 'acoes', rotulo: 'Ações de marca', icone: Megaphone },
       ],
     },
     {
@@ -583,6 +585,7 @@ const TITULO_ABA: Record<ItemMenu['id'], string> = {
   denuncias: 'Denúncias',
   comunidade: 'Denúncias da comunidade',
   publico: 'Relatório de público',
+  acoes: 'Ações de marca',
   mapa: 'Mapa do app',
 };
 const SUBTITULO_ABA: Record<ItemMenu['id'], string> = {
@@ -601,6 +604,7 @@ const SUBTITULO_ABA: Record<ItemMenu['id'], string> = {
   denuncias: 'Ocorrências registradas no app: relato, provas, histórico e atendimento. Conteúdo sensível — acesso restrito à equipe.',
   comunidade: 'Pessoas denunciadas no "Eu vou" (assédio, foto imprópria, perfil falso, menor de 18…). Mude a situação, anote e, se precisar, tire a pessoa da comunidade.',
   publico: 'Números somados e anônimos de uma casa (período) ou de uma festa, para enviar à marca patrocinadora em PDF. Nunca nomes.',
+  acoes: 'Campanhas de patrocinadores: etiquete cupons, festas e banners e gere o relatório com quem foi de verdade.',
   mapa: 'A Home e a página de categoria do app, de cima para baixo: o que aparece em cada parte, o que está no ar agora e onde edita.',
 };
 
@@ -625,7 +629,7 @@ export default function AdminPage() {
   const [subAprov, setSubAprov] = useState<SubAprov>('todas');
   const ver = (k: SubAprov) => subAprov === 'todas' || subAprov === k;
   const [posicaoLocalId, setPosicaoLocalId] = useState<string | null>(null);
-  const [aba, setAba] = useState<'visao' | 'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos' | 'roteiros' | 'push' | 'rodizio' | 'banners' | 'vitrine' | 'categorias' | 'denuncias' | 'comunidade' | 'publico' | 'mapa'>('visao');
+  const [aba, setAba] = useState<'visao' | 'aprovacoes' | 'locais' | 'eventos' | 'fundador' | 'destinos' | 'roteiros' | 'push' | 'rodizio' | 'banners' | 'vitrine' | 'categorias' | 'denuncias' | 'comunidade' | 'publico' | 'acoes' | 'mapa'>('visao');
   const [filtroPrincipal, setFiltroPrincipal] = useState<string>('todas');
   // Rodada 46 — filtro só da aba Eventos: "O que Fazer Hoje" (destaque_secoes
   // contém 'hoje', mesmo mecanismo que locais já tinham) vs todos.
@@ -964,7 +968,7 @@ export default function AdminPage() {
           nomeLocal: resultado.nomeLocal,
           telefone: resultado.telefone,
           senha: resultado.senha,
-          link: `https://wa.me/${resultado.telefone}?text=${encodeURIComponent(mensagem)}`,
+          link: `https://api.whatsapp.com/send?phone=${resultado.telefone}&text=${encodeURIComponent(mensagem)}`,
         });
       } else if (resultado.outraMarca) {
         // Dono que já tem acesso: nova marca na mesma conta. Não vai senha; ele troca de marca no topo do portal.
@@ -973,7 +977,7 @@ export default function AdminPage() {
           nomeLocal: resultado.nomeLocal,
           telefone: resultado.telefone,
           senha: null,
-          link: `https://wa.me/${resultado.telefone}?text=${encodeURIComponent(mensagem)}`,
+          link: `https://api.whatsapp.com/send?phone=${resultado.telefone}&text=${encodeURIComponent(mensagem)}`,
         });
       }
     } catch (e: any) {
@@ -1040,7 +1044,7 @@ Dicas LGBT+`;
           telefone: resultado.telefone,
           senha: resultado.senha,
           contaNova: resultado.contaNova,
-          link: `https://wa.me/${resultado.telefone}?text=${encodeURIComponent(mensagem)}`,
+          link: `https://api.whatsapp.com/send?phone=${resultado.telefone}&text=${encodeURIComponent(mensagem)}`,
         });
       } else {
         // Sem login novo — mesmo aviso simples de antes. Prioriza as
@@ -1058,7 +1062,7 @@ Dicas LGBT+`;
           setEventoAprovado({
             titulo: ev.titulo,
             telefone,
-            link: `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`,
+            link: `https://api.whatsapp.com/send?phone=${telefone}&text=${encodeURIComponent(mensagem)}`,
           });
         }
       }
@@ -1109,7 +1113,7 @@ Dicas LGBT+`;
           telefone: resultado.telefone,
           senha: resultado.senha,
           contaNova: false,
-          link: `https://wa.me/${resultado.telefone}?text=${encodeURIComponent(mensagem)}`,
+          link: `https://api.whatsapp.com/send?phone=${resultado.telefone}&text=${encodeURIComponent(mensagem)}`,
         });
       }
     } catch (e: any) {
@@ -3065,6 +3069,7 @@ Dicas LGBT+`;
       {aba === 'denuncias' && <PainelOcorrencias />}
       {aba === 'comunidade' && <PainelDenunciasComunidade />}
       {aba === 'publico' && <PainelRelatorioPublico />}
+      {aba === 'acoes' && <PainelAcoesMarca />}
 
       {aba === 'fundador' && (
       <>
