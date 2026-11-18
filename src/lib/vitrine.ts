@@ -82,7 +82,7 @@ export async function buscarPatrocinio(slug: string): Promise<Patrocinio | null>
   try {
     const { data, error } = await supabase
       .from('categoria_patrocinio')
-      .select('categoria, local_id, tag, titulo, subtitulo, cta, destino, imagem_url, cor1, cor2')
+      .select('categoria, local_id, tag, titulo, subtitulo, cta, destino, imagem_url, cor1, cor2, ativo, inicio, fim')
       .eq('categoria', slug)
       .maybeSingle();
     if (error) {
@@ -93,6 +93,9 @@ export async function buscarPatrocinio(slug: string): Promise<Patrocinio | null>
       if (__DEV__) console.warn(`[patrocinio] nenhuma linha ativa para "${slug}" (rode a 064 no Supabase; o banco só devolve linhas ativas e dentro do período).`);
       return exemploDev;
     }
+    // Conta da equipe enxerga também os desligados (política de admin): o app mostra só o que está no ar.
+    const d = data as any; const agora = Date.now();
+    if (d.ativo === false || (d.inicio && new Date(d.inicio).getTime() > agora) || (d.fim && new Date(d.fim).getTime() < agora)) return exemploDev;
     return data as Patrocinio;
   } catch (e: any) {
     if (__DEV__) console.warn('[patrocinio] falha:', e?.message);
@@ -305,3 +308,37 @@ export async function buscarVagas(slug: string): Promise<VagasCategoria> {
     return vazio;
   }
 }
+
+// Nov/2026 — Duas coisas separadas no Modo equipe:
+//   1) Nome da subcategoria no app (ícone redondo): mostrar/esconder — linha com a chave da subcategoria (065).
+//   2) Página própria com banners: por subcategoria — linha 'pagina:<chave>' com ativo = true.
+//      Ligada: tocar no ícone abre Bares › Botecos numa página só dela (Topo 1, 2 e 3 próprios).
+//      Desligada: tocar no ícone só filtra a lista na página da categoria.
+export async function buscarPaginasSub(categoriaReal: string): Promise<Set<string>> {
+  try {
+    const { data } = await supabase.from('subcategoria_config').select('chave, ativo').eq('categoria', categoriaReal).like('chave', 'pagina:%');
+    return new Set(((data as any[]) || []).filter((r) => r.ativo).map((r) => String(r.chave).slice('pagina:'.length)));
+  } catch {
+    return new Set();
+  }
+}
+
+// Nov/2026 — Topo 1 sem patrocinador: mostrar ou não o convite "Sua marca aqui", por página (Modo equipe).
+// Linha em subcategoria_config: categoria = slug da página (bares, trip, destino-sao-paulo, bares--botecos…),
+// chave '__vaga_livre', ativo = true (mostra) / false (esconde). Sem linha: não mostra (nov/2026).
+// Nov/2026 — nenhuma página mostra o convite "Sua marca aqui" por padrão: só se a equipe ligar a Vaga livre no Modo equipe.
+export const CONVITE_PADRAO_LIGADO = new Set<string>([]);
+let cacheConvite: { em: number; mapa: Record<string, boolean> } | null = null;
+export async function buscarConvitesVaga(semCache = false): Promise<Record<string, boolean>> {
+  if (!semCache && cacheConvite && Date.now() - cacheConvite.em < 60_000) return cacheConvite.mapa;
+  try {
+    const { data } = await supabase.from('subcategoria_config').select('categoria, ativo').eq('chave', '__vaga_livre');
+    const mapa: Record<string, boolean> = {};
+    for (const r of ((data as any[]) || [])) mapa[r.categoria] = !!r.ativo;
+    cacheConvite = { em: Date.now(), mapa };
+    return mapa;
+  } catch {
+    return {};
+  }
+}
+export const conviteLigado = (mapa: Record<string, boolean>, slug: string) => (slug in mapa ? mapa[slug] : CONVITE_PADRAO_LIGADO.has(slug));

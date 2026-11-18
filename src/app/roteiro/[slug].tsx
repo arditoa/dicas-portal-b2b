@@ -14,7 +14,9 @@ import { distanciaMetros, formatarDistancia } from '../../lib/distancia';
 import { buscarRoteiro, linkMapaRoteiro, Roteiro, tagsVisiveis } from '../../lib/roteiros';
 import { supabase } from '../../lib/supabase';
 import { GRUPOS_ROTEIRO, rotuloTag } from '../../lib/taxonomia';
+import { carregarDestinos } from '../../lib/destinos';
 import { useRastrearTela } from '../../lib/usoTelas';
+import { TITULO_SECAO } from '../../constants/theme';
 
 const C = {
   bg: '#0B0B0E',
@@ -43,6 +45,8 @@ export default function RoteiroScreen() {
   const [r, setR] = useState<Roteiro | null>(null);
   const [salvo, setSalvo] = useState(false);
   const [hospedagens, setHospedagens] = useState<Hospedagem[]>([]);
+  const [fotoCidade, setFotoCidade] = useState<string | null>(null);
+  const [patrocinador, setPatrocinador] = useState<{ id: string; nome: string } | null>(null);
 
   useEffect(() => {
     if (!slug) return;
@@ -51,6 +55,12 @@ export default function RoteiroScreen() {
       setR(rot);
       setCarregando(false);
       if (!rot) return;
+      // 18/11: sem foto própria, usa a foto da cidade; casa patrocinadora (158) aparece como "Oferecido por".
+      if (!rot.foto_url) void carregarDestinos().then((ds) => setFotoCidade(ds.find((d) => d.slug === rot.destino_slug || d.cidade === rot.cidade)?.foto_url || null));
+      if (ehUuid(rot.id)) {
+        void (supabase.from('roteiros') as any).select('patrocinador_id, locais:patrocinador_id(id, nome)').eq('id', rot.id).maybeSingle()
+          .then(({ data }: any) => setPatrocinador(data?.locais || null), () => {});
+      }
       if (user?.id && ehUuid(rot.id)) {
         const { data } = await supabase.from('roteiros_salvos').select('roteiro_id').eq('user_id', user.id).eq('roteiro_id', rot.id).maybeSingle();
         setSalvo(!!data);
@@ -136,7 +146,7 @@ export default function RoteiroScreen() {
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 110 }}>
         {/* Topo */}
         <View style={styles.hero}>
-          {r.foto_url ? <Image source={{ uri: r.foto_url }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : <View style={[StyleSheet.absoluteFill, { backgroundColor: '#21173A' }]} />}
+          {r.foto_url || fotoCidade ? <Image source={{ uri: (r.foto_url || fotoCidade) as string }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : <View style={[StyleSheet.absoluteFill, { backgroundColor: '#21173A' }]} />}
           <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.45)' }]} />
           <View style={[styles.topoBotoes, { top: insets.top + 8 }]}>
             <TouchableOpacity onPress={() => router.back()} style={styles.redondo} accessibilityLabel="Voltar">
@@ -154,6 +164,11 @@ export default function RoteiroScreen() {
             <Text style={styles.heroRotulo}>Dicas Trip · {r.cidade}</Text>
             <Text style={styles.heroTitulo}>{r.titulo}</Text>
             {!!r.subtitulo && <Text style={styles.heroSub}>{r.subtitulo}</Text>}
+            {!!patrocinador && (
+              <TouchableOpacity style={styles.oferecido} onPress={() => router.push(`/business/${patrocinador.id}` as any)} accessibilityRole="button">
+                <Feather name="star" size={12} color="#111" /><Text style={styles.oferecidoTxt}>Oferecido por {patrocinador.nome}</Text>
+              </TouchableOpacity>
+            )}
           </View>
           {!!r.foto_url && !!r.foto_credito && <Text style={styles.credito}>{r.foto_credito}</Text>}
         </View>
@@ -331,6 +346,8 @@ export default function RoteiroScreen() {
 }
 
 const styles = StyleSheet.create({
+  oferecido: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginTop: 10, backgroundColor: '#FFD54F', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
+  oferecidoTxt: { color: '#111', fontSize: 12, fontWeight: '800' },
   container: { flex: 1, backgroundColor: C.bg },
   centro: { alignItems: 'center', justifyContent: 'center' },
   dim: { color: C.dim, fontSize: 12, lineHeight: 17 },
@@ -353,7 +370,7 @@ const styles = StyleSheet.create({
   tag: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
   tagTxt: { fontSize: 11, fontWeight: '800' },
   bloco: { paddingHorizontal: 16, marginTop: 22 },
-  secao: { color: C.text, fontSize: 17, fontWeight: '800', marginBottom: 2 },
+  secao: { ...TITULO_SECAO, marginBottom: 2 },
   texto: { color: '#C8C8D6', fontSize: 13, lineHeight: 20, marginTop: 6 },
   paradaLinha: { flexDirection: 'row', gap: 10 },
   trilho: { width: 18, alignItems: 'center' },

@@ -9,14 +9,14 @@
 // Permissão: 'festa'.
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { chaveData } from '../../components/parceiro/form';
+import { useCallback, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BarraSalvar, CampoData, chaveData, Chips, estiloForm as fm } from '../../components/parceiro/form';
 import { CP, ESP, RAIO, TelaParceiro, TituloSecao } from '../../components/parceiro/TelaParceiro';
 import { recursosDaCategoria, useModoParceiro } from '../../lib/modoParceiro';
-import { destaquesUsadosNoMes, temDestaqueNoPlano } from '../../lib/parceiro/agenda';
+import { destaquesUsadosNoMes, temDestaqueNoPlano, temFestaIntermediaria } from '../../lib/parceiro/agenda';
 import {
-  destacarFesta, emDestaque, encerrada, Festa, LIMITE_DESTAQUES_FESTA, listarFestas, resumoDaFesta, ResumoFesta, situacaoDaFesta,
+  cotaEventos, CotaEventos, destacarFesta, emDestaque, encerrada, Festa, LIMITE_DESTAQUES_FESTA, listarFestas, vagasUsadasNoMes, resumoDaFesta, ResumoFesta, situacaoDaFesta,
 } from '../../lib/parceiro/festas';
 import { euVouDoLocal, vao } from '../../lib/parceiro/publico';
 import { falarComEquipe } from '../../lib/parceiroMenu';
@@ -42,7 +42,12 @@ export default function MinhasFestas() {
   const [festas, setFestas] = useState<Festa[]>([]);
   const [resumos, setResumos] = useState<Record<string, ResumoFesta>>({});
   const [temPlano, setTemPlano] = useState<boolean | null>(null);
+  const [intermediaria, setIntermediaria] = useState(false); // Intermediário Festas: véspera e dia
   const [usadas, setUsadas] = useState<number | null>(null);
+  // 157 (18/11): cota de destaque de eventos em vagas por mês; o pedido abre a folha "Destacar evento".
+  const [cota, setCota] = useState<CotaEventos | null>(null);
+  const [pedido, setPedido] = useState<{ f: Festa; dias: number; inicio: string } | null>(null);
+  const limite = cota ? cota.vagas : LIMITE_DESTAQUES_FESTA;
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
   const [destacando, setDestacando] = useState<string | null>(null);
@@ -53,10 +58,14 @@ export default function MinhasFestas() {
     if (!localId) return;
     setErro('');
     try {
+      const ct = dono ? await cotaEventos(localId) : null;
+      setCota(ct);
       const [lista, plano, n] = await Promise.all([
         listarFestas(localId),
-        dono ? temDestaqueNoPlano(localId) : Promise.resolve(false),
-        dono ? destaquesUsadosNoMes(localId, chaveData(new Date())) : Promise.resolve(null),
+        !dono ? Promise.resolve(false)
+          : ct ? Promise.resolve(ct.vagas > 0).then((v) => { setIntermediaria(ct.tipo === 'festas_intermediario'); return v; })
+          : Promise.all([temDestaqueNoPlano(localId), temFestaIntermediaria(localId)]).then(([a, b]) => { setIntermediaria(!a && b); return a || b; }),
+        !dono ? Promise.resolve(null) : ct ? vagasUsadasNoMes(localId, chaveData(new Date())) : destaquesUsadosNoMes(localId, chaveData(new Date())),
       ]);
       setFestas(lista);
       void euVouDoLocal(localId).then((x) => setVaoPorFesta(x?.porEvento || {}));
@@ -76,18 +85,19 @@ export default function MinhasFestas() {
 
   useFocusEffect(useCallback(() => { if (liberado) void carregar(); }, [liberado, carregar]));
 
+  const executarPedido = useRef<((dias?: number, inicio?: string) => Promise<void>) | null>(null);
   const alternarDestaque = (f: Festa) => {
     const ligado = emDestaque(f);
     const mes = mesDe(f.data_inicio);
-    const executar = async () => {
+    const executar = async (dias?: number, inicio?: string) => {
       setDestacando(f.id);
       try {
-        const res = await destacarFesta(f.id, !ligado);
+        const res = await destacarFesta(f.id, !ligado, dias, inicio);
         setFestas((l) => l.map((x) => (x.id === f.id
           ? { ...x, destaque_secoes: ligado ? (x.destaque_secoes || []).filter((s) => s !== 'plano_festa') : [...(x.destaque_secoes || []), 'plano_festa'] }
           : x)));
         if (f.data_inicio.slice(0, 7) === hojeIso().slice(0, 7)) setUsadas(res.usadas);
-        Alert.alert(ligado ? 'Destaque tirado' : 'Destacada!', `Destaques de ${mes}: ${res.usadas} de ${res.limite} (festas + agenda).`);
+        Alert.alert(ligado ? 'Destaque tirado' : 'Em destaque!', `${!ligado && res.inicio ? `No ar de ${res.inicio.split('-').reverse().slice(0, 2).join('/')} até o dia do evento. ` : ''}Destaques de eventos de ${mes}: ${res.usadas} de ${res.limite} vagas.`);
       } catch (e: any) {
         Alert.alert('Destaque', e?.message || 'Não deu para destacar agora.');
       } finally {
@@ -95,16 +105,17 @@ export default function MinhasFestas() {
       }
     };
     if (ligado) {
-      return Alert.alert('Tirar do destaque?', `"${f.titulo}" sai de Festas em destaque e o destaque volta para a cota de ${mes}.`, [
+      return Alert.alert('Tirar do destaque?', `"${f.titulo}" sai de Em destaque nessa semana e o destaque volta para a cota de ${mes}.`, [
         { text: 'Manter', style: 'cancel' },
         { text: 'Tirar destaque', style: 'destructive', onPress: () => void executar() },
       ]);
     }
-    Alert.alert(
-      'Destacar com o plano?',
-      `"${f.titulo}" aparece em Festas em destaque (só o flyer), na tela de Eventos, todos os dias até a festa. Usa 1 dos ${LIMITE_DESTAQUES_FESTA} destaques de ${mes}.`,
-      [{ text: 'Agora não', style: 'cancel' }, { text: 'Destacar', onPress: () => void executar() }],
-    );
+    // Folha "Destacar evento": quantos dias (7, ou 15 para Fundador/Premium de Festas) e quando começa.
+    const diaEv = f.data_inicio.slice(0, 10);
+    const hoje = chaveData(new Date());
+    const ini = (dias: number) => { const d = new Date(`${diaEv}T12:00:00`); d.setDate(d.getDate() - (dias - 1)); const k = chaveData(d); return k < hoje ? hoje : k; };
+    executarPedido.current = executar;
+    setPedido({ f, dias: 7, inicio: ini(7) });
   };
 
   if (!localAtivo || !liberado) {
@@ -172,8 +183,7 @@ export default function MinhasFestas() {
   };
 
   return (
-    <TelaParceiro titulo={ehFesta ? 'Minhas festas' : 'Meus eventos'} subtitulo="Aparecem na aba Eventos do app depois da análise da equipe Dicas." atualizando={false} aoAtualizar={() => void carregar()}>
-      <TouchableOpacity style={a.voltar} onPress={() => router.back()} accessibilityRole="button"><Feather name="chevron-left" size={16} color={CP.dim} /><Text style={a.voltarTxt}>Voltar</Text></TouchableOpacity>
+    <TelaParceiro titulo={ehFesta ? 'Minhas festas' : 'Meus eventos'} subtitulo="Aparecem na aba Eventos do app assim que você publica." atualizando={false} aoAtualizar={() => void carregar()} aoVoltar={() => router.back()}>
 
       <TouchableOpacity style={a.nova} onPress={() => router.push('/parceiro/festa-editar')} activeOpacity={0.85} accessibilityRole="button">
         <Feather name="plus" size={20} color="#FFF" />
@@ -194,11 +204,14 @@ export default function MinhasFestas() {
       {dono && temPlano === true && (
         <View style={a.cota}>
           <View style={{ flex: 1 }}>
-            <Text style={a.titulo}>Destaques de {mesDe(hojeIso())}: {usadas ?? '–'} de {LIMITE_DESTAQUES_FESTA}</Text>
-            <Text style={a.sub}>Festas e agenda usam a mesma cota. Cada festa conta no mês da data dela.</Text>
+            <Text style={a.titulo}>Destaques de eventos de {mesDe(hojeIso())}: {usadas ?? '–'} de {limite}</Text>
+            <Text style={a.sub}>{cota?.tipo === 'festas_premium' ? 'Cada destaque fica 7 dias (1 vaga) ou 15 dias (2 vagas), terminando no dia do evento.'
+              : cota?.tipo === 'festas_intermediario' ? 'Intermediário Festas: 2 eventos por mês, 7 dias cada, terminando no dia do evento.'
+              : cota?.tipo === 'premium' ? '1 evento por mês em destaque por 7 dias, terminando no dia do evento. Os demais eventos entram na agenda sem destaque.'
+              : 'Cada evento conta no mês da data dele.'}</Text>
           </View>
           <View style={a.pontos}>
-            {Array.from({ length: LIMITE_DESTAQUES_FESTA }, (_, i) => <View key={i} style={[a.ponto, i < (usadas ?? 0) && { backgroundColor: '#FFD54F' }]} />)}
+            {Array.from({ length: limite }, (_, i) => <View key={i} style={[a.ponto, i < (usadas ?? 0) && { backgroundColor: '#FFD54F' }]} />)}
           </View>
         </View>
       )}
@@ -206,8 +219,8 @@ export default function MinhasFestas() {
         <TouchableOpacity style={a.cota} onPress={() => void falarComEquipe(`Olá! Sou do ${localAtivo.nome} e quero destacar minhas festas no topo de Eventos.`)} accessibilityRole="button">
           <Feather name="lock" size={16} color={CP.dim} />
           <View style={{ flex: 1 }}>
-            <Text style={a.titulo}>Festas em destaque</Text>
-            <Text style={a.sub}>Com o plano Premium ou Fundador: 4 por mês, todos os dias até a festa. Toque para falar com a equipe.</Text>
+            <Text style={a.titulo}>Em destaque nessa semana</Text>
+            <Text style={a.sub}>Destaque avulso: 7 ou 21 dias, terminando no dia do evento. Premium e Fundador têm 1 por mês incluído. Toque para falar com a equipe.</Text>
           </View>
         </TouchableOpacity>
       )}
@@ -234,6 +247,36 @@ export default function MinhasFestas() {
             </>
           )}
         </>
+      )}
+      {!!pedido && (
+        <Modal visible animationType="slide" transparent onRequestClose={() => setPedido(null)}>
+          <View style={fm.fundo}>
+            <View style={fm.folha}>
+              <View style={fm.folhaTopo}>
+                <Text style={fm.folhaTitulo}>Destacar evento</Text>
+                <TouchableOpacity onPress={() => setPedido(null)} accessibilityLabel="Fechar"><Feather name="x" size={22} color={CP.texto} /></TouchableOpacity>
+              </View>
+              <ScrollView keyboardShouldPersistTaps="handled">
+                <Text style={a.sub}>"{pedido.f.titulo}" aparece em “Em destaque nessa semana”, na tela de Eventos, da data escolhida até o dia do evento.</Text>
+                {(cota?.maxDias ?? 7) >= 15 && (
+                  <Chips rotulo="Por quanto tempo" preencher
+                    opcoes={[{ valor: 7, rotulo: '7 dias · 1 vaga' }, { valor: 15, rotulo: '15 dias · 2 vagas' }]}
+                    valor={pedido.dias}
+                    aoMudar={(v) => {
+                      const d = new Date(`${pedido.f.data_inicio.slice(0, 10)}T12:00:00`); d.setDate(d.getDate() - ((v as number) - 1));
+                      const k = chaveData(d); const hoje = chaveData(new Date());
+                      setPedido({ ...pedido, dias: v as number, inicio: k < hoje ? hoje : k });
+                    }} />
+                )}
+                <CampoData rotulo="Começa em" valor={pedido.inicio} aoMudar={(v) => setPedido({ ...pedido, inicio: v })}
+                  min={(() => { const d = new Date(`${pedido.f.data_inicio.slice(0, 10)}T12:00:00`); d.setDate(d.getDate() - (pedido.dias - 1)); const k = chaveData(d); const hoje = chaveData(new Date()); return k < hoje ? hoje : k; })()}
+                  max={pedido.f.data_inicio.slice(0, 10)}
+                  ajuda={`Até ${pedido.dias} dias, terminando no dia do evento. Começar mais tarde não devolve dias.`} />
+              </ScrollView>
+              <BarraSalvar emFolha rotulo="Destacar" salvando={destacando === pedido.f.id} aoSalvar={() => { const p = pedido; setPedido(null); void executarPedido.current?.(p.dias, p.inicio); }} />
+            </View>
+          </View>
+        </Modal>
       )}
     </TelaParceiro>
   );

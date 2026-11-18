@@ -167,7 +167,7 @@ export default function Aprovacoes() {
           )}
           <View style={e.codigoLinha}>
             <TextInput
-              style={e.codigoInput} value={codigo} onChangeText={setCodigo} placeholder="Ou digite o código (6)"
+              style={[e.codigoInput, !codigo && e.codigoInputVazio]} value={codigo} onChangeText={setCodigo} placeholder="Ou digite o código (6)"
               placeholderTextColor={CP.fraco} autoCapitalize="characters" autoCorrect={false} maxLength={8}
               onSubmitEditing={() => validar(codigo)} returnKeyType="done"
             />
@@ -342,6 +342,8 @@ const e = StyleSheet.create({
   cameraDica: { position: 'absolute', bottom: 12, left: 0, right: 0, textAlign: 'center', color: '#FFF', fontSize: 13, fontWeight: '600' },
   codigoLinha: { flexDirection: 'row', gap: 8, marginTop: 10 },
   codigoInput: { flex: 1, backgroundColor: '#0F0E15', borderColor: CP.borda, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, minHeight: 48, color: CP.texto, fontSize: 17, letterSpacing: 3, fontWeight: '800' },
+  // Espaçamento largo só no código digitado; o texto de exemplo fica normal.
+  codigoInputVazio: { letterSpacing: 0, fontSize: 15, fontWeight: '600' },
   codigoBotao: { backgroundColor: '#2E9E62', borderRadius: 12, paddingHorizontal: 18, justifyContent: 'center', minWidth: 92, alignItems: 'center' },
   codigoBotaoTxt: { color: '#FFF', fontWeight: '800', fontSize: 15 },
   validarDica: { color: CP.dim, fontSize: 11, marginTop: 8, textAlign: 'center' },

@@ -2,6 +2,8 @@
 // Mostra as reservas da pessoa (RLS: user_id = eu), com a situação: aguardando, confirmada, recusada, cancelada,
 // compareceu, não veio. Dá para cancelar as que ainda vão acontecer (responder_reserva 'cancelada', migração 102)
 // e abrir a página da casa ou fazer outra reserva.
+import TopoApp from '../components/TopoApp';
+import { TituloTela } from '../components/CabecalhoTela';
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
@@ -9,6 +11,7 @@ import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text,
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../lib/authContext';
 import { supabase } from '../lib/supabase';
+import { TITULO_SECAO } from '../constants/theme';
 
 const C = { bg: '#0B0B0E', card: '#161520', borda: '#232230', texto: '#FFFFFF', dim: '#A0A0B2', fraco: '#626274', rosa: '#E1306C', verde: '#4CAF7D' };
 const SITUACAO: Record<string, { txt: string; cor: string; icone: keyof typeof Feather.glyphMap }> = {
@@ -101,12 +104,8 @@ export default function MinhasReservas() {
 
   return (
     <View style={[s.tela, { paddingTop: insets.top }]}>
-      <View style={s.topo}>
-        <TouchableOpacity onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)/profile'))} style={s.voltar} accessibilityLabel="Voltar">
-          <Feather name="chevron-left" size={22} color={C.texto} />
-        </TouchableOpacity>
-        <Text style={s.titulo}>Minhas reservas</Text>
-      </View>
+      <TopoApp voltar comInsets={false} />
+      <TituloTela titulo="Minhas reservas" discreto />
       {!logado ? (
         <Text style={s.vazio}>Entre na sua conta (aba Conta) para ver as suas reservas.</Text>
       ) : carregando ? (
@@ -129,7 +128,7 @@ const s = StyleSheet.create({
   topo: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 8, minHeight: 52 },
   voltar: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   titulo: { color: C.texto, fontSize: 20, fontWeight: '800' },
-  secao: { color: '#B9B6CC', fontSize: 12, fontWeight: '700', letterSpacing: 1.4, textTransform: 'uppercase', marginTop: 8 },
+  secao: { ...TITULO_SECAO, marginTop: 8 },
   vazio: { color: C.dim, fontSize: 14, lineHeight: 20, padding: 16 },
   cartao: { backgroundColor: C.card, borderColor: C.borda, borderWidth: 1, borderRadius: 16, padding: 14 },
   casa: { color: C.texto, fontSize: 16, fontWeight: '800' },

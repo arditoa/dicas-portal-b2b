@@ -59,6 +59,8 @@ export type Festa = {
   chamada: string | null;
   destaques: string[] | null;
   link_ingresso: string | null;
+  entrada_centavos?: number | null; // 151
+  onde_nome?: string | null; onde_endereco?: string | null; onde_bairro?: string | null; // 151
   exigir_foto: boolean | null;
   listas_vip: { id: string; vagas_limite: number | null; vagas_ocupadas: number; ativa: boolean }[] | null;
 };
@@ -103,7 +105,9 @@ export async function listarFestas(localId: string): Promise<Festa[]> {
 }
 
 export async function obterFesta(id: string): Promise<Festa | null> {
-  const { data, error } = await supabase.from('eventos').select(CAMPOS).eq('id', id).maybeSingle();
+  // 151: tenta com a entrada; sem a coluna, carrega sem ela.
+  let { data, error }: { data: any; error: any } = await supabase.from('eventos').select(`${CAMPOS}, entrada_centavos, onde_nome, onde_endereco, onde_bairro`).eq('id', id).maybeSingle();
+  if (error) ({ data, error } = await supabase.from('eventos').select(CAMPOS).eq('id', id).maybeSingle());
   if (error) throw new Error(traduzirErro(error));
   return (data as unknown as Festa) || null;
 }
@@ -129,11 +133,32 @@ export async function cancelarFesta(id: string): Promise<void> {
 }
 
 // ---------- destacar com o plano (só o dono; o banco confere plano, aprovação, data e cota) ----------
-export async function destacarFesta(id: string, ligar: boolean): Promise<{ usadas: number; limite: number }> {
-  const { data, error } = await supabase.rpc('destacar_festa_do_plano', { p_evento: id, p_ligar: ligar });
+// 157 (18/11): destaque por dias. dias = 7 ou 15 (15 só Fundador/Premium de Festas, conta 2 vagas);
+// inicio = 'AAAA-MM-DD' (a janela termina no dia do evento).
+export async function destacarFesta(id: string, ligar: boolean, dias?: number, inicio?: string | null): Promise<{ usadas: number; limite: number; inicio?: string; dias?: number }> {
+  const args: Record<string, unknown> = { p_evento: id, p_ligar: ligar };
+  if (ligar && dias) args.p_dias = dias;
+  if (ligar && inicio) args.p_inicio = inicio;
+  let { data, error } = await supabase.rpc('destacar_festa_do_plano', args);
+  if (error && /p_dias|p_inicio|function/i.test(error.message) && (args.p_dias || args.p_inicio)) {
+    ({ data, error } = await supabase.rpc('destacar_festa_do_plano', { p_evento: id, p_ligar: ligar })); // sem a migration 157
+  }
   if (error) throw new Error(traduzirErro(error));
-  const j = (data || {}) as { usadas?: number; limite?: number };
-  return { usadas: Number(j.usadas) || 0, limite: Number(j.limite) || LIMITE_DESTAQUES_FESTA };
+  const j = (data || {}) as { usadas?: number; limite?: number; inicio?: string; dias?: number };
+  return { usadas: Number(j.usadas) || 0, limite: Number(j.limite) ?? LIMITE_DESTAQUES_FESTA, inicio: j.inicio, dias: j.dias };
+}
+
+// Cota de destaque de eventos do local (157): vagas no mês e máximo de dias por destaque.
+export type CotaEventos = { vagas: number; maxDias: number; tipo: 'festas_premium' | 'festas_intermediario' | 'premium' | 'nenhum' };
+export async function cotaEventos(localId: string): Promise<CotaEventos | null> {
+  const { data, error } = await supabase.rpc('cota_eventos_do_local', { p_local: localId });
+  if (error || !data) return null;
+  const j = data as { vagas?: number; max_dias?: number; tipo?: CotaEventos['tipo'] };
+  return { vagas: Number(j.vagas) || 0, maxDias: Number(j.max_dias) || 0, tipo: j.tipo || 'nenhum' };
+}
+export async function vagasUsadasNoMes(localId: string, data: string): Promise<number | null> {
+  const { data: n, error } = await supabase.rpc('vagas_eventos_no_mes', { p_local: localId, p_data: `${data}T12:00:00-03:00` });
+  return error ? null : Number(n) || 0;
 }
 
 // ---------- formulário ----------
@@ -155,6 +180,8 @@ export type FormFesta = {
   chamada: string;
   destaques: string[];
   linkIngresso: string;
+  ondeOutro: boolean; ondeNome: string; ondeEndereco: string; ondeBairro: string; // festa fora da casa de quem cadastra
+  entrada: string; // R$ digitado: vazio = não informado, "0" = grátis
   listaVip: boolean;
   vagas: string; // vazio = sem limite
   exigirFoto: boolean;
@@ -179,7 +206,7 @@ export function formVazio(): FormFesta {
   return {
     id: null, status: null, titulo: '', descricao: '', inicioData: null, inicioHora: '22:00', fimData: null, fimHora: null,
     classificacao: '', tags: [], publicoTagsAntigos: [], foto: null, degrade: null, textura: null, chamada: '', destaques: [],
-    linkIngresso: '', listaVip: false, vagas: '', exigirFoto: false, listaId: null, vagasOcupadas: 0, destacada: false,
+    linkIngresso: '', entrada: '', ondeOutro: false, ondeNome: '', ondeEndereco: '', ondeBairro: '', listaVip: false, vagas: '', exigirFoto: false, listaId: null, vagasOcupadas: 0, destacada: false,
   };
 }
 
@@ -192,7 +219,10 @@ export function formDaFesta(f: Festa): FormFesta {
     fimData: f.data_fim ? chaveData(new Date(f.data_fim)) : null, fimHora: f.data_fim ? horaDe(f.data_fim) : null,
     classificacao: f.classificacao_lgbt || '', tags: f.tags || [], publicoTagsAntigos: f.publico_tags || [],
     foto: f.foto_capa_url, degrade: deg?.chave ?? null, textura: f.textura, chamada: f.chamada || '', destaques: f.destaques || [],
-    linkIngresso: f.link_ingresso || '', listaVip: lista ? lista.ativa : !!f.quer_lista_vip,
+    linkIngresso: f.link_ingresso || '',
+    ondeOutro: !!f.onde_nome, ondeNome: f.onde_nome || '', ondeEndereco: f.onde_endereco || '', ondeBairro: f.onde_bairro || '',
+    entrada: f.entrada_centavos == null ? '' : f.entrada_centavos === 0 ? '0' : String(f.entrada_centavos / 100).replace('.', ','),
+    listaVip: lista ? lista.ativa : !!f.quer_lista_vip,
     vagas: lista?.vagas_limite ? String(lista.vagas_limite) : '', exigirFoto: !!f.exigir_foto,
     listaId: lista?.id ?? null, vagasOcupadas: lista?.vagas_ocupadas ?? 0, destacada: emDestaque(f),
     original: { titulo: f.titulo, inicio: f.data_inicio, fim: f.data_fim },
@@ -209,7 +239,19 @@ export function formRepetido(f: Festa): FormFesta {
   };
 }
 
-export type ErrosFesta = Partial<Record<'titulo' | 'inicio' | 'fim' | 'classificacao' | 'tipo' | 'publico' | 'estilos' | 'link' | 'vagas' | 'chamada', string>>;
+export type ErrosFesta = Partial<Record<'titulo' | 'inicio' | 'fim' | 'classificacao' | 'tipo' | 'publico' | 'estilos' | 'link' | 'vagas' | 'chamada' | 'entrada' | 'onde', string>>;
+
+// Entrada em reais → centavos ("30", "25,50", "R$ 40"). null = inválido.
+export function centavosDaEntrada(t: string): number | null {
+  const x = t.replace(/r\$|\s/gi, '').replace(/\./g, '').replace(',', '.');
+  if (!/^\d+(\.\d{1,2})?$/.test(x)) return null;
+  return Math.round(Number(x) * 100);
+}
+// Festa de mais de 2 dias: provavelmente é programação que repete (vai para a agenda da casa).
+export function festaLonga(f: Pick<FormFesta, 'inicioData' | 'inicioHora' | 'fimData' | 'fimHora'>): boolean {
+  const ini = juntarDataHora(f.inicioData, f.inicioHora); const fim = juntarDataHora(f.fimData, f.fimHora);
+  return !!ini && !!fim && new Date(fim).getTime() - new Date(ini).getTime() > 2 * 864e5;
+}
 
 export function validarFesta(f: FormFesta): ErrosFesta {
   const e: ErrosFesta = {};
@@ -226,6 +268,8 @@ export function validarFesta(f: FormFesta): ErrosFesta {
   const qtdEstilos = f.tags.filter((t) => SLUGS_ESTILO.includes(t)).length;
   if (tipo?.musica && qtdEstilos === 0) e.estilos = `Escolha de 1 a ${ESTILOS_MAX_CADASTRO} estilos musicais.`;
   if (f.linkIngresso.trim() && !/^https?:\/\//i.test(f.linkIngresso.trim())) e.link = 'O link precisa começar com https://';
+  if (f.ondeOutro && f.ondeNome.trim().length < 2) e.onde = 'Escreva o nome do lugar da festa.';
+  if (f.entrada.trim() && centavosDaEntrada(f.entrada) === null) e.entrada = 'Entrada: escreva só o valor (ex.: 30 ou 25,50) ou 0 para grátis.';
   if (f.chamada.length > MAX_CHAMADA) e.chamada = `Até ${MAX_CHAMADA} letras.`;
   if (f.listaVip && f.vagas.trim()) {
     const n = Number(f.vagas);
@@ -237,6 +281,9 @@ export function validarFesta(f: FormFesta): ErrosFesta {
 
 // Festa aprovada que muda título, data ou fim volta para análise (gatilho do banco). Para avisar antes.
 export function voltaParaAnalise(f: FormFesta): boolean {
+  // 162 (18/11): casa aprovada publica direto, mudar nome ou data não volta mais para análise.
+  const casaPublicaDireto = true;
+  if (casaPublicaDireto) return false;
   if (f.status !== 'aprovado' || !f.original) return false;
   const ini = juntarDataHora(f.inicioData, f.inicioHora);
   const fim = juntarDataHora(f.fimData, f.fimHora);
@@ -288,6 +335,10 @@ export async function salvarFesta(
     chamada: f.chamada.trim() || null,
     destaques: f.destaques.map((d) => d.trim()).filter(Boolean).slice(0, MAX_DESTAQUES),
     link_ingresso: f.linkIngresso.trim() || null,
+    entrada_centavos: f.entrada.trim() ? centavosDaEntrada(f.entrada) : null,
+    onde_nome: f.ondeOutro ? f.ondeNome.trim() || null : null,
+    onde_endereco: f.ondeOutro ? f.ondeEndereco.trim() || null : null,
+    onde_bairro: f.ondeOutro ? f.ondeBairro.trim() || null : null,
     exigir_foto: f.listaVip && f.exigirFoto,
     quer_lista_vip: f.listaVip,
   };
@@ -297,14 +348,17 @@ export async function salvarFesta(
   let id = f.id;
   if (!id) {
     id = novoId();
-    const { error } = await supabase.from('eventos').insert({
+    const inserir = () => supabase.from('eventos').insert({
       id, local_id: localId, contato_nome: contato.nome, contato_whatsapp: contato.whatsapp, ...campos,
       // foto do aparelho sobe depois que a festa existe (regra do Storage)
       ...(fotoNoAparelho ? { foto_capa_url: null } : {}),
     });
+    let { error } = await inserir();
+    if (error && /entrada_centavos|onde_/.test(error.message)) { for (const k of ['entrada_centavos', 'onde_nome', 'onde_endereco', 'onde_bairro']) delete campos[k]; ({ error } = await inserir()); } // sem a 151
     if (error) throw new Error(traduzirErro(error));
   } else {
-    const { error } = await supabase.from('eventos').update(campos).eq('id', id);
+    let { error } = await supabase.from('eventos').update(campos).eq('id', id);
+    if (error && /entrada_centavos|onde_/.test(error.message)) { for (const k of ['entrada_centavos', 'onde_nome', 'onde_endereco', 'onde_bairro']) delete campos[k]; ({ error } = await supabase.from('eventos').update(campos).eq('id', id)); } // sem a 151
     if (error) throw new Error(traduzirErro(error));
   }
 

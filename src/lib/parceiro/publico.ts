@@ -40,16 +40,26 @@ export type Relatorio = {
   chegada_dia?: { dia: number; n: Num }[];
   gostos?: { musica: Grupo[]; experiencia: Grupo[]; responderam: Num };
   genero?: { consentiram: Num; grupos: Grupo[]; outros_ocultos: boolean };
-  totais?: { checkins: Num; lista_pedidos: Num; lista_aprovados: Num; lista_entraram: Num; cupons_usados: Num; eu_vou: Num };
+  totais?: { checkins: Num; lista_pedidos: Num; lista_aprovados: Num; lista_entraram: Num; cupons_usados: Num; eu_vou: Num;
+    ingressos_vendidos?: Num; ingressos_entraram?: Num; estou_aqui?: Num; enquetes_respondidas?: Num; reservas?: Num; reservas_vieram?: Num };
 };
 export type Escopo = { evento: string } | { de: string; ate: string };
 
-export async function relatorio(localId: string, escopo: Escopo): Promise<Relatorio> {
+// 139 — "toda ação gera dados": o mesmo relatório recortado por uma ação da casa
+export type Acao = 'checkin' | 'lista' | 'cupom' | 'eu_vou' | 'ingresso' | 'estou_aqui' | 'marca' | 'enquete' | 'reserva';
+export const ACOES: { valor: Acao; rotulo: string }[] = [
+  { valor: 'ingresso', rotulo: 'Ingresso' }, { valor: 'checkin', rotulo: 'Check-in' }, { valor: 'lista', rotulo: 'Lista VIP' },
+  { valor: 'cupom', rotulo: 'Cupom' }, { valor: 'enquete', rotulo: 'Enquete' }, { valor: 'reserva', rotulo: 'Reserva' },
+  { valor: 'eu_vou', rotulo: '"Eu vou"' }, { valor: 'estou_aqui', rotulo: 'Estou aqui' }, { valor: 'marca', rotulo: 'Ação de marca' },
+];
+
+export async function relatorio(localId: string, escopo: Escopo, acao?: Acao | null): Promise<Relatorio> {
   const { data, error } = await supabase.rpc('relatorio_publico', {
     p_local: localId,
     p_evento: 'evento' in escopo ? escopo.evento : null,
     p_de: 'de' in escopo ? escopo.de : null,
     p_ate: 'ate' in escopo ? escopo.ate : null,
+    ...(acao ? { p_origem: acao } : {}), // só manda quando filtra (funciona antes da 139 sem filtro)
   });
   if (error) {
     if (error.code === 'PGRST202' || /could not find the function/i.test(error.message)) throw new Error('O relatório ainda não está ligado. Peça à equipe Dicas para rodar a atualização 114.');

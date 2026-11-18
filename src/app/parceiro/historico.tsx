@@ -81,8 +81,7 @@ export default function Historico() {
   const cupons = linhas.filter((l) => l.cupom && l.situacao === 'confirmado').length;
 
   return (
-    <TelaParceiro titulo="Histórico de visitas" subtitulo="Check-ins e cupons usados. Atualiza sozinho." atualizando={false} aoAtualizar={() => void carregar()}>
-      <TouchableOpacity style={a.voltar} onPress={() => router.back()} accessibilityRole="button"><Feather name="chevron-left" size={16} color={CP.dim} /><Text style={a.voltarTxt}>Voltar</Text></TouchableOpacity>
+    <TelaParceiro titulo="Histórico de visitas" subtitulo="Check-ins e cupons usados. Atualiza sozinho." atualizando={false} aoAtualizar={() => void carregar()} aoVoltar={() => router.back()}>
 
       <View style={{ marginTop: ESP.m }}>
         <Chips preencher opcoes={PERIODOS.map((p) => ({ valor: p.dias, rotulo: p.rotulo }))} valor={dias} aoMudar={setDias} />

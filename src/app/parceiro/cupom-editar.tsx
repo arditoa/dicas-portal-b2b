@@ -134,8 +134,7 @@ export default function CupomEditar() {
 
   return (
     <View style={a.tela}>
-      <TelaParceiro titulo={form.id ? 'Editar cupom' : 'Novo cupom'} subtitulo="Aparece na página da casa e na faixa de cupons da categoria.">
-        <TouchableOpacity style={a.voltar} onPress={voltar} accessibilityRole="button"><Feather name="chevron-left" size={16} color={CP.dim} /><Text style={a.voltarTxt}>Voltar</Text></TouchableOpacity>
+      <TelaParceiro titulo={form.id ? 'Editar cupom' : 'Novo cupom'} subtitulo="Aparece na página da casa e na faixa de cupons da categoria." aoVoltar={voltar}>
 
         {/* Bloqueio do plano (só para cupom novo) */}
         {travadoNovo && (

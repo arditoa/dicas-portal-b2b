@@ -2,7 +2,7 @@
 // Para avisar ao sair sem salvar: `useAvisoSairSemSalvar(sujo)` (voltar do Android e gesto de voltar)
 // e `confirmarSair(sujo, sair)` para fechar folhas/modais.
 import { usePreventRemove, useNavigation, useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, BackHandler, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CP, ESP, RAIO } from '../TelaParceiro';
@@ -21,29 +21,33 @@ export function confirmarSair(sujo: boolean, sair: () => void) {
 export function useAvisoSairSemSalvar(sujo: boolean) {
   const navigation = useNavigation();
   const router = useRouter();
-  const liberado = useRef(false);
-  const sair = useCallback(() => {
-    liberado.current = true;
-    if (router.canGoBack()) router.back();
+  // 18/11: ao confirmar a saída, primeiro desligamos a trava e só navegamos no render seguinte.
+  // Navegar com a trava ligada fazia o aviso disparar de novo em laço ("Maximum update depth exceeded").
+  const [saida, setSaida] = useState<null | { acao?: any }>(null);
+  const travar = sujo && !saida;
+  const sair = useCallback(() => setSaida({}), []);
+  useEffect(() => {
+    if (!saida) return;
+    if (saida.acao) navigation.dispatch(saida.acao);
+    else if (router.canGoBack()) router.back();
     else router.replace('/parceiro');
-  }, [router]);
-  // Rede de segurança para qualquer outra saída (ex.: router.replace de outro lugar).
-  usePreventRemove(sujo, ({ data }) => {
-    if (liberado.current) return navigation.dispatch(data.action);
-    confirmarSair(true, () => { liberado.current = true; navigation.dispatch(data.action); });
+  }, [saida, navigation, router]);
+  // Rede de segurança para qualquer outra saída (gesto, router.replace de outro lugar).
+  usePreventRemove(travar, ({ data }) => {
+    confirmarSair(true, () => setSaida({ acao: data.action }));
   });
   useEffect(() => {
-    navigation.setOptions({ gestureEnabled: !sujo });
-  }, [sujo, navigation]);
+    navigation.setOptions({ gestureEnabled: !travar });
+  }, [travar, navigation]);
   useEffect(() => {
-    if (!sujo) return;
+    if (!travar) return;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       confirmarSair(true, sair);
       return true;
     });
     return () => sub.remove();
-  }, [sujo, sair]);
-  return useCallback(() => confirmarSair(sujo, sair), [sujo, sair]);
+  }, [travar, sair]);
+  return useCallback(() => confirmarSair(travar, sair), [travar, sair]);
 }
 
 export function BarraSalvar({ rotulo = 'Salvar', salvando, aoSalvar, desabilitado, secundario, emFolha }: {

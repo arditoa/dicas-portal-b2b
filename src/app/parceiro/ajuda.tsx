@@ -18,8 +18,7 @@ export default function Ajuda() {
   if (!localAtivo) return null;
   const telas = AJUDA_TELAS.filter((t) => t.mostrar(localAtivo, pode));
   return (
-    <TelaParceiro titulo="Ajuda" subtitulo="Passo a passo de cada tela e como falar com a gente.">
-      <TouchableOpacity style={a.voltar} onPress={() => router.back()} accessibilityRole="button"><Feather name="chevron-left" size={16} color={CP.dim} /><Text style={a.voltarTxt}>Voltar</Text></TouchableOpacity>
+    <TelaParceiro titulo="Ajuda" subtitulo="Passo a passo de cada tela e como falar com a gente." aoVoltar={() => router.back()}>
 
       <TouchableOpacity style={a.equipe} onPress={() => void falarComEquipe(`Olá! Sou do ${localAtivo.nome} e preciso de ajuda no app.`)} accessibilityRole="button">
         <Feather name="message-circle" size={18} color="#FFF" />

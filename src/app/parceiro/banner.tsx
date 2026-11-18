@@ -56,7 +56,6 @@ export default function BannerParceiro() {
       const [r, v] = await Promise.all([obterBanners(localId), vagasDoLocal(localId)]);
       setBs({ home: r.home, categoria: r.categoria });
       setBases({ home: JSON.stringify(r.home), categoria: JSON.stringify(r.categoria) });
-      if (fundador) setLugar('home');
       setAtualizado(r.atualizado);
       setVagas(v);
     } catch (e: any) {
@@ -128,8 +127,7 @@ export default function BannerParceiro() {
 
   if (!premium) {
     return (
-      <TelaParceiro titulo="Banner" subtitulo="Na Home e no topo da categoria.">
-        <TouchableOpacity style={a.voltar} onPress={voltar} accessibilityRole="button"><Feather name="chevron-left" size={16} color={CP.dim} /><Text style={a.voltarTxt}>Voltar</Text></TouchableOpacity>
+      <TelaParceiro titulo="Banner" subtitulo="Na Home e no topo da categoria." aoVoltar={voltar}>
         <View style={a.trava}>
           <View style={a.travaIcone}><Feather name="lock" size={18} color="#FFF" /></View>
           <Text style={a.travaTitulo}>Banner nos planos Premium e Fundador</Text>
@@ -152,17 +150,16 @@ export default function BannerParceiro() {
 
   return (
     <View style={a.tela}>
-      <TelaParceiro titulo="Banner" subtitulo={fundador ? 'Na Home, nos Destaques e no topo da categoria.' : 'No topo da sua categoria.'}>
-        <TouchableOpacity style={a.voltar} onPress={voltar} accessibilityRole="button"><Feather name="chevron-left" size={16} color={CP.dim} /><Text style={a.voltarTxt}>Voltar</Text></TouchableOpacity>
+      <TelaParceiro titulo="Banner" subtitulo={fundador ? 'Um banner só: roda na Home e no topo da categoria.' : 'No topo da sua categoria.'} aoVoltar={voltar}>
 
         {/* Qual banner (Fundador tem Home e categoria; Premium só categoria) */}
-        {fundador && (
+        {false && (
           <>
             <TituloSecao texto="Qual banner você quer mudar?" />
             <View style={a.lugares}>
               {([
                 ['home', 'Home', 'Membros Fundadores', 'star'],
-                ['categoria', 'Categoria', NOME_CATEGORIA_APP[localAtivo.categoria === 'lugares' ? 'bares' : localAtivo.categoria] || 'Topo da categoria', 'grid'],
+                ['categoria', 'Categoria', NOME_CATEGORIA_APP[localAtivo?.categoria === 'lugares' ? 'bares' : localAtivo?.categoria || ''] || 'Topo da categoria', 'grid'],
               ] as [LugarBanner, string, string, keyof typeof Feather.glyphMap][]).map(([l, t1, t2, ic]) => {
                 const on = lugar === l;
                 return (

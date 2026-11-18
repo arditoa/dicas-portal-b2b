@@ -3,7 +3,8 @@
 //   2) PATROCÍNIO — banner fixo da categoria (editável no /admin e no portal do patrocinador)
 //   3) OFERTAS E BENEFÍCIOS — cupons dos parceiros da categoria, girando por hora
 // Cada bloco mede exibições e toques (vitrine_eventos) para a equipe comercial mostrar resultado.
-import { CorpoCupomVitrine } from './CartaoCupomVitrine';
+import { CONVITE_PATROCINIO } from './BannerMaster';
+import { CorpoCupomVitrine, larguraCaixa } from './CartaoCupomVitrine';
 import { estiloDoCartao } from '../lib/estiloBanner';
 import { Feather } from '@expo/vector-icons';
 import { MODO_DEMONSTRACAO } from '../lib/demo';
@@ -25,6 +26,8 @@ import {
   buscarOfertas,
   buscarPatrocinio,
   buscarSubcategoriasDesligadas,
+  buscarConvitesVaga,
+  conviteLigado,
   registrarVitrine,
 } from '../lib/vitrine';
 import CarrosselAnuncios, { Anuncio, VeuFoto } from './CarrosselAnuncios';
@@ -32,6 +35,7 @@ import BordaArcoIris from './BordaArcoIris';
 import BotaoCta from './BotaoCta';
 import { useAnunciosApp } from '../lib/banners';
 import FundoCaixaDegrade from './FundoCaixaDegrade';
+import { TITULO_SECAO } from '../constants/theme';
 
 const C = { card: '#161520', border: '#232230', text: '#FFFFFF', dim: '#A0A0B2', pink: '#E1306C', gold: '#FFD54F' };
 // Degradês do banner rotativo (sem foto): se alternam na identidade do app.
@@ -129,6 +133,13 @@ type Props = {
   semOfertas?: boolean; // páginas de destino: sem faixa de ofertas
   patrocinioPadrao?: Patrocinio; // mostrado quando a categoria/destino ainda não tem patrocinador cadastrado
   bannerPadrao?: Anuncio; // usado quando a categoria ainda não tem patrocinador (ex.: Dicas Trip em Destaques)
+  telaBanners?: string; // lugar dos banners de campanha (padrão 'cat:<slug>'; aba Trip = 'trip')
+  semPatrocinio?: boolean; // a página já mostra o patrocinador (ex.: aba Trip com BannerMaster)
+  // Subcategoria (ex.: Bares › Botecos, Festas › Drag shows): vitrine própria (slug '<cat>--<sub>', banners 'cat:<cat>:<sub>').
+  // Sem patrocinador próprio, usa o da categoria; sem casa paga nem banner próprio, roda o banner da categoria.
+  slugPai?: string;
+  locaisPai?: LocalVitrine[];
+  telaPai?: string;
 };
 
 function fotoDe(l: LocalVitrine): string | null {
@@ -142,7 +153,7 @@ function abrirDestino(router: ReturnType<typeof useRouter>, destino: string) {
   else router.push(destino as any);
 }
 
-export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, fundadores, bannerPadrao, tituloLista, aposOfertas, semOfertas, patrocinioPadrao, idsLocaisOfertas }: Props) {
+export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, fundadores, bannerPadrao, tituloLista, aposOfertas, semOfertas, patrocinioPadrao, idsLocaisOfertas, telaBanners, semPatrocinio, slugPai, locaisPai, telaPai }: Props) {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const slot = useSlotHora(60);
@@ -152,11 +163,13 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
   const slotPremium = useSlotHora(60); // banner rotativo Premium: 4 por vez, troca a cada hora (até 12 no total)
   const [patrocinioDb, setPatrocinio] = useState<Patrocinio | null>(null);
   const [patrocinioLido, setPatrocinioLido] = useState(false);
+  const [convite, setConvite] = useState(false);
+  useEffect(() => { let vivo = true; void buscarConvitesVaga().then((m) => { if (vivo) setConvite(conviteLigado(m, slug)); }); return () => { vivo = false; }; }, [slug]);
   // Destaques (Fundadores): um único slot de patrocínio master. Sem linha no banco, mostra o Vezpa Bar & Rooftop.
   const patrocinioDemo: Patrocinio | null = MODO_DEMONSTRACAO
     ? { categoria: slug, local_id: null, tag: 'PATROCÍNIO MASTER · CATEGORIA', titulo: `Espaço do patrocinador master de ${titulo}`, subtitulo: null, cta: 'Quero este espaço', destino: URL_PARCEIRO, imagem_url: null, cor1: '#7E57C2', cor2: '#E1306C' }
     : null;
-  const patrocinio = patrocinioDb ?? (patrocinioLido ? (fundadores ? PATROCINIO_VEZPA : patrocinioPadrao ?? patrocinioDemo) : null);
+  const patrocinio = patrocinioDb ?? (patrocinioLido ? (fundadores ? PATROCINIO_VEZPA : patrocinioPadrao ?? patrocinioDemo ?? (convite ? CONVITE_PATROCINIO : null)) : null);
   // Design nov/2026 — foto completa no fundo do patrocinador master: a do banner; sem ela, a foto do próprio local
   // (pelo id ou, no padrão da página Destaques, pelo nome).
   const fotoPatrocinio = useMemo(() => {
@@ -184,8 +197,12 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
     buscarVagas(slug).then((v) => { if (vivo) setVagas(v); });
     return () => { vivo = false; };
   }, [slug]);
+  // Subcategoria sem casa paga própria: o banner rotativo é o da categoria.
+  const pagoAqui = (l: LocalVitrine) => deveExibirGlow(l as any) || pagaPlanoComDireitoADestaque(l as any);
+  const usaPai = !!slugPai && !!locaisPai && !locais.some(pagoAqui);
+  const locaisPool = usaPai ? (locaisPai as LocalVitrine[]) : locais;
   const pool = useMemo(() => {
-    const base = fundadores ? locais : locais.filter((l) => deveExibirGlow(l as any) || pagaPlanoComDireitoADestaque(l as any));
+    const base = fundadores ? locaisPool : locaisPool.filter((l) => deveExibirGlow(l as any) || pagaPlanoComDireitoADestaque(l as any));
     // Banner em degradê, sem foto: não exige imagem do local.
     const auto = base.slice().sort((a, b) => a.id.localeCompare(b.id));
     const marcados = new Set(Object.values(vagas.premium));
@@ -193,12 +210,12 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
     const slots: (LocalVitrine | undefined)[] = [];
     for (let n = 1; n <= 12; n++) {
       const idMarcado = vagas.premium[n];
-      const doAdmin = idMarcado ? locais.find((l) => l.id === idMarcado) : undefined;
+      const doAdmin = idMarcado ? locaisPool.find((l) => l.id === idMarcado) : undefined;
       slots.push(doAdmin ?? (idMarcado ? undefined : livres.shift()));
     }
     // Sem demonstração, vagas vazias saem da fila (o banner roda só com quem existe).
     return MODO_DEMONSTRACAO ? slots : (slots.filter(Boolean) as LocalVitrine[]);
-  }, [locais, fundadores, vagas]);
+  }, [locaisPool, fundadores, vagas]);
   // 12 vagas de banner rotativo (Premium na categoria; Fundador em Destaques): 4 por vez, a janela avança a cada hora.
   // Em demonstração as vagas sem anunciante aparecem escritas ("Banner Premium Destaque 5 …") como se estivesse tudo cheio.
   const totalVagas = MODO_DEMONSTRACAO ? 12 : pool.length;
@@ -221,9 +238,11 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
   useEffect(() => {
     let vivo = true;
     setPatrocinioLido(false);
-    buscarPatrocinio(slug).then((p) => { if (vivo) { setPatrocinio(p); setPatrocinioLido(true); } });
+    buscarPatrocinio(slug)
+      .then((p) => (p || !slugPai ? p : buscarPatrocinio(slugPai)))
+      .then((p) => { if (vivo) { setPatrocinio(p); setPatrocinioLido(true); } });
     return () => { vivo = false; };
-  }, [slug]);
+  }, [slug, slugPai]);
 
   // 3) ofertas: da categoria real; em "Destaques", dos fundadores.
   // A lista chega como array novo a cada render; a chave em texto evita buscar as ofertas em loop.
@@ -350,7 +369,7 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
       const com = comunicacao[l.id];
       const lugar = l.bairro_exibicao || l.bairro;
       // Rodada 141 — versão do banner só desta página (ex.: 'cat:bares'), quando o parceiro escolheu uma diferente.
-      const vari = com?.variantes?.[`cat:${slug}`];
+      const vari: any = null; // um banner só por casa (Home = categoria)
       const chamada = vari?.chamada || com?.headline || com?.oferta || `Conheça ${l.subcategoria ? `um(a) ${String(l.subcategoria).toLowerCase()}` : 'um lugar especial'}${lugar ? ` em ${lugar}` : ''}`;
       return {
         id: `dest-${l.id}`,
@@ -375,7 +394,12 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
   }, [posicoes, pool, comunicacao, fundadores, slot, slug, titulo, router]);
   // Rodada 139 — banners de parceiros e campanhas (aba "Banners e parceiros" do /admin) marcados para esta categoria
   // entram no mesmo carrossel, depois dos banners de Fundador/Premium.
-  const { anuncios: bannersParceiros, aoExibir: exibirParceiro } = useAnunciosApp(`cat:${slug}`);
+  const { anuncios: bannersProprios, aoExibir: exibirProprio } = useAnunciosApp(telaBanners || `cat:${slug}`);
+  const { anuncios: bannersDoPai, aoExibir: exibirDoPai } = useAnunciosApp(telaPai || telaBanners || `cat:${slug}`);
+  // Subcategoria sem banner próprio e sem casa paga: banners da categoria.
+  const usaBannersPai = !!telaPai && usaPai && !(bannersProprios && bannersProprios.length);
+  const bannersParceiros = usaBannersPai ? bannersDoPai : bannersProprios;
+  const exibirParceiro = usaBannersPai ? exibirDoPai : exibirProprio;
   const bannersDaPagina = useMemo(() => [...anunciosRotativos, ...(bannersParceiros || [])], [anunciosRotativos, bannersParceiros]);
 
 
@@ -417,7 +441,7 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
       )}
 
       {/* 0) BANNER PRINCIPAL ESTÁTICO (patrocínio master) — logo abaixo da busca, emoldurado na mesma margem dos outros cartões, 76 de altura. Só aparece se a categoria tem patrocinador. */}
-      {patrocinio && (
+      {patrocinio && !semPatrocinio && (
         <TouchableOpacity
           activeOpacity={0.92}
           style={s.patroc}
@@ -440,7 +464,7 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
           </View>
         </TouchableOpacity>
       )}
-      {bannerPatr && (
+      {bannerPatr && !semPatrocinio && (
         <View style={{ marginBottom: 12, marginHorizontal: -16 }}>
           <CarrosselAnuncios anuncios={[bannerPatr]} />
         </View>
@@ -479,14 +503,14 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
                 );
                 if (!o) {
                   return (
-                    <View key={`demo-${idx}`} style={s.cardOferta} accessibilityLabel={sl.rotulo}>{corpo}</View>
+                    <View key={`demo-${idx}`} style={[s.cardOferta, { width: larguraCaixa(width) }]} accessibilityLabel={sl.rotulo}>{corpo}</View>
                   );
                 }
                 return (
                   <TouchableOpacity
                     key={`${o.id}-${idx}`}
                     activeOpacity={0.9}
-                    style={s.cardOferta}
+                    style={[s.cardOferta, { width: larguraCaixa(width) }]}
                     onPress={() => {
                       registrarVitrine(o.local_id, `oferta:${slug}`, 'clique');
                       // Abre a página da casa já com este cupom aberto e destacado.
@@ -517,10 +541,10 @@ export default function VitrineCategoria({ slug, titulo, categoriaReal, locais, 
 
 const s = StyleSheet.create({
   raiz: { paddingTop: 4, paddingBottom: 6 },
-  secao: { fontSize: 12, fontWeight: '700', letterSpacing: 1.4, textTransform: 'uppercase', color: '#B9B6CC', marginBottom: 10 }, // Rodada 143 — título discreto
+  secao: { ...TITULO_SECAO, marginBottom: 10 }, // Rodada 143 — título discreto
   linha: { gap: 10, paddingHorizontal: 16 },
   cardDestaque: { height: 205, borderRadius: 18, overflow: 'hidden', backgroundColor: C.card, justifyContent: 'flex-end' },
-  veu: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8,6,16,0.45)' },
+  veu: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(8,6,16,0.45)' },
   selo: { position: 'absolute', top: 10, left: 10, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.gold, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
   seloTxt: { fontSize: 10, fontWeight: '800', color: '#1A1405', letterSpacing: 0.5 },
   rodapeCard: { padding: 10, gap: 2 },
@@ -548,22 +572,22 @@ const s = StyleSheet.create({
   agradeceTexto: { fontSize: 13, lineHeight: 19, color: 'rgba(255,255,255,0.92)' },
   agradeceFecho: { fontSize: 13, fontWeight: '800', color: '#FFFFFF', marginTop: 2 },
   patroc: { marginBottom: 14, height: 128, borderRadius: 14, overflow: 'hidden', justifyContent: 'center', backgroundColor: C.card },
-  patrocVeu: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8,6,16,0.45)' },
+  patrocVeu: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(8,6,16,0.45)' },
   patrocCorpo: { padding: 14, gap: 6, paddingRight: 24 },
   patrocPilula: { alignSelf: 'flex-start', maxWidth: '100%', backgroundColor: 'rgba(255,255,255,0.22)', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 },
   patrocTag: { fontSize: 10, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.6 },
   patrocTitulo: { fontSize: 16, fontWeight: '900', color: '#FFFFFF', lineHeight: 20, textTransform: 'uppercase', letterSpacing: 0.2 },
   patrocBtn: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FFFFFF', borderRadius: 18, paddingHorizontal: 13, minHeight: 30 },
   patrocBtnTxt: { fontSize: 12, fontWeight: '800', color: '#1A1020' },
-  ofertaVeu: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8,6,16,0.5)' },
-  linhaOfertas: { flexDirection: 'row', gap: 10, paddingHorizontal: 16 },
-  tituloCupons: { fontSize: 16, fontWeight: '800', color: '#FFFFFF', marginBottom: 10 },
+  ofertaVeu: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(8,6,16,0.5)' },
+  linhaOfertas: { flexDirection: 'row', gap: 8, paddingHorizontal: 16 },
+  tituloCupons: { ...TITULO_SECAO, marginBottom: 10 },
   cupomIcone: { position: 'absolute', right: -10, bottom: -8, transform: [{ rotate: '-14deg' }] },
   cupomLocal: { alignSelf: 'flex-start', maxWidth: '100%', flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.24)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, marginBottom: 8 },
   cupomLocalTxt: { fontSize: 10, fontWeight: '700', color: '#FFFFFF', flexShrink: 1 },
   cupomOferta: { fontSize: 17, lineHeight: 20, fontWeight: '900', color: '#FFFFFF', letterSpacing: 0.2, paddingRight: 18 },
   cupomDetalhe: { fontSize: 11, fontWeight: '400', color: 'rgba(255,255,255,0.9)', marginTop: 5 },
-  cardOferta: { width: 176, height: 116, borderRadius: 16, overflow: 'hidden', padding: 12, justifyContent: 'flex-start', backgroundColor: C.card, borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' },
+  cardOferta: { width: 128, height: 92, borderRadius: 14, overflow: 'hidden', padding: 9, justifyContent: 'flex-start', backgroundColor: C.card, borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' },
   ofertaTitulo: { fontSize: 12, fontWeight: '700', color: '#FFFFFF', textAlign: 'center', textShadowColor: 'rgba(0,0,0,0.28)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 },
   ofertaAte: { position: 'absolute', right: 6, top: 5, fontSize: 8, color: 'rgba(255,255,255,0.85)', fontWeight: '700' },
   vazioOfertas: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },

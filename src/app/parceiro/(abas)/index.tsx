@@ -8,6 +8,8 @@
 //   • Ações rápidas.
 //   • ESPAÇO RESERVADO para frases de venda (Plano Fundador, divulgação): ver <ChamadaVenda /> no fim do arquivo.
 import LembretesDoInicio from '../../../components/parceiro/LembretesDoInicio';
+import AlertasDeAjuda from '../../../components/parceiro/AlertasDeAjuda';
+import AvisosNoCelular from '../../../components/AvisosNoCelular';
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
@@ -39,7 +41,17 @@ const hora = (iso: string) => new Date(iso).toLocaleTimeString('pt-BR', { hour: 
 const diaHora = (iso: string) =>
   `${new Date(iso).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }).replace('.', '')} · ${hora(iso)}`;
 // Festa de hoje = janela do banco (12h antes do início até 12h depois do fim), igual à porta.
-const ehDeHoje = (f: Festa, agora: number) => festaNaJanelaDaPorta(f.data_inicio, f.data_fim, agora);
+// "Festa de hoje" no Início: começou há no máximo 24h e ainda não acabou (sem fim: 8h de festa), ou começa hoje.
+// (A janela da porta é mais larga — 12h antes/depois — e uma festa com data de fim errada parecia "acontecendo agora" dias depois.)
+const diaBR = (ms: number) => new Date(ms - 3 * 3600e3).toISOString().slice(0, 10);
+const acontecendoAgora = (f: Festa, agora: number) => {
+  const ini = new Date(f.data_inicio).getTime();
+  const fim = f.data_fim ? new Date(f.data_fim).getTime() : ini + 8 * 3600e3;
+  return ini <= agora && agora <= fim && agora - ini <= 24 * 3600e3;
+};
+const ehDeHoje = (f: Festa, agora: number) =>
+  festaNaJanelaDaPorta(f.data_inicio, f.data_fim, agora) &&
+  (acontecendoAgora(f, agora) || (new Date(f.data_inicio).getTime() > agora && diaBR(new Date(f.data_inicio).getTime()) === diaBR(agora)));
 
 async function analytics(localId: string, inicio: Date, fim: Date): Promise<Numeros> {
   const { data, error } = await supabase.rpc('resumo_analytics_local', {
@@ -63,6 +75,8 @@ export default function InicioParceiro() {
   const [vaoPorFesta, setVaoPorFesta] = useState<Record<string, number>>({}); // "Eu vou" (migração 113)
   const [carregando, setCarregando] = useState(false);
   const [maisNumeros, setMaisNumeros] = useState(false);
+  // Lousa fechada por padrão (Início mais limpo): mostra só o que falta; toca para abrir tudo.
+  const [lousaAberta, setLousaAberta] = useState(false);
   const [atualizando, setAtualizando] = useState(false);
   const pend = usePendencias(localAtivo, pode);
   const st = useStatusDivulgar(localAtivo, pode);
@@ -183,12 +197,13 @@ export default function InicioParceiro() {
   const festaHoje = festas.find((f) => f.status === 'aprovado' && ehDeHoje(f, agoraMs));
   const proxima = festas.find((f) => new Date(f.data_inicio).getTime() > agoraMs && f !== festaHoje);
   let agora: Agora | null = null;
-  if (festaHoje) {
+  // Festa de hoje SEM Lista VIP não precisa de cartão próprio: aparece em "No ar agora".
+  if (festaHoje && (festaHoje.listas_vip || []).length > 0) {
     const l = soma(festaHoje);
     const temLista = (festaHoje.listas_vip || []).length > 0;
     agora = {
       icone: 'zap', cores: ['#C2185B', '#6A1B9A'],
-      rotulo: new Date(festaHoje.data_inicio).getTime() <= agoraMs ? 'Acontecendo agora' : 'Hoje tem festa',
+      rotulo: acontecendoAgora(festaHoje, agoraMs) ? 'Acontecendo agora' : 'Hoje tem festa',
       titulo: `${festaHoje.titulo} · ${hora(festaHoje.data_inicio)}`,
       detalhe: (temLista ? `${l.entraram} entraram (${l.pessoasEntraram} pessoas) · ${l.aprovados} aprovados · ${l.aguardando} esperando` : 'Sem Lista VIP nesta festa')
         + (vaoPorFesta[festaHoje.id] ? ` · ${vao(vaoPorFesta[festaHoje.id])} pelo app` : ''),
@@ -197,7 +212,7 @@ export default function InicioParceiro() {
         ...(p('lista_vip') && l.aguardando > 0 ? [{ titulo: `Aprovar ${l.aguardando}`, chave: 'lista', rota: '/parceiro/aprovacoes' }] : []),
       ],
     };
-  } else if (proxima) {
+  } else if (!festaHoje && proxima) {
     const l = soma(proxima);
     const temLista = (proxima.listas_vip || []).length > 0;
     agora = {
@@ -264,7 +279,8 @@ export default function InicioParceiro() {
 
   // Atalhos = só o que a casa SOBE na semana, todos do mesmo tamanho numa linha.
   // Festa em destaque fica na aba Divulgar (é compra/cota do plano, não tarefa da semana).
-  const ORDEM = ['agenda', 'cupons', 'banner', 'festa', 'reservas'];
+  // Rodada 148 — Festa logo depois da agenda: é grátis em todos os planos. Os pagos (cupom, banner, reservas) vêm depois.
+  const ORDEM = ['agenda', 'festa', 'cupons', 'banner', 'reservas'];
   const rapidas = comSituacao([...itensDaAba('divulgar', localAtivo, pode), ...itensDaAba('espaco', localAtivo, pode).filter((i) => i.chave === 'reservas')], st)
     .filter((i) => ORDEM.includes(i.chave))
     .sort((a, b) => ORDEM.indexOf(a.chave) - ORDEM.indexOf(b.chave));
@@ -327,6 +343,8 @@ export default function InicioParceiro() {
 
   return (
     <TelaParceiro atualizando={atualizando} aoAtualizar={atualizar}>
+      {/* Migração 136 — "Me ajuda aqui": pedido de ajuda de cliente na casa, sempre no topo */}
+      <AlertasDeAjuda localId={localId} />
       <ConviteCrescer local={localAtivo} />
 
       {/* Faixa de mensagem: o que espera resposta (leva a Aprovações) ou, sem pendências, a mensagem da equipe Dicas */}
@@ -341,23 +359,27 @@ export default function InicioParceiro() {
           </View>
           <Feather name="chevron-right" size={20} color="#FFFFFF" />
         </TouchableOpacity>
-      ) : (
+      ) : (localAtivo.papel === 'porta_pin' && localAtivo.expira_em) || (localAtivo.papel === 'dono' && nivel !== 'premium') ? (
+        // Início mais limpo: as visitas ficam só em "Seus números", lá embaixo.
         <ChamadaVenda
-          titulo={podeRes && visitas > 0 ? `${visitas} visita${visitas > 1 ? 's' : ''} na sua página` : 'Tudo em dia por aqui'}
+          titulo="Tudo em dia por aqui"
           sub={
             localAtivo.papel === 'porta_pin' && localAtivo.expira_em
               ? `Acesso da porta até ${hora(localAtivo.expira_em)}`
-              : podeRes && visitas > 0
-              ? `Nos últimos ${periodo} dias${varVisitas && varVisitas.d > 0 ? ` · ${varVisitas.d} a mais que na semana passada` : ''} · nada esperando resposta`
               : 'Nenhum pedido ou check-in esperando você.'
           }
           dica={localAtivo.papel === 'dono' && nivel !== 'premium' ? 'Apareça na Home com banner e cupons' : null}
           aoTocarDica={() => router.push('/parceiro/divulgar')}
         />
-      )}
+      ) : null}
 
       {/* Etapa 11 — Início do portal: aviso do cadastro, primeiros passos e o lembrete mais importante */}
       <LembretesDoInicio />
+
+      {/* Lembretes automáticos das 10h (migração 135) só chegam se este celular estiver registrado */}
+      {localAtivo && localAtivo.papel !== 'porta_pin' && (
+        <AvisosNoCelular para="casa" cores={{ card: CP.card, borda: CP.borda, texto: CP.texto, dim: CP.dim, destaque: CP.rosa }} />
+      )}
 
       {/* Agora: só quando há festa (hoje, próxima ou nenhuma marcada) */}
       {agora && (
@@ -380,14 +402,31 @@ export default function InicioParceiro() {
       )}
 
       {/* Lousa da semana: recado do que subir e do que já está em dia (no lugar dos quadradinhos) */}
+      {/* Rodada 148 — tudo o que está visível no app, num lugar só */}
+      <TouchableOpacity style={noAr.botao} onPress={() => router.push('/parceiro/no-ar' as any)} activeOpacity={0.85} accessibilityRole="button">
+        <View style={noAr.icone}><Feather name="radio" size={16} color="#4CAF7D" /></View>
+        <View style={{ flex: 1 }}>
+          <Text style={noAr.tit}>No ar agora</Text>
+          <Text style={noAr.sub} numberOfLines={2}>{festaHoje ? `${acontecendoAgora(festaHoje, agoraMs) ? 'Agora' : 'Hoje'}: ${festaHoje.titulo} · ${hora(festaHoje.data_inicio)}` : 'Cupons, festas, agenda, banner e ação de marca'}</Text>
+        </View>
+        <Feather name="chevron-right" size={18} color="#626274" />
+      </TouchableOpacity>
       {lousa.length > 0 && (
         <View style={e.lousa}>
-          <View style={e.lousaTopo}>
+          <TouchableOpacity style={e.lousaTopo} onPress={() => setLousaAberta(!lousaAberta)} activeOpacity={0.8} accessibilityRole="button" accessibilityState={{ expanded: lousaAberta }} accessibilityLabel={`Lousa da semana, ${emDia} de ${lousa.length} em dia`}>
             <Feather name="edit-3" size={14} color={GIZ} />
             <Text style={e.lousaTitulo}>Lousa da semana</Text>
             <Text style={e.lousaConta}>{emDia} de {lousa.length} em dia</Text>
-          </View>
-          {lousa.map((l, i) => {
+            <Feather name={lousaAberta ? 'chevron-up' : 'chevron-down'} size={16} color={GIZ} />
+          </TouchableOpacity>
+          {!lousaAberta && (
+            <TouchableOpacity onPress={() => setLousaAberta(true)} activeOpacity={0.8} accessibilityRole="button">
+              <Text style={{ color: emDia === lousa.length ? '#7FE0A8' : '#9FB0A6', fontSize: 13, marginTop: 8 }} numberOfLines={2}>
+                {emDia === lousa.length ? 'Tudo em dia esta semana' : `Falta: ${lousa.filter((l) => l.tom !== 'ok').map((l) => l.titulo).join(', ')}`}
+              </Text>
+            </TouchableOpacity>
+          )}
+          {lousaAberta && lousa.map((l, i) => {
             const cor = l.tom === 'ok' ? '#7FE0A8' : l.tom === 'alerta' ? '#FF8FB1' : '#9FB0A6';
             return (
               <TouchableOpacity
@@ -620,4 +659,12 @@ const e = StyleSheet.create({
   verMais: { color: CP.rosa, fontSize: 13, fontWeight: '800' },
   zero: { color: CP.fraco, fontSize: 12, lineHeight: 17, marginTop: ESP.s },
 
+});
+
+// Rodada 148 — atalho "No ar agora"
+const noAr = StyleSheet.create({
+  botao: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#161520', borderColor: '#4CAF7D44', borderWidth: 1, borderRadius: 16, padding: 12, marginTop: 12 },
+  icone: { width: 34, height: 34, borderRadius: 10, backgroundColor: '#4CAF7D1F', alignItems: 'center', justifyContent: 'center' },
+  tit: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
+  sub: { color: '#A0A0B2', fontSize: 12, marginTop: 1 },
 });

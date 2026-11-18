@@ -22,6 +22,7 @@ import { listarRoteiros, Roteiro, todasTags } from '../lib/roteiros';
 import { supabase } from '../lib/supabase';
 import { rotuloTag } from '../lib/taxonomia';
 import { useRastrearTela } from '../lib/usoTelas';
+import { TITULO_SECAO } from '../constants/theme';
 
 const C = {
   bg: '#0B0B0E',
@@ -431,7 +432,7 @@ const styles = StyleSheet.create({
   busca: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, height: 48, borderRadius: 16, borderWidth: 1, borderColor: C.border, backgroundColor: C.card, paddingHorizontal: 14 },
   buscaAtiva: { borderColor: C.pink, borderWidth: 1.5 },
   buscaInput: { flex: 1, color: C.text, fontSize: 15, outlineStyle: 'none' } as any,
-  secao: { color: C.text, fontSize: 16, fontWeight: '800' },
+  secao: { ...TITULO_SECAO },
   link: { color: C.pink, fontSize: 13, fontWeight: '800' },
   dim: { color: C.dim, fontSize: 12 },
   blocoTopo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },

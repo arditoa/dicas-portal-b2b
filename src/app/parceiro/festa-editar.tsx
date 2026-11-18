@@ -1,7 +1,7 @@
 // Tela 1 do Modo parceiro — Nova festa / Editar festa (?id=<festa>) / Repetir (?repetir=<festa>).
 // Regras copiadas do portal (cadastro único FormularioFesta + dashboard/eventos); dados em src/lib/parceiro/festas.ts.
 //   Obrigatórios: nome, início, relação com a comunidade LGBT+, tipo, para quem e (festa/show) 1 a 3 estilos.
-//   Festa nova entra em análise. Festa aprovada que muda nome ou data volta para análise (o app avisa antes).
+//   162: casa aprovada publica direto (sem análise). Casa ainda em análise: a festa espera a equipe Dicas.
 //   Cancelar não apaga: some do app e só o admin reativa.
 // Novidades do app: cores, textura, chamada e destaques (migração 099), Lista VIP com vagas e
 // "exigir foto de conferência", link do ingresso e prévia de como o cliente vê.
@@ -16,16 +16,20 @@ import {
 } from '../../components/parceiro/form';
 import { DestaqueFestaPrevia, LinhaFestaPrevia, TopoFestaPrevia, VisualNovoPrevia } from '../../components/parceiro/PreviaFesta';
 import { CP, ESP, RAIO, TelaParceiro, TituloSecao } from '../../components/parceiro/TelaParceiro';
+import EscolherDoInstagram from '../../components/parceiro/EscolherDoInstagram';
+import type { Sugestoes } from '../../lib/parceiro/instagram';
 import { useAuth } from '../../lib/authContext';
 import { CLASSIFICACOES_LGBT } from '../../lib/classificacaoLgbt';
 import { DEGRADES_BANNER } from '../../lib/estiloBanner';
 import { recursosDaCategoria, useModoParceiro } from '../../lib/modoParceiro';
 import {
   cancelarFesta, contatoDoParceiro, ErrosFesta, ESTILOS_TAGS, formDaFesta, FormFesta, formRepetido, formVazio,
-  juntarDataHora, MAX_CHAMADA, MAX_DESTAQUE_TXT, MAX_DESTAQUES, obterFesta, salvarFesta, situacaoDaFesta, SLUGS_ESTILO,
+  festaLonga, juntarDataHora, MAX_CHAMADA, MAX_DESTAQUE_TXT, MAX_DESTAQUES, obterFesta, salvarFesta, situacaoDaFesta, SLUGS_ESTILO,
   SLUGS_PUBLICO, SLUGS_TIPO, TEXTURAS_FESTA, validarFesta, voltaParaAnalise,
 } from '../../lib/parceiro/festas';
 import { supabase } from '../../lib/supabase';
+import { carregarSubcategorias, SUBCATEGORIAS, SubDef } from '../../lib/subcategorias';
+import { useIntegracaoLigada } from '../../lib/integracoes';
 import {
   ESTILOS_MAX_CADASTRO, FORMATOS_CADASTRO, GRUPOS_EVENTO, PUBLICO_FESTA_CADASTRO, slugTag, TAGS_EVENTO_AUTOMATICAS, TAGS_RESERVADAS,
   TIPOS_EVENTO_CADASTRO,
@@ -54,6 +58,21 @@ export default function FestaEditar() {
   const [maisDetalhes, setMaisDetalhes] = useState(false);
   const [novoDestaque, setNovoDestaque] = useState('');
   const [onde, setOnde] = useState<string | undefined>(undefined);
+  // Migração 138 — "Puxar do Instagram": flyer de um post da casa + sugestões da legenda (só preenche o que está vazio)
+  const [igAberto, setIgAberto] = useState(false);
+  const igLigado = useIntegracaoLigada('ig');
+  const mpLigado = useIntegracaoLigada('mp');
+  // 18/11: tique "Vender ingresso pelo app". Depois de salvar, leva para Ingressos com a festa aberta (lotes e preços).
+  const [venderApp, setVenderApp] = useState(false);
+  const usarDoInstagram = (url: string, sg: Sugestoes) => {
+    const p: Partial<FormFesta> = { foto: url };
+    const preenchidos: string[] = [];
+    if (!form.titulo.trim() && sg.titulo) { p.titulo = sg.titulo; preenchidos.push('nome'); }
+    if (!form.descricao.trim() && sg.descricao) { p.descricao = sg.descricao; preenchidos.push('descrição'); }
+    if (!form.inicioData && sg.data) { p.inicioData = sg.data; preenchidos.push('data'); if (sg.hora) { p.inicioHora = sg.hora; preenchidos.push('hora'); } }
+    mudar(p);
+    Alert.alert('Flyer puxado', preenchidos.length ? `Também preenchemos ${preenchidos.join(', ')} pela legenda. Confira antes de enviar.` : 'Confira os dados antes de enviar.');
+  };
 
   const sujo = JSON.stringify(form) !== base;
   const voltar = useAvisoSairSemSalvar(sujo && !salvando);
@@ -90,7 +109,7 @@ export default function FestaEditar() {
     setErros((e) => {
       const n = { ...e };
       (Object.keys(p) as string[]).forEach((k) => {
-        const mapa: Record<string, keyof ErrosFesta> = { titulo: 'titulo', inicioData: 'inicio', inicioHora: 'inicio', fimData: 'fim', fimHora: 'fim', classificacao: 'classificacao', linkIngresso: 'link', vagas: 'vagas', chamada: 'chamada' };
+        const mapa: Record<string, keyof ErrosFesta> = { onde: 'onde', entrada: 'entrada', titulo: 'titulo', inicioData: 'inicio', inicioHora: 'inicio', fimData: 'fim', fimHora: 'fim', classificacao: 'classificacao', linkIngresso: 'link', vagas: 'vagas', chamada: 'chamada' };
         if (mapa[k]) delete n[mapa[k]];
         if (k === 'tags') { delete n.tipo; delete n.publico; delete n.estilos; }
       });
@@ -100,6 +119,13 @@ export default function FestaEditar() {
 
   // ---------- tags (mesmas regras do portal) ----------
   const tipoAtual = TIPOS_EVENTO_CADASTRO.find((t) => form.tags.includes(t.slug));
+  // "Também é": subcategorias de Festas criadas pela equipe no Modo equipe (ex.: Festas afro). Marcar põe a tag
+  // da subcategoria na festa, e ela aparece também naquela página.
+  const [extrasFesta, setExtrasFesta] = useState<SubDef[]>([]);
+  useEffect(() => {
+    void carregarSubcategorias('festas').then((d) => setExtrasFesta(d.filter((x) => !(SUBCATEGORIAS.festas || []).some((p) => p.chave === x.chave))));
+  }, []);
+  const tagDaSub = (d: SubDef) => d.chave.replace(/\s+/g, '_');
   const escolherUnica = (grupo: string[], s: string) => mudar({ tags: [...form.tags.filter((x) => !grupo.includes(x)), s] });
   const estilos = form.tags.filter((t) => SLUGS_ESTILO.includes(t));
   const mudarEstilos = (lista: string[]) => {
@@ -125,10 +151,15 @@ export default function FestaEditar() {
       const { id: salvoId, aviso } = await salvarFesta(localId, form, contato, podeLista);
       if (!form.id) {
         setBase(JSON.stringify(form)); // não perguntar "sair sem salvar"
+        // 162: casa aprovada publica direto; casa ainda em análise fica esperando a equipe Dicas.
+        const criada = await obterFesta(salvoId).catch(() => null);
+        const noAr = criada?.status === 'aprovado';
         Alert.alert(
-          'Festa enviada para análise',
-          `“${form.titulo.trim()}” foi enviada. A equipe Dicas confere e, quando aprovar, a festa entra no app.${aviso ? `\n\n${aviso}` : ''}`,
-          [{ text: 'Ver minhas festas', onPress: () => router.replace('/parceiro/festas') }],
+          noAr ? 'Festa publicada' : 'Festa enviada para análise',
+          (noAr ? `“${form.titulo.trim()}” já está na aba Eventos do app.` : `“${form.titulo.trim()}” foi enviada. Como o perfil da casa ainda está em análise, a equipe Dicas confere antes de a festa entrar no app.`) + (aviso ? `\n\n${aviso}` : ''),
+          venderApp
+            ? [{ text: 'Depois', style: 'cancel', onPress: () => router.replace('/parceiro/festas') }, { text: 'Montar os ingressos', onPress: () => router.replace({ pathname: '/parceiro/ingressos', params: { festa: salvoId } } as any) }]
+            : [{ text: 'Ver minhas festas', onPress: () => router.replace('/parceiro/festas') }],
         );
         return;
       }
@@ -152,6 +183,12 @@ export default function FestaEditar() {
     if (Object.keys(e).length) {
       setErros(e);
       return Alert.alert('Falta preencher', Object.values(e).join('\n'));
+    }
+    if (festaLonga(form)) {
+      return Alert.alert('Festa de vários dias?', 'Essa festa dura mais de 2 dias. Se é uma programação que se repete (toda sexta, por exemplo), cadastre na Agenda da semana: assim ela aparece só nos dias certos. Se é um evento contínuo de vários dias, pode salvar.', [
+        { text: 'Revisar datas', style: 'cancel' },
+        { text: 'É de vários dias, salvar', onPress: () => (voltaParaAnalise(form) ? Alert.alert('Volta para análise', 'Essa festa já está aprovada. Mudando o nome ou a data, ela volta para análise antes de aparecer de novo no app.', [{ text: 'Revisar', style: 'cancel' }, { text: 'Salvar mesmo assim', onPress: () => void enviar() }]) : void enviar()) },
+      ]);
     }
     if (voltaParaAnalise(form)) {
       return Alert.alert('Volta para análise', 'Essa festa já está aprovada. Mudando o nome ou a data, ela volta para análise antes de aparecer de novo no app. Flyer, descrição, estilos e visual podem mudar sem travar.', [
@@ -195,12 +232,11 @@ export default function FestaEditar() {
   const sit = form.id && form.status ? situacaoDaFesta({ status: form.status, data_inicio: inicioIso || new Date().toISOString(), data_fim: juntarDataHora(form.fimData, form.fimHora) }) : null;
   const cancelada = form.status === 'cancelado';
   const titulo = form.id ? 'Editar festa' : repetir ? 'Repetir festa' : 'Nova festa';
-  const sub = form.id ? 'Aparece na aba Eventos do app.' : 'Vai para análise da equipe Dicas e depois entra na aba Eventos.';
+  const sub = 'Aparece na aba Eventos do app assim que você publicar.';
 
   return (
     <View style={a.tela}>
-      <TelaParceiro titulo={titulo} subtitulo={sub}>
-        <TouchableOpacity style={a.voltar} onPress={voltar} accessibilityRole="button"><Feather name="chevron-left" size={16} color={CP.dim} /><Text style={a.voltarTxt}>Voltar</Text></TouchableOpacity>
+      <TelaParceiro titulo={titulo} subtitulo={sub} aoVoltar={voltar}>
 
         {sit && (
           <View style={[a.situacao, { borderColor: sit.cor + '66' }]}>
@@ -208,11 +244,11 @@ export default function FestaEditar() {
             <Text style={a.situacaoTxt}>
               {sit.txt}
               {form.status === 'pendente' ? ' · a equipe Dicas confere antes de entrar no app' : ''}
-              {form.status === 'aprovado' && sit.txt === 'Aprovada' ? ' · mudar nome ou data volta para análise' : ''}
+              
             </Text>
           </View>
         )}
-        {!!repetir && <Text style={a.dicaTopo}>Copiamos a festa com a data 7 dias depois. Revise e envie: ela vai para análise como festa nova.</Text>}
+        {!!repetir && <Text style={a.dicaTopo}>Copiamos a festa com a data 7 dias depois. Revise e publique.</Text>}
 
         {cancelada ? (
           <Text style={a.aviso}>Esta festa foi cancelada e não aparece mais no app. Se foi engano, fale com a equipe Dicas: só ela reativa.</Text>
@@ -230,8 +266,15 @@ export default function FestaEditar() {
               enviarDepois={!form.id}
               altura={260}
               encaixe="contain"
-              ajuda={form.id ? 'Aparece na lista de Eventos, na página da festa e em Festas em destaque.' : 'Sobe junto quando você enviar a festa.'}
+              ajuda={form.id ? 'Aparece na lista de Eventos, na página da festa e em Em destaque nessa semana.' : 'Sobe junto quando você enviar a festa.'}
             />
+            {igLigado !== false && (
+              <TouchableOpacity style={a.igBotao} onPress={() => setIgAberto(true)} accessibilityRole="button">
+                <Feather name="instagram" size={16} color="#FFF" />
+                <Text style={a.igBotaoTxt}>Puxar do Instagram</Text>
+              </TouchableOpacity>
+            )}
+            <EscolherDoInstagram visivel={igAberto} localId={localId} aoFechar={() => setIgAberto(false)} aoEscolher={usarDoInstagram} />
             <Campo rotulo="Nome da festa" valor={form.titulo} aoMudar={(v) => mudar({ titulo: v })} erro={erros.titulo} max={90} exemplo="Ex.: Festa Aurora — Edição Verão" />
             <Campo rotulo="Descrição (opcional)" valor={form.descricao} aoMudar={(v) => mudar({ descricao: v })} linhas max={1200} exemplo="Conte um pouco sobre a festa: atrações, entrada, dress code…" />
 
@@ -265,6 +308,11 @@ export default function FestaEditar() {
               ajuda="Método da Câmara de Comércio LGBT+. Escolha a que melhor descreve a festa."
             />
             <Chips rotulo="Tipo de evento" opcoes={TIPOS_EVENTO_CADASTRO.map((t) => ({ valor: t.slug as string, rotulo: t.rotulo }))} valor={tipoAtual?.slug ?? null} aoMudar={(v) => escolherUnica(SLUGS_TIPO, v)} erro={erros.tipo} />
+            {extrasFesta.length > 0 && (
+              <Chips rotulo="Também é (opcional)" multiplo opcoes={extrasFesta.map((d) => ({ valor: tagDaSub(d), rotulo: d.rotulo }))}
+                valor={extrasFesta.map(tagDaSub).filter((t) => form.tags.includes(t))}
+                aoMudar={(v) => { const escolhidas = v as string[]; const todas = extrasFesta.map(tagDaSub); mudar({ tags: [...form.tags.filter((t) => !todas.includes(t)), ...escolhidas] }); }} />
+            )}
             <Chips rotulo="Para quem é" opcoes={PUBLICO_FESTA_CADASTRO.map((p) => ({ valor: p.slug as string, rotulo: p.rotulo }))} valor={PUBLICO_FESTA_CADASTRO.find((p) => form.tags.includes(p.slug))?.slug ?? null} aoMudar={(v) => escolherUnica(SLUGS_PUBLICO, v)} erro={erros.publico} />
             {(!tipoAtual || tipoAtual.musica) && (
               <Chips multiplo rotulo={`Estilo musical (1 a ${ESTILOS_MAX_CADASTRO})`} opcoes={ESTILOS_TAGS.map((e) => ({ valor: e.s, rotulo: e.t }))} valor={estilos} aoMudar={mudarEstilos} erro={erros.estilos} />
@@ -316,7 +364,7 @@ export default function FestaEditar() {
               <>
                 <Interruptor
                   titulo="Lista VIP"
-                  explicacao={podeLista ? 'O público pede nome na lista pelo app e vocês aprovam em Aprovações.' : form.listaId ? 'A lista já está aberta. Quem cuida da Lista VIP na casa liga, desliga e ajusta as vagas.' : 'Fica marcada e a lista abre quando a festa for aprovada. Quem cuida da lista na casa ajusta as vagas.'}
+                  explicacao={podeLista ? 'O público entra na lista pelo app e já recebe um QR code. Na porta, é só ler o QR.' : form.listaId ? 'A lista já está aberta. Quem cuida da Lista VIP na casa liga, desliga e ajusta as vagas.' : 'Fica marcada e a lista abre quando a festa for aprovada. Quem cuida da lista na casa ajusta as vagas.'}
                   valor={form.listaVip}
                   aoMudar={(v) => mudar({ listaVip: v })}
                   desabilitado={!podeLista && !!form.listaId}
@@ -324,18 +372,53 @@ export default function FestaEditar() {
                 {form.listaVip && podeLista && (
                   <Campo rotulo="Vagas (opcional)" valor={form.vagas} aoMudar={(v) => mudar({ vagas: v.replace(/\D/g, '') })} teclado="number-pad" erro={erros.vagas} exemplo="Sem limite" ajuda={form.vagasOcupadas ? `${form.vagasOcupadas} já ocupadas. Com a lista cheia, ninguém mais é aprovado.` : 'Com a lista cheia, ninguém mais é aprovado.'} />
                 )}
+                {/* Rodada 148 — escolha em um toque: conferir só com documento ou também com foto. */}
                 {form.listaVip && (
-                  <Interruptor
-                    titulo="Exigir foto de conferência"
-                    explicacao="Só pede nome na lista quem tem foto no perfil. Na porta, vocês veem a foto para conferir."
-                    valor={form.exigirFoto}
-                    aoMudar={(v) => mudar({ exigirFoto: v })}
-                    desabilitado={!podeLista && !!form.listaId}
+                  <Chips
+                    rotulo="Como conferir na porta?"
+                    opcoes={[
+                      { valor: 'doc', rotulo: 'Só documento' },
+                      { valor: 'foto', rotulo: 'Documento + foto' },
+                    ]}
+                    valor={form.exigirFoto ? 'foto' : 'doc'}
+                    aoMudar={(v) => { if (!podeLista && !!form.listaId) return; mudar({ exigirFoto: v === 'foto' }); }}
+                    preencher
+                    ajuda={form.exigirFoto
+                      ? 'Quem entra na lista manda uma foto do rosto. Na porta, vocês leem o QR e veem a foto para conferir.'
+                      : 'Quem entra na lista recebe o QR na hora. Na porta, é só ler o QR e pedir um documento.'}
                   />
                 )}
               </>
             )}
-            <Campo rotulo="Link do ingresso (opcional)" valor={form.linkIngresso} aoMudar={(v) => mudar({ linkIngresso: v })} icone="link" teclado="url" autoCapitalize="none" erro={erros.link} exemplo="https://…" ajuda="Sympla, Shotgun, site da festa. Começa com https://" />
+            <Interruptor
+              titulo="Vender ingresso pelo app"
+              explicacao={!mpLigado
+                ? 'Em breve: a venda pelo app abre assim que o Mercado Pago estiver liberado. Por enquanto, use o link do ingresso abaixo.'
+                : venderApp
+                  ? (form.id ? 'Toque em "Abrir ingressos" para montar os lotes (preço e quantidade). O dinheiro cai direto no Mercado Pago da casa.' : 'Depois de enviar a festa, você monta os lotes (preço e quantidade). O dinheiro cai direto no Mercado Pago da casa.')
+                  : 'O público compra no app, recebe o QR e a porta lê na entrada.'}
+              valor={!!mpLigado && venderApp}
+              aoMudar={(v) => setVenderApp(v)}
+              desabilitado={!mpLigado}
+            />
+            {!!mpLigado && venderApp && !!form.id && (
+              <TouchableOpacity style={a.voltar} onPress={() => router.push({ pathname: '/parceiro/ingressos', params: { festa: form.id! } } as any)} accessibilityRole="button">
+                <Feather name="credit-card" size={16} color={CP.rosa} /><Text style={[a.voltarTxt, { color: CP.rosa }]}> Abrir ingressos desta festa</Text>
+              </TouchableOpacity>
+            )}
+            {!(mpLigado && venderApp) && (
+              <Campo rotulo="Link do ingresso (opcional)" valor={form.linkIngresso} aoMudar={(v) => mudar({ linkIngresso: v })} icone="link" teclado="url" autoCapitalize="none" erro={erros.link} exemplo="https://…" ajuda="Sympla, Shotgun, site da festa. Começa com https://" />
+            )}
+            <Chips rotulo="Onde vai ser" opcoes={[{ valor: 'casa', rotulo: localAtivo?.nome ? `No ${localAtivo.nome}` : 'Na minha casa' }, { valor: 'outro', rotulo: 'Em outro lugar' }] as any}
+              valor={form.ondeOutro ? 'outro' : 'casa'} aoMudar={(v) => mudar({ ondeOutro: v === 'outro' })} erro={erros.onde} />
+            {form.ondeOutro && (
+              <>
+                <Campo rotulo="Nome do lugar" valor={form.ondeNome} aoMudar={(v) => mudar({ ondeNome: v })} max={80} exemplo="Ex.: Katarina Bar" erro={erros.onde} />
+                <Campo rotulo="Endereço (opcional)" valor={form.ondeEndereco} aoMudar={(v) => mudar({ ondeEndereco: v })} max={140} exemplo="Ex.: Av. São Luís, 272" />
+                <Campo rotulo="Bairro (opcional)" valor={form.ondeBairro} aoMudar={(v) => mudar({ ondeBairro: v })} max={60} exemplo="Ex.: República" />
+              </>
+            )}
+            <Campo rotulo="Entrada (R$, opcional)" valor={form.entrada} aoMudar={(v) => mudar({ entrada: v.replace(/[^\d,]/g, '') })} teclado="decimal-pad" erro={erros.entrada} exemplo="Ex.: 30 · 0 = grátis" ajuda="Aparece no cartão da festa. Vendendo ingresso pelo app, mostra o lote mais barato." />
 
             {/* Prévia */}
             <TituloSecao texto="Como o cliente vê" />
@@ -343,7 +426,7 @@ export default function FestaEditar() {
               <Previa onde="Eventos › lista do dia">
                 <LinhaFestaPrevia titulo={form.titulo} inicio={inicioIso} nomeLocal={localAtivo.nome} ondeLocal={onde} listaVip={form.listaVip} destaque={destacada} />
               </Previa>
-              <Previa onde="Eventos › Festas em destaque (se destacar)">
+              <Previa onde="Eventos › Em destaque nessa semana (se destacar)">
                 <DestaqueFestaPrevia foto={form.foto} titulo={form.titulo} />
               </Previa>
               <Previa onde="Página da festa">
@@ -361,7 +444,7 @@ export default function FestaEditar() {
       </TelaParceiro>
       {!cancelada && (
         <BarraSalvar
-          rotulo={form.id ? 'Salvar' : 'Enviar para análise'}
+          rotulo={form.id ? 'Salvar' : 'Publicar festa'}
           salvando={salvando}
           aoSalvar={salvar}
           desabilitado={!!form.id && !sujo}
@@ -373,6 +456,8 @@ export default function FestaEditar() {
 }
 
 const a = StyleSheet.create({
+  igBotao: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#C13584', borderRadius: 999, minHeight: 44, marginTop: 8, marginBottom: 8 },
+  igBotaoTxt: { color: '#FFF', fontSize: 14, fontWeight: '800' },
   tela: { flex: 1, backgroundColor: CP.bg },
   centro: { alignItems: 'center', justifyContent: 'center' },
   voltar: { flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: ESP.s, minHeight: 44, alignSelf: 'flex-start' },

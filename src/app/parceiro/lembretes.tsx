@@ -13,8 +13,7 @@ export default function Lembretes() {
   const { lembretes, passos, adiar, carregado, nomeLocal, recarregar } = useLembretes();
   const pct = porcentagem(passos);
   return (
-    <TelaParceiro titulo="Primeiros passos" subtitulo="O que deixa a casa aparecendo melhor no app." atualizando={false} aoAtualizar={() => void recarregar()}>
-      <TouchableOpacity style={a.voltar} onPress={() => router.back()} accessibilityRole="button"><Feather name="chevron-left" size={16} color={CP.dim} /><Text style={a.voltarTxt}>Voltar</Text></TouchableOpacity>
+    <TelaParceiro titulo="Primeiros passos" subtitulo="O que deixa a casa aparecendo melhor no app." atualizando={false} aoAtualizar={() => void recarregar()} aoVoltar={() => router.back()}>
       {!carregado ? null : (
         <>
           {passos.length > 0 && (

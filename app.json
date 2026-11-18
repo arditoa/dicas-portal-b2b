@@ -12,7 +12,7 @@
       "buildNumber": "1",
       "supportsTablet": false,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Usamos sua localização só enquanto você usa o app, para mostrar a cidade onde você está, os locais, eventos e roteiros LGBT+ por perto e para confirmar o seu check-in quando você está no local. Ela não é mostrada para outras pessoas.",
+        "NSLocationWhenInUseUsageDescription": "Usamos sua localização só enquanto você usa o app, para mostrar os locais, eventos e roteiros LGBT+ por perto e confirmar o seu check-in no local. Ela só é compartilhada quando você escolhe usar o Cheguei bem, e apenas com os contatos que você indicou.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -21,7 +21,7 @@
       "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#0B0B0E"
+        "backgroundColor": "#000000"
       },
       "permissions": [
         "ACCESS_COARSE_LOCATION",
@@ -49,29 +49,38 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Usamos suas fotos somente quando você escolhe: uma foto de perfil (opcional) ou provas anexadas a uma ocorrência. Os arquivos ficam em área privada, visíveis só para você e, no caso de ocorrências, para a equipe responsável."
+          "photosPermission": "Usamos suas fotos somente quando você escolhe: uma foto de perfil (opcional) ou provas anexadas a uma ocorrência. Os arquivos ficam em área privada, visíveis só para você e, no caso de ocorrências, para a equipe responsável.",
+          "cameraPermission": "Usamos a câmera só quando você escolhe tirar uma foto: a foto com a moldura de uma ação no app, a foto de perfil ou a foto de conferência da Lista VIP. A foto fica no seu celular, a menos que você decida enviar."
         }
       ],
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Usamos sua localização só enquanto você usa o app, para mostrar a cidade onde você está, os locais, eventos e roteiros LGBT+ por perto e para confirmar o seu check-in quando você está no local. Ela não é mostrada para outras pessoas."
+          "locationWhenInUsePermission": "Usamos sua localização só enquanto você usa o app, para mostrar os locais, eventos e roteiros LGBT+ por perto e confirmar o seu check-in no local. Ela só é compartilhada quando você escolhe usar o Cheguei bem, e apenas com os contatos que você indicou."
         }
       ],
       [
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 180,
+          "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#111217"
+          "backgroundColor": "#000000"
         }
       ],
       [
         "expo-camera",
         {
-          "cameraPermission": "O Dicas LGBT+ usa a câmera para a casa ler o QR da Lista VIP na portaria.",
+          "cameraPermission": "O Dicas LGBT+ usa a câmera para a casa ler o QR da Lista VIP na portaria e para você tirar fotos com a moldura das ações, só quando você escolhe.",
           "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Usamos suas fotos somente quando você escolhe.",
+          "savePhotosPermission": "Para salvar no seu celular a foto com a moldura que você tirou no app.",
+          "isAccessMediaLocationEnabled": false
         }
       ]
     ],

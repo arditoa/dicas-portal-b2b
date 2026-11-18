@@ -1,11 +1,13 @@
 // Tela 8 do Modo parceiro — editor de uma seção da Minha página (?secao=fotos|sobre|horarios|contato|endereco).
 // Grava só os campos daquela seção (src/lib/parceiro/pagina.ts). Regras do portal (dashboard/perfil). Só o dono.
+import { ACOLHIMENTO } from '../../lib/acolhimento';
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BarraSalvar, Campo, CampoHora, Chips, FotoUpload, Interruptor, estiloForm as f, useAvisoSairSemSalvar } from '../../components/parceiro/form';
 import { CP, ESP, RAIO, TelaParceiro, TituloSecao } from '../../components/parceiro/TelaParceiro';
+import TelaAdm from '../../components/adm/TelaAdm';
 import { CLASSIFICACOES_LGBT } from '../../lib/classificacaoLgbt';
 import { recursosDaCategoria, useModoParceiro } from '../../lib/modoParceiro';
 import {
@@ -19,11 +21,22 @@ const FECHA = '23:00';
 const MUSICA = '21:00';
 
 export default function PaginaEditar() {
+  return <EditorPagina />;
+}
+
+// Modo equipe (/adm/local-editar): mesmo editor, para qualquer casa, sem precisar ser o dono.
+function CascaAdm({ titulo, subtitulo, children }: { titulo?: string; subtitulo?: string; children: React.ReactNode }) {
+  return <TelaAdm titulo={titulo || ''} subtitulo={subtitulo} voltar>{children}</TelaAdm>;
+}
+
+export function EditorPagina({ localIdAdm }: { localIdAdm?: string }) {
   const router = useRouter();
   const { secao: s } = useLocalSearchParams<{ secao?: string }>();
   const secao = (['fotos', 'sobre', 'horarios', 'contato', 'endereco'].includes(s || '') ? s : 'sobre') as Secao;
   const { localAtivo, recarregar } = useModoParceiro();
-  const dono = localAtivo?.papel === 'dono';
+  const dono = !!localIdAdm || localAtivo?.papel === 'dono';
+  const idAlvo = localIdAdm || localAtivo?.local_id;
+  const Casca = localIdAdm ? CascaAdm : TelaParceiro;
 
   const [p, setP] = useState<Pagina | null>(null);
   const [base, setBase] = useState('');
@@ -33,16 +46,16 @@ export default function PaginaEditar() {
   const voltar = useAvisoSairSemSalvar(sujo && !salvando);
 
   const carregar = useCallback(async () => {
-    if (!localAtivo || !dono) return;
+    if (!idAlvo || !dono) return;
     try {
-      const pg = await obterPagina(localAtivo.local_id);
+      const pg = await obterPagina(idAlvo);
       setP(pg);
       setBase(JSON.stringify(pg));
     } catch (e: any) {
       Alert.alert('Minha página', e?.message || 'Não deu para abrir.');
       router.back();
     }
-  }, [localAtivo, dono, router]);
+  }, [idAlvo, dono, router]);
   useEffect(() => { void carregar(); }, [carregar]);
 
   const mudar = (x: Partial<Pagina>) => setP((a) => (a ? { ...a, ...x } : a));
@@ -53,7 +66,7 @@ export default function PaginaEditar() {
     try {
       await salvarSecao(secao, p);
       setBase(JSON.stringify(p));
-      if (secao === 'sobre') void recarregar(); // o nome aparece no topo do Modo parceiro
+      if (secao === 'sobre' && !localIdAdm) void recarregar(); // o nome aparece no topo do Modo parceiro
       Alert.alert('Salvo', 'Já aparece na página da casa.', [{ text: 'OK', onPress: () => router.back() }]);
     } catch (e: any) {
       Alert.alert(TITULO[secao], e?.message || 'Não deu para salvar.');
@@ -62,7 +75,7 @@ export default function PaginaEditar() {
     }
   };
 
-  if (!localAtivo || !dono) {
+  if (!idAlvo || !dono) {
     return (
       <TelaParceiro titulo="Minha página">
         <Text style={a.aviso}>Só o dono do local mexe na página da casa.</Text>
@@ -89,8 +102,8 @@ export default function PaginaEditar() {
 
   return (
     <View style={a.tela}>
-      <TelaParceiro titulo={TITULO[secao]} subtitulo={p.nome}>
-        <TouchableOpacity style={a.voltar} onPress={voltar} accessibilityRole="button"><Feather name="chevron-left" size={16} color={CP.dim} /><Text style={a.voltarTxt}>Minha página</Text></TouchableOpacity>
+      <Casca titulo={TITULO[secao]} subtitulo={p.nome}>
+        {!localIdAdm && <TouchableOpacity style={a.voltar} onPress={voltar} accessibilityRole="button"><Feather name="chevron-left" size={16} color={CP.dim} /><Text style={a.voltarTxt}>Minha página</Text></TouchableOpacity>}
 
         {secao === 'fotos' && (
           <>
@@ -131,6 +144,16 @@ export default function PaginaEditar() {
               aoMudar={(l) => mudar({ publico_tags: l.length ? l : ['todos'] })}
               ajuda="Nenhum marcado = todo mundo."
             />
+            {p.acolhimento && (
+              <Chips
+                multiplo
+                rotulo="Acolhimento e acessibilidade"
+                opcoes={ACOLHIMENTO.map((o) => ({ valor: o.slug, rotulo: o.rotulo }))}
+                valor={p.acolhimento}
+                aoMudar={(l) => mudar({ acolhimento: l })}
+                ajuda="Marque só o que a casa oferece de verdade. Aparece na sua página e nos filtros do app."
+              />
+            )}
           </>
         )}
 
@@ -196,7 +219,7 @@ export default function PaginaEditar() {
           </>
         )}
         <View style={{ height: ESP.xl }} />
-      </TelaParceiro>
+      </Casca>
       <BarraSalvar rotulo="Salvar" salvando={salvando} aoSalvar={() => void salvar()} desabilitado={!sujo} />
     </View>
   );

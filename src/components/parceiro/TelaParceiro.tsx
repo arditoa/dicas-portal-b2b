@@ -3,12 +3,14 @@
 //   quem tem mais de um local troca por aqui) · título discreto da aba.
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Alert, Modal, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { supabase } from '../../lib/supabase';
+import { Alert, Image, Modal, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MarcaApp from '../MarcaApp';
 import { abrirItem, falarComEquipe, ItemParceiro } from '../../lib/parceiroMenu';
 import { NOME_PAPEL, useModoParceiro } from '../../lib/modoParceiro';
+import { TITULO_SECAO } from '../../constants/theme';
 
 export const CP = {
   bg: '#0B0B0E', card: '#161520', borda: '#232230', texto: '#FFFFFF', dim: '#A0A0B2', fraco: '#626274',
@@ -19,11 +21,12 @@ export const CP = {
 export const ESP = { xs: 4, s: 8, m: 12, l: 16, xl: 24 };
 export const RAIO = { s: 12, m: 16, l: 20 };
 const NOME_PLANO: Record<string, string> = { fundador: 'Fundador', premium: 'Premium', intermediario: 'Intermediário' };
+const LOGOS: Record<string, string | null> = {};
 const iniciais = (n: string) => n.split(/\s+/).filter((p) => p.length > 2).slice(0, 2).map((p) => p[0]).join('').toUpperCase() || n.slice(0, 2).toUpperCase();
 
 export function TelaParceiro({
-  titulo, subtitulo, children, atualizando, aoAtualizar,
-}: { titulo?: string; subtitulo?: string; children: React.ReactNode; atualizando?: boolean; aoAtualizar?: () => void }) {
+  titulo, subtitulo, children, atualizando, aoAtualizar, aoVoltar,
+}: { titulo?: string; subtitulo?: string; children: React.ReactNode; atualizando?: boolean; aoAtualizar?: () => void; aoVoltar?: () => void }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { definirModo, localAtivo, locais, escolherLocal } = useModoParceiro();
@@ -41,6 +44,18 @@ export function TelaParceiro({
     ]);
   };
   const plano = localAtivo?.plano_comercial ? NOME_PLANO[localAtivo.plano_comercial] : undefined;
+  // 18/11: logo (ou foto de capa) da casa no cartão do local, no lugar das iniciais.
+  const [logo, setLogo] = useState<string | null>(localAtivo ? LOGOS[localAtivo.local_id] ?? null : null);
+  useEffect(() => {
+    const id = localAtivo?.local_id;
+    if (!id) return;
+    if (id in LOGOS) { setLogo(LOGOS[id]); return; }
+    void supabase.from('locais').select('logo_url, foto_capa_url').eq('id', id).maybeSingle().then(({ data }) => {
+      const l = data as { logo_url: string | null; foto_capa_url: string | null } | null;
+      LOGOS[id] = l?.logo_url || l?.foto_capa_url || null;
+      setLogo(LOGOS[id]);
+    });
+  }, [localAtivo?.local_id]);
 
   return (
     <ScrollView
@@ -54,7 +69,6 @@ export function TelaParceiro({
         <View>
           <MarcaApp semFrase />
           <View style={s.area}>
-            <View style={s.areaPonto} />
             <Text style={s.areaTexto}>Área do parceiro</Text>
           </View>
         </View>
@@ -72,21 +86,36 @@ export function TelaParceiro({
           activeOpacity={0.85}
           accessibilityLabel={`${localAtivo.nome}. Toque para trocar de local`}
         >
-          <View style={s.localAvatar}><Text style={s.localAvatarTxt}>{iniciais(localAtivo.nome)}</Text></View>
+          <View style={s.localAvatar}>
+            {logo ? <Image source={{ uri: logo }} style={s.localLogo} resizeMode="cover" /> : <Text style={s.localAvatarTxt}>{iniciais(localAtivo.nome)}</Text>}
+          </View>
           <View style={{ flex: 1 }}>
             <Text style={s.localNome} numberOfLines={1}>{localAtivo.nome}</Text>
-            <Text style={s.localSub} numberOfLines={1}>
-              {NOME_PAPEL[localAtivo.papel] || 'Equipe'}{plano ? ` · Plano ${plano}` : ''}{varios ? ` · ${locais.length} locais` : ''}
-            </Text>
+            <View style={s.localLinha}>
+              <Text style={s.localSub} numberOfLines={1}>{NOME_PAPEL[localAtivo.papel] || 'Equipe'}{varios ? ` · ${locais.length} locais` : ''}</Text>
+              {!!plano && <View style={s.seloPlano}><Text style={s.seloPlanoTxt}>{plano}</Text></View>}
+            </View>
           </View>
-          <View style={s.trocar}><Text style={s.trocarTxt}>Trocar</Text><Feather name="chevron-down" size={14} color={CP.rosa} /></View>
+          {varios ? (
+            <View style={s.trocar}><Text style={s.trocarTxt}>Trocar</Text><Feather name="chevron-down" size={14} color={CP.rosa} /></View>
+          ) : (
+            <Feather name="chevron-down" size={16} color={CP.fraco} />
+          )}
         </TouchableOpacity>
       )}
 
       {/* Título da página: grande, com uma linha dizendo para que serve a aba */}
       {!!titulo && (
         <View style={s.pagina}>
-          <Text style={s.paginaTitulo}>{titulo}</Text>
+          {/* 18/11: a seta de voltar fica junto do título (antes vinha embaixo, depois do nome da tela). */}
+          <View style={s.paginaLinha}>
+            {!!aoVoltar && (
+              <TouchableOpacity onPress={aoVoltar} style={s.voltarSeta} accessibilityRole="button" accessibilityLabel="Voltar" hitSlop={10}>
+                <Feather name="chevron-left" size={20} color={CP.texto} />
+              </TouchableOpacity>
+            )}
+            <Text style={[s.paginaTitulo, { flex: 1 }]}>{titulo}</Text>
+          </View>
           {!!subtitulo && <Text style={s.paginaSub}>{subtitulo}</Text>}
         </View>
       )}
@@ -117,7 +146,14 @@ export function TelaParceiro({
 }
 
 // `info`: explicação curta que abre ao tocar no (i) — tira texto corrido da tela.
-export function TituloSecao({ texto, direita, info }: { texto: string; direita?: React.ReactNode; info?: string }) {
+export function TituloSecao({ texto, direita, info, sub }: { texto: string; direita?: React.ReactNode; info?: string; sub?: string }) {
+  // 18/11: linha de explicação opcional logo abaixo do título, com o mesmo respiro em todas as telas.
+  if (sub) return (
+    <View style={s.secaoBloco}>
+      <TituloSecao texto={texto} direita={direita} info={info} />
+      <Text style={s.secaoSub}>{sub}</Text>
+    </View>
+  );
   return (
     <View style={s.secaoLinha}>
       {info ? (
@@ -170,13 +206,26 @@ export function GradeItens({ itens, vazio, colorido, compacto }: { itens: ItemPa
           accessibilityRole="button"
           accessibilityLabel={`${i.titulo}. ${i.sub}${i.bloqueado ? '. Não incluído no seu plano' : ''}`}
         >
-          <View style={s.quadTopo}>
-            <View style={[s.quadIcone, { backgroundColor: colorido ? i.cor : i.cor + '26' }]}>
-              <Feather name={i.icone} size={24} color={colorido ? '#FFFFFF' : i.cor} />
+          {compacto ? (
+            // 18/11: compacto = ícone e nome lado a lado (cartões mais baixos, menos rolagem).
+            <View style={s.quadLinhaCompacta}>
+              <View style={[s.quadIcone, s.quadIconeCompacto, { backgroundColor: colorido ? i.cor : i.cor + '26' }]}>
+                <Feather name={i.icone} size={18} color={colorido ? '#FFFFFF' : i.cor} />
+              </View>
+              <Text style={[s.quadTitulo, { marginTop: 0, flex: 1, fontSize: 14 }]} numberOfLines={2}>{i.titulo}</Text>
+              {i.bloqueado && <Feather name="lock" size={12} color={CP.fraco} />}
             </View>
-            {i.bloqueado && <View style={s.cadeado}><Feather name="lock" size={12} color="#FFFFFF" /></View>}
-          </View>
-          <Text style={s.quadTitulo} numberOfLines={2}>{i.titulo}</Text>
+          ) : (
+            <>
+              <View style={s.quadTopo}>
+                <View style={[s.quadIcone, { backgroundColor: colorido ? i.cor : i.cor + '26' }]}>
+                  <Feather name={i.icone} size={24} color={colorido ? '#FFFFFF' : i.cor} />
+                </View>
+                {i.bloqueado && <View style={s.cadeado}><Feather name="lock" size={12} color="#FFFFFF" /></View>}
+              </View>
+              <Text style={s.quadTitulo} numberOfLines={2}>{i.titulo}</Text>
+            </>
+          )}
           {!compacto && <Text style={s.quadSub} numberOfLines={2}>{i.sub}</Text>}
           {!!i.selo && (() => {
             const cor = i.bloqueado ? CP.dim : i.seloTom === 'ok' ? '#5BD69A' : i.seloTom === 'alerta' ? '#FF6B9A' : i.seloTom === 'neutro' ? CP.dim : i.cor;
@@ -188,6 +237,27 @@ export function GradeItens({ itens, vazio, colorido, compacto }: { itens: ItemPa
               </View>
             );
           })()}
+          {!!i.cota && i.cota.limite > 0 && (() => {
+            const u = Math.min(i.cota.usadas, i.cota.limite);
+            const livres = i.cota.limite - u;
+            return (
+              <>
+              <View style={{ flexGrow: 1, minHeight: 10 }} />
+              <View style={s.cota}>
+                <Text style={s.cotaTitulo}>DESTAQUE</Text>
+                <Text style={s.cotaRotulo} numberOfLines={1}>{i.cota.rotulo}</Text>
+                <View style={[s.cotaLinha, { marginTop: 6 }]}>
+                  <View style={{ flexDirection: 'row', gap: 4 }}>
+                    {Array.from({ length: i.cota.limite }).map((_, k) => (
+                      <View key={k} style={[s.cotaBola, k < u && s.cotaBolaUsada]} />
+                    ))}
+                  </View>
+                  <Text style={[s.cotaLivres, livres === 0 && { color: CP.fraco }]}>{livres === 0 ? 'Usado' : `${livres} ${livres === 1 ? 'livre' : 'livres'}`}</Text>
+                </View>
+              </View>
+              </>
+            );
+          })()}
         </TouchableOpacity>
       ))}
     </View>
@@ -195,8 +265,15 @@ export function GradeItens({ itens, vazio, colorido, compacto }: { itens: ItemPa
 }
 
 export const s = StyleSheet.create({
+  cota: { paddingTop: 8, borderTopWidth: 1, borderTopColor: CP.borda, alignSelf: 'stretch' },
+  cotaTitulo: { color: CP.rosa, fontSize: 9, fontWeight: '800', letterSpacing: 1.4 },
+  cotaLinha: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  cotaRotulo: { color: CP.texto, fontSize: 12, fontWeight: '700', marginTop: 2 },
+  cotaBola: { width: 8, height: 8, borderRadius: 4, borderWidth: 1, borderColor: '#FF6B9A' },
+  cotaBolaUsada: { backgroundColor: '#FF6B9A' },
+  cotaLivres: { color: CP.rosa, fontSize: 11, fontWeight: '800', marginLeft: 'auto' },
   topo: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', minHeight: 44 },
-  area: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 7 },
+  area: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
   areaPonto: { width: 6, height: 6, borderRadius: 3, backgroundColor: CP.rosa },
   areaTexto: { color: CP.secao, fontSize: 10, fontWeight: '700', letterSpacing: 1.6, textTransform: 'uppercase' },
   pilula: {
@@ -209,24 +286,33 @@ export const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: ESP.m, marginTop: ESP.m, backgroundColor: CP.card,
     borderColor: CP.borda, borderWidth: 1, borderRadius: RAIO.m, paddingHorizontal: ESP.m, paddingVertical: ESP.s, minHeight: 56,
   },
-  localAvatar: { width: 38, height: 38, borderRadius: 11, backgroundColor: '#2A1420', alignItems: 'center', justifyContent: 'center' },
+  localAvatar: { width: 42, height: 42, borderRadius: 12, backgroundColor: '#2A1420', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  localLogo: { width: '100%', height: '100%' },
+  localLinha: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 },
+  seloPlano: { backgroundColor: '#E1306C22', borderColor: '#E1306C55', borderWidth: 1, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 1 },
+  seloPlanoTxt: { color: CP.rosa, fontSize: 10, fontWeight: '800', letterSpacing: 0.4, textTransform: 'uppercase' },
+  paginaLinha: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  voltarSeta: { width: 32, height: 32, borderRadius: 16, backgroundColor: CP.card, borderColor: CP.borda, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginLeft: -2 },
   localAvatarTxt: { color: CP.rosa, fontSize: 14, fontWeight: '800' },
   localNome: { color: CP.texto, fontSize: 15, fontWeight: '800' },
-  localSub: { color: CP.dim, fontSize: 12, marginTop: 1 },
+  localSub: { color: CP.dim, fontSize: 12, flexShrink: 1 },
   trocar: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#2A1420', borderRadius: 12, paddingHorizontal: 9, height: 28 },
   trocarTxt: { color: CP.rosa, fontSize: 11, fontWeight: '800' },
 
   fundo: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24 },
   folha: { backgroundColor: '#14131C', borderRadius: 18, padding: 16, borderColor: CP.borda, borderWidth: 1 },
 
-  pagina: { marginTop: ESP.xl, marginBottom: ESP.xs },
+  pagina: { marginTop: ESP.l + 4, marginBottom: ESP.xs },
   // Mesma família visual do "EVENTOS"/"AGENDA DE HOJE" do app cliente (maiúsculas espaçadas), só que maior.
-  paginaTitulo: { color: '#DCD9EC', fontSize: 17, fontWeight: '800', letterSpacing: 2.4, textTransform: 'uppercase' },
-  paginaSub: { color: CP.dim, fontSize: 13, lineHeight: 19, marginTop: 6 },
+  // Título da página do parceiro: mesmo estilo dos títulos de seção, um pouco maior.
+  paginaTitulo: { ...TITULO_SECAO, fontSize: 18, letterSpacing: 1.2 },
+  paginaSub: { color: CP.dim, fontSize: 13, lineHeight: 18, marginTop: 4 },
 
   grade: { flexDirection: 'row', flexWrap: 'wrap', gap: ESP.s },
   quad: { width: '48%', flexGrow: 1, backgroundColor: CP.card, borderColor: CP.borda, borderWidth: 1, borderRadius: RAIO.m, padding: 14, minHeight: 124 },
-  quadCompacto: { minHeight: 0, paddingVertical: 12 },
+  quadCompacto: { minHeight: 0, paddingVertical: 10, paddingHorizontal: 12 },
+  quadLinhaCompacta: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  quadIconeCompacto: { width: 34, height: 34, borderRadius: 10 },
   secaoInfo: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 32 },
   quadTopo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   cadeado: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#3A3950', alignItems: 'center', justifyContent: 'center' },
@@ -235,9 +321,11 @@ export const s = StyleSheet.create({
   quadIcone: { width: 44, height: 44, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
   quadTitulo: { color: CP.texto, fontSize: 15, fontWeight: '800', marginTop: ESP.m, lineHeight: 19 },
   quadSub: { color: CP.dim, fontSize: 11, marginTop: 3, lineHeight: 15 },
-  secaoLinha: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: ESP.xl, marginBottom: ESP.m - 2, minHeight: 24 },
+  secaoLinha: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: ESP.l + 4, marginBottom: ESP.s, minHeight: 24 },
+  secaoBloco: { marginBottom: ESP.s },
+  secaoSub: { color: CP.dim, fontSize: 12, lineHeight: 17, marginTop: -ESP.xs },
   // Igual ao "Agenda de hoje" (events.tsx) e ao "Membros Fundadores" da Home.
-  secaoTitulo: { fontSize: 12, fontWeight: '700', letterSpacing: 1.4, textTransform: 'uppercase', color: CP.secao },
+  secaoTitulo: { ...TITULO_SECAO },
   vazio: { color: CP.dim, fontSize: 13, lineHeight: 19 },
   cartaoLista: { backgroundColor: CP.card, borderColor: CP.borda, borderWidth: 1, borderRadius: RAIO.m, overflow: 'hidden' },
   linha: { flexDirection: 'row', alignItems: 'center', gap: ESP.m, paddingHorizontal: ESP.m, paddingVertical: 10, minHeight: 60 },

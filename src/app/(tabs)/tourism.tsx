@@ -11,14 +11,15 @@
 // o parceiro (serviço consumido fora do app — 3.1.3(e)), por isso não há
 // checkout nem compra in-app. E nada de marca "Copa do Mundo" (FIFA, 5.2).
 import { Feather } from '@expo/vector-icons';
-import CarrosselAnuncios from '../../components/CarrosselAnuncios';
+import VitrineCategoria, { LocalVitrine } from '../../components/VitrineCategoria';
 import FundoCaixaDegrade from '../../components/FundoCaixaDegrade';
 import { BotaoMenuTela } from '../../components/CabecalhoTela';
 import TopoApp from '../../components/TopoApp';
 import BannerMaster from '../../components/BannerMaster';
+import CartaoDestino from '../../components/CartaoDestino';
 import MarcaApp from '../../components/MarcaApp';
-import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -28,8 +29,10 @@ import { registrarAviso } from '../../lib/avisos';
 import { CATEGORIAS } from '../../lib/categorias';
 import { IDIOMAS, useI18n } from '../../lib/i18n';
 import { supabase } from '../../lib/supabase';
-import { carregarDestinos, Destino, DESTINOS_PADRAO, destinoAberto } from '../../lib/destinos';
+import { buscarExtrasTurismo, carregarDestinos, Destino, DESTINOS_PADRAO, ehCasaDeViagem, estaAberto, ordenarDestinos } from '../../lib/destinos';
 import { useRastrearTela } from '../../lib/usoTelas';
+import { useSubcategorias } from '../../lib/subcategorias';
+import { buscarEstadoSubcategorias, buscarSubcategoriasDesligadas, EstadoSubcategorias } from '../../lib/vitrine';
 import { TITULO_SECAO } from '../../constants/theme';
 
 const C = {
@@ -54,7 +57,9 @@ const CIDADES_SEDE = ['Rio de Janeiro', 'São Paulo', 'Belo Horizonte', 'Brasíl
 // Atalhos → listagem real de turismo filtrada pela subcategoria (texto livre
 // cadastrado pelo parceiro), via parâmetro `tipo` de /category/[id].
 // Ordem (nov/2026): Roteiros e Agências abertos; depois, em breve: Passeios, Pacotes e Hospedagem. `breve` = ainda não abriu (toque = "avise-me").
-const SERVICOS: readonly { chave: string; icone: string; tipo: string; degrade: [string, string]; breve?: boolean }[] = [
+type Servico = { chave: string; sub?: string; rotulo?: string; icone: string; tipo: string; degrade?: [string, string]; breve?: boolean };
+// Padrão (sem banco). Nov/2026: a lista real vem das subcategorias 'turismo' (Modo equipe › Vitrine › Dicas Trip).
+const SERVICOS_PADRAO: readonly Servico[] = [
   { chave: 'trip.roteiros', icone: 'map', tipo: 'roteiro|tour|guia', degrade: ['#E1306C', '#9B3CFF'] },
   { chave: 'trip.agencias', icone: 'briefcase', tipo: 'agência|agencia|operadora', degrade: ['#E8A317', '#B45309'] },
   { chave: 'trip.passeios', icone: 'compass', tipo: 'passeio|ponto|atração|atracao|museu', degrade: ['#10B981', '#0E7490'], breve: true },
@@ -110,6 +115,21 @@ export default function TripScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { t, idioma, proximoIdioma } = useI18n();
+  // Topo 2 da aba Trip: casas de viagem Fundador/Premium de todas as cidades (mesmo banner da categoria e do destino)
+  // + banners de campanha marcados em 'Trip'. Mesma regra de rodízio das categorias (4 por vez, troca a cada hora).
+  const [casasViagem, setCasasViagem] = useState<LocalVitrine[]>([]);
+  useEffect(() => {
+    (async () => {
+      const campos = 'id, nome, categoria, subcategoria, bairro, bairro_exibicao, cidade, foto_capa_url, logo_url, galeria_fotos, plano_destaque, plano_comercial, plano_comercial_status, destaque_secao_fixada, destaque_secoes, destaque_ate';
+      const [ls, ex] = await Promise.all([
+        supabase.from('locais').select(`${campos}, tipo_hospedagem`).eq('status', 'aprovado').in('plano_comercial', ['fundador', 'premium']).limit(500),
+        buscarExtrasTurismo(),
+      ]);
+      let dados: any[] = (ls.data as any[]) || [];
+      if (ls.error) dados = (((await supabase.from('locais').select(campos).eq('status', 'aprovado').in('plano_comercial', ['fundador', 'premium']).limit(500)).data) as any[]) || [];
+      setCasasViagem(dados.filter((l) => ehCasaDeViagem(l, ex)));
+    })();
+  }, []);
   const idiomaAtual = IDIOMAS.find((i) => i.code === idioma) || IDIOMAS[0];
   const [busca, setBusca] = useState('');
   const [destinos, setDestinos] = useState<Destino[]>(DESTINOS_PADRAO);
@@ -123,7 +143,7 @@ export default function TripScreen() {
   // Janela de até 6 destinos; avança de 6 em 6 a cada 6 horas.
   const destinosHora = useMemo(() => {
     if (destinos.length === 0) return [];
-    const ord = destinos.slice().sort((a, b) => Number(destinoAberto(b.slug)) - Number(destinoAberto(a.slug)) || a.slug.localeCompare(b.slug));
+    const ord = destinos.slice().sort((a, b) => Number(estaAberto(b)) - Number(estaAberto(a)) || a.slug.localeCompare(b.slug));
     const inicio = (((slotDestino * 6) % ord.length) + ord.length) % ord.length;
     return [...ord.slice(inicio), ...ord.slice(0, inicio)].slice(0, 6);
   }, [destinos, slotDestino]);
@@ -132,10 +152,38 @@ export default function TripScreen() {
   const avisarBreve = (alvo: string, alvoLabel: string) =>
     registrarAviso({ userId: user?.id, alvo, alvoLabel, t, irParaLogin: () => router.push('/(tabs)/profile') });
 
-  const abrirServico = (s: (typeof SERVICOS)[number]) => {
-    if (s.breve) return avisarBreve(s.chave.replace('.', '-'), t(s.chave));
-    if (s.chave === 'trip.roteiros') router.push('/roteiros' as any);
-    else abrirTurismo({ title: t(s.chave), tipo: s.tipo });
+  // Ícones da Trip = subcategorias 'turismo' (nome, ícone, ordem, esconder e Em breve pelo Modo equipe).
+  const defsTrip = useSubcategorias('turismo');
+  const [tripOff, setTripOff] = useState<Set<string>>(new Set());
+  const [tripEstado, setTripEstado] = useState<EstadoSubcategorias>({ breve: new Set(), ativas: new Set() });
+  useFocusEffect(useCallback(() => {
+    void buscarSubcategoriasDesligadas('turismo').then(setTripOff);
+    void buscarEstadoSubcategorias('turismo').then(setTripEstado);
+  }, []));
+  const I18N_TRIP: Record<string, string> = { roteiros: 'trip.roteiros', agencias: 'trip.agencias', passeios: 'trip.passeios', pacotes: 'trip.pacotes', hospedagem: 'trip.hospedagem' };
+  const SERVICOS: Servico[] = defsTrip && defsTrip.length
+    ? defsTrip.filter((d) => !tripOff.has(d.chave)).map((d) => ({
+        chave: I18N_TRIP[d.chave] || d.chave,
+        sub: d.chave,
+        rotulo: I18N_TRIP[d.chave] ? undefined : d.curto || d.rotulo,
+        icone: d.icone,
+        tipo: d.palavras.join('|') || d.chave,
+        breve: tripEstado.breve.has(d.chave) ? true : tripEstado.ativas.has(d.chave) ? false : !!d.breve,
+      }))
+    : [...SERVICOS_PADRAO];
+  const nomeServico = (s: Servico) => s.rotulo || t(s.chave);
+
+  const abrirServico = (s: Servico) => {
+    if (s.breve) return avisarBreve(s.chave.replace('.', '-'), nomeServico(s));
+    // Nov/2026: cada ícone abre a página da subcategoria com as casas cadastradas nela (Turismo › <sub>).
+    // Com "Página própria" ligada no Modo equipe, a página ganha banners e patrocinador próprios.
+    // Nov/2026 (18/11): Roteiros abre a grade de destinos e eventos especiais; os demais, as casas cadastradas na subcategoria.
+    if (s.sub === 'roteiros') router.push('/destinos' as any);
+    // Agências: todas as casas de viagem cadastradas (categoria Turismo), na hierarquia dos planos.
+    else if (s.sub === 'agencias') router.push({ pathname: '/category/[id]' as any, params: { id: 'turismo', title: encodeURIComponent('Agências e viagens') } });
+    else if (s.sub) router.push({ pathname: '/category/[id]' as any, params: { id: 'turismo', sub: s.sub } });
+    else if (s.chave === 'trip.roteiros') router.push('/roteiros' as any);
+    else abrirTurismo({ title: nomeServico(s), tipo: s.tipo });
   };
 
   const abrirTurismo = (params: { title: string; search?: string; tipo?: string }) => {
@@ -206,7 +254,7 @@ export default function TripScreen() {
           />
           <BotaoMenuTela
             tituloMenu="Ir para"
-            opcoes={SERVICOS.map((s) => ({ id: s.chave, label: t(s.chave), icone: s.icone }))}
+            opcoes={SERVICOS.map((s) => ({ id: s.chave, label: nomeServico(s), icone: s.icone }))}
             onEscolher={(id) => {
               const s = SERVICOS.find((x) => x.chave === id);
               if (s) abrirServico(s);
@@ -214,23 +262,13 @@ export default function TripScreen() {
           />
         </View>
 
-        {/* Patrocinador master da Trip (categoria_patrocinio, slug 'trip'); sem patrocínio cadastrado, o Museu da Diversidade. */}
+        {/* Patrocinador master da Trip (categoria_patrocinio, slug 'trip'): o Museu da Diversidade, ligado/desligado no Modo equipe. */}
         <View style={{ paddingHorizontal: 16 }}>
-          <BannerMaster
-            slug="trip"
-            padrao={{
-              categoria: 'trip',
-              local_id: null,
-              tag: t('home.anuncioMuseuTag'),
-              titulo: t('home.anuncioMuseuTitulo'),
-              subtitulo: null,
-              cta: t('home.anuncioMuseuCta'),
-              destino: '/apoiador/museu-diversidade',
-              imagem_url: null,
-              cor1: '#6D28D9',
-              cor2: '#DB2777',
-            }}
-          />
+          <BannerMaster slug="trip" />
+        </View>
+        {/* Topo 2: casas de viagem Fundador/Premium + campanhas da aba Trip (Modo equipe › Vitrine › Dicas Trip). */}
+        <View style={{ paddingHorizontal: 16, marginTop: 12 }}>
+          <VitrineCategoria slug="trip" titulo="Dicas Trip" locais={casasViagem} telaBanners="trip" semPatrocinio semOfertas tituloLista={null} />
         </View>
         {/* Planeje sua viagem */}
         <View style={styles.iconesLinha}>
@@ -241,7 +279,7 @@ export default function TripScreen() {
               activeOpacity={0.75}
               onPress={() => abrirServico(s)}
               accessibilityRole="button"
-              accessibilityLabel={s.breve ? `${t(s.chave)}, ${t('home.emBreve')}` : t(s.chave)}
+              accessibilityLabel={s.breve ? `${nomeServico(s)}, ${t('home.emBreve')}` : nomeServico(s)}
             >
               <View style={styles.iconeCirculo}>
                 <Feather name={s.icone as any} size={20} color={s.breve ? C.purple : CATEGORIAS.turismo.color} />
@@ -251,42 +289,31 @@ export default function TripScreen() {
                   </View>
                 )}
               </View>
-              <Text style={[styles.iconeTxt, s.breve && { color: C.dim }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} maxFontSizeMultiplier={1}>{t(s.chave)}</Text>
+              <Text style={[styles.iconeTxt, s.breve && { color: C.dim }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} maxFontSizeMultiplier={1}>{nomeServico(s)}</Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* Destinos em destaque: até 6 por vez, no mesmo formato das ofertas, trocando a cada 6 horas. */}
-        {destinosHora.length > 0 && (
-          <View style={styles.gradeDestinos}>
-            {destinosHora.map((d, idx) => {
-              const aberto = destinoAberto(d.slug);
-              return (
-              <TouchableOpacity
-                key={d.slug}
-                style={styles.destinoTile}
-                activeOpacity={0.9}
-                onPress={() => (aberto ? router.push(`/destino/${d.slug}` as any) : avisarBreve(`destino-${d.slug}`, d.cidade))}
-                accessibilityRole="button"
-                accessibilityLabel={aberto ? `${d.cidade}, ${d.uf}` : `${d.cidade}, ${d.uf}, ${t('home.emBreve')}`}
-              >
-                <FundoCaixaDegrade id={`dst-${d.slug}`} cores={DEGRADES_DESTINO[(idx + slotDestino) % DEGRADES_DESTINO.length]} />
-                {!!d.foto_url && <Image source={{ uri: d.foto_url }} style={StyleSheet.absoluteFill} resizeMode="cover" />}
-                {!!d.foto_url && <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(8,6,16,0.5)' }]} />}
-                <Feather name="map-pin" size={22} color="#FFFFFF" />
-                <Text style={styles.destinoTileTxt} numberOfLines={2}>{d.cidade}</Text>
-                <Text style={styles.destinoTileUf}>{d.uf}</Text>
-                {!aberto && <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(8,6,16,0.55)' }]} pointerEvents="none" />}
-                {!aberto && (
-                  <View style={styles.destinoBreve}>
-                    <Text style={styles.emBreveTexto}>{t('home.emBreve')}</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-              );
-            })}
-          </View>
-        )}
+        {/* Nov/2026 (18/11) — Próximas viagens: eventos especiais (Carnaval, Copa…) primeiro e as cidades abertas.
+            A grade completa (com as "em breve") fica em Roteiros (/destinos). */}
+        {(() => {
+          const proximas = ordenarDestinos(destinos).slice(0, 10); // 18/11: todas (as "em breve" também abrem a página com banner)
+          if (!proximas.length) return null;
+          return (
+            <View style={{ marginTop: 22 }}>
+              <View style={styles.proxCab}>
+                <Text style={styles.proxTitulo}>Destinos e viagens</Text>
+                <TouchableOpacity onPress={() => router.push('/destinos' as any)} accessibilityRole="button"><Text style={styles.proxVer}>Ver todos ›</Text></TouchableOpacity>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingHorizontal: 16 }}>
+                {proximas.map((d, idx) => (
+                  <CartaoDestino key={d.slug} d={d} idx={idx} largura={150} altura={110} emBreveTxt={t('home.emBreve')}
+                    onAbrir={() => router.push(`/destino/${d.slug}` as any)} onBreve={() => router.push(`/destino/${d.slug}` as any)} />
+                ))}
+              </ScrollView>
+            </View>
+          );
+        })()}
 
         {/* Dicas úteis sobre o Brasil */}
         <Text style={styles.grupoTitulo}>{t('trip.dicasBrasil')}</Text>
@@ -350,15 +377,18 @@ const styles = StyleSheet.create({
   heroBtn: { alignSelf: 'flex-start', marginTop: 10, backgroundColor: C.pink, borderRadius: 20, paddingHorizontal: 16, minHeight: 40, justifyContent: 'center' },
   heroBtnTxt: { color: '#FFFFFF', fontWeight: '800', fontSize: 13 },
   // Título de seção no mesmo padrão de todas as telas (17/800).
-  secao: { fontSize: 15, fontWeight: '800', color: C.text, marginTop: 28, marginBottom: 12, paddingHorizontal: 16 },
+  secao: { ...TITULO_SECAO, marginTop: 28, marginBottom: 12, paddingHorizontal: 16 },
   grade: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16 },
   tile: { width: '31.5%', height: 92, borderRadius: 14, backgroundColor: C.card, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  proxCab: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, marginBottom: 10 },
+  proxTitulo: { ...TITULO_SECAO },
+  proxVer: { color: '#E1306C', fontSize: 13, fontWeight: '700' },
   gradeDestinos: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, marginTop: 20 },
   destinoTile: { width: '31.5%', height: 92, borderRadius: 14, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', gap: 4, paddingHorizontal: 6, backgroundColor: C.card },
   destinoTileTxt: { fontSize: 12, fontWeight: '700', color: '#FFFFFF', textAlign: 'center' },
   destinoTileUf: { fontSize: 10, fontWeight: '800', color: 'rgba(255,255,255,0.8)' },
   iconesLinha: { flexDirection: 'row', paddingHorizontal: 16, gap: 4 },
-  iconeItem: { flex: 1, alignItems: 'center', gap: 5 },
+  iconeItem: { width: '20%', alignItems: 'center', gap: 5 }, // 18/11: alinhados à esquerda (com 1 ícone não fica no meio)
   emBreveBadge: { position: 'absolute', bottom: -4, backgroundColor: C.purple, paddingHorizontal: 4, paddingVertical: 1, borderRadius: 4 },
   emBreveTexto: { fontSize: 7, fontWeight: '800', color: '#FFF' },
   destinoBreve: { position: 'absolute', bottom: 6, backgroundColor: C.purple, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },

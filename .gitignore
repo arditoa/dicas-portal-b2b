@@ -21,3 +21,7 @@ supabase-migration/042_pipeline_dados_iniciais.sql
 .backup-*.tgz
 .tsconfig.check.json
 .backup-sdk57/
+
+# 18/11: cópias antigas e saídas do Claude (não versionar)
+_to_delete/
+Claude outputs/

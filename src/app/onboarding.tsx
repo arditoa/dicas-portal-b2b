@@ -66,12 +66,17 @@ const TEXTOS: Record<Idioma, Textos> = {
 
 // Foto, cor de destaque e ícones de cada tela. As fotos ficam em src/assets/images/onboarding.
 const META: { foto: any; cor: string; itens: string[] }[] = [
-  { foto: require('../assets/images/onboarding/ob-1-boas-vindas.jpg'), cor: '#E1306C', itens: [] },
-  { foto: require('../assets/images/onboarding/ob-2-descubra.jpg'), cor: '#E879F9', itens: ['moon', 'shopping-bag', 'map'] },
-  { foto: require('../assets/images/onboarding/ob-3-viaje.jpg'), cor: '#38BDF8', itens: ['map-pin', 'home', 'info'] },
+  // 18/11 — visual mais "fofo": bolhas com emoji no lugar dos ícones de linha.
+  { foto: require('../assets/images/onboarding/ob-1-boas-vindas.jpg'), cor: '#F472B6', itens: [] },
+  { foto: require('../assets/images/onboarding/ob-2-descubra.jpg'), cor: '#E879F9', itens: ['🌙', '🛍️', '🗺️'] },
+  { foto: require('../assets/images/onboarding/ob-3-viaje.jpg'), cor: '#38BDF8', itens: ['📍', '🏡', '🌎'] },
   // Segurança: verde (cor de "espaço seguro").
-  { foto: require('../assets/images/onboarding/ob-4-seguranca.jpg'), cor: '#34D399', itens: ['flag', 'user', 'lock'] },
+  { foto: require('../assets/images/onboarding/ob-4-seguranca.jpg'), cor: '#34D399', itens: ['🚩', '🙂', '🔒'] },
 ];
+// Emoji e cor pastel de cada categoria da 1ª tela (mesma ordem nos 3 idiomas).
+const EMOJI_CAT = ['🍹', '🍽️', '🎉', '🎤', '🎭', '✈️', '💅', '👗', '🛍️', '🧰', '🩺', '🎡', '📚', '🤝', '🔞'];
+const PASTEIS = ['#F472B6', '#FB923C', '#FACC15', '#4ADE80', '#38BDF8', '#A78BFA'];
+const EMOJI_TAG = ['', '✨', '🧳', '💚'];
 
 const FUNDO = '#0B0B0E';
 
@@ -154,15 +159,15 @@ export default function Onboarding() {
             <View style={[styles.conteudo, { paddingTop: Math.round(alturaFoto * 0.58) }]}>
               {/* Rodada 141 — sem a etiqueta "Bem-vinde" na 1ª tela (pedido da Andrea); as demais mantêm. */}
               {n > 0 && (
-                <View style={[styles.pilula, { borderColor: META[n].cor }]}>
-                  <View style={[styles.pilulaPonto, { backgroundColor: META[n].cor }]} />
-                  <Text style={styles.pilulaTxt}>{s.tag}</Text>
+                <View style={[styles.pilula, { backgroundColor: `${META[n].cor}33` }]}>
+                  <Text style={styles.pilulaEmoji}>{EMOJI_TAG[n]}</Text>
+                  <Text style={[styles.pilulaTxt, { color: META[n].cor }]}>{s.tag}</Text>
                 </View>
               )}
               <Text style={styles.titulo}>{s.titulo}</Text>
 
               {n === 0 ? (
-                <View style={styles.cartao}>
+                <View style={[styles.cartao, { backgroundColor: 'rgba(36,26,44,0.9)' }]}>
                   <Text style={[styles.rotulo, { color: META[0].cor }]}>{tx.missaoRot}</Text>
                   <Text style={styles.missao}>{tx.missao}</Text>
                   <View style={styles.divisor} />
@@ -172,16 +177,22 @@ export default function Onboarding() {
                   <View style={styles.divisor} />
                   <Text style={[styles.rotulo, { color: META[0].cor }]}>{tx.encontreRot}</Text>
                   <View style={styles.catChips}>
-                    {s.icones.map((c) => (
-                      <View key={c} style={styles.catChip}><Text style={styles.catChipTxt}>{c}</Text></View>
-                    ))}
+                    {s.icones.map((c, k) => {
+                      const pc = PASTEIS[k % PASTEIS.length];
+                      return (
+                        <View key={c} style={[styles.catChip, { backgroundColor: `${pc}22`, borderColor: `${pc}55` }]}>
+                          <Text style={styles.catChipEmoji}>{EMOJI_CAT[k] || '✨'}</Text>
+                          <Text style={styles.catChipTxt}>{c}</Text>
+                        </View>
+                      );
+                    })}
                   </View>
                 </View>
               ) : (
                 s.itens.map((txt, k) => (
-                  <View key={k} style={styles.item}>
-                    <View style={[styles.itemCirculo, { borderColor: META[n].cor }]}>
-                      <Feather name={META[n].itens[k] as any} size={18} color={META[n].cor} />
+                  <View key={k} style={[styles.item, { backgroundColor: `${META[n].cor}1F` }]}>
+                    <View style={[styles.itemCirculo, { backgroundColor: `${META[n].cor}38` }]}>
+                      <Text style={styles.itemEmoji}>{META[n].itens[k]}</Text>
                     </View>
                     <Text style={styles.itemTxt}>{txt}</Text>
                   </View>
@@ -204,7 +215,7 @@ export default function Onboarding() {
               <Feather name="chevron-left" size={24} color="#FFFFFF" />
             </TouchableOpacity>
           )}
-          <TouchableOpacity style={[styles.btnPrincipal, { backgroundColor: '#E1306C' }]} onPress={() => (atual < ultimo ? ir(atual + 1) : concluir())} accessibilityRole="button">
+          <TouchableOpacity style={[styles.btnPrincipal, { backgroundColor: '#EC4899', shadowColor: '#EC4899' }]} onPress={() => (atual < ultimo ? ir(atual + 1) : concluir())} accessibilityRole="button">
             <Text style={styles.btnTxt}>{atual < ultimo ? tx.proximo : tx.comecar}</Text>
             <Feather name={atual < ultimo ? 'arrow-right' : 'check'} size={18} color="#FFFFFF" />
           </TouchableOpacity>
@@ -220,27 +231,30 @@ const styles = StyleSheet.create({
   idiomaBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 36, paddingHorizontal: 12, borderRadius: 18, backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230' },
   idiomaTxt: { fontSize: 12, fontWeight: '800', color: '#FFFFFF' },
   conteudo: { paddingHorizontal: 16 },
-  pilula: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(11,11,14,0.72)', borderWidth: 1, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6, marginBottom: 10 },
+  pilula: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7, marginBottom: 12 },
   pilulaPonto: { width: 7, height: 7, borderRadius: 4 },
-  pilulaTxt: { color: '#FFFFFF', fontSize: 12, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' },
-  titulo: { color: '#FFFFFF', fontSize: 26, fontWeight: '800', lineHeight: 32, letterSpacing: -0.3, marginBottom: 14, textShadowColor: 'rgba(0,0,0,0.55)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 8 },
-  cartao: { backgroundColor: 'rgba(26,26,34,0.88)', borderRadius: 18, borderWidth: 1, borderColor: '#2E2E3D', padding: 16 },
-  rotulo: { fontSize: 11, fontWeight: '900', letterSpacing: 0.9, textTransform: 'uppercase', marginBottom: 4 },
-  missao: { color: '#FFFFFF', fontSize: 17, lineHeight: 23, fontWeight: '800' },
-  divisor: { height: 1, backgroundColor: '#2E2E3D', marginVertical: 12 },
-  corpo: { color: '#E4E1F0', fontSize: 14, lineHeight: 20, fontWeight: '600' },
-  catChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
-  catChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: '#0B0B0E', borderWidth: 1, borderColor: '#2E2E3D' },
-  catChipTxt: { color: '#E4E1F0', fontSize: 12, fontWeight: '600' },
-  item: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(26,26,34,0.88)', borderRadius: 16, borderWidth: 1, borderColor: '#2E2E3D', padding: 12, marginBottom: 10 },
-  itemCirculo: { width: 40, height: 40, borderRadius: 20, backgroundColor: FUNDO, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  itemTxt: { flex: 1, color: '#E4E1F0', fontSize: 15, lineHeight: 21, fontWeight: '600' },
+  pilulaEmoji: { fontSize: 13 },
+  pilulaTxt: { fontSize: 13, fontWeight: '800', letterSpacing: 0.2 },
+  titulo: { color: '#FFFFFF', fontSize: 25, fontWeight: '800', lineHeight: 31, letterSpacing: -0.2, marginBottom: 16, textShadowColor: 'rgba(0,0,0,0.45)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 6 },
+  cartao: { borderRadius: 26, padding: 18 },
+  rotulo: { fontSize: 12, fontWeight: '800', letterSpacing: 0.3, marginBottom: 4 },
+  missao: { color: '#FFFFFF', fontSize: 17, lineHeight: 24, fontWeight: '700' },
+  divisor: { height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginVertical: 14 },
+  corpo: { color: '#EDE9F6', fontSize: 14.5, lineHeight: 21, fontWeight: '500' },
+  catChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 8 },
+  catChip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 11, paddingVertical: 6, borderRadius: 999, borderWidth: 1 },
+  catChipEmoji: { fontSize: 12 },
+  catChipTxt: { color: '#FFFFFF', fontSize: 12.5, fontWeight: '600' },
+  item: { flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: 24, paddingVertical: 14, paddingHorizontal: 14, marginBottom: 10 },
+  itemCirculo: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
+  itemEmoji: { fontSize: 22 },
+  itemTxt: { flex: 1, color: '#FFFFFF', fontSize: 15, lineHeight: 21, fontWeight: '600' },
   rodape: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 16, paddingTop: 12, backgroundColor: 'rgba(11,11,14,0.94)' },
-  pontos: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginBottom: 12 },
-  ponto: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#35354A' },
-  pontoAtivo: { width: 18 },
+  pontos: { flexDirection: 'row', justifyContent: 'center', gap: 7, marginBottom: 14 },
+  ponto: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#3A3550' },
+  pontoAtivo: { width: 22 },
   botoes: { flexDirection: 'row', gap: 10 },
-  btnVoltar: { width: 54, height: 52, borderRadius: 16, borderWidth: 1, borderColor: '#2E2E3D', backgroundColor: '#1A1A22', alignItems: 'center', justifyContent: 'center' },
-  btnPrincipal: { flex: 1, height: 52, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  btnTxt: { color: '#FFFFFF', fontSize: 16, fontWeight: '900' },
+  btnVoltar: { width: 54, height: 54, borderRadius: 27, backgroundColor: '#221E2E', alignItems: 'center', justifyContent: 'center' },
+  btnPrincipal: { flex: 1, height: 54, borderRadius: 27, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, shadowOpacity: 0.45, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 6 },
+  btnTxt: { color: '#FFFFFF', fontSize: 16.5, fontWeight: '800' },
 });

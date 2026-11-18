@@ -1607,8 +1607,21 @@ Dicas LGBT+`;
   // gravando onde sempre gravou, sem duplicar estado.
   const alternarExperiencia = async (l: LocalDestaque, opcao: OpcaoExperiencia, marcar: boolean) => {
     const selecaoAtual = l.experiencias || [];
-    if (marcar && opcao.destino === 'experiencias' && selecaoAtual.length >= 3) {
-      setErro('Só é possível marcar até 3 experiências por local. Desmarque uma antes de marcar outra.');
+    // Nov/2026 (18/11) — limite pelo plano, igual ao app (app_config 'experiencias_config'):
+    // Fundador 3 · Premium 3 · Intermediário 1 · demais 0 (padrão; a equipe muda no Modo equipe › Experiências).
+    let limites: Record<string, number> = { fundador: 3, premium: 3, intermediario: 1, demais: 0 };
+    try {
+      const { data: cfgRow } = await supabase.from('app_config').select('valor').eq('chave', 'experiencias_config').maybeSingle();
+      const v = JSON.parse((cfgRow as { valor?: string } | null)?.valor || '{}');
+      if (v.limites) limites = { ...limites, ...v.limites };
+    } catch { /* usa o padrão */ }
+    const planoAtivoL = l.plano_comercial_status === 'ativo' && ['fundador', 'premium', 'intermediario'].includes(l.plano_comercial || '') ? (l.plano_comercial as string) : 'demais';
+    const limite = limites[planoAtivoL] ?? 0;
+    const marcadasExp = selecaoAtual.length;
+    if (marcar && opcao.destino === 'experiencias' && marcadasExp >= limite) {
+      setErro(limite === 0
+        ? 'O plano deste local não inclui experiências (ele só aparece se a experiência não tiver nenhuma casa paga).'
+        : `O plano deste local permite até ${limite} ${limite === 1 ? 'experiência' : 'experiências'}. Desmarque uma antes de marcar outra.`);
       return;
     }
     setErro('');

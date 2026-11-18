@@ -72,8 +72,7 @@ export default function Equipe() {
     ]);
 
   return (
-    <TelaParceiro titulo="Equipe e senha da porta" subtitulo="Quem da casa pode fazer o quê no app. Só você mexe aqui." atualizando={false} aoAtualizar={() => void carregar()}>
-      <TouchableOpacity style={a.voltar} onPress={() => router.back()} accessibilityRole="button"><Feather name="chevron-left" size={16} color={CP.dim} /><Text style={a.voltarTxt}>Voltar</Text></TouchableOpacity>
+    <TelaParceiro titulo="Equipe e senha da porta" subtitulo="Quem da casa pode fazer o quê no app. Só você mexe aqui." atualizando={false} aoAtualizar={() => void carregar()} aoVoltar={() => router.back()}>
 
       <TouchableOpacity style={a.convidar} onPress={() => setEditor({ tipo: 'convite' })} activeOpacity={0.85} accessibilityRole="button">
         <Feather name="user-plus" size={20} color="#FFF" />

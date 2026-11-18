@@ -67,8 +67,7 @@ export default function ReservasHoje() {
   const visiveis = filtro === 'faltam' ? faltam : filtro === 'chegaram' ? chegaram : lista;
 
   return (
-    <TelaParceiro titulo="Reservas de hoje" subtitulo="Marque quem chegou. Atualiza sozinho." atualizando={false} aoAtualizar={() => void carregar()}>
-      <TouchableOpacity style={a.voltar} onPress={() => router.back()} accessibilityRole="button"><Feather name="chevron-left" size={16} color={CP.dim} /><Text style={a.voltarTxt}>Voltar</Text></TouchableOpacity>
+    <TelaParceiro titulo="Reservas de hoje" subtitulo="Marque quem chegou. Atualiza sozinho." atualizando={false} aoAtualizar={() => void carregar()} aoVoltar={() => router.back()}>
       <View style={a.numeros}>
         <View style={a.numero}><Text style={[a.numeroN, { color: '#FFD54F' }]}>{pessoas(faltam)}</Text><Text style={a.numeroR}>pessoas faltam</Text></View>
         <View style={a.numero}><Text style={[a.numeroN, { color: CP.verde }]}>{pessoas(chegaram)}</Text><Text style={a.numeroR}>pessoas chegaram</Text></View>

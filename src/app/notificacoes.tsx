@@ -29,6 +29,7 @@ const ITENS: { tipo: TipoPush; titulo: string; texto: string }[] = [
   { tipo: 'cupons', titulo: 'Cupons e ofertas', texto: 'Cupons de bares, festas e parceiros. Mensagens promocionais.' },
   { tipo: 'lembretes', titulo: 'Lembretes', texto: 'Lembretes dos seus eventos salvos, Lista VIP e cupons perto de vencer.' },
   { tipo: 'novidades', titulo: 'Novidades do app', texto: 'Lançamentos, novas categorias e avisos gerais do Dicas LGBT+.' },
+  { tipo: 'marcas', titulo: 'Ofertas de marcas parceiras', texto: 'Convites e brindes de marcas que apoiam a comunidade. Quem envia é o Dicas: seus dados não vão para as marcas.' },
 ];
 
 export default function NotificacoesScreen() {
@@ -90,9 +91,9 @@ export default function NotificacoesScreen() {
     if (!user?.id || salvando) return;
     setSalvando(true);
     try {
-      const r = await ativarTodosAvisos(user.id);
+      const r = await ativarTodosAvisos(user.id, prefs.marcas);
       if (r === 'ok') {
-        setPrefs({ festas: true, cupons: true, lembretes: true, novidades: true });
+        setPrefs((p) => ({ ...p, festas: true, cupons: true, lembretes: true, novidades: true }));
       } else if (r === 'negado') {
         Alert.alert('Permissão necessária', 'Para receber avisos, permita notificações do Dicas LGBT+ nos Ajustes do seu celular.', [
           { text: 'Agora não', style: 'cancel' },
@@ -104,9 +105,9 @@ export default function NotificacoesScreen() {
     } finally {
       setSalvando(false);
     }
-  }, [salvando, user?.id]);
+  }, [prefs.marcas, salvando, user?.id]);
 
-  const todosLigados = Object.values(prefs).every(Boolean);
+  const todosLigados = prefs.festas && prefs.cupons && prefs.lembretes && prefs.novidades;
 
   return (
     <View style={styles.container}>

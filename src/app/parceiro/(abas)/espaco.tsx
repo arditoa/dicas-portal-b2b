@@ -5,6 +5,8 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import FundoCaixaDegrade from '../../../components/FundoCaixaDegrade';
+import CartaoMercadoPago from '../../../components/parceiro/CartaoMercadoPago';
+import CartaoInstagram from '../../../components/parceiro/CartaoInstagram';
 import { CP, GradeItens, TelaParceiro, TituloSecao, s } from '../../../components/parceiro/TelaParceiro';
 import { useAuth } from '../../../lib/authContext';
 import { useModoParceiro } from '../../../lib/modoParceiro';
@@ -81,6 +83,22 @@ export default function MeuEspaco() {
         <>
           <TituloSecao texto="Sua casa no app" />
           <GradeItens itens={itens} colorido />
+        </>
+      )}
+
+      {/* Migração 131 — receber os ingressos vendidos no app */}
+      {(dono || pode('festa')) && (
+        <>
+          <TituloSecao texto="Receber pagamentos" />
+          <CartaoMercadoPago localId={localAtivo.local_id} dono={dono} taxaPct={5} />
+        </>
+      )}
+
+      {/* Migração 138 — Instagram da casa: puxar flyers dos posts */}
+      {(dono || pode('festa')) && (
+        <>
+          <TituloSecao texto="Instagram" />
+          <CartaoInstagram localId={localAtivo.local_id} />
         </>
       )}
 

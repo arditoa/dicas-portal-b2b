@@ -3,7 +3,7 @@
 // banner escolhe em quais telas aparece; a ordem é sorteada com PESO (quem paga
 // ou está em período de destaque tem mais chance de abrir na frente); no máximo 4.
 // Se a tabela ainda não existir ou a consulta falhar, devolve `null` e a tela usa a lista antiga do código.
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking } from 'react-native';
 
@@ -73,24 +73,31 @@ export function useAnunciosApp(
   const { t, idioma } = useI18n();
   const [banners, setBanners] = useState<BannerDB[] | null>(null);
   const vistos = useRef<Set<string>>(new Set());
+  // Recarrega sempre que a tela volta a aparecer: o que a equipe liga/desliga vale sem fechar o app.
+  const [versao, setVersao] = useState(0);
+  useFocusEffect(useCallback(() => { setVersao((v) => v + 1); }, []));
 
   useEffect(() => {
     let ativo = true;
     (async () => {
       const { data, error } = await supabase.from('banners_app').select('*');
       if (!ativo) return;
-      if (error || !data || data.length === 0) {
+      if (error || !data) {
         setBanners(null);
         return;
       }
       const hoje = new Date().toISOString().slice(0, 10);
-      const daTela = (data as BannerDB[]).filter((b) => (b.telas || []).includes(tela));
-      setBanners(daTela.length > 0 ? ordenarPorPeso(daTela, hoje) : null);
+      // Conta da equipe enxerga também os desligados (política de admin): o app mostra só o que está no ar.
+      const agora = Date.now();
+      const noAr = (b: any) => b.ativo !== false && (!b.inicio || new Date(b.inicio).getTime() <= agora) && (!b.fim || new Date(b.fim).getTime() >= agora);
+      const daTela = (data as BannerDB[]).filter((b) => (b.telas || []).includes(tela) && noAr(b));
+      // Desligado no Modo equipe = some do app (não volta para o banner fixo de exemplo).
+      setBanners(daTela.length > 0 ? ordenarPorPeso(daTela, hoje) : []);
     })();
     return () => {
       ativo = false;
     };
-  }, [tela]);
+  }, [tela, versao]);
 
   const registrar = useCallback(
     (id: string, tipo: 'exibicao' | 'clique') => {
@@ -136,7 +143,10 @@ export function useAnunciosApp(
         cta: tr.cta || b.cta,
         icone: (b.icone || 'star') as Anuncio['icone'],
         cor: b.cor || '#7E57C2',
-        logoUrl: b.logo_url || undefined,
+        logoUrl: (b as any).estilo === 'foto' ? undefined : b.logo_url || undefined,
+        // Formato do banner (migration 146): 'info' = degradê com ícone/logo; 'foto' = foto no cartão inteiro, dizeres por cima.
+        fotoUrl: (b as any).estilo === 'foto' && (b as any).foto_url ? (b as any).foto_url : undefined,
+        fotoModo: (b as any).estilo === 'foto' && (b as any).foto_url ? ('fundo' as const) : undefined,
         rotulo,
         custom: b.chave ? extras?.custom?.[b.chave] : undefined,
         onPress: () => {

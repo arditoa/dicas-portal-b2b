@@ -1,4 +1,13 @@
 import { Feather } from '@expo/vector-icons';
+import SeloMarca from '../../components/SeloMarca';
+import FotoDaGalera from '../../components/FotoDaGalera';
+import AcaoNaCasa from '../../components/AcaoNaCasa';
+import EnqueteDaCasa from '../../components/EnqueteDaCasa';
+import EstouAquiAgora from '../../components/EstouAquiAgora';
+import SeloLugarSeguro from '../../components/SeloLugarSeguro';
+import AcolhimentoDaCasa from '../../components/AcolhimentoDaCasa';
+import EscolhaBrinde from '../../components/EscolhaBrinde';
+import { AcaoVitrine, corDaMarca, marcaDoItem, useMarcasAtivas } from '../../lib/marcas';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
@@ -25,6 +34,7 @@ import HospedagemDetalhes from '../../components/HospedagemDetalhes';
 import { ComSeloFundador } from '../../components/SeloFundador';
 import { useRastrearTela } from '../../lib/usoTelas';
 import { dentroDaJanela, textoJanela } from '../../lib/janelaCupom';
+import { TITULO_SECAO } from '../../constants/theme';
 
 // Precisam bater com o enum public.categoria_tipo real (só 6 valores —
 // a taxonomia de 10 categorias desenhada nas Rodadas 1-8 nunca chegou a
@@ -139,6 +149,11 @@ const DIAS_SEMANA: { chave: string; label: string }[] = [
 // (dashboard/perfil/page.tsx). Horário de funcionamento e as fotos
 // básicas (foto_capa_url) continuam sempre visíveis pra todo mundo —
 // nunca foram parte do que os planos pagos vendem.
+// Rodada 148 — Gratuito: só festa com Lista VIP. Check-in e cartão fidelidade só em plano pago (migração 120).
+function temPlanoPago(local: Pick<LocalRow, 'plano_comercial' | 'plano_comercial_status'>): boolean {
+  if (local.plano_comercial_status && local.plano_comercial_status !== 'ativo') return false;
+  return ['intermediario', 'premium', 'fundador'].includes(local.plano_comercial);
+}
 function publicaRecursosPremium(local: Pick<LocalRow, 'plano_comercial' | 'plano_comercial_status'>): boolean {
   if (local.plano_comercial_status !== 'ativo') return false;
   return local.plano_comercial === 'premium' || local.plano_comercial === 'fundador';
@@ -287,7 +302,9 @@ export default function BusinessDetailScreen() {
           .eq('ativo', true),
         supabase
           .from('avaliacoes')
-          .select('id, nota, comentario, created_at, user_id, perfis_publicos(display_name, avatar_url)')
+          // 18/11: perfis_publicos é uma view sem chave para o PostgREST juntar (dava 400 e as avaliações sumiam);
+          // busca as avaliações e depois os nomes à parte.
+          .select('id, nota, comentario, created_at, user_id')
           .eq('local_id', id)
           .order('created_at', { ascending: false })
           .limit(5),
@@ -315,7 +332,17 @@ export default function BusinessDetailScreen() {
         .maybeSingle()
         .then(({ data }) => setReserva((data as { modo: string; whatsapp: string | null; chamada: string | null } | null) ?? null));
       setBadges((badgesRes.data as any) || []);
-      setAvaliacoes((avaliacoesRes.data as any) || []);
+      {
+        const avs = ((avaliacoesRes.data as any[]) || []).map((a) => ({ ...a, perfis_publicos: null }));
+        setAvaliacoes(avs);
+        const ids = Array.from(new Set(avs.map((a) => a.user_id).filter(Boolean)));
+        if (ids.length) {
+          void (supabase.from('perfis_publicos') as any).select('id, display_name, avatar_url').in('id', ids).then(({ data }: any) => {
+            const mapa = new Map(((data as any[]) || []).map((p) => [p.id, { display_name: p.display_name, avatar_url: p.avatar_url }]));
+            setAvaliacoes((atual) => atual.map((a) => ({ ...a, perfis_publicos: mapa.get(a.user_id) || null })));
+          }, () => {});
+        }
+      }
       setCupons((cuponsRes.data as any) || []);
       // Fim de noite (migration 079): check-ins que a casa não confirmou entram sozinhos às 6h. Falha silenciosa.
       if (user?.id) {
@@ -449,6 +476,17 @@ export default function BusinessDetailScreen() {
   };
 
   // Migration 081: o cliente já fez o check-in (que conta a visita da fidelidade) e escolhe o cupom depois.
+  // Rodada 148 — escolha do brinde (migração 125): se o cupom é de uma ação de marca com opções (ex.: sabores),
+  // a pessoa escolhe antes de usar. A escolha fica na tela para o atendente e vai somada para a marca.
+  const marcasAtivas = useMarcasAtivas();
+  const [escolha, setEscolha] = useState<{ cupomId: string; acao: AcaoVitrine; seguir: () => void } | null>(null);
+  const [brindeEscolhido, setBrindeEscolhido] = useState<Record<string, string>>({});
+  const usarComEscolha = (cupomId: string, seguir: () => void) => {
+    const acao = marcaDoItem(marcasAtivas, 'cupom', cupomId);
+    if (!user || !acao?.brinde_opcoes?.length || brindeEscolhido[cupomId]) return seguir();
+    setEscolha({ cupomId, acao, seguir });
+  };
+
   const handleUsarCupom = async (cupomId: string) => {
     if (!user) {
       exigirLogin('Crie sua conta ou entre para usar o cupom.');
@@ -759,6 +797,32 @@ export default function BusinessDetailScreen() {
               );
             })()}
 
+            {/* Migração 136 — selo Lugar seguro (avaliado por quem foi) e "Estou aqui agora" do Termômetro da noite */}
+            <SeloLugarSeguro localId={local.id} />
+            <AcolhimentoDaCasa localId={local.id} />
+            <EstouAquiAgora localId={local.id} nome={local.nome} />
+            {/* Rodada 148 — ação de marca no ar nesta casa ("Prove grátis") */}
+            <AcaoNaCasa cupomIds={cupons.map((c) => c.id)} localId={local.id} />
+            {/* Migração 129 — enquete da casa com prêmio ("Responda e ganhe") */}
+            <EnqueteDaCasa localId={local.id} />
+            {!!escolha && (
+              <EscolhaBrinde
+                visivel
+                marca={escolha.acao.marca}
+                pergunta={escolha.acao.brinde_pergunta}
+                opcoes={escolha.acao.brinde_opcoes || []}
+                cor={corDaMarca(escolha.acao)}
+                aoFechar={() => setEscolha(null)}
+                aoEscolher={(opcao) => {
+                  const e = escolha;
+                  setEscolha(null);
+                  setBrindeEscolhido((b) => ({ ...b, [e.cupomId]: opcao }));
+                  supabase.rpc('registrar_escolha_brinde', { p_acao: e.acao.id, p_cupom: e.cupomId, p_opcao: opcao }).then(() => {}, () => {});
+                  e.seguir();
+                }}
+              />
+            )}
+
             {cupons.length > 0 && (() => {
               const cupomAtivoDoCheckin = meuCheckin
                 ? cupons.find((c) => c.id === meuCheckin.cupom_id) || cupons[0]
@@ -778,7 +842,7 @@ export default function BusinessDetailScreen() {
               return (
                 <View style={styles.cupomCard}>
                   <View style={styles.cupomHeaderRow}>
-                    <Feather name="tag" size={14} color="#FFD54F" />
+                    <Feather name="tag" size={14} color="#34D399" />
                     <Text style={styles.cupomHeaderText}>{cupons.length > 1 ? `Cupons da casa · ${cupons.length}` : 'Cupom da casa'}</Text>
                   </View>
                   {!meuCheckin && (verTodosCupons || cupons.some((c) => dentroDaJanela(c.dias_semana, c.hora_inicio, c.hora_fim))) && (
@@ -828,11 +892,13 @@ export default function BusinessDetailScreen() {
                             <Text style={[styles.ticketJanela, vale && { color: '#5BD69A' }]}>
                               {vale ? 'Vale agora' : janela ? `Vale ${janela}` : 'Hoje não'}
                             </Text>
+                            <SeloMarca tipo="cupom" id={cupom.id} />
+                            {!!brindeEscolhido[cupom.id] && <Text style={[styles.ticketJanela, { color: '#F2C94C' }]}>Seu brinde: {brindeEscolhido[cupom.id]}</Text>}
                           </View>
                           {vale ? (
                             <TouchableOpacity
                               style={[styles.ticketBtn, fazendoCheckin && { opacity: 0.5 }]}
-                              onPress={() => (checkinSemCupom ? handleUsarCupom(cupom.id) : handleFazerCheckin(cupom.id))}
+                              onPress={() => usarComEscolha(cupom.id, () => (checkinSemCupom ? handleUsarCupom(cupom.id) : handleFazerCheckin(cupom.id)))}
                               disabled={fazendoCheckin}
                               accessibilityRole="button"
                               accessibilityLabel={`Usar o cupom ${cupom.titulo}`}
@@ -851,7 +917,7 @@ export default function BusinessDetailScreen() {
                       return (
                         <TouchableOpacity style={styles.verTodos} onPress={() => setVerTodosCupons((v) => !v)} accessibilityRole="button">
                           <Text style={styles.verTodosTxt}>{verTodosCupons ? 'Mostrar menos' : `Ver ${cupons.length === 1 ? 'o cupom' : `todos os cupons (${cupons.length})`}`}</Text>
-                          <Feather name={verTodosCupons ? 'chevron-up' : 'chevron-down'} size={14} color="#FFD54F" />
+                          <Feather name={verTodosCupons ? 'chevron-up' : 'chevron-down'} size={14} color="#34D399" />
                         </TouchableOpacity>
                       );
                     })()}
@@ -867,7 +933,7 @@ export default function BusinessDetailScreen() {
               );
             })()}
 
-            {fidelidade.slice(0, 1).map((f) => {
+            {(temPlanoPago(local) || badges.some((b) => /fundador/i.test(b.rotulo)) ? fidelidade : []).slice(0, 1).map((f) => {
               const n = f.visitas_necessarias;
               const v = Math.min(f.visitas, n);
               const meta = f.visitas >= n;
@@ -992,6 +1058,9 @@ export default function BusinessDetailScreen() {
                 </View>
               );
             })}
+
+            {/* Rodada 148 — Foto da galera: vai para Minhas memórias e, se a pessoa quiser, para a casa (Premium/Fundador). */}
+            {publicaRecursosPremium(local) && <FotoDaGalera localId={local.id} nomeCasa={local.nome} />}
 
             {publicaRecursosPremium(local) && local.galeria_fotos && local.galeria_fotos.length > 0 && (
               <View style={styles.cardSecao}>
@@ -1231,7 +1300,7 @@ const styles = StyleSheet.create({
 
   scrollDetail: { paddingBottom: 40 },
   heroBanner: { height: 190, backgroundColor: '#1A1926', justifyContent: 'flex-end', overflow: 'hidden' },
-  heroImage: { ...StyleSheet.absoluteFillObject },
+  heroImage: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   badgesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   safeBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(76, 175, 125, 0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   safeBadgeText: { fontSize: 11, fontWeight: '700', color: '#4CAF7D' },
@@ -1256,10 +1325,10 @@ const styles = StyleSheet.create({
   actionBtn: { flexDirection: 'row', height: 48, backgroundColor: '#E1306C', borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
   mapBtn: { backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230' },
   // Rodada 59 (parte 8) — card de cupom ativo/check-in.
-  cupomCard: { backgroundColor: '#161520', borderWidth: 1, borderColor: '#FFD54F30', borderRadius: 16, padding: 14, marginTop: 12 },
+  cupomCard: { backgroundColor: '#161520', borderWidth: 1, borderColor: '#34D39940', borderRadius: 16, padding: 14, marginTop: 12 },
   cupomResumo: { fontSize: 12, color: '#A0A0B2', marginBottom: 2 },
   verTodos: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', paddingTop: 8 },
-  verTodosTxt: { fontSize: 12, fontWeight: '800', color: '#FFD54F' },
+  verTodosTxt: { fontSize: 12, fontWeight: '800', color: '#34D399' },
   fidResumo: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
   fidIcone: { width: 34, height: 34, borderRadius: 10, backgroundColor: 'rgba(255,213,79,0.12)', alignItems: 'center', justifyContent: 'center' },
   fidResumoTitulo: { fontSize: 14, fontWeight: '800', color: '#FFF' },
@@ -1272,7 +1341,7 @@ const styles = StyleSheet.create({
   ticketBorda: { borderTopWidth: 1, borderStyle: 'dashed', borderTopColor: '#3A3950' },
   ticketTitulo: { fontSize: 14, fontWeight: '800', color: '#FFF' },
   ticketDesc: { fontSize: 12, color: '#A0A0B2', marginTop: 1, lineHeight: 16 },
-  ticketJanela: { fontSize: 12, fontWeight: '700', color: '#FFD54F', marginTop: 3 },
+  ticketJanela: { fontSize: 12, fontWeight: '700', color: '#34D399', marginTop: 3 },
   ticketBtn: { backgroundColor: '#7E57C2', borderRadius: 12, paddingHorizontal: 16, height: 38, justifyContent: 'center' },
   // Cupom que a pessoa tocou na faixa de Ofertas ("um cupom, dois lugares")
   ticketAlvo: { backgroundColor: 'rgba(255,213,79,0.10)', borderRadius: 12, paddingHorizontal: 10, marginHorizontal: -10, borderTopColor: 'transparent' },
@@ -1286,13 +1355,13 @@ const styles = StyleSheet.create({
   classificacaoLabel: { fontSize: 12, fontWeight: '800', color: '#FFF' },
   classificacaoDescricao: { fontSize: 11, color: '#A0A0B2', marginTop: 2, lineHeight: 15 },
   cupomHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
-  cupomHeaderText: { fontSize: 11, fontWeight: '800', color: '#FFD54F', textTransform: 'uppercase', letterSpacing: 0.5 },
+  cupomHeaderText: { fontSize: 11, fontWeight: '800', color: '#34D399', textTransform: 'uppercase', letterSpacing: 0.5 },
   cupomTitulo: { fontSize: 14, fontWeight: '800', color: '#FFF', marginBottom: 4 },
   cupomDescricao: { fontSize: 12, color: '#A0A0B2', lineHeight: 17, marginBottom: 10 },
   cupomBtn: { backgroundColor: '#7E57C2', marginBottom: 0 },
   codigoBox: { backgroundColor: '#0B0B0E', borderRadius: 12, borderWidth: 1, borderColor: '#232230', padding: 14, alignItems: 'center', marginTop: 4 },
   codigoLabel: { fontSize: 11, color: '#A0A0B2', marginBottom: 6 },
-  codigoTexto: { fontSize: 22, fontWeight: '900', color: '#FFD54F', letterSpacing: 4 },
+  codigoTexto: { fontSize: 22, fontWeight: '900', color: '#34D399', letterSpacing: 4 },
   codigoValidade: { fontSize: 11, color: '#A0A0B2', marginTop: 6, textAlign: 'center' },
   confirmadoTitulo: { fontSize: 18, fontWeight: '800', color: '#4CAF7D', marginTop: 6, marginBottom: 2 },
   cupomExpiradoTexto: { fontSize: 12, color: '#A0A0B2', marginTop: 4 },
@@ -1309,7 +1378,7 @@ const styles = StyleSheet.create({
   cardSecao: { marginTop: 14, backgroundColor: '#161520', borderWidth: 1, borderColor: '#232230', borderRadius: 18, padding: 16 },
   secaoHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   secaoIcone: { width: 26, height: 26, borderRadius: 13, backgroundColor: '#E1306C1A', alignItems: 'center', justifyContent: 'center' },
-  secaoTitulo: { fontSize: 15, fontWeight: '800', color: '#FFF' },
+  secaoTitulo: { ...TITULO_SECAO },
   secaoContagem: { fontSize: 11, fontWeight: '800', color: '#A0A0B2', backgroundColor: '#0B0B0E', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, overflow: 'hidden' },
   sobreTexto: { fontSize: 13, color: '#D0D0E0', lineHeight: 20 },
   verMais: { marginTop: 8, fontSize: 12, fontWeight: '800', color: '#E1306C' },
@@ -1357,7 +1426,7 @@ const styles = StyleSheet.create({
   zoomImagem: { width: '100%', height: '85%' },
   zoomFechar: { position: 'absolute', top: 54, right: 20, width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
 
-  sectionTitle: { fontSize: 15, fontWeight: '800', color: '#FFF' },
+  sectionTitle: { ...TITULO_SECAO },
   reviewCta: { borderWidth: 1, borderColor: '#E1306C66', backgroundColor: '#E1306C14', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 },
   reviewCtaTxt: { fontSize: 12, fontWeight: '800', color: '#E1306C' },
 

@@ -146,8 +146,7 @@ export default function Reservas() {
     ]);
 
   return (
-    <TelaParceiro titulo="Reservas" subtitulo="O cliente escolhe a área, o dia e o horário. Vocês confirmam.">
-      <TouchableOpacity style={r.voltar} onPress={() => router.back()}><Feather name="chevron-left" size={16} color={CP.dim} /><Text style={r.voltarTxt}>Voltar</Text></TouchableOpacity>
+    <TelaParceiro titulo="Reservas" subtitulo="O cliente escolhe a área, o dia e o horário. Vocês confirmam." aoVoltar={() => router.back()}>
 
       {!pago ? (
         <Text style={r.aviso}>Reservas estão incluídas nos planos pagos. Fale com a equipe em Meu espaço › Seu plano.</Text>

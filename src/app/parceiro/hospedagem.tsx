@@ -52,8 +52,7 @@ export default function Hospedagem() {
   };
 
   return (
-    <TelaParceiro titulo="Cadastro da hospedagem" subtitulo="Quanto mais completo, mais destaque no app.">
-      <TouchableOpacity style={a.voltar} onPress={() => router.back()} accessibilityRole="button"><Feather name="chevron-left" size={16} color={CP.dim} /><Text style={a.voltarTxt}>Voltar</Text></TouchableOpacity>
+    <TelaParceiro titulo="Cadastro da hospedagem" subtitulo="Quanto mais completo, mais destaque no app." aoVoltar={() => router.back()}>
       {!!erro && <Text style={a.erro}>{erro}</Text>}
       {!d ? (
         !erro && <ActivityIndicator color={CP.rosa} style={{ marginTop: ESP.xl }} />

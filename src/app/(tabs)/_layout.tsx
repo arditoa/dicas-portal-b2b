@@ -1,5 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { Platform } from 'react-native';
 import { useI18n } from '../../lib/i18n';
 
 // Nova versão (Home estilo Uber): Início · Mapa · Eventos · Trip · Conta.
@@ -16,6 +17,8 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: '#0B0B0E',
           borderTopColor: '#232230',
+          // No navegador do iPhone a barra do Safari cobre o pé da página: mais altura e respiro embaixo para os nomes das abas não cortarem
+          ...(Platform.OS === 'web' ? { height: 68, paddingTop: 6, paddingBottom: 14 } : null),
         },
         tabBarLabelStyle: { fontSize: 11, fontWeight: '700' },
       }}

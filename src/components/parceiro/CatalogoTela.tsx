@@ -47,8 +47,7 @@ export default function CatalogoTela({ tipo, liberado, motivo }: { tipo: Tipo; l
   };
 
   return (
-    <TelaParceiro titulo={t.titulo} subtitulo={t.sub} atualizando={false} aoAtualizar={() => void carregar()}>
-      <TouchableOpacity style={a.voltar} onPress={() => router.back()} accessibilityRole="button"><Feather name="chevron-left" size={16} color={CP.dim} /><Text style={a.voltarTxt}>Voltar</Text></TouchableOpacity>
+    <TelaParceiro titulo={t.titulo} subtitulo={t.sub} atualizando={false} aoAtualizar={() => void carregar()} aoVoltar={() => router.back()}>
       <TouchableOpacity style={a.novo} onPress={() => setEditando({ ...ITEM_VAZIO })} accessibilityRole="button">
         <Feather name="plus" size={20} color="#FFF" /><Text style={a.novoTxt}>{t.novo}</Text>
       </TouchableOpacity>

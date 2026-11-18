@@ -17,8 +17,10 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Linking, Platform, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
+import SeloMarca from '../../components/SeloMarca';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import ComprarIngressos from '../../components/ComprarIngressos';
 import { EuVouCompleto } from '../../components/EuVou';
 import FundoFesta, { coresDaFesta } from '../../components/FundoFesta';
 import { registrarCliqueIngresso, registrarCliqueRota, registrarVisualizacaoFesta } from '../../lib/analytics';
@@ -28,6 +30,7 @@ import { estaFixadoEm, deveExibirGlow } from '../../lib/destaque';
 import { supabase } from '../../lib/supabase';
 import { GRUPOS_EVENTO, LEGADO_EVENTO, rotuloTag, slugTag } from '../../lib/taxonomia';
 import { useRastrearTela } from '../../lib/usoTelas';
+import { TITULO_SECAO } from '../../constants/theme';
 
 const C = {
   bg: '#0B0B0E',
@@ -44,8 +47,8 @@ const C = {
 };
 
 const STATUS_LABEL: Record<string, { texto: string; cor: string; icone: string }> = {
-  solicitada: { texto: 'Nome enviado — aguardando aprovação do organizador', cor: C.gold, icone: 'clock' },
-  aprovada: { texto: 'Aprovado! Seu nome está confirmado na lista', cor: C.green, icone: 'check-circle' },
+  solicitada: { texto: 'Nome enviado — esta lista confere cada nome antes', cor: C.gold, icone: 'clock' },
+  aprovada: { texto: 'Você está na lista! Mostre o QR code na porta', cor: C.green, icone: 'check-circle' },
   rejeitada: { texto: 'Solicitação não aprovada', cor: C.pink, icone: 'x-circle' },
   cancelada: { texto: 'Solicitação cancelada', cor: C.dim, icone: 'slash' },
   check_in: { texto: 'Entrada confirmada na portaria. Boa festa!', cor: C.green, icone: 'check-circle' },
@@ -150,10 +153,15 @@ export default function EventoScreen() {
     try {
       // `tags` vem da migration 036; sem ela, segue com os campos antigos.
       // Etapa 3 — visual, ingresso e "exigir foto" vêm da 099; sem ela, cai para os campos de antes.
-      let r: any = await supabase.from('eventos').select(`${CAMPOS}, tags, ${CAMPOS_VISUAL}`).eq('id', id).maybeSingle();
+      let r: any = await supabase.from('eventos').select(`${CAMPOS}, tags, ${CAMPOS_VISUAL}, onde_nome, onde_endereco, onde_bairro, entrada_centavos`).eq('id', id).maybeSingle();
+      if (r.error) r = await supabase.from('eventos').select(`${CAMPOS}, tags, ${CAMPOS_VISUAL}`).eq('id', id).maybeSingle();
       if (r.error) r = await supabase.from('eventos').select(`${CAMPOS}, tags`).eq('id', id).maybeSingle();
       if (r.error) r = await supabase.from('eventos').select(CAMPOS).eq('id', id).maybeSingle();
-      const dado = (r.data as Evento) || null;
+      const bruto = (r.data as any) || null;
+      // Festa em outro lugar (151): mostra o lugar da festa; o mapa usa o endereço dele.
+      const dado = (bruto && bruto.onde_nome
+        ? { ...bruto, locais: { ...(bruto.locais || {}), nome: bruto.onde_nome, endereco: bruto.onde_endereco || null, bairro: bruto.onde_bairro || null, bairro_exibicao: null, lat: null, lng: null } }
+        : bruto) as Evento | null;
       setEv(dado);
       if (dado) registrarVisualizacaoFesta(dado.local_id, dado.id);
       const listaAtiva = dado?.listas_vip?.find((l) => l.ativa);
@@ -252,7 +260,7 @@ export default function EventoScreen() {
     if (!session || !user) return exigirLogin();
     setEnviando(true);
     try {
-      const { error } = await supabase.from('listas_vip_solicitacoes').insert({ lista_vip_id: lista.id, acompanhantes });
+      const { data: novo, error } = await supabase.from('listas_vip_solicitacoes').insert({ lista_vip_id: lista.id, acompanhantes }).select('status').maybeSingle();
       if (error && (error.hint === 'FOTO_CONFERENCIA' || /foto para confer/i.test(error.message || ''))) {
         setTemFotoConferencia(false);
         return Alert.alert('Falta a sua foto', 'Esta lista pede uma foto para conferência na portaria. Envie a sua foto e tente de novo.', [
@@ -260,9 +268,17 @@ export default function EventoScreen() {
           { text: 'Enviar foto', onPress: () => void enviarFotoConferencia() },
         ]);
       }
+      if (error && (error.hint === 'LISTA_CHEIA' || /cheia/i.test(error.message || ''))) {
+        return Alert.alert('Lista cheia', 'As vagas da lista VIP acabaram.');
+      }
       if (error && error.code !== '23505') throw error;
-      Alert.alert('Nome enviado!', `Seu nome foi para a lista VIP de ${ev?.titulo}. Leve um documento com foto na portaria.`);
       await carregar();
+      // Rodada 148 — o nome entra direto e o QR já fica pronto (também em Conta › Meus próximos programas).
+      if ((novo as { status?: string } | null)?.status === 'solicitada') {
+        Alert.alert('Nome enviado!', `Esta lista confere cada nome antes. Quando a casa aprovar, o QR code aparece aqui e em Conta › Meus próximos programas.`);
+      } else {
+        Alert.alert('Você está na lista!', `Seu QR code para ${ev?.titulo} já está pronto aqui e em Conta › Meus próximos programas. É só mostrar na porta.`);
+      }
     } catch (err: any) {
       Alert.alert('Erro', err?.message || 'Não foi possível enviar seu nome. Tente novamente.');
     } finally {
@@ -387,6 +403,7 @@ export default function EventoScreen() {
           </View>
 
           <Text style={styles.titulo}>{ev.titulo}</Text>
+          <SeloMarca tipo="festa" id={ev.id} />
 
           {/* Etapa 3 — chamada e destaques da festa (com as cores e a textura escolhidas) */}
           {temVisual && (!!ev.chamada?.trim() || destaquesFesta.length > 0) && (
@@ -446,7 +463,10 @@ export default function EventoScreen() {
             <EuVouCompleto alvo={{ evento: ev.id }} />
           )}
 
-          {/* Etapa 3 — ingresso */}
+          {/* Migração 131 — ingressos vendidos no app (Mercado Pago). Some sozinho se a festa não vende pelo app. */}
+          {new Date(ev.data_fim || new Date(ev.data_inicio).getTime() + 8 * 3600e3).getTime() > Date.now() && <ComprarIngressos eventoId={ev.id} />}
+
+          {/* Etapa 3 — ingresso (link externo, ex.: Sympla) */}
           {linkIngresso && (
             <TouchableOpacity style={[styles.btnPrincipal, { marginTop: 6, marginBottom: 10 }]} onPress={comprarIngresso} accessibilityRole="button">
               <Feather name="credit-card" size={16} color="#FFF" />
@@ -593,7 +613,7 @@ const styles = StyleSheet.create({
   btnPrincipalTxt: { color: '#FFF', fontSize: 14, fontWeight: '800' },
   btnSecundario: { height: 46, borderRadius: 14, borderWidth: 1, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },
   btnSecundarioTxt: { color: C.dim, fontSize: 13, fontWeight: '700' },
-  secao: { color: C.text, fontSize: 16, fontWeight: '800', marginBottom: 8 },
+  secao: { ...TITULO_SECAO, marginBottom: 8 },
   secaoPeq: { color: C.dim, fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
   descricao: { color: '#C8C8D6', fontSize: 13, lineHeight: 20 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

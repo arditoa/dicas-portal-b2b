@@ -101,8 +101,7 @@ export default function Cupons() {
       subtitulo="Aparecem na página da casa e na faixa de cupons da categoria."
       atualizando={false}
       aoAtualizar={() => void carregar()}
-    >
-      <TouchableOpacity style={a.voltar} onPress={() => router.back()} accessibilityRole="button"><Feather name="chevron-left" size={16} color={CP.dim} /><Text style={a.voltarTxt}>Voltar</Text></TouchableOpacity>
+     aoVoltar={() => router.back()}>
 
       {/* Plano: cadeado no Gratuito; nos pagos, o limite e quando libera o próximo */}
       {gratuito ? (

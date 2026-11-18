@@ -3,14 +3,14 @@
 // identidade de gênero (só de quem autorizou), check-ins, Lista VIP, cupons usados e "Eu vou".
 // Premium e Fundador (plano efetivo) com a permissão 'resultados'; nos demais planos, cadeado e "Falar com a equipe".
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Chips } from '../../components/parceiro/form';
 import { CP, ESP, RAIO, TelaParceiro, TituloSecao } from '../../components/parceiro/TelaParceiro';
 import { recursosDaCategoria, useModoParceiro } from '../../lib/modoParceiro';
 import { falarComEquipe, nivelDoPlano } from '../../lib/parceiroMenu';
-import { DIAS_CURTOS, diaBrasilia, Grupo, IDADES, Num, porcento, relatorio, Relatorio, texto, valorBarra } from '../../lib/parceiro/publico';
+import { Acao, ACOES, DIAS_CURTOS, diaBrasilia, Grupo, IDADES, Num, porcento, relatorio, Relatorio, texto, valorBarra } from '../../lib/parceiro/publico';
 import { supabase } from '../../lib/supabase';
 
 type Periodo = '30' | '90' | '365' | 'festa';
@@ -63,10 +63,21 @@ export default function SeuPublico() {
   const premium = !!localAtivo && nivelDoPlano(localAtivo.plano_comercial) === 'premium';
   const temFestas = !!localAtivo && recursosDaCategoria(localAtivo.categoria).eventos;
 
-  const [periodo, setPeriodo] = useState<Periodo>('90');
+  // 139 — vindo de Ingressos › "Ver o público desta festa" (?festa=<id>) já abre o relatório da festa
+  const { festa: festaParam } = useLocalSearchParams<{ festa?: string }>();
+  const [periodo, setPeriodo] = useState<Periodo>(festaParam ? 'festa' : '90');
   const [festas, setFestas] = useState<FestaPassada[]>([]);
-  const [festa, setFesta] = useState<string | null>(null);
+  const [festa, setFesta] = useState<string | null>(festaParam || null);
   const [rel, setRel] = useState<Relatorio | null>(null);
+  const [acao, setAcao] = useState<Acao | ''>('');
+  // 143 — comparação com as casas da mesma cidade (só por período)
+  type Perf = { pessoas: number; idade_pct: Record<string, number | null>; pico_hora: number | null; nota_seguranca: number | null };
+  const [comp, setComp] = useState<{ cidade_nome: string; casa: Perf | null; cidade: Perf | null } | null>(null);
+  useEffect(() => {
+    if (!liberado || !premium || periodo === 'festa' || !localId) { setComp(null); return; }
+    supabase.rpc('comparacao_com_cidade', { p_local: localId, p_de: diaBrasilia(-Number(periodo) + 1), p_ate: diaBrasilia() })
+      .then(({ data, error }) => setComp(error ? null : (data as any)), () => setComp(null));
+  }, [liberado, premium, periodo, localId]);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState('');
 
@@ -85,14 +96,14 @@ export default function SeuPublico() {
     setCarregando(true);
     setErro('');
     try {
-      setRel(await relatorio(localId, periodo === 'festa' ? { evento: festa! } : { de: diaBrasilia(-Number(periodo) + 1), ate: diaBrasilia() }));
+      setRel(await relatorio(localId, periodo === 'festa' ? { evento: festa! } : { de: diaBrasilia(-Number(periodo) + 1), ate: diaBrasilia() }, acao || null));
     } catch (e: any) {
       setRel(null);
       setErro(e?.message || 'Não deu para gerar o relatório.');
     } finally {
       setCarregando(false);
     }
-  }, [liberado, premium, periodo, festa, localId]);
+  }, [liberado, premium, periodo, festa, localId, acao]);
   useEffect(() => { void carregar(); }, [carregar]);
 
   const Voltar = (
@@ -135,7 +146,29 @@ export default function SeuPublico() {
     <TelaParceiro titulo="Seu público" subtitulo="Números somados e anônimos. Nunca nomes." atualizando={false} aoAtualizar={() => void carregar()}>
       {Voltar}
       <View style={{ marginTop: ESP.s }}>
-        <Chips preencher opcoes={opcoes} valor={periodo} aoMudar={(v) => setPeriodo(v as Periodo)} />
+        {/* 18/11 — visual mais profissional: período em controle segmentado e recorte em pílulas discretas. */}
+        <View style={a.seg}>
+          {opcoes.map((o) => {
+            const on = periodo === o.valor;
+            return (
+              <TouchableOpacity key={o.valor} style={[a.segItem, on && a.segOn]} onPress={() => setPeriodo(o.valor as Periodo)} accessibilityRole="button" accessibilityState={{ selected: on }}>
+                <Text style={[a.segTxt, on && a.segTxtOn]} numberOfLines={1}>{o.rotulo}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        {/* 139 — recorte por ação: o perfil de quem comprou ingresso, respondeu a enquete, reservou… */}
+        <Text style={a.rotRecorte}>RECORTE</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingRight: ESP.m }}>
+          {[{ valor: '', rotulo: 'Todo o público' }, ...ACOES].map((o) => {
+            const on = acao === o.valor;
+            return (
+              <TouchableOpacity key={o.valor || 'todos'} style={[a.filtro, on && a.filtroOn]} onPress={() => setAcao(o.valor as Acao | '')} accessibilityRole="button" accessibilityState={{ selected: on }}>
+                <Text style={[a.filtroTxt, on && a.filtroTxtOn]}>{o.rotulo}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
       {periodo === 'festa' && (
         <View style={{ marginTop: ESP.s }}>
@@ -155,9 +188,9 @@ export default function SeuPublico() {
         periodo === 'festa' ? <Text style={a.vazio}>Escolha uma festa.</Text> : null
       ) : !ok ? (
         <View style={a.insuf}>
-          <Feather name="shield" size={20} color={CP.dim} />
-          <Text style={a.insufTit}>Ainda não dá para mostrar</Text>
-          <Text style={a.insufTxt}>Para proteger cada cliente, o relatório só aparece com pelo menos {rel.regras?.minimo_pessoas ?? 30} pessoas no período (check-in, Lista VIP, cupom ou "Eu vou"). Tente um período maior.</Text>
+          <View style={a.insufIcone}><Feather name="bar-chart-2" size={18} color={CP.dim} /></View>
+          <Text style={a.insufTit}>Dados insuficientes neste período</Text>
+          <Text style={a.insufTxt}>O relatório é liberado a partir de {rel.regras?.minimo_pessoas ?? 30} pessoas no período (check-in, Lista VIP, cupom ou "Eu vou"), para garantir o anonimato dos clientes. Selecione um período maior ou outro recorte.</Text>
         </View>
       ) : (
         <>
@@ -186,11 +219,42 @@ export default function SeuPublico() {
           {rel.genero?.grupos?.length ? <Lista grupos={rel.genero.grupos} vazio="" /> : <Text style={a.vazio}>Ainda poucas pessoas autorizaram.</Text>}
           {!!rel.genero?.outros_ocultos && <Text style={a.nota}>Outras identidades com menos de 10 pessoas ficam de fora.</Text>}
 
+          {comp && (comp.casa || comp.cidade) && (
+            <>
+              <TituloSecao texto={`Comparado com ${comp.cidade_nome}`} info="Média das outras casas da cidade no mesmo período. Só aparece com 3 casas e 100 pessoas ou mais, para ninguém descobrir o público de outra casa." />
+              <View style={a.compCard}>
+                <View style={a.compLinha}><Text style={[a.compCol, { flex: 1.4 }]} /><Text style={a.compCab}>Sua casa</Text><Text style={a.compCab}>Cidade</Text></View>
+                {IDADES.map((f) => (
+                  <View key={f} style={a.compLinha}>
+                    <Text style={[a.compCol, { flex: 1.4 }]}>{f} anos</Text>
+                    <Text style={a.compVal}>{comp.casa?.idade_pct?.[f] != null ? `${comp.casa.idade_pct[f]}%` : '–'}</Text>
+                    <Text style={a.compVal}>{comp.cidade?.idade_pct?.[f] != null ? `${comp.cidade.idade_pct[f]}%` : '–'}</Text>
+                  </View>
+                ))}
+                <View style={a.compLinha}>
+                  <Text style={[a.compCol, { flex: 1.4 }]}>Pico de chegada</Text>
+                  <Text style={a.compVal}>{comp.casa?.pico_hora != null ? `${comp.casa.pico_hora}h` : '–'}</Text>
+                  <Text style={a.compVal}>{comp.cidade?.pico_hora != null ? `${comp.cidade.pico_hora}h` : '–'}</Text>
+                </View>
+                <View style={a.compLinha}>
+                  <Text style={[a.compCol, { flex: 1.4 }]}>Nota de segurança</Text>
+                  <Text style={a.compVal}>{comp.casa?.nota_seguranca ?? '–'}</Text>
+                  <Text style={a.compVal}>{comp.cidade?.nota_seguranca ?? '–'}</Text>
+                </View>
+                {!comp.cidade && <Text style={a.nota}>A média da cidade aparece quando houver pelo menos 3 casas e 100 pessoas no período.</Text>}
+              </View>
+            </>
+          )}
+
           <TituloSecao texto="Movimento" />
           <View style={a.grade}>
             {[
               ['Check-ins', t?.checkins], ['Pedidos na Lista VIP', t?.lista_pedidos], ['Aprovados na lista', t?.lista_aprovados],
               ['Entraram pela lista', t?.lista_entraram], ['Cupons usados', t?.cupons_usados], ['Marcaram "Eu vou"', t?.eu_vou],
+              // 139 — ingressos (por ingresso) e "Estou aqui agora" do Termômetro
+              ...(t?.ingressos_vendidos !== undefined ? [['Ingressos vendidos', t.ingressos_vendidos], ['Entraram com ingresso', t.ingressos_entraram]] : []),
+              ...(t?.estou_aqui !== undefined ? [['"Estou aqui agora"', t.estou_aqui]] : []),
+              ...(t?.enquetes_respondidas !== undefined ? [['Responderam enquete', t.enquetes_respondidas], ['Reservas', t.reservas], ['Vieram na reserva', t.reservas_vieram]] : []),
             ].map(([r, n]) => (
               <View key={r as string} style={a.gradeItem}><Text style={a.gradeN}>{texto(n as Num)}</Text><Text style={a.gradeR}>{r as string}</Text></View>
             ))}
@@ -206,6 +270,11 @@ export default function SeuPublico() {
 }
 
 const a = StyleSheet.create({
+  compCard: { backgroundColor: CP.card, borderWidth: 1, borderColor: CP.borda, borderRadius: RAIO.m, padding: ESP.m, gap: 8 },
+  compLinha: { flexDirection: 'row', alignItems: 'center' },
+  compCab: { flex: 1, color: CP.dim, fontSize: 11.5, fontWeight: '800', textAlign: 'right' },
+  compCol: { color: CP.texto, fontSize: 13 },
+  compVal: { flex: 1, color: CP.texto, fontSize: 13.5, fontWeight: '800', textAlign: 'right' },
   voltar: { flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: ESP.s, minHeight: 44, alignSelf: 'flex-start' },
   voltarTxt: { color: CP.dim, fontSize: 12, fontWeight: '700' },
   aviso: { color: CP.dim, fontSize: 13, lineHeight: 19, backgroundColor: CP.card, borderRadius: RAIO.m, padding: ESP.m, marginTop: ESP.l },
@@ -217,6 +286,17 @@ const a = StyleSheet.create({
   travaTxt: { color: CP.dim, fontSize: 13, lineHeight: 19 },
   travaBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: CP.rosa, borderRadius: RAIO.s, minHeight: 48, marginTop: ESP.s },
   travaBtnTxt: { color: '#FFF', fontSize: 14, fontWeight: '800' },
+  seg: { flexDirection: 'row', backgroundColor: CP.card, borderWidth: 1, borderColor: CP.borda, borderRadius: 12, padding: 3, marginTop: ESP.s },
+  segItem: { flex: 1, minHeight: 36, borderRadius: 9, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  segOn: { backgroundColor: '#2A2838' },
+  segTxt: { color: CP.dim, fontSize: 12.5, fontWeight: '700' },
+  segTxtOn: { color: CP.texto },
+  rotRecorte: { color: CP.fraco, fontSize: 10.5, fontWeight: '800', letterSpacing: 1, marginTop: ESP.m, marginBottom: 6 },
+  filtro: { borderWidth: 1, borderColor: CP.borda, borderRadius: 8, paddingHorizontal: 11, paddingVertical: 7 },
+  filtroOn: { backgroundColor: '#FFFFFF', borderColor: '#FFFFFF' },
+  filtroTxt: { color: CP.dim, fontSize: 12, fontWeight: '700' },
+  filtroTxtOn: { color: '#0B0B0E' },
+  insufIcone: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#22202E', alignItems: 'center', justifyContent: 'center' },
   insuf: { alignItems: 'center', gap: ESP.s, backgroundColor: CP.card, borderColor: CP.borda, borderWidth: 1, borderRadius: RAIO.m, padding: ESP.l, marginTop: ESP.l },
   insufTit: { color: CP.texto, fontSize: 15, fontWeight: '800' },
   insufTxt: { color: CP.dim, fontSize: 13, lineHeight: 19, textAlign: 'center' },

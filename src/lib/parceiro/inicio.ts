@@ -130,8 +130,8 @@ export function montarLembretes(local: LocalDoParceiro, d: Diagnostico, agora = 
       l.push({ id: 'festa-nova', nivel: 'semana', titulo: 'Cadastre a sua próxima festa', texto: 'Festa aprovada aparece na aba Eventos do app e já pode ter Lista VIP. Leva poucos minutos.', rota: '/parceiro/festa-editar', acao: 'Cadastrar festa' });
     } else if (d.festas.destacadas === 0) {
       l.push({
-        id: 'festa-destaque', nivel: 'dica', titulo: 'Coloque sua festa em "Festas em destaque"',
-        texto: premium ? 'Seu plano inclui 4 destaques por mês no topo de Eventos (festas e agenda).' : 'O destaque coloca a festa no topo da aba Eventos. Fale com a equipe para saber como.',
+        id: 'festa-destaque', nivel: 'dica', titulo: 'Coloque sua festa em "Em destaque nessa semana"',
+        texto: premium ? 'Seu plano inclui 4 destaques por mês da agenda e 1 evento em destaque por mês (7 dias).' : 'O destaque coloca a festa no topo da aba Eventos. Fale com a equipe para saber como.',
         rota: premium && local.papel === 'dono' ? '/parceiro/festas' : null, acao: premium && local.papel === 'dono' ? 'Destacar com o plano' : 'Falar com a equipe',
       });
     }
@@ -183,7 +183,7 @@ export function montarPrimeirosPassos(local: LocalDoParceiro, d: Diagnostico, co
   if (dono && r.pedePagina) p.push({ id: 'perfil', titulo: 'Completar a página do espaço', texto: `Foto, descrição${r.pedeHorario ? ', horário' : ''} e Instagram.`, feito: d.perfilFaltando.length === 0, rota: '/parceiro/pagina', acao: 'Abrir minha página' });
   if (ehFesta && d.festas) {
     p.push({ id: 'festa', titulo: 'Cadastrar a sua festa', texto: 'Aparece na aba Eventos do app e pode ter Lista VIP.', feito: d.festas.total > 0, rota: '/parceiro/festa-editar', acao: 'Cadastrar festa' });
-    p.push({ id: 'festa-destaque', titulo: 'Colocar uma festa em destaque', texto: 'Faixa "Festas em destaque" no topo de Eventos.', feito: d.festas.destacadas > 0, rota: '/parceiro/festas', acao: 'Ver como destacar' });
+    p.push({ id: 'festa-destaque', titulo: 'Colocar uma festa em destaque', texto: 'Faixa "Em destaque nessa semana" no topo de Eventos.', feito: d.festas.destacadas > 0, rota: '/parceiro/festas', acao: 'Ver como destacar' });
   }
   if (r.agenda && d.agendaEstaSemana !== null) p.push({ id: 'agenda', titulo: 'Subir a agenda da semana', texto: 'Aparece em Eventos › Essa semana no app.', feito: d.agendaEstaSemana === true, rota: '/parceiro/agenda', acao: 'Montar agenda' });
   if (r.cupom && local.plano_comercial && d.cuponsTotal !== null) p.push({ id: 'cupom', titulo: r.cupom === 'desconto' ? 'Publicar o primeiro cupom de desconto' : 'Publicar o primeiro cupom', texto: 'Entra na faixa de cupons da sua categoria.', feito: d.cuponsTotal > 0, rota: '/parceiro/cupom-editar', acao: 'Criar cupom' });

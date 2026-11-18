@@ -19,7 +19,7 @@ import SubcategoriaBanners, { GrupoSub } from '../../components/SubcategoriaBann
 import VitrineCategoria, { LocalVitrine } from '../../components/VitrineCategoria';
 import { SubDef } from '../../lib/subcategorias';
 import { CATEGORIAS, CATEGORIA_REAL_LABEL, SELO_FESTA, SeloCategoria, seloDaCategoria } from '../../lib/categorias';
-import { carregarDestinos, Destino, DESTINOS_PADRAO } from '../../lib/destinos';
+import { buscarExtrasTurismo, carregarDestinos, Destino, DESTINOS_PADRAO, ehCasaDeViagem, estaAberto } from '../../lib/destinos';
 import { useAuth } from '../../lib/authContext';
 import { registrarAviso } from '../../lib/avisos';
 import { useI18n } from '../../lib/i18n';
@@ -48,7 +48,7 @@ const CORES_PILULA = ['#9B3CFF', '#E1306C', '#0EA5E9', '#10B981', '#F2692A', '#7
 
 const TILES: { id: Aba; titulo: string; sub: string; icone: string; cor: string; degrade: [string, string] }[] = [
   { id: 'onde_ficar', titulo: 'Onde ficar', sub: 'Hotéis, pousadas e regiões LGBT+ friendly', icone: 'home', cor: C.lilas, degrade: ['#7E57C2', '#3B82F6'] },
-  { id: 'praias_passeios', titulo: 'Passeios', sub: 'Atrações, trilhas e roteiros', icone: 'compass', cor: '#FFD54F', degrade: ['#F2A900', '#E8590C'] },
+  { id: 'praias_passeios', titulo: 'O que fazer', sub: 'Atrações, trilhas e roteiros', icone: 'compass', cor: '#FFD54F', degrade: ['#F2A900', '#E8590C'] },
   { id: 'experiencias', titulo: 'Experiências', sub: 'Bares, festas, saunas, arte e cultura', icone: 'heart', cor: C.pink, degrade: ['#E1306C', '#9B3CFF'] },
   { id: 'eventos_paradas', titulo: 'Eventos', sub: 'Datas, festas e Parada LGBT+', icone: 'calendar', cor: '#4FC3F7', degrade: ['#0EA5E9', '#4338CA'] },
 ];
@@ -114,7 +114,7 @@ function rankPlano(l: any): number {
 
 const SECOES_ICONE: SubDef[] = [
   { chave: 'onde_ficar', rotulo: 'Onde ficar', curto: 'Onde ficar', icone: 'home', palavras: [] },
-  { chave: 'praias_passeios', rotulo: 'Passeios', curto: 'Passeios', icone: 'compass', palavras: [] },
+  // Nov/2026 (18/11): sem o ícone "Passeios" — quem entrou por Roteiros já vê o roteiro da cidade direto na página.
   { chave: 'experiencias', rotulo: 'Experiências', curto: 'Experiências', icone: 'heart', palavras: [] },
   { chave: 'eventos_paradas', rotulo: 'Eventos', curto: 'Eventos', icone: 'calendar', palavras: [] },
 ];
@@ -159,7 +159,7 @@ export default function DestinoScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
 
   const [destino, setDestino] = useState<Destino | null>(DESTINOS_PADRAO.find((d) => d.slug === slug) || null);
-  const [aba, setAba] = useState<Aba | null>(null);
+  const [aba, setAba] = useState<Aba | null>(null); // 18/11: sem a lista "O que fazer"; a página mostra roteiros e melhor época
   const [filtro, setFiltro] = useState<string | null>(null);
   const [tema, setTema] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
@@ -278,6 +278,10 @@ export default function DestinoScreen() {
     return { onde_ficar: ondeFicar, praias_passeios: porRank(passeios), experiencias: porRank(experiencias), eventos_paradas: evs };
   }, [locais, pacotes, eventos]);
 
+  // Banner rotativo e cupons do destino: só casas de viagem.
+  const [extrasTurismo, setExtrasTurismo] = useState<Set<string>>(new Set());
+  useEffect(() => { void buscarExtrasTurismo().then(setExtrasTurismo); }, []);
+  const locaisViagem = useMemo(() => locais.filter((l: any) => ehCasaDeViagem(l, extrasTurismo)), [locais, extrasTurismo]);
   if (!destino) {
     return (
       <View style={[styles.container, { paddingTop: insets.top, alignItems: 'center', justifyContent: 'center' }]}>
@@ -289,7 +293,8 @@ export default function DestinoScreen() {
     );
   }
 
-  const idsLocaisCidade = locais.map((l) => l.id as string);
+  // Banner rotativo e cupons do destino: só casas de viagem (Turismo, Turismo como extra, hospedagens).
+  const idsLocaisCidade = locaisViagem.map((l: any) => l.id as string);
   const temasDoDestino = TEMAS.filter((tm) => destino.tags.includes(tm.chave));
   // Ícones do destino: só as 4 seções (Onde ficar, Passeios, Experiências, Eventos).
   const gruposTema: GrupoSub[] = [
@@ -331,19 +336,26 @@ export default function DestinoScreen() {
             </View>
           )}
           <View style={styles.heroTexto}>
-            <View style={styles.tagTrip}><Text style={styles.tagTripTxt}>DICAS TRIP · {destino.uf}</Text></View>
+            <View style={styles.tagTrip}><Text style={styles.tagTripTxt}>{destino.evento && destino.selo ? `${destino.selo} · ` : ''}DICAS TRIP{destino.uf ? ` · ${destino.uf}` : ''}{estaAberto(destino) ? '' : ' · EM BREVE'}</Text></View>
             <Text style={styles.heroTitulo}>{destino.cidade}</Text>
             <Text style={styles.heroVibe}>{destino.vibe[idioma] || destino.vibe.pt}</Text>
           </View>
           {!!destino.foto_url && !!destino.foto_credito && <Text style={styles.credito}>{destino.foto_credito}</Text>}
         </View>
+        {/* 18/11: destino "em breve" também abre (o banner abaixo da foto já pode ser vendido); o público pede aviso. */}
+        {!estaAberto(destino) && (
+          <TouchableOpacity style={styles.aviseMe} onPress={() => registrarAviso({ userId: user?.id, alvo: `destino-${destino.slug}`, alvoLabel: destino.cidade, t, irParaLogin: () => router.push('/(tabs)/profile') })} accessibilityRole="button">
+            <Feather name="bell" size={15} color="#FFF" />
+            <Text style={styles.aviseMeTxt}>Avise-me quando {destino.cidade} abrir</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Vitrine do destino (mesma lógica das categorias): patrocinador master, banner Premium rotativo (até 12 vagas) e temas em ícones. */}
         <View style={{ paddingHorizontal: 16, marginTop: 14 }}>
           <VitrineCategoria
             slug={`destino-${destino.slug}`}
             titulo={destino.cidade}
-            locais={locais as LocalVitrine[]}
+            locais={locaisViagem as LocalVitrine[]}
             idsLocaisOfertas={idsLocaisCidade}
             tituloLista={null}
             aposOfertas={
@@ -459,17 +471,13 @@ export default function DestinoScreen() {
         {/* Rodada 69 — Experiências e roteiros da cidade */}
         {roteirosCidade.length > 0 && (
           <>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingRight: 16 }}>
-              <Text style={styles.secao}>Roteiros e experiências</Text>
-              <TouchableOpacity onPress={() => router.push({ pathname: '/roteiros' as any, params: { destino: destino.cidade } })}>
-                <Text style={styles.link}>Ver todos</Text>
-              </TouchableOpacity>
-            </View>
+            {/* 18/11: sem "Ver todos". A equipe edita os roteiros no Modo equipe › Vitrine › Dicas Trip › cidade › Roteiros. */}
+            <View style={{ height: 14 }} />
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingHorizontal: 16 }}>
               {roteirosCidade.map((rt) => (
                 <TouchableOpacity key={rt.id} style={styles.roteiroCard} onPress={() => router.push(`/roteiro/${rt.slug}` as any)} activeOpacity={0.85}>
-                  {rt.foto_url ? (
-                    <Image source={{ uri: rt.foto_url }} style={styles.roteiroFoto} />
+                  {rt.foto_url || destino.foto_url ? (
+                    <Image source={{ uri: (rt.foto_url || destino.foto_url) as string }} style={styles.roteiroFoto} />
                   ) : (
                     <View style={[styles.roteiroFoto, { alignItems: 'center', justifyContent: 'center', backgroundColor: '#21173A' }]}>
                       <Feather name="map" size={22} color={C.pink} />
@@ -525,6 +533,8 @@ export default function DestinoScreen() {
 }
 
 const styles = StyleSheet.create({
+  aviseMe: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginHorizontal: 16, marginTop: 12, paddingVertical: 12, borderRadius: 14, backgroundColor: '#7E57C2' },
+  aviseMeTxt: { color: '#FFF', fontSize: 14, fontWeight: '800' },
   container: { flex: 1, backgroundColor: C.bg },
   hero: { height: 240, justifyContent: 'flex-end', overflow: 'hidden', marginHorizontal: 12, marginTop: 8, borderRadius: 20 },
   voltar: { position: 'absolute', top: 10, left: 10, width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' },

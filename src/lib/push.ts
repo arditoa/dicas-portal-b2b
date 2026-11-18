@@ -6,13 +6,14 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { supabase } from './supabase';
 
-export type TipoPush = 'festas' | 'cupons' | 'lembretes' | 'novidades';
+// Rodada 148 — 'marcas': ofertas de marcas parceiras. Opt-in separado (migração 117); nunca ligado pelo "ativar todos".
+export type TipoPush = 'festas' | 'cupons' | 'lembretes' | 'novidades' | 'marcas';
 export type PrefsPush = Record<TipoPush, boolean>;
-export const PREFS_VAZIAS: PrefsPush = { festas: false, cupons: false, lembretes: false, novidades: false };
+export const PREFS_VAZIAS: PrefsPush = { festas: false, cupons: false, lembretes: false, novidades: false, marcas: false };
 
 // Telas que o toque numa notificação pode abrir (mesma regra da função de envio).
 // minhas-reservas: aviso da reserva confirmada/recusada (Edge Function avisar-reserva).
-const ROTA_OK = /^\/(evento\/[\w-]+|business\/[\w-]+|coupons|roteiro\/[\w-]+|roteiros|plans|minhas-reservas|\(tabs\)(\/\w+)?)?$/;
+const ROTA_OK = /^\/(evento\/[\w-]+|business\/[\w-]+|marca\/[\w-]+|category\/[\w-]+|secao\/[\w-]+|coupons|ingressos|seguranca|termometro|servicos|volta\/[\w-]+|roteiro\/[\w-]+|roteiros|minhas-reservas|parceiro(\/[\w-]+)*|adm(\/[\w-]+)*|\(tabs\)(\/\w+)?)?$/;
 export function rotaSegura(rota: unknown): string | null {
   return typeof rota === 'string' && ROTA_OK.test(rota) ? rota : null;
 }
@@ -31,24 +32,32 @@ export function configurarNotificacoes() {
 }
 
 export async function lerPreferencias(userId: string): Promise<PrefsPush> {
-  const { data } = await supabase
+  let { data, error } = await supabase
     .from('push_preferencias')
-    .select('festas,cupons,lembretes,novidades')
+    .select('festas,cupons,lembretes,novidades,marcas')
     .eq('user_id', userId)
     .maybeSingle();
-  return { ...PREFS_VAZIAS, ...(data ?? {}) };
+  // Sem a migração 117 a coluna "marcas" não existe: lê o resto normalmente.
+  if (error) ({ data } = await supabase.from('push_preferencias').select('festas,cupons,lembretes,novidades').eq('user_id', userId).maybeSingle());
+  return { ...PREFS_VAZIAS, ...((data as Partial<PrefsPush> | null) ?? {}) };
 }
 
 export async function salvarPreferencias(userId: string, prefs: PrefsPush): Promise<boolean> {
-  const { error } = await supabase.from('push_preferencias').upsert(
-    {
-      user_id: userId,
-      ...prefs,
-      consentido_em: Object.values(prefs).some(Boolean) ? new Date().toISOString() : null,
-      atualizado_em: new Date().toISOString(),
-    },
-    { onConflict: 'user_id' }
-  );
+  const agora = new Date().toISOString();
+  const linha: Record<string, unknown> = {
+    user_id: userId,
+    ...prefs,
+    marcas_em: prefs.marcas ? agora : null,
+    consentido_em: Object.values(prefs).some(Boolean) ? agora : null,
+    atualizado_em: agora,
+  };
+  let { error } = await supabase.from('push_preferencias').upsert(linha, { onConflict: 'user_id' });
+  if (error && /marcas/.test(error.message || '')) {
+    // Sem a migração 117: salva só os outros tipos.
+    delete linha.marcas;
+    delete linha.marcas_em;
+    ({ error } = await supabase.from('push_preferencias').upsert(linha, { onConflict: 'user_id' }));
+  }
   return !error;
 }
 
@@ -83,11 +92,12 @@ export async function ativarPushNesteAparelho(): Promise<ResultadoAtivar> {
   }
 }
 
-/** Um toque: pede a permissão e liga os 4 tipos (ação explícita da pessoa = consentimento). */
-export async function ativarTodosAvisos(userId: string): Promise<ResultadoAtivar> {
+/** Um toque: pede a permissão e liga os 4 tipos do app (ação explícita da pessoa = consentimento).
+ *  Ofertas de marcas parceiras ficam como estavam: é outra autorização. */
+export async function ativarTodosAvisos(userId: string, marcas = false): Promise<ResultadoAtivar> {
   const r = await ativarPushNesteAparelho();
   if (r !== 'ok') return r;
-  const ok = await salvarPreferencias(userId, { festas: true, cupons: true, lembretes: true, novidades: true });
+  const ok = await salvarPreferencias(userId, { festas: true, cupons: true, lembretes: true, novidades: true, marcas });
   return ok ? 'ok' : 'indisponivel';
 }
 

@@ -12,6 +12,7 @@ import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'rea
 
 import { useI18n } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
+import { TITULO_SECAO } from '../constants/theme';
 
 type Aba = 'inbox' | 'acoes';
 
@@ -211,7 +212,7 @@ export default function ContaAtividade({ userId, abaInicial }: { userId: string 
 
 const styles = StyleSheet.create({
   bloco: { marginBottom: 20 },
-  secao: { fontSize: 11, fontWeight: '800', color: '#8E8BA3', letterSpacing: 1.2, marginBottom: 8, marginLeft: 4 },
+  secao: { ...TITULO_SECAO, marginBottom: 8, marginLeft: 4 },
   abas: { flexDirection: 'row', backgroundColor: '#161520', borderColor: '#232230', borderWidth: 1, borderRadius: 12, padding: 3, gap: 3, marginBottom: 4 },
   aba: { flex: 1, height: 32, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   abaAtiva: { backgroundColor: '#2A2938' },

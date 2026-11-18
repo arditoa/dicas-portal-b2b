@@ -56,6 +56,7 @@ export type Pagina = {
   foto_capa_url: string | null; logo_url: string | null; lat: number | null; lng: number | null;
   publico_tags: string[]; classificacao_lgbt: string | null; horario_funcionamento: Horario; galeria_fotos: string[]; video_url: string;
   status: string; plano_destaque: string | null; plano_comercial: string | null; plano_comercial_status: string | null;
+  acolhimento?: string[]; // 142 — ausente se a migração ainda não rodou
 };
 const CAMPOS = 'id, nome, categoria, subcategoria, descricao, bairro, bairro_exibicao, cidade, endereco, atendimento_tipo, especialidade, link_loja_online, lat, lng, instagram, contato_nome, contato_email, contato_telefone, foto_capa_url, logo_url, publico_tags, classificacao_lgbt, plano_comercial, plano_comercial_status, status, plano_destaque, horario_funcionamento, galeria_fotos, video_url';
 
@@ -68,7 +69,9 @@ export function traduzirErro(e: { message?: string } | null | undefined): string
 }
 
 export async function obterPagina(localId: string): Promise<Pagina> {
-  const { data, error } = await supabase.from('locais').select(CAMPOS).eq('id', localId).maybeSingle();
+  // 142: tenta com acolhimento; se a coluna ainda não existir, carrega sem ela
+  let { data, error } = await supabase.from('locais').select(CAMPOS + ', acolhimento').eq('id', localId).maybeSingle();
+  if (error) ({ data, error } = await supabase.from('locais').select(CAMPOS).eq('id', localId).maybeSingle());
   if (error || !data) throw new Error(traduzirErro(error) || 'Página não encontrada.');
   const d = data as any;
   const txt = (v: unknown) => (typeof v === 'string' ? v : '');
@@ -88,7 +91,8 @@ export function camposDaSecao(secao: Secao, p: Pagina): Record<string, unknown> 
   const t = (v: string) => v.trim() || null;
   switch (secao) {
     case 'fotos': return { foto_capa_url: p.foto_capa_url, logo_url: p.logo_url, galeria_fotos: p.galeria_fotos.slice(0, LIMITE_GALERIA), video_url: t(p.video_url) };
-    case 'sobre': return { nome: p.nome.trim(), descricao: t(p.descricao), classificacao_lgbt: p.classificacao_lgbt || null, publico_tags: p.publico_tags.length ? p.publico_tags : ['todos'] };
+    case 'sobre': return { nome: p.nome.trim(), descricao: t(p.descricao), classificacao_lgbt: p.classificacao_lgbt || null, publico_tags: p.publico_tags.length ? p.publico_tags : ['todos'],
+      ...(p.acolhimento ? { acolhimento: p.acolhimento } : {}) };
     case 'horarios': return { horario_funcionamento: limparHorario(p.horario_funcionamento) };
     case 'contato': return {
       instagram: t(p.instagram.replace(/^@/, '')), contato_nome: t(p.contato_nome), contato_email: t(p.contato_email), contato_telefone: t(p.contato_telefone),

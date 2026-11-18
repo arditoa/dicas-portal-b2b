@@ -25,6 +25,9 @@ import { abertoAgora, fechaAs } from '../../lib/horario';
 import { useI18n } from '../../lib/i18n';
 import { supabase } from '../../lib/supabase';
 import { useRastrearTela } from '../../lib/usoTelas';
+import { compararHierarquia, ComPlano } from '../../lib/hierarquia';
+import { carregarConfigExperiencias, ExperienciaDef, EXPERIENCIAS_PADRAO, tagsVisiveis } from '../../lib/experiencias';
+import { buscarMarcasAtivas, corDaMarca } from '../../lib/marcas';
 import { TIPOS_SERVICO, tipoDoServico } from '../../lib/servicosTipos';
 import BannersHome from '../../components/BannersHome';
 import VitrineCategoria from '../../components/VitrineCategoria';
@@ -48,6 +51,7 @@ const CHAVE_GOSTOS_HOJE = 'dicas_hoje_gostos_v1';
 const TIPO_FESTA = 'Festas e eventos';
 const TIPO_LUGAR = 'Lugares';
 const TIPO_AGENDA = 'Agenda dos bares';
+const TIPO_MARCA = 'Prove grátis';
 
 function eventoTemTag(ev: any, slug: string): boolean {
   if (ev.tags?.includes(slug)) return true;
@@ -62,8 +66,10 @@ function tagsDoGrupo(ev: any, grupo: string): string[] {
 type Tipo = 'servicos' | 'trip' | 'em-alta' | 'hoje' | 'semana' | 'experiencia';
 
 // Experiências mostradas, nesta ordem (pedido da Andrea, out/2026).
+// Rodada 148 — "Prove grátis" (Brindes e degustações): vem das ações de marca no ar, não de uma tag do local.
+const PROVE_GRATIS = { slug: 'prove_gratis', label: 'Prove grátis', icone: 'gift', cor: '#F2C94C' };
 const EXPERIENCIAS: { slug: string; icone: string; cor: string; degrade: [string, string] }[] = [
-  { slug: 'aniversario', icone: 'gift', cor: '#FFD54F', degrade: ['#F2A900', '#C2410C'] },
+  { slug: 'aniversario', icone: 'mci:balloon', cor: '#C084FC', degrade: ['#F2A900', '#C2410C'] },
   { slug: 'dates', icone: 'heart', cor: '#E1306C', degrade: ['#F0436F', '#8E24AA'] },
   { slug: 'dancar', icone: 'music', cor: '#FFB74D', degrade: ['#FF8A3D', '#E1306C'] },
   { slug: 'musica_ao_vivo', icone: 'mic', cor: '#4FC3F7', degrade: ['#0EA5E9', '#4338CA'] },
@@ -78,7 +84,7 @@ const ICONES_HOJE = [
   { id: 'drag_show', label: 'Drag show', icone: 'star', cor: '#B39DDB' },
   { id: 'karaoke', label: 'Karaokê', icone: 'radio', cor: '#4CAF7D' },
   { id: 'dates', label: 'Date', icone: 'heart', cor: '#E1306C' },
-  { id: 'aniversario', label: 'Aniversário', icone: 'gift', cor: '#FFD54F' },
+  { id: 'aniversario', label: 'Aniversário', icone: 'gift', cor: '#C084FC' },
   { id: 'conhecer', label: 'Conhecer gente', icone: 'users', cor: '#F472B6' },
   { id: 'arlivre', label: 'Ao ar livre', icone: 'sun', cor: '#FDE047' },
 ];
@@ -163,6 +169,7 @@ function SecaoPadrao() {
   const { tipo: tipoParam } = useLocalSearchParams<{ tipo: string }>();
   const tipo: Tipo = (['servicos', 'trip', 'em-alta', 'hoje', 'semana', 'experiencia'] as Tipo[]).includes(tipoParam as Tipo) ? (tipoParam as Tipo) : 'em-alta';
   const cfg = CONFIG[tipo];
+  const [expLista, setExpLista] = useState<ExperienciaDef[]>(EXPERIENCIAS_PADRAO);
   const [itens, setItens] = useState<ItemLista[]>([]);
   const [patrocinado, setPatrocinado] = useState<ItemLista | null>(null);
   const [locaisServ, setLocaisServ] = useState<any[]>([]);
@@ -212,17 +219,34 @@ function SecaoPadrao() {
         } else if (tipo === 'experiencia') {
           // Locais que têm alguma das experiências em destaque; os ícones redondos filtram por experiência.
           const consultar = (c: string): any => (supabase.from('locais') as any).select(c).eq('status', 'aprovado').limit(1000);
-          const r = await consultar(`${CAMPOS_LOCAL}, experiencias`);
-          const slugs = EXPERIENCIAS.map((e) => e.slug);
+          const r = await consultar(`${CAMPOS_LOCAL}, experiencias, created_at`);
+          // Nov/2026 (18/11) — lista, limites por plano e "completar com as demais casas" vêm do Modo equipe.
+          const cfgExp = await carregarConfigExperiencias();
+          setExpLista(cfgExp.lista);
+          const slugs = cfgExp.lista.map((e) => e.slug);
+          const visiveis = tagsVisiveis(((r.data as any[]) || []).filter((i) => !ehServico(i)), cfgExp);
+          // Rodada 148 — "Prove grátis · Brindes e degustações": casas com cupom de uma ação de marca no ar.
+          const marcas = await buscarMarcasAtivas();
+          const idsCupons = marcas.flatMap((m) => m.cupom_ids);
+          const marcaDoLocal = new Map<string, { marca: string; cor: string }>();
+          if (idsCupons.length) {
+            const cr = await (supabase.from('cupons') as any).select('id, local_id').in('id', idsCupons);
+            for (const c of ((cr.data as any[]) || [])) {
+              const m = marcas.find((x) => x.cupom_ids.includes(c.id));
+              if (m && c.local_id && !marcaDoLocal.has(c.local_id)) marcaDoLocal.set(c.local_id, { marca: m.marca, cor: corDaMarca(m) });
+            }
+          }
           const l = (((r.data as any[]) || []) as any[])
-            .filter((i) => !ehServico(i) && ((i.experiencias as string[]) || []).some((x) => slugs.includes(x)))
-            .sort(compararDestaque('em_alta'));
-          lista = l.map((i) =>
-            localParaItem(i, {
-              iconeIds: ((i.experiencias as string[]) || []).filter((x) => slugs.includes(x)),
+            .filter((i) => !ehServico(i) && (marcaDoLocal.has(i.id) || (visiveis.get(i.id) || []).length > 0))
+            .sort((a, b) => Number(marcaDoLocal.has(b.id)) - Number(marcaDoLocal.has(a.id)) || compararHierarquia(a, b));
+          lista = l.map((i) => {
+            const mk = marcaDoLocal.get(i.id);
+            return localParaItem(i, {
+              iconeIds: [...(mk ? [PROVE_GRATIS.slug] : []), ...(visiveis.get(i.id) || []).filter((x) => slugs.includes(x))],
               destaque: deveExibirGlow(i),
-            })
-          );
+              ...(mk ? { selo: { texto: `Prove grátis · ${mk.marca}`, cor: mk.cor, textoCor: '#111111' } } : {}),
+            });
+          });
         } else if (tipo === 'servicos') {
           // `especialidade` vem da migration 034; sem ela, segue só com o básico.
           const consultar = (c: string): any => (supabase.from('locais') as any).select(c).eq('status', 'aprovado').in('categoria', CATEGORIAS_SERVICO).limit(1000);
@@ -269,7 +293,7 @@ function SecaoPadrao() {
             const ateDom = dow === 0 ? 0 : 7 - dow;
             fim.setDate(fim.getDate() + ateDom);
           }
-          const CAMPOS_EV = 'id, titulo, data_inicio, data_fim, foto_capa_url, estilos_musicais, publico_tags, locais(nome, bairro, bairro_exibicao)';
+          const CAMPOS_EV = 'id, titulo, data_inicio, data_fim, foto_capa_url, estilos_musicais, publico_tags, locais(nome, bairro, bairro_exibicao, plano_comercial, plano_comercial_status, created_at)';
           const evHojeQ = (c: string): any =>
             (supabase.from('eventos') as any).select(c).eq('status', 'aprovado').gte('data_inicio', inicio.toISOString()).lte('data_inicio', fim.toISOString()).order('data_inicio', { ascending: true });
           const evFixQ = (c: string): any =>
@@ -290,7 +314,7 @@ function SecaoPadrao() {
           // Rodada 147 — "Hoje na cidade" mostra só festas e a agenda dos bares do dia (sem lugares abertos).
           const agendaQ = (): any =>
             (supabase.from('agenda_semanal') as any)
-              .select('id, local_id, dia_semana, data, tipo, horario, titulo, foto_url, locais!inner(nome, bairro, bairro_exibicao, status)')
+              .select('id, local_id, dia_semana, data, tipo, horario, titulo, foto_url, locais!inner(nome, bairro, bairro_exibicao, status, plano_comercial, plano_comercial_status, created_at, publico_tags)')
               .eq('ativo', true)
               .eq('locais.status', 'aprovado')
               .limit(400);
@@ -299,6 +323,10 @@ function SecaoPadrao() {
           const diasPeriodo: Date[] = [];
           for (let d = new Date(inicio); d <= fim; d.setDate(d.getDate() + 1)) diasPeriodo.push(new Date(d));
           const agTodas = (((agRes?.data as any[]) || []) as any[]).filter((a) => a.tipo !== 'semana');
+          // Nov/2026 (18/11) — festas e agenda dos bares juntas, na hierarquia Fundador > Premium > Intermediário > demais;
+          // no mesmo plano, a casa que se cadastrou primeiro vem antes; empate = horário.
+          const ordemHoje: Record<string, { casa: ComPlano; quando: number }> = {};
+          const horaDe = (h?: string | null) => { const m = /(\d{1,2})\s*[h:]\s*(\d{2})?/i.exec(h || ''); return m ? Number(m[1]) * 60 + Number(m[2] || 0) : 24 * 60; };
           const agendaItens: ItemLista[] = [];
           for (const dia of diasPeriodo) {
             const chave = chaveDiaLocal(dia);
@@ -317,6 +345,7 @@ function SecaoPadrao() {
                 iconeVazio: 'music',
               };
               metaTmp[item.chave] = { tipo: TIPO_AGENDA, quando: [], musica: [], publico: [], clima: [], ingresso: [], estrutura: [], classificacao: [] };
+              ordemHoje[item.chave] = { casa: a.locais, quando: dia.getTime() + horaDe(a.horario) * 60000 };
               agendaItens.push(item);
             }
           }
@@ -345,6 +374,7 @@ function SecaoPadrao() {
             const periodo = h < 5 ? 'Madrugada' : h < 12 ? 'Manhã' : h < 18 ? 'Tarde' : 'Noite';
             const fimMs = e.data_fim ? new Date(e.data_fim).getTime() : d.getTime() + 4 * 3600 * 1000;
             const quando = agoraMs >= d.getTime() - 3600 * 1000 && agoraMs <= fimMs ? ['Agora', periodo] : [periodo];
+            ordemHoje[item.chave] = { casa: e.locais, quando: d.getTime() };
             metaTmp[item.chave] = { tipo: TIPO_FESTA, quando, musica: tagsDoGrupo(e, 'musica'), publico: tagsDoGrupo(e, 'publico'), clima: tagsDoGrupo(e, 'ambiente'), ingresso: tagsDoGrupo(e, 'ingresso'), estrutura: tagsDoGrupo(e, 'estrutura'), classificacao: tagsDoGrupo(e, 'classificacao').filter((c) => ['Livre', '16+', '18+'].includes(c)) };
             return item;
           });
@@ -358,7 +388,26 @@ function SecaoPadrao() {
             };
             return item;
           };
-          lista = [...eventos, ...agendaItens];
+          // Rodada 148 — ações de marca no ar hoje ("Prove grátis") entram no topo de Hoje na cidade.
+          const acoesHoje: ItemLista[] = periodo !== 'hoje' ? [] : (await buscarMarcasAtivas())
+            .filter((m) => m.cupom_ids.length + m.festa_ids.length > 0)
+            .map((m) => {
+              const item: ItemLista = {
+                chave: `m-${m.id}`, rota: `/marca/${m.id}`, titulo: m.chamada || m.nome,
+                linha1: `Prove grátis · Apoio ${m.marca}`, linha2: [m.cupom_ids.length ? `${m.cupom_ids.length} ${m.cupom_ids.length === 1 ? 'casa' : 'casas'}` : null, m.festa_ids.length ? `${m.festa_ids.length} ${m.festa_ids.length === 1 ? 'festa' : 'festas'}` : null].filter(Boolean).join(' · ') || undefined,
+                foto: m.logo_url, iconeVazio: 'gift', selo: { texto: 'Prove grátis', cor: corDaMarca(m), textoCor: '#111111' },
+              };
+              metaTmp[item.chave] = { tipo: TIPO_MARCA, quando: ['Agora'], musica: [], publico: [], clima: [], ingresso: [], estrutura: [], classificacao: [] };
+              return item;
+            });
+          const juntos = [...eventos, ...agendaItens].sort((x, y) => {
+            const a = ordemHoje[x.chave], b = ordemHoje[y.chave];
+            // Fim de semana (vários dias): primeiro o dia, depois a hierarquia dentro do dia.
+            const dia = (q?: { quando: number }) => (q ? new Date(q.quando).toDateString() : '');
+            if (diasPeriodo.length > 1 && dia(a) !== dia(b)) return (a?.quando ?? 0) - (b?.quando ?? 0);
+            return compararHierarquia(a?.casa, b?.casa) || (a?.quando ?? 0) - (b?.quando ?? 0);
+          });
+          lista = [...acoesHoje, ...juntos];
         }
       } catch (err) {
         console.error('Erro ao carregar seção:', err);
@@ -431,7 +480,10 @@ function SecaoPadrao() {
           : tipo === 'servicos'
           ? TIPOS_SERVICO.map((t) => ({ id: t.rotulo, label: t.rotulo.replace(' e ', ' & '), icone: t.icone, cor: t.cor }))
           : tipo === 'experiencia'
-          ? EXPERIENCIAS.map((e) => ({ id: e.slug, label: EXPERIENCIAS_REAIS.find((x) => x.slug === e.slug)?.label || e.slug, icone: e.icone, cor: e.cor }))
+          ? [
+              { id: PROVE_GRATIS.slug, label: PROVE_GRATIS.label, icone: PROVE_GRATIS.icone, cor: PROVE_GRATIS.cor },
+              ...expLista.map((e) => ({ id: e.slug, label: e.label, icone: e.icone, cor: e.cor })),
+            ]
           : undefined
       }
       vazioIcone={cfg.icone}

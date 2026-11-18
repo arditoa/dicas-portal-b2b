@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import TopoApp from './TopoApp';
+import { TITULO_SECAO } from '../constants/theme';
 
 const C = { card: '#161520', border: '#232230', text: '#FFFFFF', dim: '#8A8A9E', chevron: '#B4B4C6', pink: '#E1306C' };
 
@@ -146,7 +147,7 @@ const styles = StyleSheet.create({
   bloco: { paddingHorizontal: 16, paddingBottom: 10 },
   tituloLinha: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start' },
   titulo: { fontSize: 22, fontWeight: '700', color: C.text, letterSpacing: -0.3, lineHeight: 28, flexShrink: 1 },
-  tituloDiscreto: { fontSize: 12, fontWeight: '700', letterSpacing: 1.4, textTransform: 'uppercase', color: '#B9B6CC', lineHeight: 16 },
+  tituloDiscreto: { ...TITULO_SECAO, lineHeight: 19 },
   sub: { fontSize: 13, fontWeight: '400', color: C.dim, marginTop: 0, lineHeight: 18 },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24 },
   sheet: { backgroundColor: C.card, borderRadius: 18, padding: 8, borderWidth: 1, borderColor: C.border },

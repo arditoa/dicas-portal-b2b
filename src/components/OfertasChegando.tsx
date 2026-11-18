@@ -105,7 +105,7 @@ const s = StyleSheet.create({
   titulo: { fontSize: 15, fontWeight: '800', color: '#F5F5F7', marginTop: 28, marginBottom: 12, paddingHorizontal: 16 },
   grade: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16 },
   card: { width: '31.5%', height: 92, borderRadius: 14, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 6, backgroundColor: '#161520' },
-  veu: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8,6,16,0.5)' },
+  veu: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(8,6,16,0.5)' },
   cardTxt: { fontSize: 12, fontWeight: '700', color: '#FFFFFF', textAlign: 'center', textShadowColor: 'rgba(0,0,0,0.28)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 },
   vazio: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 8 },
   vazioTxt: { flex: 1, fontSize: 11, color: '#A0A0B2' },

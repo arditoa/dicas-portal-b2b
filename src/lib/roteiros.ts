@@ -38,6 +38,8 @@ export type Roteiro = {
   destaque: boolean;
   ordem: number;
   paradas_qtd?: number;
+  patrocinador_id?: string | null; // 158: casa que patrocina o roteiro
+  patrocinador?: { id: string; nome: string } | null;
   paradas?: Parada[];
 };
 

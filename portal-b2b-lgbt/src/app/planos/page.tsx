@@ -33,7 +33,8 @@ const planos: readonly PlanoCard[] = [
       { text: '@Instagram no perfil', ok: false },
       { text: 'Oferta semanal', ok: false },
       { text: 'Posição de destaque na categoria', ok: false },
-      { text: 'Subir uma festa em destaque na aba Eventos: R$89 por festa (máx. 2 por mês)', ok: true },
+      { text: 'Tags de experiências (Aniversário, Dates, Dançar…)', ok: false },
+      { text: 'Subir eventos na aba Eventos sem limite; destaque avulso: R$129 (7 dias) ou R$199 (21 dias)', ok: true },
     ],
     cta: 'Continuar grátis',
     highlight: false,
@@ -49,7 +50,8 @@ const planos: readonly PlanoCard[] = [
       { text: 'Seu cupom roda em telas de 6, que mudam a cada 30 minutos', ok: true },
       { text: 'Na busca da categoria, aparece logo depois dos Fundadores e Premiums', ok: true },
       { text: 'Roda nos banners de destaque inferiores da tela inicial, entre os 15 primeiros, a cada 4 horas', ok: true },
-      { text: 'Subir uma festa em destaque na aba Eventos: R$89 por festa (máx. 2 por mês)', ok: true },
+      { text: '1 tag de experiência (ex.: Aniversário ou Dates): sua casa aparece nela, logo depois dos Fundadores e Premiums', ok: true },
+      { text: 'Subir eventos na aba Eventos sem limite; destaque avulso: R$129 (7 dias) ou R$199 (21 dias)', ok: true },
     ],
     cta: 'Selecionar',
     highlight: false,
@@ -66,8 +68,8 @@ const planos: readonly PlanoCard[] = [
       { text: '1 cupom por semana na faixa de cupons da categoria (10 vagas Premium por categoria)', ok: true },
       { text: 'Sempre em primeiro na lista da categoria, por 12 meses', ok: true },
       { text: 'Roda nos banners de destaque inferiores da tela inicial, entre os 10 primeiros, a cada 3 horas', ok: true },
-      { text: 'Festas do seu local em destaque na aba Eventos: até 4 por mês incluídas (extras: R$89 cada)', ok: true },
-      { text: '3 tags — Top 5', ok: true },
+      { text: '1 evento em destaque por mês incluído, por 7 dias (você escolhe quando começa); extras: avulso', ok: true },
+      { text: '3 tags de experiências (ex.: Aniversário, Dates, Dançar): sua casa aparece nelas logo depois dos Fundadores', ok: true },
     ],
     cta: 'Assinar Premium',
     highlight: true,
@@ -84,11 +86,12 @@ const planos: readonly PlanoCard[] = [
     beneficios: [
       { text: 'Tudo do Premium', ok: true },
       { text: 'Pagamento: 12 parcelas de R$349 ou R$3.490 à vista', ok: true },
-      { text: 'Festas do seu local em destaque na aba Eventos: até 4 por mês incluídas (extras: R$89 cada)', ok: true },
+      { text: '1 evento em destaque por mês incluído, por 7 dias (você escolhe quando começa); extras: avulso', ok: true },
       { text: 'Banner no topo da tela inicial por 12 meses (slots de 4, troca a cada 3 horas, texto de curiosidade trocado toda semana)', ok: true },
       { text: '1 cupom por semana na faixa de cupons da categoria (2 vagas de Fundador, trocando a cada 10 minutos)', ok: true },
       { text: 'Categoria Destaques — exclusiva dos 12 Fundadores, por ordem de fechamento', ok: true },
       { text: 'Sempre em primeiro na lista da categoria; fixo na página principal', ok: true },
+      { text: '3 tags de experiências, na frente de todos os outros planos', ok: true },
       { text: 'Vaga garantida por 12 meses (são só 12 no total)', ok: true },
     ],
     cta: 'Consultar vaga',
@@ -98,17 +101,17 @@ const planos: readonly PlanoCard[] = [
 ];
 
 // Planos da categoria Festas & Eventos (produtoras, organizadores e casas de festa). Em Festas não há faixa de cupons:
-// no lugar dela fica a faixa "Festas em destaque" (até 24 festas pagas ao mesmo tempo, no máximo 12 por data).
+// no lugar dela fica a faixa "Em destaque nessa semana" (no máximo 24 eventos por dia, até 6 avulsos — migration 157).
 // Premium e Fundador são os mesmos planos dos locais (mesmo slug no banco); festa avulsa e patrocínio não são assinatura.
 const planosEventos: readonly PlanoCard[] = [
   {
     slug: 'festa_avulsa',
-    nome: 'Festa avulsa',
-    preco: 'R$89',
-    sub: 'por festa · preço de lançamento',
+    nome: 'Destaque avulso',
+    preco: 'R$129',
+    sub: '7 dias · ou R$199 por 21 dias',
     beneficios: [
-      { text: 'Sem mensalidade: você paga só a festa que quer divulgar', ok: true },
-      { text: 'Faixa "Festas em destaque" no topo da aba Eventos, 1 dia antes e no dia da festa', ok: true },
+      { text: 'Sem mensalidade: você paga só o evento que quer divulgar (qualquer categoria)', ok: true },
+      { text: 'Faixa "Em destaque nessa semana" no topo da aba Eventos por 7 ou 21 dias, terminando no dia do evento', ok: true },
       { text: 'Na frente da lista do dia, com o selo Patrocinado', ok: true },
       { text: 'Portal completo, com Lista VIP', ok: true },
       { text: 'Cobrança combinada com a equipe (Pix ou máquina)', ok: true },
@@ -118,16 +121,33 @@ const planosEventos: readonly PlanoCard[] = [
     href: '/cadastro/evento',
   },
   {
+    // Aprovado pela Andrea em 16/11/2026 (migration 153): mesmo slug 'intermediario' dos locais, na categoria Festas.
+    slug: 'intermediario',
+    nome: 'Intermediário Festas',
+    preco: 'R$199',
+    sub: '/mês',
+    beneficios: [
+      { text: 'Tudo do destaque avulso', ok: true },
+      { text: '2 eventos em destaque por mês, 7 dias cada (você escolhe quando começa)', ok: true },
+      { text: 'Na faixa "Em destaque nessa semana" logo depois dos Fundadores e Premiums', ok: true },
+      { text: '1 tag de experiência para o seu local', ok: true },
+      { text: 'Máximo de 12 casas no plano', ok: true },
+    ],
+    cta: 'Selecionar',
+    highlight: false,
+  },
+  {
     slug: 'premium',
     nome: 'Premium',
     tag: 'RECOMENDADO',
     preco: 'R$499',
     sub: '/mês',
     beneficios: [
-      { text: 'Tudo da festa avulsa', ok: true },
-      { text: 'Até 4 festas em destaque por mês incluídas (extras: R$89 cada)', ok: true },
+      { text: 'Tudo do destaque avulso', ok: true },
+      { text: '4 eventos em destaque por mês × 7 dias, ou 2 × 15 dias (você escolhe); extras: avulso', ok: true },
       { text: 'Banner rotativo no topo de Festas & Eventos (12 vagas, junto com os Fundadores, 4 por vez)', ok: true },
       { text: 'Frase do banner trocada toda semana (ex.: a próxima festa)', ok: true },
+      { text: '3 tags de experiências para o seu local', ok: true },
       { text: 'Sempre em primeiro na lista da categoria, por 12 meses', ok: true },
     ],
     cta: 'Assinar Premium',
@@ -143,8 +163,9 @@ const planosEventos: readonly PlanoCard[] = [
     beneficios: [
       { text: 'Tudo do Premium', ok: true },
       { text: 'Pagamento: 12 parcelas de R$349 ou R$3.490 à vista', ok: true },
-      { text: 'Até 4 festas em destaque por mês incluídas (extras: R$89 cada)', ok: true },
+      { text: '4 eventos em destaque por mês × 7 dias, ou 2 × 15 dias (você escolhe); extras: avulso', ok: true },
       { text: 'Banner rotativo de Festas na frente dos Premium', ok: true },
+      { text: '3 tags de experiências, na frente de todos os outros planos', ok: true },
       { text: 'Banner no topo da tela inicial e categoria Destaques, por 12 meses', ok: true },
       { text: 'Vaga garantida (são só 12 Fundadores no app inteiro)', ok: true },
     ],

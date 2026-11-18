@@ -20,6 +20,7 @@ type Props = {
 export default function DestaqueFestaPlano({ evento, modo, onMudou }: Props) {
   const [temPlano, setTemPlano] = useState<boolean | null>(null);
   const [usadas, setUsadas] = useState(0);
+  const [limite, setLimite] = useState(LIMITE_FESTAS_PLANO); // 157: vagas do plano no mês
   const [ligado, setLigado] = useState((evento.destaque_secoes || []).includes('plano_festa'));
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
@@ -29,6 +30,16 @@ export default function DestaqueFestaPlano({ evento, modo, onMudou }: Props) {
 
   const carregar = useCallback(async () => {
     if (!evento.local_id) { setTemPlano(false); return; }
+    // 157 (18/11): cota em vagas por mês (Festas Premium/Fundador 4, Intermediário Festas 2, Premium/Fundador de outras categorias 1).
+    const cota = await supabase.rpc('cota_eventos_do_local', { p_local: evento.local_id });
+    if (!cota.error && cota.data) {
+      const c = cota.data as { vagas?: number };
+      const { data: n } = await supabase.rpc('vagas_eventos_no_mes', { p_local: evento.local_id, p_data: evento.data_inicio });
+      setTemPlano((Number(c.vagas) || 0) > 0);
+      setLimite(Number(c.vagas) || 0);
+      setUsadas(Number(n) || 0);
+      return;
+    }
     const [{ data: tem }, { data: n }] = await Promise.all([
       supabase.rpc('marca_tem_festa_do_plano', { p_local: evento.local_id }),
       supabase.rpc('festas_do_plano_no_mes', { p_local: evento.local_id, p_data: evento.data_inicio }),
@@ -57,17 +68,17 @@ export default function DestaqueFestaPlano({ evento, modo, onMudou }: Props) {
   if (temPlano === null) return <p className="text-[11px] text-[#626274] flex items-center gap-1.5"><Loader2 size={11} className="animate-spin" /> Conferindo o plano...</p>;
 
   if (!temPlano) {
-    if (modo === 'admin') return <p className="text-[11px] text-[#626274]">Destaque do plano: só para marcas Fundador ou Premium. Esta festa pode usar a divulgação paga de R$ 89.</p>;
+    if (modo === 'admin') return <p className="text-[11px] text-[#626274]">Destaque do plano: só para marcas Fundador ou Premium. Este evento pode usar o destaque avulso: R$ 129 (7 dias) ou R$ 199 (21 dias).</p>;
     return (
       <div className="bg-[#0B0B0E] border border-[#232230] rounded-xl p-3 text-xs text-[#A0A0B2]">
-        Quer sua festa em <b className="text-white">Festas em destaque</b>? Divulgação avulsa por R$ 89 (aparece 1 dia antes e no dia),
-        ou com o plano <b className="text-white">Fundador ou Premium</b>: 4 festas por mês, todos os dias até a festa.{' '}
+        Quer sua festa em <b className="text-white">Festas em destaque</b>? Destaque avulso por R$ 129 (7 dias) ou R$ 199 (21 dias), terminando no dia do evento,
+        ou com um plano: Premium e Fundador de qualquer categoria destacam 1 evento por mês (7 dias); na categoria Festas, 4 × 7 dias ou 2 × 15 dias.{' '}
         <Link href="/planos" className="text-[#E1306C] font-bold">Ver planos</Link>
       </div>
     );
   }
 
-  const restantes = Math.max(0, LIMITE_FESTAS_PLANO - usadas);
+  const restantes = Math.max(0, limite - usadas);
   return (
     <div className={`rounded-xl p-3 border ${ligado ? 'bg-[#E1306C]/10 border-[#E1306C]/50' : 'bg-[#0B0B0E] border-[#232230]'}`}>
       <div className="flex items-center gap-3 flex-wrap">
@@ -76,7 +87,7 @@ export default function DestaqueFestaPlano({ evento, modo, onMudou }: Props) {
           <p className="text-xs font-bold text-white">{ligado ? 'Em destaque pelo plano' : 'Destacar com o plano'}</p>
           <p className="text-[11px] text-[#A0A0B2]">
             Só o flier, em &ldquo;Festas em destaque&rdquo; (tela de Festas e tela do tipo da festa), todos os dias até a festa.
-            {' '}Usadas em {mes}: <b className="text-white">{usadas} de {LIMITE_FESTAS_PLANO}</b>.
+            {' '}Usadas em {mes}: <b className="text-white">{usadas} de {limite}</b>.
           </p>
         </div>
         <button
@@ -90,7 +101,7 @@ export default function DestaqueFestaPlano({ evento, modo, onMudou }: Props) {
       </div>
       {!ligado && evento.status !== 'aprovado' && <p className="text-[11px] text-amber-300 mt-1.5">Libera quando a festa for aprovada.</p>}
       {!ligado && encerrada && <p className="text-[11px] text-amber-300 mt-1.5">Esta festa já aconteceu.</p>}
-      {!ligado && restantes === 0 && <p className="text-[11px] text-amber-300 mt-1.5">{modo === 'admin' ? `A marca já usou as ${LIMITE_FESTAS_PLANO} deste mês (a equipe pode passar do limite).` : `Você já usou as ${LIMITE_FESTAS_PLANO} festas de ${mes}. Para mais, use a divulgação de R$ 89.`}</p>}
+      {!ligado && restantes === 0 && <p className="text-[11px] text-amber-300 mt-1.5">{modo === 'admin' ? `A marca já usou as ${limite} vagas deste mês (a equipe pode passar do limite).` : `Você já usou as ${limite} vagas de ${mes}. Para mais, use o destaque avulso (R$ 129 por 7 dias).`}</p>}
       {erro && <p className="text-[11px] text-red-400 mt-1.5">{erro}</p>}
     </div>
   );

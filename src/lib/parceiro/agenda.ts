@@ -14,6 +14,9 @@ export const LIMITE_DESTAQUES = 4;
 type Linha = {
   id: string; dia_semana: number; data: string | null; tipo: string; titulo: string;
   descricao: string | null; horario: string | null; foto_url: string | null; link: string | null; ativo: boolean;
+  publico?: string | null;
+  entrada?: string | null;
+  lista?: boolean | null;
 };
 
 export type DiaAgenda = {
@@ -29,9 +32,23 @@ export type DiaAgenda = {
   foto_url: string;
   link: string;
   ativo: boolean;
+  publico: string; // '' = igual ao do bar (migration 154)
+  entrada: string; // '' | 'gratis' | 'pago' (migration 155)
+  lista: boolean; // nome na lista (migration 155)
 };
 export type CartazAgenda = { id: string | null; titulo: string; descricao: string; foto_url: string; link: string; ativo: boolean };
 
+// Público da noite (migration 154). '' = usa a predominância do cadastro do bar.
+export const PUBLICOS_AGENDA: { valor: string; rotulo: string }[] = [
+  { valor: '', rotulo: 'Igual ao do bar' },
+  { valor: 'gay', rotulo: 'Gays' },
+  { valor: 'lesbica', rotulo: 'Lésbicas' },
+  { valor: 'misto_lgbt', rotulo: 'Misto LGBT+' },
+  { valor: 'trans', rotulo: 'Trans' },
+  { valor: 'ursos', rotulo: 'Ursos' },
+  { valor: 'drag', rotulo: 'Drag' },
+  { valor: 'aliados', rotulo: 'Todos' },
+];
 export const cartazVazio = (): CartazAgenda => ({ id: null, titulo: '', descricao: '', foto_url: '', link: '', ativo: true });
 export const idDoDia = (d: DiaAgenda) => d.datadaId || d.fixaId;
 
@@ -70,6 +87,9 @@ function montarDias(segunda: Date, linhas: Linha[]): DiaAgenda[] {
       titulo: ex?.titulo === '(sem título)' ? '' : ex?.titulo || '',
       horario: ex?.horario || '', descricao: ex?.descricao || '', foto_url: ex?.foto_url || '', link: ex?.link || '',
       ativo: ex ? ex.ativo : true,
+      publico: ex?.publico || '',
+      entrada: ex?.entrada || '',
+      lista: !!ex?.lista,
     };
   });
 }
@@ -77,13 +97,17 @@ function montarDias(segunda: Date, linhas: Linha[]): DiaAgenda[] {
 export async function listarSemana(localId: string, offset: number): Promise<{ dias: DiaAgenda[]; cartaz: CartazAgenda }> {
   const seg = segundaDaSemana(offset);
   const dom = somarDias(seg, 6);
-  const { data, error } = await supabase
+  const consultar = (campos: string) => supabase
     .from('agenda_semanal')
-    .select('id, dia_semana, data, tipo, titulo, descricao, horario, foto_url, link, ativo')
+    .select(campos)
     .eq('local_id', localId)
     .or(`data.is.null,and(data.gte.${chaveData(seg)},data.lte.${chaveData(dom)})`);
+  const CAMPOS = 'id, dia_semana, data, tipo, titulo, descricao, horario, foto_url, link, ativo';
+  let { data, error } = await consultar(`${CAMPOS}, publico, entrada, lista`);
+  if (error) ({ data, error } = await consultar(`${CAMPOS}, publico`)); // sem a migration 155
+  if (error) ({ data, error } = await consultar(CAMPOS)); // sem a migration 154
   if (error) throw new Error(traduzirErro(error));
-  const linhas = (data || []) as Linha[];
+  const linhas = (data || []) as unknown as Linha[];
   const c = linhas.find((l) => l.tipo === 'semana' && l.data === chaveData(seg));
   return {
     dias: montarDias(seg, linhas),
@@ -105,8 +129,26 @@ export async function salvarDia(localId: string, dia: DiaAgenda): Promise<void> 
     local_id: localId, tipo: 'dia', dia_semana: dia.diaSemana, titulo: dia.titulo.trim(),
     horario: dia.horario.trim() || null, descricao: dia.descricao.trim() || null,
     foto_url: dia.foto_url || null, link: dia.link.trim() || null, ativo: dia.ativo,
+    publico: dia.publico || null,
+    entrada: dia.entrada || null,
+    lista: !!dia.lista,
   };
-  const t = () => supabase.from('agenda_semanal');
+  // Sem a migration 154 a coluna não existe: salva sem o público.
+  const tabela = supabase.from('agenda_semanal');
+  const t = () => {
+    const sem = (x: any) => { const { publico, entrada, lista, ...resto } = x; return resto; };
+    return {
+      update: (payload: any) => ({ eq: async (c: string, v: string) => {
+        const r = await tabela.update(payload).eq(c, v);
+        return r.error && /publico|entrada|lista/i.test(r.error.message) ? await supabase.from('agenda_semanal').update(sem(payload)).eq(c, v) : r;
+      } }),
+      insert: async (payload: any) => {
+        const r = await supabase.from('agenda_semanal').insert(payload);
+        return r.error && /publico|entrada|lista/i.test(r.error.message) ? await supabase.from('agenda_semanal').insert(sem(payload)) : r;
+      },
+      delete: () => supabase.from('agenda_semanal').delete(),
+    };
+  };
   if (dia.modo === 'toda') {
     const payload = { ...base, data: null };
     const r = dia.fixaId ? await t().update(payload).eq('id', dia.fixaId) : await t().insert(payload);
@@ -164,6 +206,11 @@ export async function listarDestaques(localId: string): Promise<Set<string>> {
 // Fundador/Premium ativo ou selo Membro Fundador (mesma função que o banco usa para travar).
 export async function temDestaqueNoPlano(localId: string): Promise<boolean> {
   const { data, error } = await supabase.rpc('marca_tem_festa_do_plano', { p_local: localId });
+  return !error && data === true;
+}
+// Intermediário Festas (153): 4 festas por mês, véspera e dia. Só festas (não agenda).
+export async function temFestaIntermediaria(localId: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('marca_tem_festa_intermediaria', { p_local: localId });
   return !error && data === true;
 }
 

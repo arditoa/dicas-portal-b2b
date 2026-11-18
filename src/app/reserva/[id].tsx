@@ -7,6 +7,7 @@ import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, Touc
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../lib/authContext';
 import { supabase } from '../../lib/supabase';
+import { TITULO_SECAO } from '../../constants/theme';
 
 const C = { bg: '#0B0B0E', card: '#161520', borda: '#232230', texto: '#FFFFFF', dim: '#A0A0B2', fraco: '#626274', rosa: '#E1306C', verde: '#4CAF7D', secao: '#B9B6CC' };
 const INDICADO: Record<string, string> = {
@@ -240,7 +241,7 @@ function Passo({ n, titulo }: { n: number; titulo: string }) {
 
 const s = StyleSheet.create({
   voltar: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
-  local: { color: C.secao, fontSize: 12, fontWeight: '700', letterSpacing: 1.4, textTransform: 'uppercase', marginTop: 16 },
+  local: { ...TITULO_SECAO, marginTop: 16 },
   titulo: { color: C.texto, fontSize: 24, fontWeight: '800', marginTop: 4 },
   aviso: { color: C.dim, fontSize: 13, lineHeight: 19, marginTop: 6 },
   vazio: { color: C.dim, fontSize: 14, lineHeight: 20, backgroundColor: C.card, borderRadius: 16, padding: 16, marginTop: 24 },

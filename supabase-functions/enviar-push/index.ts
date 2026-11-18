@@ -1,7 +1,8 @@
 // Edge Function "enviar-push" — envia notificações push pelo serviço da Expo.
 // Só administradores (profiles.role = 'admin') conseguem chamar.
 //
-// Entrada (JSON): { tipo: 'festas'|'cupons'|'lembretes'|'novidades',
+// Entrada (JSON): { tipo: 'festas'|'cupons'|'lembretes'|'novidades'|'marcas',
+//                   local_id?: string (só quem esteve nessa casa nos últimos 90 dias — migração 134),
 //                   titulo: string, corpo: string, rota?: string,
 //                   so_teste?: boolean }
 // so_teste = true → envia só para os aparelhos de quem está chamando.
@@ -16,9 +17,9 @@ const CORS = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
-const TIPOS = ['festas', 'cupons', 'lembretes', 'novidades'];
+const TIPOS = ['festas', 'cupons', 'lembretes', 'novidades', 'marcas'];
 // Telas do app que o toque na notificação pode abrir (o app confere de novo).
-const ROTA_OK = /^\/(evento\/[\w-]+|business\/[\w-]+|coupons|roteiro\/[\w-]+|roteiros|plans|\(tabs\)(\/\w+)?)?$/;
+const ROTA_OK = /^\/(evento\/[\w-]+|business\/[\w-]+|marca\/[\w-]+|category\/[\w-]+|secao\/[\w-]+|coupons|ingressos|roteiro\/[\w-]+|roteiros|plans|minhas-reservas|\(tabs\)(\/\w+)?)?$/;
 
 function json(corpo: unknown, status = 200) {
   return new Response(JSON.stringify(corpo), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
@@ -43,6 +44,7 @@ Deno.serve(async (req) => {
   const corpo = String(b?.corpo ?? '').trim();
   const rota = b?.rota ? String(b.rota).trim() : '';
   const soTeste = b?.so_teste === true;
+  const localId = b?.local_id && /^[0-9a-f-]{36}$/i.test(String(b.local_id)) ? String(b.local_id) : null;
   if (!TIPOS.includes(tipo)) return json({ erro: 'Tipo de aviso inválido.' }, 400);
   if (titulo.length < 2 || titulo.length > 60) return json({ erro: 'O título precisa ter de 2 a 60 caracteres.' }, 400);
   if (corpo.length < 2 || corpo.length > 170) return json({ erro: 'A mensagem precisa ter de 2 a 170 caracteres.' }, 400);
@@ -57,7 +59,7 @@ Deno.serve(async (req) => {
     tokens = (data ?? []).map((x: any) => x.token);
     if (!tokens.length) return json({ erro: 'Nenhum aparelho seu está com os avisos ativados. Ative em Conta > Notificações no app.' }, 400);
   } else {
-    const { data, error } = await admin.rpc('push_tokens_para', { p_tipo: tipo });
+    const { data, error } = await admin.rpc('push_tokens_para', localId ? { p_tipo: tipo, p_local: localId } : { p_tipo: tipo });
     if (error) return json({ erro: 'Não consegui listar os aparelhos.' }, 500);
     tokens = (data ?? []).map((x: any) => x.token);
     if (!tokens.length) return json({ erro: 'Ninguém aceitou receber esse tipo de aviso ainda.' }, 400);
@@ -98,7 +100,7 @@ Deno.serve(async (req) => {
     await admin.from('push_dispositivos').update({ ativo: false, atualizado_em: new Date().toISOString() }).in('token', invalidos);
   }
   await admin.from('push_envios').insert({
-    tipo, titulo, corpo, rota: rota || null, so_teste: soTeste,
+    tipo, titulo, corpo, rota: rota || null, so_teste: soTeste, ...(localId ? { local_id: localId } : {}),
     enviado_por: u.user.id, total: tokens.length, aceitos, erros,
   });
 

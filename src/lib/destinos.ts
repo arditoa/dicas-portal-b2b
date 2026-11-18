@@ -20,6 +20,10 @@ export type Destino = {
   roteiro_titulo?: string | null;
   roteiro_resumo?: string | null;
   roteiro_link?: string | null;
+  evento?: boolean; // migration 156: evento especial (Carnaval, Copa…) na grade de Roteiros
+  selo?: string | null; // migration 156: selo de data do evento (ex.: "FEV 2027")
+  aberto?: boolean; // migration 149: Aberto (true) ou Em breve (false), pelo Modo equipe
+  ativo?: boolean;
 };
 
 export const DESTINOS_PADRAO: Destino[] = [
@@ -53,6 +57,11 @@ export const DESTINOS_PADRAO: Destino[] = [
 // (toque registra o "avise-me"). Para abrir outra cidade, inclua o slug aqui.
 export const DESTINOS_ABERTOS = ['sao-paulo'];
 export const destinoAberto = (slug: string) => DESTINOS_ABERTOS.includes(slug);
+// Com a 149, vale o que a equipe marcou no Modo equipe; sem ela, a lista fixa acima.
+export const estaAberto = (d: Pick<Destino, 'slug' | 'aberto'>) => (typeof d.aberto === 'boolean' ? d.aberto : destinoAberto(d.slug));
+// Nov/2026 (18/11): eventos especiais primeiro, depois cidades abertas, depois as "em breve" (mantém a ordem da equipe).
+export const ordenarDestinos = (lista: Destino[]) =>
+  lista.slice().sort((a, b) => Number(!!b.evento) - Number(!!a.evento) || Number(estaAberto(b)) - Number(estaAberto(a)));
 
 // Junta o que está na tabela com o padrão (tabela manda; tradução EN/ES do
 // padrão é mantida quando a cidade é a mesma).
@@ -61,7 +70,9 @@ export async function carregarDestinos(): Promise<Destino[]> {
     const CAMPOS = 'slug, cidade, uf, vibe, descricao, foto_url, tags, melhor_epoca, melhor_epoca_texto, roteiro_titulo, roteiro_resumo, roteiro_link, ordem';
     const consultar = (campos: string) => supabase.from('destinos').select(campos).eq('ativo', true).order('ordem', { ascending: true });
     // foto_credito vem da migration 038; sem ela, segue sem o crédito.
-    let { data, error }: { data: any; error: any } = await consultar(`${CAMPOS}, foto_credito`);
+    let { data, error }: { data: any; error: any } = await consultar(`${CAMPOS}, foto_credito, aberto, evento, selo`);
+    if (error) ({ data, error } = await consultar(`${CAMPOS}, foto_credito, aberto`)); // sem a 156
+    if (error) ({ data, error } = await consultar(`${CAMPOS}, foto_credito`));
     if (error) ({ data, error } = await consultar(CAMPOS));
     if (error || !data || data.length === 0) return DESTINOS_PADRAO;
     return (data as any[]).map((d) => {
@@ -80,3 +91,17 @@ export async function carregarDestinos(): Promise<Destino[]> {
     return DESTINOS_PADRAO;
   }
 }
+
+// Nov/2026 — Na página de um destino (ex.: São Paulo), banner rotativo e cupons são só das CASAS DE VIAGEM:
+// categoria Turismo, casas com Turismo como categoria extra (ex.: Museu da Diversidade) ou hospedagens.
+// Bares, festas etc. da cidade continuam nas categorias deles e na Home, sem repetir na Trip.
+export async function buscarExtrasTurismo(): Promise<Set<string>> {
+  try {
+    const { data } = await supabase.from('local_categorias_extra').select('local_id').eq('categoria', 'turismo');
+    return new Set(((data as { local_id: string }[]) || []).map((x) => x.local_id));
+  } catch {
+    return new Set();
+  }
+}
+export const ehCasaDeViagem = (l: { id: string; categoria?: string | null; tipo_hospedagem?: string | null }, extrasTurismo: Set<string>) =>
+  l.categoria === 'turismo' || extrasTurismo.has(l.id) || !!l.tipo_hospedagem;

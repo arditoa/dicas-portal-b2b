@@ -124,8 +124,7 @@ export default function Fidelidade() {
 
   return (
     <View style={a.tela}>
-      <TelaParceiro titulo="Cartão fidelidade" subtitulo="Aparece na página da casa. Cada visita é um check-in confirmado.">
-        <TouchableOpacity style={a.voltar} onPress={voltar} accessibilityRole="button"><Feather name="chevron-left" size={16} color={CP.dim} /><Text style={a.voltarTxt}>Voltar</Text></TouchableOpacity>
+      <TelaParceiro titulo="Cartão fidelidade" subtitulo="Aparece na página da casa. Cada visita é um check-in confirmado." aoVoltar={voltar}>
 
         <View style={a.passos}>
           {['O cliente faz check-in no app (a localização confirma sozinha ou vocês confirmam o código de 6 letras).', 'Check-in que ninguém confirmou entra sozinho às 6h.', 'Quando bate a meta, vocês entregam o brinde e marcam aqui.', 'Se tiver cupom, ele vai junto no mesmo check-in.'].map((t, i) => (

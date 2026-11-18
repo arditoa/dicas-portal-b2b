@@ -3,10 +3,13 @@ import TopoApp from '../../components/TopoApp';
 import SubcategoriaBanners, { GrupoSub } from '../../components/SubcategoriaBanners';
 import VitrineCategoria, { LocalVitrine } from '../../components/VitrineCategoria';
 import { CAMPOS_LOCAL } from '../../components/ListaPadrao';
-import { normTxt, SUBCATEGORIAS } from '../../lib/subcategorias';
+import { normTxt, SUBCATEGORIAS, useSubcategorias } from '../../lib/subcategorias';
 import { EstadoSubcategorias, buscarEstadoSubcategorias, buscarSubcategoriasDesligadas, buscarIdsFundadores, buscarVagas } from '../../lib/vitrine';
 import MarcaApp from '../../components/MarcaApp';
 import { EuVouCompacto } from '../../components/EuVou';
+import FaixaMarcas from '../../components/FaixaMarcas';
+import { useMarcasAtivas } from '../../lib/marcas';
+import SeloMarca from '../../components/SeloMarca';
 import { AlvoEuVou, chaveDoAlvo, contar, Contagem } from '../../lib/euVou';
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -68,6 +71,9 @@ const TIPOS_EVENTO_CHIPS: { id: string; rotulo: string; tags: string[]; musica: 
 ];
 
 // Filtro "Perto" da entrada (mesmos raios das categorias).
+// Filtros do topo da aba Eventos (nov/2026)
+const QUANDO: Record<string, FiltroData> = { Amanhã: 'amanha', 'Fim de semana': 'fds', 'Próximos 7 dias': 'semana' };
+const ENTRADA: Record<string, string> = { Grátis: 'gratis', 'Até R$30': 'ate30', 'Lista VIP': 'vip' };
 const RAIOS_KM: Record<string, number> = { 'Até 1 km': 1, 'Até 3 km': 3, 'Até 5 km': 5, 'Até 10 km': 10, 'Até 25 km': 25 };
 function distanciaKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371;
@@ -144,11 +150,12 @@ const pad2 = (n: number) => String(n).padStart(2, '0');
 const chaveDia = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 
 /** Hoje até o domingo desta semana (se hoje é domingo, só hoje). */
+// Nov/2026 — "Essa semana" = próximos 7 dias (hoje + 6), como a agenda dos apps de festa: quem abre no domingo
+// já vê a semana seguinte.
 function diasDaSemanaAteDomingo(): Date[] {
   const h = new Date();
   const base = new Date(h.getFullYear(), h.getMonth(), h.getDate());
-  const ate = (7 - base.getDay()) % 7;
-  return Array.from({ length: ate + 1 }, (_, i) => new Date(base.getFullYear(), base.getMonth(), base.getDate() + i));
+  return Array.from({ length: 7 }, (_, i) => new Date(base.getFullYear(), base.getMonth(), base.getDate() + i));
 }
 
 function segundaDestaSemana(): Date {
@@ -197,7 +204,11 @@ interface EventoRow {
   destaque_secao_fixada: string | null;
   destaque_secoes: string[] | null;
   destaque_ate: string | null;
+  destaque_inicio?: string | null; // 157: começo da janela do destaque (termina no dia do evento)
   local_id: string | null;
+  entrada_centavos?: number | null;
+  ingressos_ativos?: boolean | null;
+  link_ingresso?: string | null;
   locais: { nome: string; bairro: string | null; cidade: string; lat?: number | null; lng?: number | null; plano_comercial?: string | null; plano_comercial_status?: string | null } | null;
   listas_vip: ListaVip[] | null;
 }
@@ -256,9 +267,13 @@ export default function EventsScreen() {
   const { user, session } = useAuth();
   const isUserLogged = !!session;
 
+  const { tipo: tipoInicial } = useLocalSearchParams<{ tipo?: string }>();
+  void tipoInicial;
   const [dateFilter, setDateFilter] = useState<FiltroData>('hoje');
   const [selectedTipo, setSelectedTipo] = useState<string | null>(null);
   const [selectedMusic, setSelectedMusic] = useState<string | null>(null);
+  // Entrada: 'gratis' | 'ate30' | 'vip' (filtro do topo)
+  const [selectedEntrada, setSelectedEntrada] = useState<string | null>(null);
   const [tipoChip, setTipoChip] = useState<string | null>(null);
   const [selectedPublic, setSelectedPublic] = useState<string | null>(null);
   const [filtrosExtras, setFiltrosExtras] = useState<string[]>([]);
@@ -267,6 +282,9 @@ export default function EventsScreen() {
   // Página do tipo (/eventos/[tipo]): abre ao tocar num ícone da aba Eventos, igual à Dicas Trip. Aqui ficam os filtros.
   const { tipo: tipoParam } = useLocalSearchParams<{ tipo?: string }>();
   const modoTipo = !!tipoParam;
+  // Modo equipe › Festas › subcategoria: "Usar os banners da categoria" (padrão: sim). Desligado = só o que é da subcategoria.
+  const [herdaFestas, setHerdaFestas] = useState(true);
+  useEffect(() => { if (tipoParam) void buscarSubcategoriasDesligadas('festas').then((x) => setHerdaFestas(!x.has(`__herdar:${decodeURIComponent(String(tipoParam))}`))); }, [tipoParam]);
   // Filtro "Perto" da entrada (aba principal): raio escolhido; o GPS só é pedido quando a pessoa escolhe um raio.
   const [pertoSel, setPertoSel] = useState<string | undefined>(undefined);
   const maxDistancia = pertoSel ? RAIOS_KM[pertoSel] ?? 999 : 999;
@@ -295,6 +313,15 @@ export default function EventsScreen() {
             if (extras) lista.push(...(extras as LocalVitrine[]));
           }
         } catch { /* segue só com os locais de Festas */ }
+        // Casa de outra categoria que tem Festas como categoria extra (ex.: bar Fundador que faz festa) também entra.
+        try {
+          const { data: ex } = await (supabase.from('local_categorias_extra') as any).select('local_id').eq('categoria', 'eventos');
+          const ids = ((ex as { local_id: string }[]) || []).map((x) => x.local_id).filter((id) => !lista.some((l) => l.id === id));
+          if (ids.length) {
+            const { data: outros } = await (supabase.from('locais') as any).select(CAMPOS_LOCAL).eq('status', 'aprovado').in('id', ids);
+            if (outros) lista.push(...(outros as LocalVitrine[]));
+          }
+        } catch { /* sem a 072, segue */ }
         if (vivo) setLocaisVitrine(lista);
       });
     buscarSubcategoriasDesligadas('festas').then((x) => { if (vivo) setSubDesligadas(x); });
@@ -349,20 +376,27 @@ export default function EventsScreen() {
           .from('eventos')
           .select(campos)
           .eq('status', 'aprovado')
-          .gte('data_inicio', inicioHoje.toISOString())
+          // Começa hoje em diante OU já começou e ainda não terminou (evento de vários dias em andamento).
+          .or(`data_inicio.gte.${inicioHoje.toISOString()},data_fim.gte.${new Date().toISOString()}`)
           .order('data_inicio', { ascending: true })
-          .limit(60);
+          .limit(80);
       // Coluna `tags` vem da migration 036; sem ela, segue com os campos antigos.
-      let { data, error } = await consultar(`${CAMPOS}, tags`);
+      let { data, error } = await consultar(`${CAMPOS}, tags, entrada_centavos, onde_nome, onde_bairro, ingressos_ativos, link_ingresso, destaque_inicio`); // janela do destaque: 157
+      if (error) ({ data, error } = await consultar(`${CAMPOS}, tags, entrada_centavos, onde_nome, onde_bairro, ingressos_ativos, link_ingresso`)); // entrada e onde: migration 151
+      if (error) ({ data, error } = await consultar(`${CAMPOS}, tags, ingressos_ativos, link_ingresso`));
+      if (error) ({ data, error } = await consultar(`${CAMPOS}, tags`));
       if (error) ({ data, error } = await consultar(CAMPOS));
 
       if (error) throw error;
 
       const linhas = (data || []) as unknown as EventoRow[];
-      const itens: EventItem[] = linhas.map((ev) => ({
+      const itens: EventItem[] = linhas.map((ev: any) => ({
         ...ev,
-        dateTag: calcularDateTag(ev.data_inicio),
-        listaVipAtiva: (ev.listas_vip || []).find((l) => l.ativa) || null,
+        // Festa em outro lugar (produtora): mostra o lugar da festa no lugar da casa de quem cadastrou.
+        locais: ev.onde_nome ? { ...(ev.locais || {}), nome: ev.onde_nome, bairro: ev.onde_bairro || null, cidade: ev.locais?.cidade || '' } : ev.locais,
+        // Em andamento (começou antes de hoje e ainda não acabou) conta como hoje.
+        dateTag: new Date(ev.data_inicio) < inicioHoje && ev.data_fim && new Date(ev.data_fim) >= new Date() ? 'hoje' : calcularDateTag(ev.data_inicio),
+        listaVipAtiva: (ev.listas_vip || []).find((l: ListaVip) => l.ativa) || null,
       }));
 
       setEvents(itens);
@@ -417,24 +451,54 @@ export default function EventsScreen() {
     return !TIPOS_EVENTO_CHIPS.some((c) => c.tags.some((t) => eventoTem(ev, t)));
   };
   // Ícones de subcategoria de festa = tipo de evento (mesmos chips do cadastro). Cada evento entra no(s) tipo(s) das suas tags.
-  const defsFestas = SUBCATEGORIAS.festas;
+  const defsFestas = useSubcategorias('festas') || SUBCATEGORIAS.festas;
   const subsDoEvento = (ev: EventItem): string[] =>
     defsFestas
       .filter((d) => {
         const chip = TIPOS_EVENTO_CHIPS.find((c) => normTxt(c.rotulo) === d.chave);
-        return !!chip && eventoDoTipoChip(ev, chip.id);
+        if (chip) return eventoDoTipoChip(ev, chip.id);
+        // Subcategoria criada pela equipe (ex.: Festas afro): a festa entra quando tem a tag com o nome ou um sinônimo.
+        return [d.chave, ...d.palavras].some((p) => !!p && (eventoTem(ev, p) || eventoTem(ev, p.replace(/\s+/g, '_')) || eventoTem(ev, p.replace(/\s+/g, '-'))));
       })
       .map((d) => d.chave);
+  // Preço da festa: lote mais barato à venda no app (ingressos); senão, a entrada informada no cadastro (151).
+  const [precoMin, setPrecoMin] = useState<Record<string, number>>({});
+  const idsEventos = events.map((ev) => ev.id).join(',');
+  useEffect(() => {
+    const ids = idsEventos ? idsEventos.split(',') : [];
+    if (!ids.length) return;
+    let vivo = true;
+    void (supabase.from('ingresso_lotes') as any).select('evento_id, preco_centavos').in('evento_id', ids).eq('ativo', true).eq('cortesia', false)
+      .then(({ data }: any) => {
+        if (!vivo || !data) return;
+        const m: Record<string, number> = {};
+        for (const l of data as { evento_id: string; preco_centavos: number }[]) if (l.preco_centavos > 0 && (m[l.evento_id] === undefined || l.preco_centavos < m[l.evento_id])) m[l.evento_id] = l.preco_centavos;
+        setPrecoMin(m);
+      }, () => {});
+    return () => { vivo = false; };
+  }, [idsEventos]);
+  const precoDoEvento = (ev: Pick<EventItem, 'id' | 'entrada_centavos'>): number | null => (precoMin[ev.id] !== undefined ? precoMin[ev.id] : ev.entrada_centavos ?? null);
+  const textoPreco = (ev: Pick<EventItem, 'id' | 'entrada_centavos'>): string | null => {
+    if (precoMin[ev.id] !== undefined) return `a partir de R$${(precoMin[ev.id] / 100).toFixed(0)}`;
+    if (ev.entrada_centavos === 0) return 'Grátis';
+    if (ev.entrada_centavos) return `R$${(ev.entrada_centavos / 100).toFixed(0)}`;
+    return null;
+  };
+  // Dia em que o evento entra na agenda: em andamento (começou antes e não acabou) = hoje.
+  const diaDoEvento = (ev: EventItem) => (ev.dateTag === 'hoje' ? chaveDia(new Date()) : chaveDia(new Date(ev.data_inicio)));
   const diasSemana = diasDaSemanaAteDomingo();
   const chavesSemana = diasSemana.map(chaveDia);
   const filteredEvents = events
     .filter((ev) => {
       if (dateFilter === 'semana') {
-        if (!chavesSemana.includes(chaveDia(new Date(ev.data_inicio)))) return false;
+        if (!chavesSemana.includes(diaDoEvento(ev))) return false;
       } else if (ev.dateTag !== dateFilter) return false;
       if (tipoChip && !eventoDoTipoChip(ev, tipoChip)) return false;
       if (selectedTipo && !eventoTem(ev, selectedTipo)) return false;
       if (selectedMusic && !eventoTem(ev, selectedMusic)) return false;
+      if (selectedEntrada === 'vip' && !ev.listaVipAtiva) return false;
+      if (selectedEntrada === 'gratis' && !(ev.entrada_centavos === 0 || eventoTem(ev, 'entrada_gratuita'))) return false;
+      if (selectedEntrada === 'ate30') { const v = precoDoEvento(ev); if (v === null || v > 3000) return false; }
       if (selectedPublic && !eventoTem(ev, selectedPublic)) return false;
       if (selectedBairro && ev.locais?.bairro !== selectedBairro) return false;
       if (maxDistancia !== 999 && coords) {
@@ -493,20 +557,24 @@ export default function EventsScreen() {
     const marcaComPlano = (ev: EventItem) =>
       (!!ev.local_id && idsFundadorEv.has(ev.local_id)) ||
       ((ev.locais?.plano_comercial === 'fundador' || ev.locais?.plano_comercial === 'premium') && (ev.locais?.plano_comercial_status ?? 'ativo') === 'ativo');
+    // 157 (18/11) — cada destaque tem uma janela: de destaque_inicio até o dia do evento (7, 15 ou 21 dias).
+    // Sem destaque_inicio (antigos): o do plano fica até o dia; Intermediário e avulso, véspera e dia.
+    const vespera = (ev: EventItem) => { const ini = new Date(ev.data_inicio); return new Date(ini.getFullYear(), ini.getMonth(), ini.getDate() - 1).getTime(); };
+    const abre = (ev: EventItem, padrao: number) => (ev.destaque_inicio ? new Date(`${ev.destaque_inicio.slice(0, 10)}T00:00:00`).getTime() : padrao);
+    const noAr = (ev: EventItem, padrao: number) => agora >= abre(ev, padrao) && agora <= fimDe(ev);
+    const rank = (ev: EventItem) => (ev.locais?.plano_comercial === 'fundador' || (!!ev.local_id && idsFundadorEv.has(ev.local_id)) ? 0 : 1);
     const doPlano = events
-      .filter((ev) => (ev.destaque_secoes || []).includes('plano_festa') && marcaComPlano(ev) && agora <= fimDe(ev))
+      .filter((ev) => (ev.destaque_secoes || []).includes('plano_festa') && marcaComPlano(ev) && noAr(ev, 0))
+      .sort((x, y) => rank(x) - rank(y) || porData(x, y));
+    const doIntermediario = events
+      .filter((ev) => (ev.destaque_secoes || []).includes('plano_festa') && !marcaComPlano(ev) && ev.locais?.plano_comercial === 'intermediario' && noAr(ev, vespera(ev)))
       .sort(porData);
-    const idsPlano = new Set(doPlano.map((ev) => ev.id));
+    const idsPlano = new Set([...doPlano, ...doIntermediario].map((ev) => ev.id));
     const avulsas = events
-      .filter((ev) => {
-        if (idsPlano.has(ev.id) || !(ev.destaque_secoes || []).includes('patrocinado')) return false;
-        const ini = new Date(ev.data_inicio);
-        const abre = new Date(ini.getFullYear(), ini.getMonth(), ini.getDate() - 1).getTime();
-        return agora >= abre && agora <= fimDe(ev);
-      })
+      .filter((ev) => !idsPlano.has(ev.id) && (ev.destaque_secoes || []).includes('patrocinado') && noAr(ev, vespera(ev)))
       .sort(porData)
       .slice(0, 24);
-    return [...doPlano, ...avulsas];
+    return [...doPlano, ...doIntermediario, ...avulsas];
   }, [events, idsFundadorEv]);
 
   // A faixa de festas pagas acompanha o ícone escolhido (só as desse tipo).
@@ -660,42 +728,82 @@ export default function EventsScreen() {
 
   // Rodada 142 — linha de agenda compacta (pedido da Andrea: categoria mais bonita).
   // O card inteiro abre a festa; o nome do local não é mais link sublinhado.
+  // Nov/2026 — linha no estilo dos apps de festa: flyer em pé grande à esquerda; à direita nome, "22h · R$50",
+  // casa · bairro e até 2 estilos. Festa destacada ganha um contorno.
+  const estilosDe = (ev: EventItem) => (opcoesFiltrar.estilos as string[]).filter((t) => eventoTem(ev, t)).slice(0, 2);
   const renderEventCard = (item: EventItem) => {
-    const destaque = item.plano_destaque !== 'basico' || deveExibirGlow(item);
+    const destacada = (item.destaque_secoes || []).some((x) => x === 'plano_festa' || x === 'patrocinado');
+    const preco = textoPreco(item);
     return (
-      <TouchableOpacity
-        key={item.id}
-        style={[styles.eventCard, destaque && styles.eventCardDestaque]}
-        onPress={() => router.push(`/evento/${item.id}` as any)}
-        activeOpacity={0.85}
-        accessibilityRole="button"
-        accessibilityLabel={`${item.titulo}, ${formatarDataEvento(item.data_inicio, item.dateTag)}`}
-      >
-        <View style={styles.eventHora}>
-          <Text style={styles.eventHoraTxt}>{horaCurta(item.data_inicio)}</Text>
-          <Text style={styles.eventDiaTxt}>{diaCurto(item.data_inicio, item.dateTag)}</Text>
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.eventTitle} numberOfLines={1}>{item.titulo}</Text>
-          <Text style={styles.eventLocation} numberOfLines={1}>
-            {item.locais ? `${item.locais.nome} · ${item.locais.bairro || item.locais.cidade}` : 'Local a confirmar'}
-          </Text>
-        </View>
-        {item.listaVipAtiva ? (
-          <View style={styles.guestListBadge}>
-            <Text style={styles.guestListBadgeText}>lista VIP</Text>
+      <View key={item.id} style={styles.agCard}>
+        <TouchableOpacity
+          style={styles.agTopo}
+          onPress={() => router.push(`/evento/${item.id}` as any)}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel={`${item.titulo}, ${formatarDataEvento(item.data_inicio, item.dateTag)}`}
+        >
+          <View style={[styles.agFlyer, destacada && styles.agFlyerDestaque]}>
+            {item.foto_capa_url ? (
+              <Image source={{ uri: item.foto_capa_url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+            ) : (
+              <Feather name="music" size={24} color="#B39DDB" />
+            )}
+            {!!item.listaVipAtiva && <View style={styles.vipSelo}><Text style={styles.vipSeloTxt}>LISTA VIP</Text></View>}
           </View>
-        ) : destaque ? (
-          <Feather name="star" size={14} color={COLORS.gold} />
-        ) : (
-          <Feather name="chevron-right" size={16} color="#606070" />
-        )}
-      </TouchableOpacity>
+          <View style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
+            <Text style={styles.agTitulo} numberOfLines={2}>{item.titulo}</Text>
+            <Text style={styles.agHoraPreco} numberOfLines={1}>
+              {horaCurta(item.data_inicio)}{preco ? ` · ${preco}` : ''}{destacada ? '  ★' : ''}
+            </Text>
+            <Text style={styles.agLocal} numberOfLines={1}>
+              {item.locais ? `${item.locais.nome} · ${item.locais.bairro || item.locais.cidade}` : 'Local a confirmar'}
+            </Text>
+            {(() => {
+              // Nov/2026 (18/11) — ajudar a decidir: público predominante, estilo, entrada grátis/paga e nome na lista.
+              const pub = PUBLICO_FESTA_CADASTRO.find((p) => eventoTem(item, p.slug));
+              const pago = precoMin[item.id] !== undefined || (item.entrada_centavos ?? 0) > 0 || !!item.ingressos_ativos || !!item.link_ingresso;
+              const gratis = !pago && item.entrada_centavos === 0;
+              const chips: { k: string; ic: keyof typeof Feather.glyphMap; txt: string; cor?: string }[] = [
+                ...(pub ? [{ k: 'pub', ic: 'users' as const, txt: pub.rotulo }] : []),
+                ...estilosDe(item).slice(0, pub ? 1 : 2).map((t) => ({ k: t, ic: 'music' as const, txt: rotuloTag(t) })),
+                ...(gratis ? [{ k: 'gratis', ic: 'gift' as const, txt: 'Entrada grátis', cor: '#34D399' }] : pago ? [{ k: 'pago', ic: 'tag' as const, txt: 'Pago' }] : []),
+                ...(item.listaVipAtiva ? [{ k: 'lista', ic: 'user-check' as const, txt: 'Nome na lista', cor: '#C084FC' }] : []),
+              ];
+              if (!chips.length) return null;
+              return (
+                <View style={styles.agChips}>
+                  {chips.map((c) => (
+                    <View key={c.k} style={[styles.agChip, c.cor && { borderColor: `${c.cor}66` }]}>
+                      <Feather name={c.ic} size={10} color={c.cor || COLORS.textSecondary} />
+                      <Text style={[styles.agChipTxt, c.cor && { color: c.cor }]}>{c.txt}</Text>
+                    </View>
+                  ))}
+                </View>
+              );
+            })()}
+            <SeloMarca tipo="festa" id={item.id} />
+            {(() => {
+              // Chamada para a ação: ingresso no app (com valor), ingresso em outro site ou Lista VIP.
+              const noApp = !!item.ingressos_ativos || precoMin[item.id] !== undefined;
+              const txt = noApp ? `Comprar ingresso${precoMin[item.id] !== undefined ? ` · R$${(precoMin[item.id] / 100).toFixed(0)}` : ''}`
+                : item.link_ingresso ? 'Ingressos' : item.listaVipAtiva ? 'Entrar na Lista VIP' : null;
+              if (!txt) return null;
+              return (
+                <View style={[styles.agCta, noApp && styles.agCtaForte]}>
+                  <Feather name={noApp ? 'credit-card' : item.link_ingresso ? 'external-link' : 'user-plus'} size={12} color={noApp ? '#FFF' : COLORS.pink} />
+                  <Text style={[styles.agCtaTxt, noApp && { color: '#FFF' }]}>{txt}</Text>
+                </View>
+              );
+            })()}
+          </View>
+        </TouchableOpacity>
+      </View>
     );
   };
 
   // ---- "Essa semana" ----
-  const filtroSoDeEvento = !!(selectedTipo || selectedMusic || selectedPublic || selectedSub || tipoChip || filtrosExtras.length);
+  const filtroSoDeEvento = !!(selectedTipo || selectedMusic || selectedPublic || selectedSub || tipoChip || selectedEntrada || filtrosExtras.length);
   const passaFiltroAgenda = (a: AgendaBar) => {
     if (selectedBairro && a.locais?.bairro !== selectedBairro) return false;
     const q = busca.trim().toLowerCase();
@@ -721,7 +829,7 @@ export default function EventsScreen() {
     .map((d, i) => ({
       d,
       i,
-      evs: filteredEvents.filter((ev) => chaveDia(new Date(ev.data_inicio)) === chaveDia(d)),
+      evs: filteredEvents.filter((ev) => diaDoEvento(ev) === chaveDia(d)),
       ag: agendaDoDia(d),
     }))
     .filter((b) => b.evs.length + b.ag.length > 0);
@@ -833,55 +941,104 @@ export default function EventsScreen() {
   };
 
   const { width: larguraTela } = useWindowDimensions();
-  const larguraFlier = Math.floor((Math.min(larguraTela, 600) - 32 - 16) / 3);
-  const tamanhoFlier = { width: larguraFlier, height: Math.round(larguraFlier * 1.25) };
-  // Itens da faixa: festas do plano → destaques da agenda → festas avulsas. Com um tipo de festa escolhido,
-  // a agenda fica de fora (ela não tem tipo).
-  type ItemFaixa = { chave: string; foto: string | null; titulo: string; festaId: string | null; abrir: () => void };
-  const itemDaFesta = (ev: EventItem): ItemFaixa => ({ chave: ev.id, foto: ev.foto_capa_url, titulo: ev.titulo, festaId: ev.id, abrir: () => router.push(`/evento/${ev.id}` as any) });
-  const itemDaAgenda = (d: DestaqueAgenda): ItemFaixa => ({ chave: `ag-${d.id}`, foto: d.foto_url, titulo: d.titulo, festaId: null, abrir: () => router.push(`/business/${d.local_id}` as any) });
-  const itensFaixa: ItemFaixa[] = [
-    ...festasPaginadas.filter((ev) => (ev.destaque_secoes || []).includes('plano_festa')).map(itemDaFesta),
-    ...(selectedSub ? [] : destaquesAgenda.map(itemDaAgenda)),
-    ...festasPaginadas.filter((ev) => !(ev.destaque_secoes || []).includes('plano_festa')).map(itemDaFesta),
+  // Nov/2026 — Festas em destaque viraram dois carrosséis laterais (cabem as 24, ninguém fica de fora):
+  //   "Em destaque hoje" (festas de hoje + agenda destacada) e "Em destaque na semana" (amanhã até 7 dias).
+  // Ordem justa: primeiro as do plano (Fundador/Premium, até 4/mês), depois as avulsas (R$89, máx. 2/mês);
+  // dentro de cada grupo a fila anda a cada 10 min — quem abre o carrossel reveza.
+  // Cartão menor: 3 por tela e um pedaço do 4º (mostra que dá para arrastar).
+  const larguraCard = Math.floor((Math.min(larguraTela, 600) - 32 - 20) / 3.2);
+  type ItemFaixa = { chave: string; foto: string | null; titulo: string; casa: string; festaId: string | null; inicio: string | null; plano: boolean; vip: boolean; hoje?: boolean; entrada?: number | null; publico?: string | null; acao?: { selo: string; ate: string; cor: string | null; logo: string | null }; abrir: () => void };
+  const itemDaFesta = (ev: EventItem): ItemFaixa => ({
+    chave: ev.id, foto: ev.foto_capa_url, titulo: ev.titulo, casa: ev.locais?.nome || '', festaId: ev.id, inicio: ev.data_inicio,
+    plano: (ev.destaque_secoes || []).includes('plano_festa'), vip: !!ev.listaVipAtiva, hoje: ev.dateTag === 'hoje', entrada: ev.entrada_centavos ?? null,
+    // 18/11: público predominante numa linha curta, como na agenda dos bares
+    publico: ({ predominancia_gay: 'Gays', predominancia_lesbica: 'Lésbicas', gays_e_lesbicas: 'Gays e lésbicas', para_todes: 'Todos' } as Record<string, string>)[PUBLICO_FESTA_CADASTRO.find((p) => eventoTem(ev, p.slug))?.slug || ''] || null,
+    abrir: () => router.push(`/evento/${ev.id}` as any),
+  });
+  const itemDaAgenda = (d: DestaqueAgenda): ItemFaixa => ({ chave: `ag-${d.id}`, foto: d.foto_url, titulo: d.titulo, casa: 'Agenda do bar', festaId: null, inicio: null, plano: true, vip: false, abrir: () => router.push(`/business/${d.local_id}` as any) });
+  const acoesMarca = useMarcasAtivas();
+  const ddmm = (iso: string) => { const d = new Date(`${iso.slice(0, 10)}T12:00:00`); return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}`; };
+  const itensAcao: ItemFaixa[] = selectedSub || subDesligadas.has('__festas') ? [] : acoesMarca.map((a) => ({
+    chave: `acao-${a.id}`, foto: a.moldura_url || null, titulo: a.brinde || a.chamada || a.nome, casa: '', festaId: null, inicio: null, plano: true, vip: false,
+    acao: { selo: `PROVE GRÁTIS · ${a.marca}`.toUpperCase(), ate: `Até ${ddmm(a.fim)}`, cor: a.cor, logo: a.logo_url },
+    abrir: () => router.push(`/marca/${a.id}` as any),
+  }));
+  const girar = <T,>(lista: T[]) => (lista.length < 2 ? lista : lista.map((_, k) => lista[(((slotFestas * 3) % lista.length) + k) % lista.length]));
+  const ehHoje = (ev: EventItem) => ev.dateTag === 'hoje';
+  // 0 = do plano (Fundador/Premium) · 1 = Intermediário Festas · 2 = avulsa
+  const grupoDe = (ev: EventItem) => (!(ev.destaque_secoes || []).includes('plano_festa') ? 2 : ev.locais?.plano_comercial === 'intermediario' ? 1 : 0);
+  const destaquesHoje: ItemFaixa[] = subDesligadas.has('__festas') ? [] : [
+    ...girar(festasPaginadas.filter((ev) => ehHoje(ev) && grupoDe(ev) === 0).map(itemDaFesta)),
+    ...girar(festasPaginadas.filter((ev) => ehHoje(ev) && grupoDe(ev) === 1).map(itemDaFesta)),
+    ...girar(festasPaginadas.filter((ev) => ehHoje(ev) && grupoDe(ev) === 2).map(itemDaFesta)),
   ];
-  const festasVisiveis = subDesligadas.has('__festas')
-    ? []
-    : verTodasFestas || itensFaixa.length <= 6
-      ? itensFaixa
-      : Array.from({ length: 6 }, (_, k) => itensFaixa[(((slotFestas * 6) % itensFaixa.length) + k) % itensFaixa.length]);
-  // Rodada 142 — o que já está em "Festas em destaque" não se repete na agenda logo abaixo.
-  const idsNaVitrine = new Set(festasVisiveis.filter((x) => x.festaId).map((x) => x.festaId as string));
-  const eventosDaLista = filteredEvents.filter((ev) => !idsNaVitrine.has(ev.id));
+  // Próximas: tudo que é destaque e ainda não é hoje. A do plano fica aqui da ativação até o dia (mesmo se faltar mais de 7 dias);
+  // no dia, passa para "Em destaque hoje". A avulsa entra aqui na véspera.
+  const daSemana = (ev: EventItem) => !ehHoje(ev);
+  const porDia = (x: ItemFaixa, y: ItemFaixa) => (x.inicio || '').slice(0, 10).localeCompare((y.inicio || '').slice(0, 10));
+  const destaquesSemana: ItemFaixa[] = subDesligadas.has('__festas') ? [] : [
+    ...girar(festasPaginadas.filter((ev) => daSemana(ev) && grupoDe(ev) === 0).map(itemDaFesta)).sort(porDia),
+    ...girar(festasPaginadas.filter((ev) => daSemana(ev) && grupoDe(ev) === 1).map(itemDaFesta)).sort(porDia),
+    ...girar(festasPaginadas.filter((ev) => daSemana(ev) && grupoDe(ev) === 2).map(itemDaFesta)).sort(porDia),
+  ];
+  const DIAS_CURTOS = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
+  const CartaoDestaque = ({ it, comDia }: { it: ItemFaixa; comDia: boolean }) => {
+    const d = it.inicio ? new Date(it.inicio) : null;
+    const preco = it.festaId ? textoPreco({ id: it.festaId, entrada_centavos: it.entrada ?? null }) : null;
+    const hoje = !!it.hoje || (!!d && chaveDia(d) === chaveDia(new Date()));
+    return (
+      <TouchableOpacity activeOpacity={0.9} style={{ width: larguraCard }} onPress={it.abrir} accessibilityRole="button" accessibilityLabel={it.titulo}>
+        <View style={[styles.festaPagaCard, { width: larguraCard, height: Math.round(larguraCard * 1.33) }]}>
+          {it.foto ? (
+            <Image source={{ uri: it.foto }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+          ) : (
+            <View style={styles.festaSemFlier}>
+              <Feather name={it.festaId ? 'music' : 'calendar'} size={20} color="rgba(255,255,255,0.5)" />
+              <Text style={styles.festaSemFlierTxt} numberOfLines={3}>{it.titulo}</Text>
+            </View>
+          )}
+          {!it.foto && it.acao && (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: it.acao.cor || '#B0153F', alignItems: 'center', justifyContent: 'center', padding: 10 }]}>
+              {it.acao.logo ? <Image source={{ uri: it.acao.logo }} style={{ width: '60%', height: 60 }} resizeMode="contain" /> : <Feather name="gift" size={24} color="rgba(255,255,255,0.8)" />}
+              <Text style={[styles.festaSemFlierTxt, { fontSize: 12, marginTop: 8 }]} numberOfLines={3}>{it.titulo}</Text>
+            </View>
+          )}
+          {it.acao ? (
+            <View style={[styles.diaSelo, { backgroundColor: '#E1306C' }]}><Text style={styles.diaSeloTxt} numberOfLines={1}>{it.acao.selo}</Text></View>
+          ) : comDia && d ? (
+            <View style={[styles.diaSelo, hoje && { backgroundColor: '#E1306C' }]}><Text style={styles.diaSeloTxt}>{hoje ? 'HOJE' : `${DIAS_CURTOS[d.getDay()]} ${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}`}</Text></View>
+          ) : null}
+          {it.vip && <View style={styles.vipSelo}><Text style={styles.vipSeloTxt}>LISTA VIP</Text></View>}
+        </View>
+        <Text style={styles.destHora} numberOfLines={1}>{it.acao ? it.acao.ate : d ? `${hoje ? 'Hoje · ' : ''}${d.getHours()}h${d.getMinutes() ? pad2(d.getMinutes()) : ''}` : 'Programação'}{preco ? ` · ${preco}` : ''}</Text>
+        <Text style={styles.destTitulo} numberOfLines={2}>{it.titulo}</Text>
+        {/* 18/11: nome da casa em até 2 linhas; some quando é igual ao título (ex.: MEU GAROTO / MEU GAROTO). */}
+        {!!it.casa && it.casa.trim().toLowerCase() !== it.titulo.trim().toLowerCase() && <Text style={styles.destCasa} numberOfLines={2}>{it.casa}</Text>}
+        {!!it.publico && <Text style={[styles.destCasa, { opacity: 0.75 }]} numberOfLines={1}>{it.publico}</Text>}
+      </TouchableOpacity>
+    );
+  };
+  const Carrossel = ({ titulo, itens, comDia }: { titulo: string; itens: ItemFaixa[]; comDia: boolean }) => (
+    itens.length === 0 ? null : (
+      <View style={{ marginTop: 16 }}>
+        <View style={styles.destCab}>
+          <Text style={[styles.festasPagasTitulo, { marginBottom: 0 }]}>{titulo}</Text>
+          <Text style={styles.destQtd}>{itens.length}</Text>
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingRight: 16 }} style={{ marginTop: 10, marginRight: -16 }}>
+          {itens.map((it) => <CartaoDestaque key={it.chave} it={it} comDia={comDia} />)}
+        </ScrollView>
+      </View>
+    )
+  );
+  // A agenda abaixo mostra todas as festas do dia (destacadas também), com mais informação.
+  const eventosDaLista = filteredEvents;
 
   const faixaPagas = (
     <>
-                  {itensFaixa.length > 0 && !subDesligadas.has('__festas') && (
-                    <View style={{ marginTop: 14 }}>
-                      <Text style={styles.festasPagasTitulo}>Festas em destaque</Text>
-                      {/* Rodada 136 — mesmo tamanho dos quadradinhos de ofertas de Bares e Trip (3 por linha), flier em cima e texto embaixo. */}
-                      <View style={styles.festasGrade}>
-                        {festasVisiveis.map((it) => (
-                          <TouchableOpacity key={it.chave} activeOpacity={0.9} style={[styles.festaPagaCard, tamanhoFlier]} onPress={it.abrir} accessibilityRole="button" accessibilityLabel={it.titulo}>
-                            {/* Rodada 138 — só o flier, como os quadradinhos de ofertas (pedido da Andrea: "mais bonito"). */}
-                            {it.foto ? (
-                              <Image source={{ uri: it.foto }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-                            ) : (
-                              <View style={styles.festaSemFlier}>
-                                <Feather name={it.festaId ? 'music' : 'calendar'} size={18} color="rgba(255,255,255,0.5)" />
-                                <Text style={styles.festaSemFlierTxt} numberOfLines={3}>{it.titulo}</Text>
-                              </View>
-                            )}
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                      {itensFaixa.length > 6 && (
-                        <TouchableOpacity onPress={() => setVerTodasFestas((v) => !v)} style={{ marginTop: 8 }} accessibilityRole="button">
-                          <Text style={styles.festasVerTodas}>{verTodasFestas ? 'Ver menos' : `Ver todas (${itensFaixa.length})`}</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  )}
+      {/* Um carrossel só: ações de marca na frente (fora do rodízio), depois hoje, depois os próximos dias.
+          Festas e agendas dos bares destacadas pelo plano (Fundador/Premium) e as avulsas, com o dia em cima do flyer. */}
+      <Carrossel titulo="Em destaque nessa semana" itens={[...itensAcao, ...destaquesHoje, ...destaquesSemana]} comDia />
     </>
   );
   return (
@@ -895,7 +1052,7 @@ export default function EventsScreen() {
           <Feather name="search" size={20} color={COLORS.textPrimary} />
           <TextInput
             style={styles.searchInput}
-            placeholder={`Buscar em ${modoTipo ? (SUBCATEGORIAS.festas.find((d) => d.chave === selectedSub)?.rotulo || 'Eventos') : 'Eventos'}...`}
+            placeholder={`Buscar em ${modoTipo ? (defsFestas.find((d) => d.chave === selectedSub)?.rotulo || 'Eventos') : 'Eventos'}...`}
             placeholderTextColor={COLORS.textSecondary}
             value={busca}
             onChangeText={setBusca}
@@ -1005,20 +1162,42 @@ export default function EventsScreen() {
             <FiltrosPilulas
               compacto
               filtros={[
-                { id: 'perto', label: 'Perto de mim', curto: 'Perto', icone: 'navigation', opcoes: Object.keys(RAIOS_KM), valor: pertoSel },
+                { id: 'quando', label: 'Quando', icone: 'calendar', opcoes: Object.keys(QUANDO), valor: Object.keys(QUANDO).find((k) => QUANDO[k] === dateFilter) },
                 { id: 'publico', label: 'Público', titulo: 'Predominância de público', icone: 'users', opcoes: PUBLICO_FESTA_CADASTRO.map((p) => p.rotulo), valor: PUBLICO_FESTA_CADASTRO.find((p) => p.slug === selectedPublic)?.rotulo },
+                { id: 'estilo', label: 'Estilo musical', curto: 'Estilo', icone: 'music', opcoes: (opcoesFiltrar.estilos as string[]).slice(0, 14).map(rotuloTag), valor: selectedMusic ? rotuloTag(selectedMusic) : undefined },
+                { id: 'entrada', label: 'Entrada', icone: 'tag', opcoes: Object.keys(ENTRADA), valor: Object.keys(ENTRADA).find((k) => ENTRADA[k] === selectedEntrada) },
+                { id: 'perto', label: 'Perto de mim', curto: 'Perto', icone: 'navigation', opcoes: Object.keys(RAIOS_KM), valor: pertoSel },
               ]}
               onSelecionar={(id, v) => {
                 if (id === 'perto') setPertoSel(v);
+                else if (id === 'quando') setDateFilter((v && QUANDO[v]) || 'hoje');
+                else if (id === 'estilo') setSelectedMusic((opcoesFiltrar.estilos as string[]).find((t) => rotuloTag(t) === v) ?? null);
+                else if (id === 'entrada') setSelectedEntrada((v && ENTRADA[v]) || null);
                 else setSelectedPublic(PUBLICO_FESTA_CADASTRO.find((p) => p.rotulo === v)?.slug ?? null);
               }}
-              onLimpar={() => { setPertoSel(undefined); setSelectedPublic(null); }}
+              onLimpar={() => { setPertoSel(undefined); setSelectedPublic(null); setSelectedMusic(null); setSelectedEntrada(null); setDateFilter('hoje'); }}
             />
             {carregandoLocal && maxDistancia !== 999 && <ActivityIndicator size="small" color={COLORS.pink} style={{ marginTop: 6 }} />}
           </View>
         )}
         {modoTipo && (
           <View style={{ paddingHorizontal: 16 }}>
+            {/* Vitrine da subcategoria (Festas › Drag shows…): patrocinador e banners próprios; sem eles, os de Festas. */}
+            {!!selectedSub && !busca.trim() && (
+              <VitrineCategoria
+                key={`festas-${selectedSub}`}
+                slug={`festas--${selectedSub}`}
+                titulo={defsFestas.find((d) => d.chave === selectedSub)?.rotulo || 'Eventos'}
+                categoriaReal={['eventos']}
+                semOfertas
+                locais={locaisVitrine.filter((l) => events.some((ev) => ev.local_id === l.id && subsDoEvento(ev).includes(selectedSub)))}
+                slugPai={herdaFestas ? 'festas' : undefined}
+                locaisPai={herdaFestas ? locaisVitrine : undefined}
+                telaBanners={`cat:festas:${selectedSub}`}
+                telaPai={herdaFestas ? 'cat:festas' : undefined}
+                tituloLista={null}
+              />
+            )}
             {faixaPagas}
           </View>
         )}
@@ -1057,7 +1236,7 @@ export default function EventsScreen() {
           <View style={styles.listHeaderRow}>
             {!modoTipo && (
               <Text style={styles.sectionTitle}>
-                {dateFilter === 'hoje' ? 'Agenda de hoje' : (CALENDAR_DATES.find((d) => d.id === dateFilter)?.label) || 'Agenda'}
+                {dateFilter === 'hoje' ? 'Agenda de hoje' : dateFilter === 'semana' ? 'Agenda · próximos 7 dias' : (CALENDAR_DATES.find((d) => d.id === dateFilter)?.label) || 'Agenda'}
               </Text>
             )}
             <Text style={styles.eventCount}>
@@ -1322,7 +1501,7 @@ const styles = StyleSheet.create({
 
   titleArea: { paddingHorizontal: 16, marginTop: 0, marginBottom: 12 },
   searchContainer: { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 16, marginBottom: 10, paddingHorizontal: 18, height: 46, borderRadius: 23, backgroundColor: '#232230' },
-  searchInput: { flex: 1, color: COLORS.textPrimary, fontSize: 14, fontWeight: '700' },
+  searchInput: { flex: 1, color: COLORS.textPrimary, fontSize: 14, fontWeight: '600', letterSpacing: 0 },
   mainTitle: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5, lineHeight: 32, color: COLORS.textPrimary },
 
   dateSelectorRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, marginBottom: 10 },
@@ -1332,21 +1511,32 @@ const styles = StyleSheet.create({
   dateBtnTextActive: { color: '#FFF', fontWeight: '700' },
   diaSemanaTitulo: { fontSize: 13, fontWeight: '800', color: COLORS.pink, textTransform: 'uppercase', letterSpacing: 0.6, marginTop: 10, marginBottom: 8 },
   // Rodada 147 — sem caixa: lista leve, separada só por uma linha fina.
-  agCard: { borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  agCard: { marginBottom: 4 },
+  agFlyer: { width: 104, height: 130, borderRadius: 12, backgroundColor: 'rgba(126,87,194,0.16)', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  agFlyerDestaque: { borderWidth: 2, borderColor: '#E1306C' },
+  agHoraPreco: { marginTop: 6, fontSize: 13, fontWeight: '800', color: COLORS.pink },
+  agCta: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginTop: 10, borderWidth: 1, borderColor: COLORS.pink, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
+  agCtaForte: { backgroundColor: COLORS.pink },
+  agCtaTxt: { fontSize: 12, fontWeight: '800', color: COLORS.pink },
+  agChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+  agChip: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: COLORS.border, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 },
+  agChipTxt: { fontSize: 11, fontWeight: '600', color: COLORS.textSecondary },
   agTopo: { flexDirection: 'row', gap: 12, paddingVertical: 14, alignItems: 'flex-start' },
   agThumb: { width: 64, height: 64, borderRadius: 12, backgroundColor: 'rgba(126,87,194,0.16)', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   agThumbImg: { width: 64, height: 64 },
   agLinhaHora: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   agHora: { flexShrink: 1, fontSize: 12, fontWeight: '800', color: COLORS.pink },
-  agSelo: { marginLeft: 'auto' },
-  agSeloTxt: { fontSize: 11, fontWeight: '600', color: '#8E8BA3' },
+  // Etiqueta "Agenda do bar": pílula lilás discreta, em maiúsculas pequenas.
+  agSelo: { marginLeft: 'auto', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 999, backgroundColor: 'rgba(155,60,255,0.14)', borderWidth: 0.5, borderColor: 'rgba(155,60,255,0.40)' },
+  agSeloTxt: { fontSize: 8, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase', color: '#D9C9FF' },
   agTitulo: { fontSize: 15, fontWeight: '800', color: COLORS.textPrimary, marginTop: 4, lineHeight: 19 },
   agLocalLinha: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
   agLocal: { flexShrink: 1, fontSize: 12, color: COLORS.textSecondary },
   agDesc: { fontSize: 12, color: COLORS.textMuted, marginTop: 4, lineHeight: 16 },
   agRodape: { marginTop: 10 },
-  agendaBadge: { backgroundColor: 'rgba(126,87,194,0.22)', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
-  agendaBadgeText: { fontSize: 8, fontWeight: '800', color: '#B39DDB', letterSpacing: 0.5 },
+  // Mesma pílula da etiqueta "Agenda do bar" da lista (agSelo).
+  agendaBadge: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: 999, backgroundColor: 'rgba(155,60,255,0.14)', borderWidth: 0.5, borderColor: 'rgba(155,60,255,0.40)' },
+  agendaBadgeText: { fontSize: 8, fontWeight: '700', color: '#D9C9FF', letterSpacing: 0.5 },
   agendaDesc: { fontSize: 12, color: COLORS.textSecondary, marginTop: 4 },
   agendaLink: { fontSize: 12, fontWeight: '700', color: COLORS.pink, marginTop: 6 },
   cartazCard: { backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border, borderRadius: 16, overflow: 'hidden', marginBottom: 12 },
@@ -1373,8 +1563,8 @@ const styles = StyleSheet.create({
   chipText: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary },
   chipTextActive: { color: '#FFF', fontWeight: '700' },
 
-  listArea: { paddingHorizontal: 16, marginTop: 8 },
-  listHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  listArea: { paddingHorizontal: 16, marginTop: 24 },
+  listHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 },
   // Rodada 143 — títulos de seção discretos, iguais ao "Membros Fundadores" da Home.
   sectionTitle: { ...TITULO_SECAO },
   eventCount: { fontSize: 12, color: COLORS.textSecondary, fontWeight: '600' },
@@ -1405,6 +1595,15 @@ const styles = StyleSheet.create({
   festasVerTodas: { fontSize: 12, fontWeight: '800', color: '#E1306C' },
   // Rodada 142 — flier em pé (4:5), como as festas fazem: nada cortado.
   festaPagaCard: { borderRadius: 12, overflow: 'hidden', backgroundColor: '#2A1B3D' },
+  destCab: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  destQtd: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.5)' },
+  destHora: { marginTop: 6, fontSize: 11, fontWeight: '800', color: '#E1306C' },
+  destTitulo: { marginTop: 2, fontSize: 12.5, fontWeight: '800', color: '#FFFFFF', lineHeight: 16 },
+  destCasa: { marginTop: 1, fontSize: 11, color: 'rgba(255,255,255,0.6)' },
+  diaSelo: { position: 'absolute', top: 6, left: 6, maxWidth: '88%', backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3 },
+  diaSeloTxt: { color: '#FFF', fontSize: 9, fontWeight: '900', letterSpacing: 0.4 },
+  vipSelo: { position: 'absolute', bottom: 8, left: 8, backgroundColor: '#7E57C2', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  vipSeloTxt: { color: '#FFF', fontSize: 9.5, fontWeight: '900', letterSpacing: 0.6 },
   festaSemFlier: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4, paddingHorizontal: 6 },
   festaSemFlierTxt: { fontSize: 10.5, fontWeight: '800', color: '#FFFFFF', textAlign: 'center' },
   festaPagaFoto: { flex: 1, backgroundColor: '#2A1B3D', alignItems: 'center', justifyContent: 'center' },

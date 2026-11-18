@@ -174,7 +174,7 @@ const s = StyleSheet.create({
   iniciais: { fontSize: 20, fontWeight: '800', color: '#FFF' },
   iniciaisCompacto: { fontSize: 16 },
   cameraCompacta: { width: 20, height: 20, borderRadius: 10, right: -4, bottom: -4 },
-  carregando: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' },
+  carregando: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' },
   camera: { position: 'absolute', right: -2, bottom: -2, width: 26, height: 26, borderRadius: 13, backgroundColor: '#E1306C', borderWidth: 2, borderColor: '#1A1A22', alignItems: 'center', justifyContent: 'center' },
   dica: { marginTop: 8, fontSize: 11, color: '#8E8BA3' },
   bloco: { width: '100%', marginTop: 4 },

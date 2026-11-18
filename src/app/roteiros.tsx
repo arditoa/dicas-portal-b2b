@@ -17,6 +17,7 @@ import FundoCaixaDegrade from '../components/FundoCaixaDegrade';
 import CabecalhoTela from '../components/CabecalhoTela';
 import { ehRoteiroCompleto, listarRoteiros, opcoesDoGrupo, Roteiro, tagsVisiveis, todasTags } from '../lib/roteiros';
 import { rotuloTag } from '../lib/taxonomia';
+import { TITULO_SECAO } from '../constants/theme';
 
 const C = {
   bg: '#0B0B0E',
@@ -316,7 +317,7 @@ const styles = StyleSheet.create({
   filtro: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: C.border, backgroundColor: C.card, borderRadius: 12, paddingHorizontal: 12, height: 38 },
   filtroAtivo: { backgroundColor: C.pink, borderColor: C.pink },
   filtroTxt: { color: C.text, fontSize: 12, fontWeight: '700' },
-  secao: { color: C.text, fontSize: 17, fontWeight: '800', paddingHorizontal: 16, marginTop: 20, marginBottom: 10 },
+  secao: { ...TITULO_SECAO, paddingHorizontal: 16, marginTop: 20, marginBottom: 10 },
   grade: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: 16 },
   card: { width: '48.5%', borderRadius: 14, overflow: 'hidden', backgroundColor: C.card, borderWidth: 1, borderColor: C.border },
   cardFoto: { width: '100%', height: 100 },

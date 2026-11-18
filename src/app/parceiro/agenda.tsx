@@ -13,7 +13,7 @@ import { CartaoAgendaPrevia, CartazPrevia, DestaquePrevia } from '../../componen
 import { CP, ESP, RAIO, TelaParceiro, TituloSecao } from '../../components/parceiro/TelaParceiro';
 import {
   CartazAgenda, cartazVazio, chaveDestaque, DiaAgenda, destacar, destaquesUsadosNoMes, idDoDia, LIMITE_DESTAQUES, limparDia,
-  listarDestaques, listarSemana, NOMES_DIA, nomeDoMes, removerCartaz, salvarCartaz, salvarDia, segundaDaSemana, somarDias,
+  listarDestaques, listarSemana, NOMES_DIA, nomeDoMes, PUBLICOS_AGENDA, removerCartaz, salvarCartaz, salvarDia, segundaDaSemana, somarDias,
   temDestaqueNoPlano, textoDaAgenda, validarDia,
 } from '../../lib/parceiro/agenda';
 import { recursosDaCategoria, useModoParceiro } from '../../lib/modoParceiro';
@@ -105,7 +105,7 @@ export default function Agenda() {
         setDestaques(novo);
         if (data.slice(0, 7) === hoje.slice(0, 7)) setUsadas(r.usadas);
         else void destaquesUsadosNoMes(localId, hoje).then(setUsadas);
-        Alert.alert(ligado ? 'Destaque tirado' : 'Destacado!', `Destaques de ${mes}: ${r.usadas} de ${r.limite} (festas + agenda).`);
+        Alert.alert(ligado ? 'Destaque tirado' : 'Destacado!', `Destaques da agenda em ${mes}: ${r.usadas} de ${r.limite}.`);
       } catch (e: any) {
         Alert.alert('Destaque', e?.message || 'Não deu para destacar agora.');
       } finally {
@@ -120,7 +120,7 @@ export default function Agenda() {
     }
     Alert.alert(
       semana ? 'Destacar o cartaz da semana?' : 'Destacar este dia?',
-      `${rotulo} aparece no topo de Eventos, em "Festas em destaque", ${semana ? 'de segunda a domingo' : 'até o fim do dia'}. Usa 1 dos ${LIMITE_DESTAQUES} destaques de ${mes}.`,
+      `${rotulo} aparece em Bares › Agenda, em "Em destaque nessa semana", ${semana ? 'de segunda a domingo' : 'até o fim do dia'}. Usa 1 dos ${LIMITE_DESTAQUES} destaques de ${mes}.`,
       [{ text: 'Agora não', style: 'cancel' }, { text: 'Destacar', onPress: () => void executar() }],
     );
   };
@@ -161,8 +161,7 @@ export default function Agenda() {
   ];
 
   return (
-    <TelaParceiro titulo="Agenda da semana" subtitulo="Aparece no app em Eventos › Essa semana. Não aparece na página da casa." atualizando={false} aoAtualizar={() => { void carregar(offset); void carregarExtras(); }}>
-      <TouchableOpacity style={a.voltar} onPress={() => router.back()} accessibilityRole="button"><Feather name="chevron-left" size={16} color={CP.dim} /><Text style={a.voltarTxt}>Voltar</Text></TouchableOpacity>
+    <TelaParceiro titulo="Agenda da semana" subtitulo="Aparece no app em Eventos › Essa semana. Não aparece na página da casa." atualizando={false} aoAtualizar={() => { void carregar(offset); void carregarExtras(); }} aoVoltar={() => router.back()}>
 
       <View style={{ marginTop: ESP.l }}>
         <Chips preencher opcoes={[{ valor: 0, rotulo: 'Esta semana' }, { valor: 1, rotulo: 'Próxima semana' }]} valor={offset} aoMudar={trocarSemana} />
@@ -177,7 +176,7 @@ export default function Agenda() {
         <View style={a.cota}>
           <View style={{ flex: 1 }}>
             <Text style={a.cotaTitulo}>Destaques de {nomeDoMes(hoje)}: {usadas ?? '–'} de {LIMITE_DESTAQUES}</Text>
-            <Text style={a.cotaSub}>Festas e agenda usam a mesma cota. Destaque fica no topo de Eventos.</Text>
+            <Text style={a.cotaSub}>4 destaques por mês, só da agenda (eventos têm cota própria). Aparecem em Bares › Agenda.</Text>
           </View>
           <View style={a.pontos}>
             {Array.from({ length: LIMITE_DESTAQUES }, (_, i) => <View key={i} style={[a.ponto, i < (usadas ?? 0) && { backgroundColor: '#FFD54F' }]} />)}
@@ -262,7 +261,7 @@ export default function Agenda() {
           <Previa onde="Eventos › Essa semana" vazio="Preencha um dia ou o cartaz para ver a prévia.">
             {fotoDestaques.length > 0 && (
               <View style={{ marginBottom: ESP.m }}>
-                <Text style={a.previaRotulo}>Festas em destaque</Text>
+                <Text style={a.previaRotulo}>Bares › Agenda · Em destaque nessa semana</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: ESP.s }}>
                   {fotoDestaques.map((x) => <DestaquePrevia key={x.k} foto_url={x.foto || undefined} titulo={x.titulo} />)}
                 </ScrollView>
@@ -278,11 +277,20 @@ export default function Agenda() {
           <TituloSecao texto="Compartilhar" />
           <Text style={a.dica}>Manda a agenda com o link da casa no app. No Instagram, cole o texto no story ou na legenda.</Text>
           <View style={a.botoes}>
-            <TouchableOpacity style={[a.compartilhar, { backgroundColor: '#25D366' }]} onPress={() => void compartilharWhatsApp()} accessibilityRole="button">
-              <Feather name="message-circle" size={16} color="#FFF" /><Text style={a.compartilharTxt}>WhatsApp</Text>
+            {/* 18/11: botões mais sóbrios — cartão escuro com ícone colorido, no padrão do resto do Modo parceiro. */}
+            <TouchableOpacity style={a.compartilhar} onPress={() => void compartilharWhatsApp()} accessibilityRole="button" accessibilityLabel="Compartilhar no WhatsApp">
+              <View style={[a.compartilharIcone, { backgroundColor: '#25D36622' }]}><Feather name="message-circle" size={17} color="#25D366" /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={a.compartilharTxt}>WhatsApp</Text>
+                <Text style={a.compartilharSub} numberOfLines={1}>Grupos e contatos</Text>
+              </View>
             </TouchableOpacity>
-            <TouchableOpacity style={[a.compartilhar, { backgroundColor: '#C13584' }]} onPress={compartilharOutros} accessibilityRole="button">
-              <Feather name="instagram" size={16} color="#FFF" /><Text style={a.compartilharTxt}>Instagram e outros</Text>
+            <TouchableOpacity style={a.compartilhar} onPress={compartilharOutros} accessibilityRole="button" accessibilityLabel="Compartilhar no Instagram e outros apps">
+              <View style={[a.compartilharIcone, { backgroundColor: '#E1306C22' }]}><Feather name="instagram" size={17} color="#E1306C" /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={a.compartilharTxt}>Instagram</Text>
+                <Text style={a.compartilharSub} numberOfLines={1}>Story, legenda e outros</Text>
+              </View>
             </TouchableOpacity>
           </View>
         </>
@@ -377,6 +385,21 @@ function EditorDia({ dia, localId, aoFechar, aoSalvo }: { dia: DiaAgenda; localI
             <Campo rotulo="Detalhes (opcional)" valor={d.descricao} aoMudar={(v) => setD({ ...d, descricao: v })} max={300} linhas exemplo="Entrada, atrações, dress code…" />
             <Campo rotulo="Link (opcional)" valor={d.link} aoMudar={(v) => setD({ ...d, link: v })} icone="link" teclado="url" autoCapitalize="none" exemplo="Post do Instagram, ingressos…" ajuda='Vira o botão "Ver mais" no cartão.' />
             <FotoUpload rotulo="Arte ou foto (opcional)" valor={d.foto_url || null} aoMudar={(u) => setD({ ...d, foto_url: u || '' })} bucket="fotos-locais" pasta={localId} prefixo={`agenda-${d.chave}`} altura={140} ajuda="Aparece pequena no cartão e grande se o dia for destacado." />
+            <Chips
+              rotulo="Público da noite"
+              opcoes={PUBLICOS_AGENDA}
+              valor={d.publico || ''}
+              aoMudar={(v) => setD({ ...d, publico: v === d.publico ? '' : v })}
+              ajuda={d.publico ? 'Aparece na Agenda do app e entra no filtro "Público".' : 'Usa a predominância de público do cadastro do bar. Escolha se esta noite for diferente.'}
+            />
+            <Chips
+              rotulo="Entrada"
+              opcoes={[{ valor: 'gratis', rotulo: 'Grátis' }, { valor: 'pago', rotulo: 'Paga' }]}
+              valor={d.entrada || null}
+              aoMudar={(v) => setD({ ...d, entrada: v === d.entrada ? '' : v })}
+              ajuda="Toque de novo para deixar sem informar."
+            />
+            <Interruptor titulo="Nome na lista" explicacao="A noite tem lista. Explique como colocar o nome no link ou nos detalhes." valor={!!d.lista} aoMudar={(v) => setD({ ...d, lista: v })} />
             <Chips
               rotulo="Vale para"
               preencher
@@ -477,6 +500,8 @@ const a = StyleSheet.create({
   previaRotulo: { color: '#FFFFFF', fontSize: 13, fontWeight: '800', marginBottom: ESP.s },
   dica: { color: CP.dim, fontSize: 12, lineHeight: 17, marginBottom: ESP.s },
   botoes: { flexDirection: 'row', gap: ESP.s },
-  compartilhar: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 48, borderRadius: RAIO.s },
-  compartilharTxt: { color: '#FFF', fontSize: 14, fontWeight: '800' },
+  compartilhar: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: ESP.s + 2, minHeight: 60, borderRadius: RAIO.m, backgroundColor: CP.card, borderColor: CP.borda, borderWidth: 1, paddingHorizontal: ESP.m, paddingVertical: ESP.s + 2 },
+  compartilharIcone: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  compartilharTxt: { color: CP.texto, fontSize: 14, fontWeight: '800' },
+  compartilharSub: { color: CP.dim, fontSize: 11, marginTop: 1 },
 });

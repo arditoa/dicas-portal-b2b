@@ -8,10 +8,10 @@ import { Image, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-
 
 import { MODO_DEMONSTRACAO } from '../lib/demo';
 import FundoCaixaDegrade from './FundoCaixaDegrade';
-import { buscarPatrocinio, Patrocinio, registrarVitrine } from '../lib/vitrine';
+import { buscarConvitesVaga, buscarPatrocinio, conviteLigado, Patrocinio, registrarVitrine } from '../lib/vitrine';
 
-// Em demonstração, o espaço aparece escrito "Patrocínio Master"; fora dela, o patrocinador master padrão (Vezpa).
-const PADRAO: Patrocinio = MODO_DEMONSTRACAO ? {
+// Vaga sem patrocinador: convite "Sua marca aqui" (antes aparecia o Vezpa como exemplo).
+export const CONVITE_PATROCINIO: Patrocinio = MODO_DEMONSTRACAO ? {
   categoria: 'master',
   local_id: null,
   tag: 'ESPAÇO DO PATROCINADOR',
@@ -25,11 +25,11 @@ const PADRAO: Patrocinio = MODO_DEMONSTRACAO ? {
 } : {
   categoria: 'master',
   local_id: null,
-  tag: 'PATROCINADOR MASTER',
-  titulo: 'Vezpa Bar & Rooftop',
+  tag: 'PATROCINADOR DA CATEGORIA',
+  titulo: 'Sua marca aqui',
   subtitulo: null,
-  cta: 'Conhecer',
-  destino: '',
+  cta: 'Quero este espaço',
+  destino: 'https://www.dicaslgbt.com.br/parceiro-fundador',
   imagem_url: null,
   cor1: '#E1306C',
   cor2: '#7E57C2',
@@ -46,14 +46,16 @@ export default function BannerMaster({ slug, padrao }: { slug: string; padrao?: 
   const router = useRouter();
   const [p, setP] = useState<Patrocinio | null>(null);
   const [lido, setLido] = useState(false);
+  const [convite, setConvite] = useState(true);
 
   useEffect(() => {
     let vivo = true;
-    buscarPatrocinio(slug).then((r) => { if (vivo) { setP(r); setLido(true); } });
+    Promise.all([buscarPatrocinio(slug), buscarConvitesVaga()]).then(([r, cv]) => { if (vivo) { setP(r); setConvite(conviteLigado(cv, slug)); setLido(true); } });
     return () => { vivo = false; };
   }, [slug]);
 
-  const patrocinio = p ?? (lido ? padrao ?? PADRAO : null);
+  // Vaga livre: convite "Sua marca aqui" só se a equipe deixou ligado para esta página.
+  const patrocinio = p ?? (lido ? padrao ?? (convite ? CONVITE_PATROCINIO : null) : null);
   useEffect(() => {
     if (patrocinio && lido) registrarVitrine(patrocinio.local_id, `patrocinio:${slug}`, 'exibicao');
   }, [patrocinio?.titulo, lido, slug]);
@@ -89,7 +91,7 @@ export default function BannerMaster({ slug, padrao }: { slug: string; padrao?: 
 
 const s = StyleSheet.create({
   patroc: { marginBottom: 14, height: 112, borderRadius: 14, overflow: 'hidden', justifyContent: 'center', backgroundColor: '#161520' },
-  veu: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8,6,16,0.45)' },
+  veu: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(8,6,16,0.45)' },
   corpo: { padding: 14, gap: 6, paddingRight: 24 },
   pilula: { alignSelf: 'flex-start', maxWidth: '100%', backgroundColor: 'rgba(255,255,255,0.22)', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 },
   tag: { fontSize: 10, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.6 },

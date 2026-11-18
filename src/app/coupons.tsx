@@ -13,6 +13,7 @@ import {
 
 import { useAuth } from '../lib/authContext';
 import { supabase } from '../lib/supabase';
+import { TITULO_SECAO } from '../constants/theme';
 
 // Rodada 59 (parte 8) — mesmo bug de favorites.tsx (Meus Locais Salvos):
 // esta tela inteira era MOCK_COUPONS, nunca ligada em nada real. Andrea
@@ -198,7 +199,9 @@ export default function CouponsScreen() {
                     <View style={styles.cardBody}>
                       <Text style={styles.venueName}>{r.cupons?.locais?.nome || 'Local'}</Text>
                       <Text style={styles.couponTitle}>{r.cupons?.titulo || 'Cupom'}</Text>
-                      <Text style={styles.expiraText}>{new Date(r.resgatado_em).toLocaleDateString('pt-BR')}</Text>
+                      <Text style={styles.expiraText}>
+                        {new Date(r.resgatado_em).toLocaleDateString('pt-BR')} · código {r.id.replace(/-/g, '').slice(0, 6).toUpperCase()}
+                      </Text>
                     </View>
                   </View>
                 ))}
@@ -218,7 +221,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 17, fontWeight: '800', color: '#FFF' },
   emptyBox: { alignItems: 'center', gap: 10, marginTop: 60, paddingHorizontal: 40 },
   emptyText: { fontSize: 12, color: '#A0A0B0', textAlign: 'center', lineHeight: 18 },
-  sectionLabel: { fontSize: 12, fontWeight: '800', color: '#A0A0B0', textTransform: 'uppercase', marginBottom: -2, marginTop: 4 },
+  sectionLabel: { ...TITULO_SECAO, marginBottom: -2, marginTop: 4 },
   couponCard: { backgroundColor: '#1C1B26', borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#2D2B3D' },
   badgeStrip: { paddingHorizontal: 14, paddingVertical: 6 },
   discountText: { color: '#FFF', fontWeight: '800', fontSize: 12 },

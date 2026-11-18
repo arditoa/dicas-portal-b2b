@@ -18,6 +18,12 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../lib/authContext';
 import ContaAtividade from '../../components/ContaAtividade';
+import MeusProximos from '../../components/MeusProximos';
+import ConviteRelatorio from '../../components/ConviteRelatorio';
+import EnquetePendente from '../../components/EnquetePendente';
+import AvaliacaoSegurancaPendente from '../../components/AvaliacaoSegurancaPendente';
+import PresentesAniversario from '../../components/PresentesAniversario';
+import PesquisaRapida from '../../components/PesquisaRapida';
 import { PassoGostos, PassoSobreVoce, aplicarPendente, guardarPendente, salvarExtras } from '../../components/CadastroExtras';
 import { EXTRAS_VAZIO, ExtrasCadastro } from '../../lib/perfilOpcoes';
 import { TituloTela } from '../../components/CabecalhoTela';
@@ -35,11 +41,13 @@ import { traduzErroAuth } from '../../lib/erroAuth';
 import { ehContaWhatsApp, emailDeLogin, pareceWhatsApp } from '../../lib/parceiroAuth';
 import { useModoParceiro } from '../../lib/modoParceiro';
 import CartaoAreaParceiro from '../../components/CartaoAreaParceiro';
+import CartaoEquipeDicas from '../../components/CartaoEquipeDicas';
 import EntradaEquipe from '../../components/EntradaEquipe';
 import AniversarioCasas from '../../components/AniversarioCasas';
 import PrivacidadeComunidade from '../../components/PrivacidadeComunidade';
 import { ativarTodosAvisos } from '../../lib/push';
 import { useRastrearTela } from '../../lib/usoTelas';
+import { TITULO_SECAO } from '../../constants/theme';
 
 const COLORS = {
   background: '#0B0B0E',
@@ -88,6 +96,10 @@ export default function ProfileScreen() {
   const contaWhats = ehContaWhatsApp(user?.email);
   const whatsDaConta = contaWhats ? (user?.email || '').replace(/^parceiro\./, '').replace(/@.*$/, '') : '';
   const [dadosAbertos, setDadosAbertos] = useState(false);
+  // Rodada 148 — conta de parceiro (WhatsApp) também é cliente: completa nome e nascimento para usar o app como usuário.
+  const [nomeCliente, setNomeCliente] = useState('');
+  const [nascCliente, setNascCliente] = useState('');
+  const [salvandoCliente, setSalvandoCliente] = useState(false);
   const [isModoCadastro, setIsModoCadastro] = useState(true);
 
   const [nomeSocial, setNomeSocial] = useState('');
@@ -106,6 +118,19 @@ export default function ProfileScreen() {
     phone: string | null;
     birth_date: string | null;
   } | null>(null);
+  // Rodada 148 — faixa do nome: iniciais do nome da pessoa (não do bar) e "desde mês/ano".
+  const nomeConta =
+    contaWhats && (!perfil?.display_name || perfil.display_name.startsWith('parceiro.') || perfil.display_name === 'Usuário Dicas LGBT+')
+      ? localParceiro?.nome || 'Conta de parceiro'
+      : perfil?.display_name || 'Sem nome cadastrado';
+  const iniciaisConta = (() => {
+    const partes = nomeConta.trim().split(/\s+/).filter((p) => /[A-Za-zÀ-ÿ]/.test(p));
+    const ini = partes.length > 1 ? partes[0][0] + partes[partes.length - 1][0] : (partes[0] || 'US').slice(0, 2);
+    return ini.toUpperCase();
+  })();
+  const desdeConta = user?.created_at
+    ? new Date(user.created_at).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }).replace('.', '').replace(' de ', '/')
+    : '';
   const [totalSalvos, setTotalSalvos] = useState(0);
   const [totalCupons, setTotalCupons] = useState(0);
 
@@ -632,40 +657,87 @@ export default function ProfileScreen() {
           ) : (
             <>
             {/* Troca Cliente ↔ Área do parceiro no topo da Conta (só para quem é de alguma casa) */}
+            <CartaoEquipeDicas />
             <CartaoAreaParceiro />
             <View style={styles.profileCard}>
               {/* Rodada 141 — cabeçalho em linha (foto à esquerda, nome e e-mail ao lado): mais proporcional. */}
               <View style={styles.heroTopo}>
-                <FundoCaixaDegrade id="conta-hero" cores={['#4C1D95', '#BE185D']} />
+                <FundoCaixaDegrade id="conta-hero" cores={['#3A1A6E', '#8A1A55']} />
                 {user?.id ? (
-                  <AvatarEditavel compacto userId={user.id} iniciais={((contaWhats ? localParceiro?.nome : perfil?.display_name) || perfil?.display_name || user?.email || 'US').substring(0, 2).toUpperCase()} />
+                  <AvatarEditavel compacto userId={user.id} iniciais={iniciaisConta} />
                 ) : (
                   <View style={styles.avatarCircle}>
                     <Text style={styles.avatarInitials}>
-                      {((contaWhats ? localParceiro?.nome : perfil?.display_name) || perfil?.display_name || user?.email || 'US').substring(0, 2).toUpperCase()}
+                      {iniciaisConta}
                     </Text>
                   </View>
                 )}
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={styles.userName} numberOfLines={1}>
-                    {contaWhats && (!perfil?.display_name || perfil.display_name.startsWith('parceiro.'))
-                      ? localParceiro?.nome || 'Conta de parceiro'
-                      : perfil?.display_name || 'Sem nome cadastrado'}
-                  </Text>
-                  <Text style={styles.userEmail} numberOfLines={1}>
-                    {contaWhats ? 'Conta de parceiro' : user?.email}
-                  </Text>
+                  <Text style={styles.userName} numberOfLines={1}>{nomeConta}</Text>
+                  <View style={styles.heroLinha2}>
+                    {(!contaWhats || !!perfil?.birth_date) && (
+                      <View style={styles.heroChip}><Text style={styles.heroChipTxt}>Cliente</Text></View>
+                    )}
+                    {contaWhats && <View style={styles.heroChip}><Text style={styles.heroChipTxt}>Parceiro</Text></View>}
+                    <Text style={styles.userEmail} numberOfLines={1}>
+                      {!contaWhats ? user?.email : desdeConta ? `desde ${desdeConta}` : ''}
+                    </Text>
+                  </View>
                 </View>
               </View>
 
               <TouchableOpacity style={styles.dadosResumo} onPress={() => setDadosAbertos((v) => !v)} activeOpacity={0.7} accessibilityRole="button" accessibilityState={{ expanded: dadosAbertos }}>
                 <Feather name="user" size={14} color={COLORS.textMuted} />
                 <Text style={styles.dadosResumoTxt}>Meus dados</Text>
-                <Text style={styles.dadosResumoSub} numberOfLines={1}>Telefone, aniversário e status</Text>
+                <Text style={[styles.dadosResumoSub, !perfil?.birth_date && { color: COLORS.pink }]} numberOfLines={1}>{perfil?.birth_date ? 'Telefone, aniversário e status' : 'Complete para usar como cliente'}</Text>
                 <Feather name={dadosAbertos ? 'chevron-up' : 'chevron-down'} size={16} color={COLORS.textMuted} />
               </TouchableOpacity>
               {dadosAbertos && (
               <View style={styles.heroBase}>
+                {user?.id && !perfil?.birth_date && (
+                  <View style={styles.completarBox}>
+                    <Text style={styles.completarTitulo}>Use o app também como cliente</Text>
+                    <Text style={styles.completarSub}>Com seu nome e data de nascimento você guarda cupons, faz check-in, entra em listas e usa o Eu vou. O nascimento não aparece para ninguém.</Text>
+                    <TextInput
+                      style={styles.completarInput}
+                      placeholder="Seu nome ou nome social"
+                      placeholderTextColor={COLORS.textMuted}
+                      value={nomeCliente}
+                      onChangeText={setNomeCliente}
+                      autoCapitalize="words"
+                    />
+                    <TextInput
+                      style={styles.completarInput}
+                      placeholder="Data de nascimento (DD/MM/AAAA)"
+                      placeholderTextColor={COLORS.textMuted}
+                      value={nascCliente}
+                      onChangeText={(t) => setNascCliente(formatarDataNascimento(t))}
+                      keyboardType="number-pad"
+                      maxLength={10}
+                    />
+                    <TouchableOpacity
+                      style={[styles.completarBtn, salvandoCliente && { opacity: 0.6 }]}
+                      disabled={salvandoCliente}
+                      accessibilityRole="button"
+                      onPress={async () => {
+                        const nome = nomeCliente.trim();
+                        const iso = paraDataISO(nascCliente);
+                        if (nome.length < 2) return Alert.alert('Nome', 'Digite seu nome ou nome social.');
+                        if (!iso) return Alert.alert('Data inválida', 'Informe a data no formato DD/MM/AAAA.');
+                        if (!temMaisDe18(iso)) return Alert.alert('Idade mínima', 'O app é para maiores de 18 anos.');
+                        setSalvandoCliente(true);
+                        const { error } = await supabase.from('profiles').update({ social_name: nome, birth_date: iso }).eq('id', user.id);
+                        setSalvandoCliente(false);
+                        if (error) return Alert.alert('Meus dados', 'Não deu para salvar agora. Tente de novo em instantes.');
+                        setPerfil((p) => (p ? { ...p, display_name: nome, birth_date: iso } : p));
+                        Alert.alert('Pronto!', 'Agora você também usa o app como cliente.');
+                      }}
+                    >
+                      {salvandoCliente ? <ActivityIndicator color="#FFF" /> : <Text style={styles.completarBtnTxt}>Salvar</Text>}
+                    </TouchableOpacity>
+                    <View style={styles.infoDivider} />
+                  </View>
+                )}
                 <View style={styles.dadosLinha}>
                   <View style={styles.dadoItem}>
                     <Feather name="phone" size={14} color={COLORS.textMuted} />
@@ -680,7 +752,7 @@ export default function ProfileScreen() {
                   <>
                     <View style={styles.infoDivider} />
                     <StatusRelacionamento userId={user.id} />
-                    {!contaWhats && !!perfil?.birth_date && (
+                    {!!perfil?.birth_date && (
                       <>
                         <View style={styles.infoDivider} />
                         <AniversarioCasas userId={user.id} temNascimento />
@@ -736,11 +808,41 @@ export default function ProfileScreen() {
           {/* Nova versão — a caixa de entrada saiu da barra inferior e mora aqui,
               junto das últimas ações (check-ins, cupons, listas VIP). Fica no topo pra o
               atalho da caixa de entrada na Home cair direto nela. */}
+          {/* Rodada 148 — lista VIP (QR pronto), reservas e Eu vou dos próximos dias */}
+          {isLogado && <MeusProximos userId={user?.id ?? null} />}
+          {/* Migração 131 — ingressos comprados no app */}
+          {/* Segurança, bairro, ingressos e memórias: um grupo só, no mesmo padrão de Comunidade/Preferências */}
+          <Text style={styles.grupoTitulo}>MEU DICAS</Text>
+          <View style={styles.grupoCard}>
+            {[
+              { rota: '/seguranca', icone: 'shield', cor: '#34D399', txt: 'Segurança e Cheguei bem', sub: 'Emergência, volta para casa e contatos', sempre: true },
+              { rota: '/meu-bairro', icone: 'home', cor: '#E1306C', txt: 'Onde você mora', sub: 'Só o bairro, para dicas perto de você' },
+              { rota: '/ingressos', icone: 'credit-card', cor: '#B39DDB', txt: 'Meus ingressos', sub: 'QR para mostrar na porta' },
+              { rota: '/memorias', icone: 'image', cor: '#F2A900', txt: 'Minhas memórias', sub: 'Fotos que você tirou nas casas' },
+            ].filter((l) => l.sempre || isLogado).map((l, i, arr) => (
+              <TouchableOpacity key={l.rota} style={[styles.linha, i < arr.length - 1 && styles.linhaBorda]} onPress={() => router.push(l.rota as any)} activeOpacity={0.7} accessibilityRole="button">
+                <View style={[styles.menuIconBg, { backgroundColor: l.cor + '26' }]}>
+                  <Feather name={l.icone as any} size={16} color={l.cor} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.menuItemText}>{l.txt}</Text>
+                  <Text style={styles.menuItemSub}>{l.sub}</Text>
+                </View>
+                <Feather name="chevron-right" size={16} color={COLORS.textMuted} />
+              </TouchableOpacity>
+            ))}
+          </View>
+          {isLogado && <PesquisaRapida />}
+          {isLogado && <EnquetePendente />}
+          {isLogado && <PresentesAniversario />}
+          {isLogado && <AvaliacaoSegurancaPendente />}
+          {isLogado && !!user?.id && <ConviteRelatorio userId={user.id} />}
+
           <ContaAtividade userId={user?.id ?? null} abaInicial={aba === 'inbox' ? 'inbox' : undefined} />
 
 
-          {/* Etapa 6 — código de equipe e entrada do porteiro (ou o cartão do modo porta, se já entrou) */}
-          <EntradaEquipe />
+          {/* Etapa 6 — no aparelho da porta (sessão anônima) o cartão do modo porta fica no topo */}
+          {!!session?.user?.is_anonymous && <EntradaEquipe />}
 
           <Text style={styles.grupoTitulo}>COMUNIDADE</Text>
           <View style={styles.grupoCard}>
@@ -849,6 +951,9 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             )}
           </View>
+
+          {/* Rodada 148 — "Trabalha em uma casa parceira?" fica no fim da Conta, antes de sair (é para poucos). */}
+          {!session?.user?.is_anonymous && <EntradaEquipe />}
 
           {isLogado && (
             <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
@@ -973,6 +1078,12 @@ const styles = StyleSheet.create({
   },
   heroTopo: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 14, gap: 12 },
   heroBase: { paddingHorizontal: 14, paddingBottom: 12, paddingTop: 4 },
+  completarBox: { marginBottom: 4 },
+  completarTitulo: { fontSize: 14, fontWeight: '800', color: COLORS.textPrimary },
+  completarSub: { fontSize: 12, color: COLORS.textMuted, marginTop: 4, marginBottom: 10, lineHeight: 17 },
+  completarInput: { height: 44, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#14141B', paddingHorizontal: 12, color: COLORS.textPrimary, fontSize: 14, marginBottom: 8 },
+  completarBtn: { height: 44, borderRadius: 22, backgroundColor: COLORS.pink, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
+  completarBtnTxt: { color: '#FFF', fontSize: 14, fontWeight: '800' },
   dadosResumo: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, height: 44 },
   dadosResumoTxt: { fontSize: 13, fontWeight: '700', color: COLORS.textPrimary },
   dadosResumoSub: { flex: 1, fontSize: 12, color: COLORS.textMuted },
@@ -989,14 +1100,17 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   avatarInitials: { fontSize: 17, fontWeight: '800', color: '#FFF' },
-  userName: { fontSize: 16, fontWeight: '800', color: '#FFFFFF' },
-  userEmail: { fontSize: 12, color: 'rgba(255,255,255,0.85)', marginTop: 2 },
+  userName: { fontSize: 17, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.2 },
+  heroLinha2: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 5 },
+  heroChip: { backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
+  heroChipTxt: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
+  userEmail: { flexShrink: 1, fontSize: 12, color: 'rgba(255,255,255,0.75)' },
   infoDivider: { height: 1, backgroundColor: COLORS.border, width: '100%', marginVertical: 12 },
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   infoText: { fontSize: 12, color: COLORS.textSecondary },
 
   sectionBlock: { marginBottom: 20 },
-  sectionTitle: { fontSize: 12, fontWeight: '700', color: COLORS.textMuted, marginBottom: 8, marginLeft: 4 },
+  sectionTitle: { ...TITULO_SECAO, marginBottom: 8, marginLeft: 4 },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1012,7 +1126,7 @@ const styles = StyleSheet.create({
   menuItemText: { fontSize: 12, fontWeight: '600', color: COLORS.textPrimary },
   menuItemSub: { fontSize: 10, color: COLORS.textSecondary, marginTop: 1 },
 
-  grupoTitulo: { fontSize: 11, fontWeight: '800', color: COLORS.textMuted, letterSpacing: 0.8, marginTop: 8, marginBottom: 8, marginLeft: 6 },
+  grupoTitulo: { ...TITULO_SECAO, marginTop: 8, marginBottom: 8, marginLeft: 6 },
   grupoCard: { backgroundColor: COLORS.card, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, overflow: 'hidden', marginBottom: 18 },
   linha: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 13 },
   linhaBorda: { borderBottomWidth: 1, borderBottomColor: COLORS.border },

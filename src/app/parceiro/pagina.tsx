@@ -49,8 +49,7 @@ export default function MinhaPagina() {
   const st = p ? STATUS[p.status] : null;
 
   return (
-    <TelaParceiro titulo="Minha página" subtitulo="É assim que a casa aparece para o público no app.">
-      <TouchableOpacity style={a.voltar} onPress={() => router.back()} accessibilityRole="button"><Feather name="chevron-left" size={16} color={CP.dim} /><Text style={a.voltarTxt}>Voltar</Text></TouchableOpacity>
+    <TelaParceiro titulo="Minha página" subtitulo="É assim que a casa aparece para o público no app." aoVoltar={() => router.back()}>
       {!!erro && <Text style={a.erro}>{erro}</Text>}
       {!p ? (
         <ActivityIndicator color={CP.rosa} style={{ marginTop: ESP.xl }} />

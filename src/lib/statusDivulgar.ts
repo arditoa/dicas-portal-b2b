@@ -14,11 +14,12 @@ export type Situacao = { txt: string; tom: Tom };
 export type StatusDivulgar = {
   itens: Record<string, Situacao>;
   banner: { chamada: string | null; dias: number | null } | null; // null = não se aplica
-  destaques: { usadas: number; limite: number } | null; // null = sem festa do plano
+  destaques: { usadas: number; limite: number } | null; // agenda destacada (160: cota só da agenda, 4/mês)
+  eventos: { usadas: number; limite: number } | null; // evento em destaque (157: vagas do plano)
   reservasHoje: { confirmadas: number; aguardando: number } | null; // null = reservas desligadas / sem acesso
 };
 
-const VAZIO: StatusDivulgar = { itens: {}, banner: null, destaques: null, reservasHoje: null };
+const VAZIO: StatusDivulgar = { itens: {}, banner: null, destaques: null, eventos: null, reservasHoje: null };
 const chave = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const dataCurta = (iso: string) => new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 
@@ -42,6 +43,7 @@ export function useStatusDivulgar(local: LocalDoParceiro | null | undefined, pod
     const itens: Record<string, Situacao> = {};
     let banner: StatusDivulgar['banner'] = null;
     let destaques: StatusDivulgar['destaques'] = null;
+    let eventos: StatusDivulgar['eventos'] = null;
     let reservasHoje: StatusDivulgar['reservasHoje'] = null;
 
     await Promise.all([
@@ -82,6 +84,13 @@ export function useStatusDivulgar(local: LocalDoParceiro | null | undefined, pod
         destaques = { usadas: Number(data) || 0, limite: 4 };
       })(),
       (async () => {
+        // 157: vagas de evento em destaque do plano (Festas Premium 4 · Intermediário Festas 2 · demais Premium/Fundador 1)
+        const c = await supabase.rpc('cota_eventos_do_local', { p_local: localId });
+        if (c.error || !c.data || !(Number((c.data as any).vagas) > 0)) return;
+        const u = await supabase.rpc('vagas_eventos_no_mes', { p_local: localId, p_data: agora.toISOString() });
+        eventos = { usadas: Number(u.data) || 0, limite: Number((c.data as any).vagas) || 0 };
+      })(),
+      (async () => {
         // Reservas (migração 102): como o botão está e quantas reservas hoje.
         if (!r.reservas || nivelDoPlano(plano) === 'gratuito') return;
         const { data, error } = await supabase.from('reserva_config').select('modo').eq('local_id', localId).maybeSingle();
@@ -94,7 +103,7 @@ export function useStatusDivulgar(local: LocalDoParceiro | null | undefined, pod
         reservasHoje = { confirmadas: linhas.filter((x) => x.status === 'confirmada').length, aguardando: linhas.filter((x) => x.status === 'aguardando').length };
       })(),
     ]);
-    setSt({ itens, banner, destaques, reservasHoje });
+    setSt({ itens, banner, destaques, eventos, reservasHoje });
   }, [localId, categoria, plano, podeFesta, podeCupom, podeBanner, podeLista]);
 
   useEffect(() => {

@@ -19,7 +19,8 @@ function caminhoOnda(w: number, h: number, base: number, amp: number, fase: numb
   return `${d} L${w.toFixed(1)} ${h.toFixed(1)} L0 ${h.toFixed(1)} Z`;
 }
 
-export default function FundoCaixaDegrade({ id, cores, ondas = false }: { id: string; cores: [string, string]; ondas?: boolean }) {
+// `meio` (opcional): terceira cor no centro do degradê (ex.: cupons magenta → roxo → azul).
+export default function FundoCaixaDegrade({ id, cores, ondas = false, meio }: { id: string; cores: [string, string]; ondas?: boolean; meio?: string }) {
   const [tam, setTam] = useState({ w: 0, h: 0 });
   const aoMedir = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
@@ -31,8 +32,9 @@ export default function FundoCaixaDegrade({ id, cores, ondas = false }: { id: st
         <Svg width={tam.w} height={tam.h} viewBox={`0 0 ${tam.w} ${tam.h}`}>
           <Defs>
             <LinearGradient id={id} x1="0" y1="0" x2={String(tam.w)} y2={String(tam.h)} gradientUnits="userSpaceOnUse">
-              <Stop offset="0" stopColor={cores[0]} />
-              <Stop offset="1" stopColor={cores[1]} />
+              {(meio ? [cores[0], meio, cores[1]] : [cores[0], cores[1]]).map((c, i, arr) => (
+                <Stop key={i} offset={String(i / (arr.length - 1))} stopColor={c} />
+              ))}
             </LinearGradient>
           </Defs>
           <Rect x="0" y="0" width={tam.w} height={tam.h} fill={`url(#${id})`} />

@@ -263,3 +263,38 @@ export const SUBTITULO_CATEGORIA: Partial<Record<CategoriaSlugUI, string>> = {
   educacao: 'Cursos e escolas que acolhem a diversidade',
   comunidade: 'Apoio, acolhimento e conexão entre pessoas',
 };
+
+
+// Ordem da barra de categorias da Home (fonte única: Home do app e Vitrine do Modo equipe leem daqui).
+export const ORDEM_FIXA_HOME = ['destaques', 'bares', 'festas', 'servicos', 'turismo', 'artistas', 'beleza', 'saude', 'produtos', 'mais18'] as (typeof CATEGORIA_ORDER)[number][];
+export const ORDEM_HOME = [...ORDEM_FIXA_HOME, ...CATEGORIA_ORDER.filter((slug) => !ORDEM_FIXA_HOME.includes(slug))];
+// Rótulos curtos da barra (cabem 6 por linha).
+export const ROTULO_CURTO_HOME: Record<string, string> = {
+  destaques: 'Destaques', turismo: 'Dicas Trip', bares: 'Bares & Noite', festas: 'Festas', gastronomia: 'Gastronomia',
+  lazer: 'Lazer', cultura: 'Cultura', saude: 'Saúde', beleza: 'Beleza', servicos: 'Serviços', educacao: 'Educação', artistas: 'Artistas',
+  produtos: 'Moda', comunidade: 'Comunidade', mais18: '18+', lojas: 'Lojas',
+};
+
+// Nov/2026 — Ordem das categorias na Home editável pelo Modo equipe (app_config, chave 'ordem_categorias_home',
+// valor = JSON com a lista de slugs). Slugs que faltarem entram no fim, na ordem padrão.
+export const CHAVE_ORDEM_HOME = 'ordem_categorias_home';
+export function aplicarOrdemHome(valor?: string | null): (typeof CATEGORIA_ORDER)[number][] {
+  try {
+    const salvo = JSON.parse(valor || '[]') as string[];
+    const validos = salvo.filter((s) => (ORDEM_HOME as string[]).includes(s)) as (typeof CATEGORIA_ORDER)[number][];
+    return [...validos, ...ORDEM_HOME.filter((s) => !validos.includes(s))];
+  } catch {
+    return ORDEM_HOME;
+  }
+}
+
+// Nov/2026 — Estado de cada categoria na Home, pelo Modo equipe (app_config 'estado_categorias', JSON {slug: estado}):
+//   'aparece' = abre normal · 'breve' = ícone com selo EM BREVE ("avise-me") · 'oculta' = some da Home.
+// Sem nada salvo para a categoria, vale o padrão do código (ABERTAS_HOME / emBreve).
+export type EstadoCategoria = 'aparece' | 'breve' | 'oculta';
+export const CHAVE_ESTADO_CATEGORIAS = 'estado_categorias';
+export function lerEstadosCategorias(valor?: string | null): Record<string, EstadoCategoria> {
+  try { return JSON.parse(valor || '{}') || {}; } catch { return {}; }
+}
+// Pode abrir de verdade: tem categoria real no banco ou é página própria (Destaques, Trip, Festas).
+export const podeAbrirCategoria = (slug: string) => ['destaques', 'turismo', 'festas'].includes(slug) || !!(CATEGORIAS as any)[slug]?.categoriaReal;

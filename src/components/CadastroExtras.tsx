@@ -93,17 +93,37 @@ export function PassoSobreVoce({ valor, onMudar }: PassoProps) {
         </Caixa>
       )}
 
-      {/* Relatório de público: cada autorização é separada, opcional e começa desmarcada. Dá para mudar em Conta. */}
+      {/* Relatório de público — Rodada 148: convite em destaque com um botão "Sim" que liga as duas autorizações de uma vez.
+          Continua opcional e começa desligado (LGPD art. 11: consentimento específico e destacado; caixa pré-marcada não vale). */}
       {valor.consentimento && (informou(valor.identidade) || informou(valor.orientacao)) && (
-        <>
-          <Text style={[s.sub, { marginTop: 14, marginBottom: 0 }]}>Opcional, separado e só somado com pelo menos 10 pessoas, nunca com o seu nome:</Text>
+        <View style={s.convite}>
+          <Text style={s.conviteTag}>FAÇA A COMUNIDADE APARECER</Text>
+          <Text style={s.conviteTitulo}>Conte com a gente nos números</Text>
+          <Text style={s.conviteTxt}>
+            Marcas e casas investem onde enxergam público. Somando, de forma anônima, quantas pessoas trans, não binárias, lésbicas, gays e bis usam o app, mostramos que a comunidade existe e merece investimento. Seu nome nunca aparece, e só entram grupos com pelo menos 10 pessoas.
+          </Text>
+          {!(valor.relatorioGenero || valor.relatorioOrientacao) ? (
+            <View style={s.conviteBotoes}>
+              <TouchableOpacity
+                style={s.conviteSim}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                onPress={() => onMudar({ ...valor, relatorioGenero: informou(valor.identidade), relatorioOrientacao: informou(valor.orientacao) })}
+              >
+                <Text style={s.conviteSimTxt}>Sim, quero contar</Text>
+              </TouchableOpacity>
+              <Text style={s.conviteNao}>Se preferir, é só seguir sem tocar. Dá para mudar quando quiser em Conta.</Text>
+            </View>
+          ) : (
+            <Text style={s.conviteOk}>Obrigada por fazer parte! Você pode desmarcar qualquer uma abaixo.</Text>
+          )}
           {informou(valor.identidade) && (
             <Caixa marcado={!!valor.relatorioGenero} onTocar={() => onMudar({ ...valor, relatorioGenero: !valor.relatorioGenero })}>{TEXTO_CONSENTIMENTO_GENERO}</Caixa>
           )}
           {informou(valor.orientacao) && (
             <Caixa marcado={!!valor.relatorioOrientacao} onTocar={() => onMudar({ ...valor, relatorioOrientacao: !valor.relatorioOrientacao })}>{TEXTO_CONSENTIMENTO_ORIENTACAO}</Caixa>
           )}
-        </>
+        </View>
       )}
     </View>
   );
@@ -187,6 +207,15 @@ const s = StyleSheet.create({
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1, borderColor: '#2E2E3D', backgroundColor: '#14141B' },
   chipTxt: { fontSize: 11.5, fontWeight: '700', color: '#D6D3E0' },
+  convite: { marginTop: 18, padding: 14, borderRadius: 16, borderWidth: 1, borderColor: '#7E57C2', backgroundColor: '#1A1430' },
+  conviteTag: { fontSize: 10.5, fontWeight: '800', color: '#E1306C', letterSpacing: 1 },
+  conviteTitulo: { fontSize: 16, fontWeight: '800', color: '#FFFFFF', marginTop: 4 },
+  conviteTxt: { fontSize: 12.5, color: '#C9C6DA', lineHeight: 18, marginTop: 6 },
+  conviteBotoes: { marginTop: 12 },
+  conviteSim: { height: 46, borderRadius: 23, backgroundColor: '#E1306C', alignItems: 'center', justifyContent: 'center' },
+  conviteSimTxt: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
+  conviteNao: { fontSize: 11.5, color: '#8E8BA3', textAlign: 'center', marginTop: 8 },
+  conviteOk: { fontSize: 12.5, color: '#4CAF7D', fontWeight: '700', marginTop: 10 },
   consent: { flexDirection: 'row', gap: 10, marginTop: 18, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: '#2E2E3D', backgroundColor: '#0F0F14' },
   checkbox: { width: 20, height: 20, borderRadius: 6, borderWidth: 2, borderColor: COR, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
   consentTxt: { flex: 1, fontSize: 12, color: '#A0A0B2', lineHeight: 17 },

@@ -1,6 +1,6 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { estiloDoCartao } from '../../lib/estiloBanner';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -23,6 +23,10 @@ import CarrosselAnuncios, { Anuncio } from '../../components/CarrosselAnuncios';
 import { MODO_DEMONSTRACAO } from '../../lib/demo';
 import FundadoresMini from '../../components/FundadoresMini';
 import SeloFundador from '../../components/SeloFundador';
+import EnquetePendente from '../../components/EnquetePendente';
+import AvaliacaoSegurancaPendente from '../../components/AvaliacaoSegurancaPendente';
+import PresentesAniversario from '../../components/PresentesAniversario';
+import FaixaMarcas from '../../components/FaixaMarcas';
 import FundoCaixaDegrade from '../../components/FundoCaixaDegrade';
 import MarcaApp from '../../components/MarcaApp';
 import DestaqueHora, { ParceiroHora } from '../../components/DestaqueHora';
@@ -39,7 +43,7 @@ import { useAuth } from '../../lib/authContext';
 import { registrarAviso } from '../../lib/avisos';
 import { useAnunciosApp } from '../../lib/banners';
 import { IDIOMAS, useI18n } from '../../lib/i18n';
-import { CATEGORIA_ORDER, CATEGORIA_REAL_LABEL, CATEGORIAS, CategoriaConfig } from '../../lib/categorias';
+import { CATEGORIA_ORDER, CATEGORIA_REAL_LABEL, CATEGORIAS, CategoriaConfig, CHAVE_ESTADO_CATEGORIAS, CHAVE_ORDEM_HOME, EstadoCategoria, lerEstadosCategorias, ORDEM_FIXA_HOME, ORDEM_HOME, ROTULO_CURTO_HOME, aplicarOrdemHome } from '../../lib/categorias';
 import { buscarComunicacao, Comunicacao, registrarVitrine } from '../../lib/vitrine';
 import {
   compararDestaque,
@@ -54,6 +58,7 @@ import {
 } from '../../lib/destaque';
 import { supabase } from '../../lib/supabase';
 import { useRastrearTela } from '../../lib/usoTelas';
+import { TITULO_SECAO } from '../../constants/theme';
 
 const COLORS = {
   background: '#0B0B0E',
@@ -86,22 +91,14 @@ const GAP_GRADE = 8;
 // Categorias ativas primeiro; as "em breve" vão para o fim da fila (ordem oficial mantida dentro de cada grupo).
 // Ordem fixa da Home (nov/2026): Destaques, Bares & Noite, Festas, Serviços, Dicas Trip, Artistas, Beleza e 18+;
 // as demais categorias vêm depois, na ordem oficial. Só as ABERTAS_HOME abrem; as outras aparecem "Em breve" na Home.
-const ORDEM_FIXA_HOME = ['destaques', 'bares', 'festas', 'servicos', 'turismo', 'artistas', 'beleza', 'saude', 'produtos', 'mais18'] as (typeof CATEGORIA_ORDER)[number][];
 const ABERTAS_HOME: string[] = ['destaques', 'bares', 'festas', 'servicos', 'turismo', 'artistas', 'beleza', 'saude', 'produtos', 'mais18'];
 // 18+: confirmação de idade antes de abrir (vale até fechar o app).
 let idadeConfirmada = false;
 const emBreveHome = (cat: { slug: string; emBreve?: boolean }) => !!cat.emBreve || !ABERTAS_HOME.includes(cat.slug);
-const ORDEM_GRADE = [
-  ...ORDEM_FIXA_HOME,
-  ...CATEGORIA_ORDER.filter((slug) => !ORDEM_FIXA_HOME.includes(slug)),
-];
+const ORDEM_GRADE = ORDEM_HOME;
 const LARGURA_TILE = 84;
 // Rótulos curtos da barra de categorias (cabem 6 por linha); o nome completo continua no leitor de tela e na página.
-const ROTULO_CURTO: Record<string, string> = {
-  destaques: 'Destaques', turismo: 'Dicas Trip', bares: 'Bares & Noite', festas: 'Festas', gastronomia: 'Gastronomia',
-  lazer: 'Lazer', cultura: 'Cultura', saude: 'Saúde', beleza: 'Beleza', servicos: 'Serviços', educacao: 'Educação', artistas: 'Artistas',
-  produtos: 'Moda', comunidade: 'Comunidade', mais18: '18+', lojas: 'Lojas',
-};
+const ROTULO_CURTO = ROTULO_CURTO_HOME;
 
 // Seção "Selos e benefícios" (out/2026): 3 cartões do mesmo tamanho, cada
 // um explicando em uma frase o que é. "Cadastre seu estabelecimento" saiu
@@ -538,7 +535,7 @@ export default function HomeScreen() {
   // por categoria). Se a equipe trocar nome ou cor no /admin, vale o que ela escolheu.
   const TITULO_PADRAO_PT: Record<string, string> = { 'em-alta': 'Em Alta', recomendados: 'Recomendados', hoje: 'O que fazer hoje', semana: 'Top da semana', experiencia: 'Experiências', servicos: 'Serviços' };
   const CORES_ANTIGAS: Record<string, string> = { 'em-alta': '#CC7A0A|#9A4A0A', recomendados: '#0DA372|#0E7490', hoje: '#C026A3|#6D3FD1', semana: '#F2692A|#C42660', experiencia: '#0A8FD0|#7048B8', servicos: '#0F9F90|#5558E3' };
-  type CaixaHome = { tipo: string; titulo: string; icone: string; degrade: [string, string]; qtd: number; rota: string };
+  type CaixaHome = { tipo: string; titulo: string; icone: string; degrade: [string, string]; meio?: string; qtd: number; rota: string };
   const montarCaixas = (padrao: CaixaHome[]): CaixaHome[] => {
     if (!caixasDB) return padrao;
     const rotaDe = (c: CaixaDB) => {
@@ -558,7 +555,7 @@ export default function HomeScreen() {
         const corAntiga = `${c.cor1}|${c.cor2}`.toUpperCase() === (CORES_ANTIGAS[c.chave] || '').toUpperCase();
         return {
           tipo: c.chave, titulo, icone: c.icone || base?.icone || 'star',
-          degrade: (corAntiga && base ? base.degrade : [c.cor1, c.cor2]) as [string, string], qtd: base?.qtd ?? 0,
+          degrade: (corAntiga && base ? base.degrade : [c.cor1, c.cor2]) as [string, string], meio: corAntiga && base ? base.meio : undefined, qtd: base?.qtd ?? 0,
           rota: c.tipo === 'padrao' && base ? base.rota : rotaDe(c),
         };
       })
@@ -570,10 +567,23 @@ export default function HomeScreen() {
   // mostra os dois padrões (Museu e Dicas Trip).
   type TopoDB = { id: string; chave: string | null; tag: string | null; titulo: string | null; cta: string | null; cor: string | null; destino: string | null; ativo: boolean; peso: number | null; icone: string | null; traducoes: Record<string, { tag?: string; titulo?: string; cta?: string }> | null };
   const [topoDB, setTopoDB] = useState<TopoDB[] | null>(null);
-  useEffect(() => {
+  // Ordem das categorias (Modo equipe › Vitrine › Ordenar). Sem nada salvo, a ordem padrão.
+  const [ordemGrade, setOrdemGrade] = useState(ORDEM_GRADE);
+  useFocusEffect(useCallback(() => {
+    supabase.from('app_config').select('chave, valor').in('chave', [CHAVE_ORDEM_HOME, CHAVE_ESTADO_CATEGORIAS])
+      .then(({ data }) => {
+        const m = Object.fromEntries(((data as any[]) || []).map((x) => [x.chave, x.valor]));
+        if (m[CHAVE_ORDEM_HOME]) setOrdemGrade(aplicarOrdemHome(m[CHAVE_ORDEM_HOME]));
+        setEstadosCat(lerEstadosCategorias(m[CHAVE_ESTADO_CATEGORIAS]));
+      }, () => {});
+  }, []));
+  // Aparece / Em breve / Oculta (Modo equipe › Vitrine › categoria). Sem nada salvo, o padrão do código.
+  const [estadosCat, setEstadosCat] = useState<Record<string, EstadoCategoria>>({});
+  const emBreveCat = (cat: { slug: string; emBreve?: boolean }) => (estadosCat[cat.slug] ? estadosCat[cat.slug] === 'breve' : emBreveHome(cat));
+  useFocusEffect(useCallback(() => {
     supabase.from('banners_app').select('id, chave, tag, titulo, cta, cor, destino, ativo, peso, icone, traducoes, telas').contains('telas', ['home_topo'])
       .then(({ data, error }) => setTopoDB(error ? null : ((data as TopoDB[]) || [])), () => setTopoDB(null));
-  }, []);
+  }, []));
   const abrirDestinoTopo = (d: string) => {
     const x = (d || '').trim();
     if (x.startsWith('http')) Linking.openURL(x).catch(() => {});
@@ -631,14 +641,15 @@ export default function HomeScreen() {
         chave: `fund-${d.id}`,
         tag: formatarNome(d.nome).toUpperCase(),
         // Rodada 141 — banner próprio da Home quando o Fundador escolheu um diferente do da categoria.
-        titulo: com?.variantes?.home?.chamada || com?.headline || com?.oferta || `Conheça ${formatarNome(d.nome)}`,
-        cta: com?.variantes?.home?.cta || com?.cta || 'Conhecer',
+        // Um banner só por Fundador: o mesmo da categoria (a casa troca a frase quando quiser).
+        titulo: com?.headline || com?.oferta || `Conheça ${formatarNome(d.nome)}`,
+        cta: com?.cta || 'Conhecer',
         // Rodada 140 — estilo escolhido no portal: degradê, foto (direita/esquerda/fundo), cor dos dizeres e palavra de impacto.
-        ...estiloDoCartao(com?.variantes?.home?.chamada ? com.variantes!.home : com, ['#B45309', '#9D174D'] as [string, string]),
+        ...estiloDoCartao(com, ['#B45309', '#9D174D'] as [string, string]),
         // Design nov/2026 — foto completa no fundo: sem foto escolhida no banner, usa a foto do próprio local.
-        fotoUrl: estiloDoCartao(com?.variantes?.home?.chamada ? com.variantes!.home : com, ['#B45309', '#9D174D'] as [string, string]).fotoUrl || (!d.ehLogo ? d.foto : null),
+        fotoUrl: estiloDoCartao(com, ['#B45309', '#9D174D'] as [string, string]).fotoUrl || (!d.ehLogo ? d.foto : null),
         icone: 'star',
-        cor: estiloDoCartao(com?.variantes?.home?.chamada ? com.variantes!.home : com, ['#B45309', '#9D174D'] as [string, string]).degrade[0],
+        cor: estiloDoCartao(com, ['#B45309', '#9D174D'] as [string, string]).degrade[0],
         onPress: () => {
           registrarVitrine(d.id, 'home:destaques', 'clique');
           router.push(`/business/${d.id}` as any);
@@ -913,7 +924,7 @@ export default function HomeScreen() {
   const handleCategoryPress = (cat: CategoriaConfig) => {
     // Em breve: em vez de um toque que não faz nada (App Store 2.1), registra
     // o "avise-me" de verdade.
-    if (emBreveHome(cat)) {
+    if (emBreveCat(cat)) {
       registrarAviso({
         userId: user?.id,
         alvo: cat.slug,
@@ -986,6 +997,16 @@ export default function HomeScreen() {
           >
             <Image source={require('../../assets/images/pin-localizacao.png')} style={styles.localPin} resizeMode="contain" />
             <Text style={styles.localChipTexto} numberOfLines={1}>{local.cidade || t('home.localizacao')}</Text>
+          </TouchableOpacity>
+          {/* Migração 136 — Segurança a 1 toque em qualquer momento: Cheguei bem, Me ajuda aqui, 190 */}
+          <TouchableOpacity
+            style={styles.idiomaBtn}
+            onPress={() => router.push('/seguranca' as any)}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Segurança"
+          >
+            <Feather name="shield" size={15} color="#34D399" />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.idiomaBtn}
@@ -1076,7 +1097,7 @@ export default function HomeScreen() {
             scrollEventThrottle={32}
             onScroll={(e) => { const rolou = e.nativeEvent.contentOffset.x > 12; if (rolou !== catRolou) setCatRolou(rolou); }}
           >
-            {ORDEM_GRADE.map((slug) => {
+            {ordemGrade.filter((slug) => estadosCat[slug] !== 'oculta').map((slug) => {
               const cat = CATEGORIAS[slug];
               const completo = t(`cat.${slug}`) === `cat.${slug}` ? cat.label : t(`cat.${slug}`);
               const label = idioma === 'pt' && ROTULO_CURTO[slug] ? ROTULO_CURTO[slug] : completo;
@@ -1087,18 +1108,23 @@ export default function HomeScreen() {
                   onPress={() => (slug === 'turismo' ? router.push('/(tabs)/tourism') : handleCategoryPress(cat))}
                   activeOpacity={0.7}
                   accessibilityRole="button"
-                  accessibilityLabel={emBreveHome(cat) ? `${completo}, ${t('home.emBreve')}` : completo}
+                  accessibilityLabel={emBreveCat(cat) ? `${completo}, ${t('home.emBreve')}` : completo}
                 >
-                  <View style={[styles.categoriaCircle, emBreveHome(cat) && styles.categoriaDisabled, slug === 'destaques' && styles.categoriaCircleDestaque]}>
-                    <Feather name={cat.icon as any} size={20} color={emBreveHome(cat) ? COLORS.purple : cat.color} />
-                    {emBreveHome(cat) && (
+                  {/* Destaques (Membros Fundadores): o próprio selo oficial no lugar da bolinha com estrela. */}
+                  {slug === 'destaques' ? (
+                    <SeloFundador tamanho={46} />
+                  ) : (
+                  <View style={[styles.categoriaCircle, emBreveCat(cat) && styles.categoriaDisabled]}>
+                    <Feather name={cat.icon as any} size={20} color={emBreveCat(cat) ? COLORS.purple : cat.color} />
+                    {emBreveCat(cat) && (
                       <View style={styles.emBreveBadge}>
                         <Text style={styles.emBreveTexto}>{t('home.emBreve')}</Text>
                       </View>
                     )}
                   </View>
+                  )}
                   <View style={styles.categoriaLabelBox}>
-                    <Text style={[styles.categoriaLabel, emBreveHome(cat) && { color: COLORS.textMuted }]} numberOfLines={label.includes(' ') ? 2 : 1} adjustsFontSizeToFit minimumFontScale={0.75} maxFontSizeMultiplier={1}>
+                    <Text style={[styles.categoriaLabel, emBreveCat(cat) && { color: COLORS.textMuted }]} numberOfLines={label.includes(' ') ? 2 : 1} adjustsFontSizeToFit minimumFontScale={0.75} maxFontSizeMultiplier={1}>
                       {label}
                     </Text>
                   </View>
@@ -1148,11 +1174,11 @@ export default function HomeScreen() {
           {montarCaixas([
             // Design nov/2026 — um degradê por categoria: Em alta magenta/rosa, Para você azul, Hoje na cidade violeta,
             // Hits da semana laranja/pink, Experiências roxo/lilás, Serviços verde/turquesa (com textura ondulada).
-            { tipo: 'em-alta', titulo: t('home.tile.emAlta'), icone: 'trending-up', degrade: ['#D1127A', '#FF5FA2'] as [string, string], qtd: emAlta.length, rota: '/secao/em-alta' },
+            { tipo: 'em-alta', titulo: t('home.tile.emAlta'), icone: 'trending-up', degrade: ['#A80A62', '#FF8FC4'] as [string, string], meio: '#EE2A8A', qtd: emAlta.length, rota: '/secao/em-alta' },
             { tipo: 'recomendados', titulo: t('home.tile.recomendados'), icone: 'check-circle', degrade: ['#1D3FD8', '#1FA8F2'] as [string, string], qtd: 0, rota: '/experience/Selo%20Dicas%20LGBT%2B' },
-            { tipo: 'hoje', titulo: t('home.tile.hoje'), icone: 'zap', degrade: ['#5B21D6', '#A855F7'] as [string, string], qtd: agendaHoje.length + locaisHoje.length + abertosAgora.length, rota: '/secao/hoje' },
+            { tipo: 'hoje', titulo: t('home.tile.hoje'), icone: 'zap', degrade: ['#3E14A8', '#D58BFF'] as [string, string], meio: '#8B2CF5', qtd: agendaHoje.length + locaisHoje.length + abertosAgora.length, rota: '/secao/hoje' },
             { tipo: 'semana', titulo: t('home.tile.semana'), icone: 'star', degrade: ['#F97316', '#EC1E8C'] as [string, string], qtd: destaqueSemana.length, rota: '/secao/semana' },
-            { tipo: 'experiencia', titulo: t('home.tile.experiencia'), icone: 'heart', degrade: ['#7E22CE', '#D8A5FF'] as [string, string], qtd: EXPERIENCIAS_HOME.length, rota: '/secao/experiencia' },
+            { tipo: 'experiencia', titulo: t('home.tile.experiencia'), icone: 'heart', degrade: ['#0A2FE0', '#B54CF5'] as [string, string], meio: '#4F46F7', qtd: EXPERIENCIAS_HOME.length, rota: '/secao/experiencia' },
             ...(servicosPool.length > 0
               ? [{ tipo: 'servicos', titulo: t('home.tile.servicos'), icone: 'briefcase', degrade: ['#059669', '#14C8C0'] as [string, string], qtd: servicosPool.length, rota: '/secao/servicos' }]
               : []),
@@ -1166,13 +1192,29 @@ export default function HomeScreen() {
               accessibilityLabel={b.titulo}
             >
               <View style={styles.secaoBox}>
-                <FundoCaixaDegrade id={`cx-${b.tipo}`} cores={b.degrade} ondas />
+                <FundoCaixaDegrade id={`cx-${b.tipo}`} cores={b.degrade} meio={b.meio} ondas />
                 <Feather name={b.icone as any} size={22} color="#FFFFFF" />
                 <Text style={styles.secaoBoxTitulo} numberOfLines={2}>{b.titulo}</Text>
               </View>
             </TouchableOpacity>
           ))}
         </View>
+
+        {/* AÇÕES DA SEMANA (só o admin libera): ações de marca no ar (some sozinha quando não há nenhuma) */}
+        {/* Migração 130 — quem fez check-in recebe a enquete da casa */}
+        {/* Migração 136 — Termômetro da noite e avaliação do selo Lugar seguro */}
+        <TouchableOpacity style={styles.termometroLinha} onPress={() => router.push('/termometro' as any)} activeOpacity={0.85} accessibilityRole="button">
+          <Feather name="thermometer" size={18} color="#F59E0B" />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.termometroTit}>Termômetro da noite</Text>
+            <Text style={styles.termometroSub}>Onde está bombando agora, contado por quem está lá</Text>
+          </View>
+          <Feather name="chevron-right" size={18} color="#626274" />
+        </TouchableOpacity>
+        <PresentesAniversario margem={16} />
+        <AvaliacaoSegurancaPendente margem={16} />
+        <EnquetePendente margem={16} />
+        <FaixaMarcas />
 
         {/* 3º CARROSSEL — abaixo das caixas (Banners e parceiros → "Home · 3º carrossel") */}
         {!!anunciosC3 && anunciosC3.length > 0 && (
@@ -1202,31 +1244,14 @@ export default function HomeScreen() {
             <CarrosselAnuncios onExibir={aoExibirC4} anuncios={anunciosC4} />
           </View>
         )}
-        {/* MEMBROS FUNDADORES — logos passando devagar, no fim da Home, logo abaixo de "Seja um parceiro" (só fundadores).
+        {/* MEMBROS FUNDADORES — só os logos passando devagar (sem título, nov/2026), no fim da Home, abaixo de "Seja um parceiro".
             Só aparece com 3 ou mais fundadores com imagem. */}
         {fundadoresFaixa.length >= 3 && (
           <View style={[styles.secaoBloco, { marginTop: 28, marginBottom: 0 }]}>
-            <TouchableOpacity
-              style={[styles.fundadoresCabecalho, { marginBottom: 10 }]}
-              activeOpacity={0.8}
-              onPress={() => router.push({ pathname: '/category/destaques' as any, params: { title: encodeURIComponent('Destaques') } })}
-              accessibilityRole="button"
-              accessibilityLabel={t('banner.fundadorTitulo')}
-            >
-              {/* Rodada 143 — título discreto (pedido da Andrea: a letra grande estava feia). */}
-              <View style={styles.fundadoresTituloLinha}>
-                <SeloFundador tamanho={34} />
-                <View style={{ flexShrink: 1 }}>
-                  <Text style={styles.tituloFundadoresRodape}>{t('banner.fundadorTitulo')}</Text>
-                  <Text style={styles.subFundadoresRodape}>Casas que apoiam a causa desde o começo</Text>
-                </View>
-              </View>
-              <Feather name="chevron-right" size={16} color="#8E8BA3" />
-            </TouchableOpacity>
             <FaixaPremium itens={fundadoresFaixa} onAbrir={(id) => router.push(`/business/${id}` as any)} />
           </View>
         )}
-        <Text style={styles.rodapeAssinatura}>Dicas LGBT+ · Vezpa Bar</Text>
+        <Text style={styles.rodapeAssinatura}>Dicas LGBT+</Text>
       </ScrollView>
     </View>
   );
@@ -1243,6 +1268,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 14,
   },
+  termometroLinha: { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 16, marginTop: 16, backgroundColor: '#161520', borderWidth: 1, borderColor: '#F59E0B44', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 12 },
+  termometroTit: { color: '#FFFFFF', fontSize: 14.5, fontWeight: '800' },
+  termometroSub: { color: '#A0A0B2', fontSize: 12, marginTop: 2 },
   idiomaBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1291,14 +1319,14 @@ const styles = StyleSheet.create({
   slideTag: { alignSelf: 'flex-start', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   slideTagTexto: { fontSize: 10, fontWeight: '800', color: '#000', letterSpacing: 0.4 },
   fundadoresCabecalho: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: 16, marginBottom: 10 },
-  tituloSecaoHomeInline: { fontSize: 17, fontWeight: '800', color: COLORS.textPrimary },
+  tituloSecaoHomeInline: { ...TITULO_SECAO },
   // Rodada 147 — título em caixa normal (sem letras espaçadas), com selo dourado e uma linha de apoio.
   tituloFundadoresRodape: { fontSize: 16, fontWeight: '800', letterSpacing: -0.2, color: '#FFFFFF' },
   subFundadoresRodape: { fontSize: 12, color: '#8E8BA3', marginTop: 1 },
   fundadoresTituloLinha: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
   fundadoresSelo: { width: 28, height: 28, borderRadius: 8, backgroundColor: '#F2C94C1F', borderWidth: 1, borderColor: '#F2C94C55', alignItems: 'center', justifyContent: 'center' },
   fundadoresVer: { fontSize: 13, fontWeight: '700', color: COLORS.gold },
-  tituloSecaoHome: { fontSize: 17, fontWeight: '800', color: COLORS.textPrimary, marginHorizontal: 16, marginBottom: 10 },
+  tituloSecaoHome: { ...TITULO_SECAO, marginHorizontal: 16, marginBottom: 10 },
   slideNome: { fontSize: 14, fontWeight: '800', color: '#FFFFFF' },
   slideBairro: { fontSize: 12, color: '#E0E0EA', marginTop: 2 },
   pontos: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 8 },

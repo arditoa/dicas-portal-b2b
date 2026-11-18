@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useModoParceiro, recursosDaCategoria } from '../../lib/modoParceiro';
 import { supabase } from '../../lib/supabase';
+import { TITULO_SECAO } from '../../constants/theme';
 
 const C = {
   bg: '#0B0B0E', card: '#161520', borda: '#232230', texto: '#FFFFFF', dim: '#A0A0B2', fraco: '#626274',
@@ -23,7 +24,7 @@ const C = {
 };
 
 type Status = 'solicitada' | 'aprovada' | 'rejeitada' | 'cancelada' | 'check_in'; // enum status_solicitacao_vip
-type Festa = { id: string; titulo: string; data_inicio: string; data_fim: string | null; listas_vip: { id: string; vagas_limite: number | null }[] };
+type Festa = { id: string; titulo: string; data_inicio: string; data_fim: string | null; listas_vip: { id: string; vagas_limite: number | null }[]; ingressos_ativos?: boolean };
 type Pedido = { id: string; user_id: string; status: Status; acompanhantes: number; created_at: string; check_in_em?: string | null; nome: string };
 type Filtro = 'todos' | 'faltam' | 'entraram' | 'esperando';
 
@@ -71,14 +72,15 @@ export default function Porta() {
       const agora = Date.now();
       const { data, error } = await supabase
         .from('eventos')
-        .select('id, titulo, data_inicio, data_fim, listas_vip(id, vagas_limite)')
+        .select('id, titulo, data_inicio, data_fim, ingressos_ativos, listas_vip(id, vagas_limite)')
         .eq('local_id', localAtivo.local_id)
         .neq('status', 'cancelado')
         .gte('data_inicio', new Date(agora - 3 * 864e5).toISOString())
         .lte('data_inicio', new Date(agora + 14 * 864e5).toISOString())
         .order('data_inicio', { ascending: true });
       if (error) console.warn('[porta] festas:', error.message);
-      const comLista = ((data as unknown as Festa[]) || []).filter((f) => f.listas_vip?.length);
+      // Festa com Lista VIP ou com ingresso vendido no app (migração 131)
+      const comLista = ((data as unknown as Festa[]) || []).filter((f) => f.listas_vip?.length || f.ingressos_ativos);
       setFestas(comLista);
       const maisPerto = [...comLista].sort(
         (a, b) => Math.abs(new Date(a.data_inicio).getTime() - agora) - Math.abs(new Date(b.data_inicio).getTime() - agora)
@@ -150,13 +152,31 @@ export default function Porta() {
     setAberto(p);
   };
 
+  const validarIngresso = async (codigo: string) => {
+    const { data, error } = await supabase.rpc('validar_ingresso_porta', { p_codigo: codigo });
+    if (error) return Alert.alert('Ingresso', error.message);
+    const r = (data || {}) as { status: string; titular?: string; lote?: string; meia?: boolean; usado_em?: string; festa?: string };
+    if (r.status === 'ok') {
+      Vibration.vibrate(120);
+      return Alert.alert('Pode entrar ✓', `${r.titular}\n${r.lote}${r.meia ? ' · MEIA: confira o documento' : ''}\n${r.festa || ''}`);
+    }
+    Vibration.vibrate([0, 80, 80, 80]);
+    if (r.status === 'ja_usado') return Alert.alert('Ingresso já usado', `${r.titular} já entrou${r.usado_em ? ` às ${hora(r.usado_em)}` : ''}. Confira com a pessoa.`);
+    if (r.status === 'cancelado') return Alert.alert('Ingresso não vale', 'Este ingresso foi cancelado ou não foi pago.');
+    if (r.status === 'outra_casa') return Alert.alert('Outra casa', 'Este ingresso é de uma festa de outra casa.');
+    return Alert.alert('Ingresso não encontrado', 'Este QR não é de um ingresso válido.');
+  };
+
   const aoLerQR = ({ data }: { data: string }) => {
     if (lidoAgora.current === data) return; // o leitor dispara várias vezes seguidas
     lidoAgora.current = data;
     setTimeout(() => { lidoAgora.current = null; }, 2500);
+    // Migração 131 — ingresso comprado no app: "dicasingresso:<código>"
+    const ing = /^dicasingresso:([0-9a-f]{6,24})$/i.exec((data || '').trim());
+    if (ing) { void validarIngresso(ing[1]); return; }
     const m = /^dicasvip:([0-9a-f-]{36})$/i.exec((data || '').trim());
     if (!m) {
-      Alert.alert('QR desconhecido', 'Este QR não é da Lista VIP do Dicas LGBT+.');
+      Alert.alert('QR desconhecido', 'Este QR não é da Lista VIP nem um ingresso do Dicas LGBT+.');
       return;
     }
     abrirPorId(m[1].toLowerCase());
@@ -284,7 +304,7 @@ export default function Porta() {
         <View style={[s.centro, { flex: 1, padding: 24 }]}>
           <Feather name="calendar" size={28} color={C.fraco} />
           <Text style={[s.vazio, { textAlign: 'center', marginTop: 10 }]}>
-            Nenhuma festa com Lista VIP perto de hoje. Quando a festa tiver Lista VIP, ela aparece aqui.
+            Nenhuma festa com Lista VIP ou ingresso perto de hoje. Quando a festa tiver Lista VIP ou ingressos à venda, ela aparece aqui.
           </Text>
         </View>
       ) : (
@@ -435,7 +455,7 @@ const s = StyleSheet.create({
   centro: { alignItems: 'center', justifyContent: 'center' },
   topo: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingHorizontal: 16, paddingBottom: 10 },
   voltar: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
-  secaoTitulo: { fontSize: 12, fontWeight: '700', letterSpacing: 1.4, textTransform: 'uppercase', color: C.secao },
+  secaoTitulo: { ...TITULO_SECAO },
   festaLinha: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
   festaNome: { color: C.texto, fontSize: 20, fontWeight: '800', flexShrink: 1 },
   festaHora: { color: C.dim, fontSize: 12, marginTop: 2 },

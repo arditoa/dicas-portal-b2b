@@ -1,7 +1,7 @@
 // Linha de ícones redondos das categorias (mesmo visual da Home) usada nas páginas da Home
 // (Em Alta etc.): filtra a lista pela categoria tocada; tocar de novo volta para todas.
 // Só aparecem as categorias que têm locais na lista.
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { CATEGORIA_ORDER, CATEGORIAS } from '../lib/categorias';
@@ -45,7 +45,9 @@ export default function IconesCategoria({ icones, selecionada, onSelecionar }: P
               accessibilityLabel={c.label}
             >
               <View style={[s.circulo, { borderColor: sel ? c.cor : '#232230', backgroundColor: sel ? c.cor + '26' : '#161520', opacity: dim ? 0.5 : 1 }]}>
-                <Feather name={c.icone as any} size={20} color={c.cor} />
+                {c.icone.startsWith('mci:')
+                  ? <MaterialCommunityIcons name={c.icone.slice(4) as any} size={22} color={c.cor} />
+                  : <Feather name={c.icone as any} size={20} color={c.cor} />}
               </View>
               <Text style={s.rotulo} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.75} maxFontSizeMultiplier={1}>
                 {c.label}

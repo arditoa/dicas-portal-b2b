@@ -17,6 +17,7 @@ export type ItemParceiro = {
   bloqueado?: boolean; // o plano atual não inclui: mostra cadeado e explica (sem preço — regra Apple)
   portal?: string; // caminho da mesma tela no portal do parceiro, enquanto a do app não fica pronta
   seloTom?: 'ok' | 'alerta' | 'neutro'; // cor da etiqueta quando ela é a situação (em dia, falta, liberado)
+  cota?: { rotulo: string; usadas: number; limite: number }; // 18/11: destaques do plano no próprio quadradinho (agenda/evento)
   aviso?: string; // mensagem própria ao tocar (ex.: banner atual e há quantos dias foi trocado)
 };
 
@@ -71,7 +72,9 @@ export function itensDaAba(aba: Aba, local: LocalDoParceiro, pode: (p: Permissao
           // Operação da noite (aba Aprovações): o que precisa de resposta na hora.
           { chave: 'porta', titulo: 'Abrir a porta', sub: 'Ler QR e confirmar entrada', icone: 'maximize', cor: '#E1306C', rota: '/parceiro/porta', mostrar: pode('porta') && r.listaVip },
           { chave: 'lista', titulo: 'Lista VIP', sub: 'Aprovar e recusar pedidos', icone: 'users', cor: '#7E57C2', rota: '/parceiro/aprovacoes', mostrar: pode('lista_vip') && r.listaVip },
-          { chave: 'checkins', titulo: 'Check-ins', sub: 'Confirmar quem chegou', icone: 'check-circle', cor: '#4CAF7D', rota: '/parceiro/aprovacoes', mostrar: pode('checkins') && r.checkins },
+          // Rodada 148 — Gratuito: só Lista VIP. Check-in e fidelidade nos planos pagos (migração 120).
+          { chave: 'checkins', titulo: 'Check-ins', sub: 'Confirmar quem chegou', icone: 'check-circle', cor: '#4CAF7D', rota: '/parceiro/aprovacoes',
+            selo: nivel === 'gratuito' ? 'Planos pagos' : undefined, bloqueado: nivel === 'gratuito', mostrar: pode('checkins') && r.checkins },
         ]
       : aba === 'divulgar'
       ? [
@@ -84,13 +87,32 @@ export function itensDaAba(aba: Aba, local: LocalDoParceiro, pode: (p: Permissao
             bloqueado: nivel === 'gratuito', mostrar: pode('cupons') && r.cupom !== false },
           { chave: 'banner', titulo: 'Banner', sub: 'Na Home e no topo da categoria', icone: 'image', cor: '#E07A5F', rota: '/parceiro/banner',
             selo: nivel === 'premium' ? 'Incluído' : 'Premium / Fundador', bloqueado: nivel !== 'premium', mostrar: pode('banner') && !ehFesta },
+          // Rodada 148 — patrocínio de uma marca na casa (migrações 117–119): selo "Apoio" no app e resultado medido.
+          { chave: 'marcas', titulo: 'Ação de marca', sub: 'Patrocínio de uma marca, com resultado', icone: 'award', cor: '#F2C94C', rota: '/parceiro/acoes-marca',
+            selo: nivel === 'premium' ? 'Incluído' : 'Premium / Fundador', bloqueado: nivel !== 'premium', mostrar: pode('cupons') || pode('festa') || pode('resultados') },
+          // Migração 131 — ingressos vendidos no app (Mercado Pago), QR lido no modo porta. Todos os planos (Gratuito com taxa maior).
+          { chave: 'ingressos', titulo: 'Ingressos', sub: 'Venda pelo app e receba direto', icone: 'credit-card', cor: '#009EE3', rota: '/parceiro/ingressos', mostrar: pode('festa') && r.eventos },
+          // Migração 129 — "Responda e ganhe": enquete da casa com prêmio retirado na casa.
+          { chave: 'enquetes', titulo: 'Enquete com prêmio', sub: 'Responda e ganhe: o que o público pensa', icone: 'message-square', cor: '#34D399', rota: '/parceiro/enquetes',
+            selo: nivel === 'premium' ? 'Incluído' : 'Premium / Fundador', bloqueado: nivel !== 'premium', mostrar: pode('cupons') || pode('resultados') },
         ]
       : aba === 'fidelizar'
       ? [
           { chave: 'clientes', titulo: 'Clientes VIP', sub: 'Quem mais vem e aniversários', icone: 'users', cor: '#C8853C', rota: '/parceiro/clientes', mostrar: pode('resultados') && (r.checkins || r.listaVip) },
-          { chave: 'checkins', titulo: 'Histórico de visitas', sub: 'Check-ins e cupons usados', icone: 'clock', cor: '#4CAF7D', rota: '/parceiro/historico', mostrar: pode('checkins') && r.checkins },
-          { chave: 'fidelidade', titulo: 'Cartão fidelidade', sub: 'Meta de visitas e brinde', icone: 'gift', cor: '#E1306C', rota: '/parceiro/fidelidade', mostrar: dono && r.fidelidade },
-          { chave: 'vip', titulo: 'Nível VIP', sub: 'Benefício para quem vem sempre', icone: 'award', cor: '#C8853C', rota: '/parceiro/fidelidade', mostrar: dono && r.fidelidade },
+          { chave: 'checkins', titulo: 'Histórico de visitas', sub: 'Check-ins e cupons usados', icone: 'clock', cor: '#4CAF7D', rota: '/parceiro/historico',
+            selo: nivel === 'gratuito' ? 'Planos pagos' : undefined, bloqueado: nivel === 'gratuito', mostrar: pode('checkins') && r.checkins },
+          { chave: 'fidelidade', titulo: 'Cartão fidelidade', sub: 'Meta de visitas e brinde', icone: 'gift', cor: '#E1306C', rota: '/parceiro/fidelidade',
+            selo: nivel === 'gratuito' ? 'Planos pagos' : undefined, bloqueado: nivel === 'gratuito', mostrar: dono && r.fidelidade },
+          { chave: 'vip', titulo: 'Nível VIP', sub: 'Benefício para quem vem sempre', icone: 'award', cor: '#C8853C', rota: '/parceiro/fidelidade',
+            selo: nivel === 'gratuito' ? 'Planos pagos' : undefined, bloqueado: nivel === 'gratuito', mostrar: dono && r.fidelidade },
+          // Rodada 148 — Fotos da galera (migração 122): fotos que os clientes enviam para a casa, com autorização registrada.
+          { chave: 'fotos', titulo: 'Fotos da galera', sub: 'Enviadas pelos clientes, com autorização', icone: 'camera', cor: '#E1306C', rota: '/parceiro/fotos',
+            selo: nivel === 'premium' ? 'Incluído' : 'Premium / Fundador', bloqueado: nivel !== 'premium', mostrar: pode('resultados') || pode('banner') },
+          // Migração 141 — fechamento da noite (resumo às 6h) e presente de aniversário para clientes
+          { chave: 'fechamento', titulo: 'Fechamento da noite', sub: 'Pessoas, ingressos, pico e segurança', icone: 'moon', cor: '#7E57C2', rota: '/parceiro/fechamento',
+            mostrar: pode('resultados') || pode('porta') },
+          { chave: 'aniversario', titulo: 'Presente de aniversário', sub: 'O app avisa o cliente no dia', icone: 'gift', cor: '#C084FC', rota: '/parceiro/aniversario',
+            selo: nivel === 'gratuito' ? 'Planos pagos' : undefined, bloqueado: nivel === 'gratuito', mostrar: pode('cupons') },
           // Relatório de público (migração 114): só números somados; Premium e Fundador.
           { chave: 'publico', titulo: 'Seu público', sub: 'Idade, horários e gostos, somados', icone: 'pie-chart', cor: '#4B5BD6', rota: '/parceiro/publico',
             selo: nivel === 'premium' ? 'Incluído' : 'Premium / Fundador', bloqueado: nivel !== 'premium', mostrar: pode('resultados') },
@@ -104,6 +126,8 @@ export function itensDaAba(aba: Aba, local: LocalDoParceiro, pode: (p: Permissao
           { chave: 'pacotes', titulo: 'Pacotes e roteiros', sub: 'Na página da casa e em Pacotes', icone: 'map', cor: '#3FA0A7', rota: '/parceiro/pacotes', mostrar: dono && (local.pode_subir_pacotes ?? local.categoria === 'turismo') },
           { chave: 'hospedagem', titulo: 'Cadastro da hospedagem', sub: 'Quartos, comodidades e validação', icone: 'home', cor: '#7E57C2', rota: '/parceiro/hospedagem', mostrar: dono && local.categoria === 'turismo' },
           { chave: 'equipe', titulo: 'Equipe e senha da porta', sub: 'Quem pode fazer o quê', icone: 'shield', cor: '#7E57C2', rota: '/parceiro/equipe', mostrar: dono },
+          // Migração 143 — curso de acolhimento LGBT+ (certificado e selo Equipe treinada)
+          { chave: 'treinamento', titulo: 'Curso de acolhimento', sub: 'Certificado e selo Equipe treinada', icone: 'award', cor: '#34D399', rota: '/parceiro/treinamento', mostrar: local.papel !== 'porta_pin' },
           { chave: 'plano', titulo: 'Meu plano', sub: 'O que está incluído', icone: 'award', cor: '#C8853C', rota: '/parceiro/espaco', mostrar: false },
           { chave: 'senha', titulo: 'Trocar minha senha', sub: 'Vale no app e no portal', icone: 'lock', cor: '#3FA0A7', rota: '/parceiro/trocar-senha', mostrar: local.papel !== 'porta_pin' },
           { chave: 'ajuda', titulo: 'Ajuda', sub: 'Passo a passo e perguntas frequentes', icone: 'help-circle', cor: '#4B5BD6', rota: '/parceiro/ajuda', mostrar: local.papel !== 'porta_pin' },
@@ -112,6 +136,8 @@ export function itensDaAba(aba: Aba, local: LocalDoParceiro, pode: (p: Permissao
 }
 
 export function abrirItem(router: { push: (r: any) => void }, item: ItemParceiro, nomeLocal?: string) {
+  // Ação de marca: mesmo travada abre a própria tela, que explica o que a marca ganha (página de venda).
+  if (item.bloqueado && (item.chave === 'marcas' || item.chave === 'fotos' || item.chave === 'enquetes') && item.rota) return router.push(item.rota);
   if (item.bloqueado) {
     return Alert.alert(
       item.titulo,
@@ -119,6 +145,10 @@ export function abrirItem(router: { push: (r: any) => void }, item: ItemParceiro
         ? 'O banner aparece na Home e no topo da categoria e está incluído nos planos Premium e Fundador.'
         : item.chave === 'publico'
         ? 'Seu público mostra idade, horários de chegada, dias mais fortes e gostos de quem vem, tudo somado e sem nomes. Está incluído nos planos Premium e Fundador.'
+        : item.chave === 'checkins' || item.chave === 'fidelidade' || item.chave === 'vip'
+        ? 'Check-in pelo app, cartão fidelidade e nível VIP fazem o cliente voltar e estão incluídos nos planos pagos. No plano Gratuito, a sua casa sobe festas com Lista VIP e o público marca "Eu vou".'
+        : item.chave === 'marcas'
+        ? 'Fechou um happy hour ou uma festa com uma marca? Com a ação de marca, os cupons e festas ganham o selo "Apoio" no app e você vê quantas pessoas foram de verdade. Está incluída nos planos Premium e Fundador.'
         : item.chave === 'reservas'
         ? 'Com reserva, o cliente escolhe a área (rooftop, salão, sacada…), o dia e o horário pelo app, ou chama vocês no WhatsApp. Está incluída nos planos pagos.'
         : MSG_CUPOM_PLANO_PAGO,

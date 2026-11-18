@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CATEGORIAS, CATEGORIA_REAL_LABEL, CategoriaSlugUI, SUBTITULO_CATEGORIA } from '../../lib/categorias';
 import { useAuth } from '../../lib/authContext';
+import { nomeBonito } from '../../lib/nomeBonito';
 import { compararDestaque, deveExibirGlow, deveIncluirEm, emAltaDaHora } from '../../lib/destaque';
 import { CONFIG_RODIZIO_PADRAO, ConfigRodizio, lerConfigRodizio } from '../../lib/rodizioConfig';
 import { useSlotHora } from '../../hooks/useSlotHora';
@@ -29,14 +30,17 @@ import { useLocation } from '../../hooks/useLocation';
 import { supabase } from '../../lib/supabase';
 import { useRastrearTela } from '../../lib/usoTelas';
 import FiltrosPilulas, { FiltroDef } from '../../components/FiltrosPilulas';
+import { ACOLHIMENTO } from '../../lib/acolhimento';
 import CabecalhoTela from '../../components/CabecalhoTela';
 import VitrineCategoria from '../../components/VitrineCategoria';
+import AgendaBares from '../../components/AgendaBares';
 import { ComSeloFundador } from '../../components/SeloFundador';
 import SubcategoriaBanners, { agruparSubcategorias, chaveDoLocal } from '../../components/SubcategoriaBanners';
-import { SUBCATEGORIAS } from '../../lib/subcategorias';
-import { EstadoSubcategorias, buscarEstadoSubcategorias, buscarSubcategoriasDesligadas } from '../../lib/vitrine';
+import { useSubcategorias } from '../../lib/subcategorias';
+import { EstadoSubcategorias, buscarEstadoSubcategorias, buscarPaginasSub, buscarSubcategoriasDesligadas } from '../../lib/vitrine';
 import { Anuncio } from '../../components/CarrosselAnuncios';
 import { buscarIdsFundadores } from '../../lib/vitrine';
+import { TITULO_SECAO } from '../../constants/theme';
 
 // Rodada 41 — mapeia o categoria_tipo real (enum do banco) pra o mesmo
 // slug de seção usado em destaque_secao_fixada (ver /admin), pra fixação
@@ -73,7 +77,10 @@ function ordemPlano(l: { plano_comercial?: string | null; plano_comercial_status
 }
 
 // Filtros mostrados nas páginas de categoria (Trip mantém os seus). Lista provisória — a Andrea ainda vai definir.
-const FILTROS_CATEGORIA = ['perto', 'aberto', 'publico', 'bairro'];
+const FILTROS_CATEGORIA = ['perto', 'aberto', 'publico', 'acolhimento', 'bairro'];
+// 18/11 — Agências e viagens (Turismo): o que importa é se atende online e onde fica (pode nem ter porta).
+const FILTROS_TURISMO = ['atende', 'cidade'];
+const ATENDE: Record<string, string[]> = { Online: ['online', 'ambos'], Presencial: ['presencial', 'ambos'] };
 
 // Predominância de público (locais.publico_tags, definido pelo parceiro no portal). Rótulo mostrado -> tag.
 const PUBLICOS: { slug: string; rotulo: string }[] = [
@@ -150,6 +157,8 @@ interface LocalItem {
   tipo_hospedagem?: string | null;
   horario_funcionamento?: any;
   publico_tags?: string[] | null;
+  atendimento_tipo?: string | null;
+  acolhimento?: string[] | null; // 142
 }
 
 export default function CategoryListScreen() {
@@ -158,8 +167,9 @@ export default function CategoryListScreen() {
   const insets = useSafeAreaInsets();
   const { user, session } = useAuth();
 
-  const { id, title, search, experiencia, tipo } = useLocalSearchParams<{
+  const { id, title, search, experiencia, tipo, sub } = useLocalSearchParams<{
     id: string;
+    sub?: string; // página própria de uma subcategoria (Bares › Botecos)
     title?: string;
     search?: string;
     experiencia?: string;
@@ -185,7 +195,7 @@ export default function CategoryListScreen() {
   // Rodada 138 — "Destaques" (Membros Fundadores) não tem categoria real (categoriaReal: null). O `?? slug` virava
   // .eq('categoria', 'destaques'), que não existe no banco: dava erro 22P02 e a lista de Fundadores vinha vazia.
   const categoriaReal = isTodos || slug === 'destaques' ? null : categoriaConfig?.categoriaReal ?? slug;
-  const decodedTitle = title
+  const tituloCat = title
     ? decodeURIComponent(title)
     : categoriaConfig?.label || (categoriaReal ? CATEGORIA_REAL_LABEL[categoriaReal] : 'Todos os Locais');
 
@@ -197,7 +207,12 @@ export default function CategoryListScreen() {
   const [favoritos, setFavoritos] = useState<string[]>([]);
 
   // null = ainda não escolheu: abre em "Em Alta" só se houver quem entre ali (e não veio de busca, tag ou atalho).
-  const [selectedSubcat, setSelectedSubcat] = useState<string | null>(null);
+  const subFixa = sub ? decodeURIComponent(String(sub)) : null;
+  const [selectedSubcat, setSelectedSubcat] = useState<string | null>(subFixa);
+  // Ligado no Modo equipe (quando a categoria passa de 12 casas pagas): subcategoria abre em página própria.
+  const [paginasSub, setPaginasSub] = useState<Set<string>>(new Set());
+  const [paginasOk, setPaginasOk] = useState(false);
+  useEffect(() => { if (categoriaReal) void buscarPaginasSub(categoriaReal).then((p) => { setPaginasSub(p); setPaginasOk(true); }); }, [categoriaReal]);
   // Filtros em pílulas (todas as categorias): id do filtro -> opção escolhida.
   const [filtros, setFiltros] = useState<Record<string, string | undefined>>({});
   const maxDistance = filtros.perto ? RAIOS_KM[filtros.perto] ?? 999 : 999;
@@ -211,7 +226,7 @@ export default function CategoryListScreen() {
       let query = supabase
         .from('locais')
         .select(
-          'id, nome, categoria, subcategoria, bairro, bairro_exibicao, cidade, foto_capa_url, safe_space, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status, experiencias, rating_media, rating_total, lat, lng, logo_url, galeria_fotos, atributos, tipo_hospedagem, horario_funcionamento, publico_tags'
+          'id, nome, categoria, subcategoria, bairro, bairro_exibicao, cidade, foto_capa_url, safe_space, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status, experiencias, rating_media, rating_total, lat, lng, logo_url, galeria_fotos, atributos, tipo_hospedagem, horario_funcionamento, publico_tags, atendimento_tipo'
         )
         .eq('status', 'aprovado')
         .limit(1000);
@@ -237,7 +252,7 @@ export default function CategoryListScreen() {
           if (novos.length > 0) {
             const { data: ls } = await supabase
               .from('locais')
-              .select('id, nome, categoria, subcategoria, bairro, bairro_exibicao, cidade, foto_capa_url, safe_space, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status, experiencias, rating_media, rating_total, lat, lng, logo_url, galeria_fotos, atributos, tipo_hospedagem, horario_funcionamento, publico_tags')
+              .select('id, nome, categoria, subcategoria, bairro, bairro_exibicao, cidade, foto_capa_url, safe_space, plano_destaque, destaque_secao_fixada, destaque_secoes, destaque_ate, plano_comercial, plano_comercial_status, experiencias, rating_media, rating_total, lat, lng, logo_url, galeria_fotos, atributos, tipo_hospedagem, horario_funcionamento, publico_tags, atendimento_tipo')
               .eq('status', 'aprovado')
               .in('id', novos.map((x) => x.local_id));
             const subDe = new Map(novos.map((x) => [x.local_id as string, x.subcategoria as string | null]));
@@ -252,6 +267,14 @@ export default function CategoryListScreen() {
       // Dentro de cada grupo vale a ordem de sempre (fixados no /admin, rotação, nome).
       itens.sort((a, b) => ordemPlano(a) - ordemPlano(b) || Number(deveExibirGlow(b)) - Number(deveExibirGlow(a)) || cmp(a, b));
       setLocais(itens);
+      // 142 — acolhimento e acessibilidade (consulta separada: não quebra a lista se a migração ainda não rodou)
+      if (itens.length > 0) {
+        supabase.from('locais').select('id, acolhimento').in('id', itens.map((i) => i.id)).then(({ data: ac, error: eAc }) => {
+          if (eAc || !ac) return;
+          const mapa = new Map((ac as { id: string; acolhimento: string[] | null }[]).map((x) => [x.id, x.acolhimento || []]));
+          setLocais((atual) => atual.map((l) => ({ ...l, acolhimento: mapa.get(l.id) || [] })));
+        }, () => {});
+      }
 
       if (user?.id && itens.length > 0) {
         const { data: favs } = await supabase
@@ -324,8 +347,8 @@ export default function CategoryListScreen() {
     const unicos = (xs: (string | null | undefined)[]) =>
       Array.from(new Set(xs.filter((x): x is string => !!x && x.trim().length > 0))).sort((a, b) => a.localeCompare(b, 'pt-BR'));
     const base = modoTrip ? locaisDoTipo : locais;
-    const cidades = unicos(base.map((l) => l.cidade));
-    const bairros = unicos(base.map((l) => l.bairro_exibicao || l.bairro));
+    const cidades = unicos(base.map((l) => nomeBonito(l.cidade)));
+    const bairros = unicos(base.map((l) => nomeBonito(l.bairro_exibicao || l.bairro))); // 18/11: um só "República" (sem REPUBLICA/Republica)
     const comNota = base.some((l) => (l.rating_total || 0) > 0 && (l.rating_media || 0) >= 4);
     const lista: FiltroDef[] = [];
     // "Perto de mim": útil em tudo — em casa (bares, comida) e em viagem (hotel, passeio).
@@ -339,14 +362,19 @@ export default function CategoryListScreen() {
       const publicosPresentes = PUBLICOS.filter((p) => base.some((l) => (l.publico_tags || []).includes(p.slug))).map((p) => p.rotulo);
       lista.push({ id: 'publico', label: 'Público', titulo: 'Predominância de público', icone: 'users', opcoes: publicosPresentes, valor: filtros.publico });
       lista.push({ id: 'experiencia', label: 'Experiência', icone: 'star', opcoes: unicos(base.flatMap((l) => (l.experiencias || []).map(rotuloTag))), valor: filtros.experiencia });
+      // 142 — acolhimento e acessibilidade (banheiro sem gênero, acessível, nome social…), informado pela casa
+      lista.push({ id: 'acolhimento', label: 'Acolhimento', icone: 'heart', opcoes: ACOLHIMENTO.filter((a) => base.some((l) => (l.acolhimento || []).includes(a.slug))).map((a) => a.rotulo), valor: filtros.acolhimento });
       lista.push({ id: 'cidade', label: 'Cidade', icone: 'map-pin', opcoes: cidades.length > 1 ? cidades : [], valor: filtros.cidade });
+      lista.push({ id: 'atende', label: 'Atende', icone: 'globe', opcoes: Object.keys(ATENDE).filter((k) => base.some((l) => ATENDE[k].includes(l.atendimento_tipo || 'presencial'))), valor: filtros.atende });
       lista.push({ id: 'bairro', label: 'Bairro', icone: 'home', opcoes: bairros.length > 1 && bairros.length <= 40 ? bairros : [], valor: filtros.bairro });
     }
     lista.push({ id: 'nota', label: 'Avaliação', icone: 'thumbs-up', opcoes: comNota ? ['4+ estrelas', '4,5+ estrelas'] : [], valor: filtros.nota });
     lista.push({ id: 'selo', label: 'Selo', icone: 'shield', opcoes: base.some((l) => l.safe_space) ? ['Safe Space'] : [], valor: filtros.selo });
     // Categorias: poucos filtros (a lista exata ainda será definida). Para mudar, ajuste FILTROS_CATEGORIA.
-    return modoTrip ? lista : lista.filter((f) => FILTROS_CATEGORIA.includes(f.id));
-  }, [locais, locaisDoTipo, modoTrip, filtros]);
+    if (modoTrip) return lista;
+    if (categoriaReal === 'turismo') return lista.filter((f) => FILTROS_TURISMO.includes(f.id)).map((f) => (f.id === 'cidade' ? { ...f, label: 'Onde fica', opcoes: cidades } : f));
+    return lista.filter((f) => FILTROS_CATEGORIA.includes(f.id));
+  }, [locais, locaisDoTipo, modoTrip, filtros, categoriaReal]);
 
   const subcategoriasList = useMemo(() => {
     const reais = Array.from(
@@ -397,7 +425,11 @@ export default function CategoryListScreen() {
 
   // Subcategorias fixas da categoria (ex.: Bares & Vida Noturna), se definidas em lib/subcategorias.ts.
   // Destaques (Fundadores) e Dicas Trip têm layout próprio: não recebem os ícones de subcategoria.
-  const defsSub = !modoTrip && !experienciaSlug && categoriaReal && slug !== 'destaques' && slug !== 'turismo' ? SUBCATEGORIAS[categoriaReal] : undefined;
+  // Lista editável pelo Modo equipe (nome, ícone, ordem, novas) — migration 148.
+  const temSubs = !modoTrip && !experienciaSlug && !!categoriaReal && slug !== 'destaques' && slug !== 'turismo';
+  const defsCat = useSubcategorias(temSubs ? categoriaReal : null);
+  const defsSub = temSubs ? defsCat : undefined;
+  const decodedTitle = subFixa ? `${tituloCat} › ${defsSub?.find((d) => d.chave === subFixa)?.rotulo || subFixa}` : tituloCat;
 
   // Design nov/2026 — página Destaques: categorias dos fundadores (Bares, Restaurantes, Festas & Eventos…) para filtrar a lista.
   const ROTULO_CAT_DESTAQUES: Record<string, string> = { lugares: 'Bares', gastronomia: 'Restaurantes', eventos: 'Festas & Eventos' };
@@ -417,13 +449,15 @@ export default function CategoryListScreen() {
     })
     .filter((item) => {
       const matchesFiltros =
-        (!filtros.cidade || item.cidade === filtros.cidade) &&
+        (!filtros.cidade || nomeBonito(item.cidade) === filtros.cidade) &&
+        (!filtros.atende || (ATENDE[filtros.atende] || []).includes(item.atendimento_tipo || 'presencial')) &&
         (!filtros.tipo || item.subcategoria === filtros.tipo) &&
         (!filtros.comodidade || (item.atributos?.comodidades || []).includes(filtros.comodidade)) &&
-        (!filtros.bairro || (item.bairro_exibicao || item.bairro) === filtros.bairro) &&
+        (!filtros.bairro || nomeBonito(item.bairro_exibicao || item.bairro) === filtros.bairro) &&
         (!filtros.aberto || abertoAgora(item)) &&
         (!filtros.publico || (item.publico_tags || []).includes(PUBLICOS.find((p) => p.rotulo === filtros.publico)?.slug || '')) &&
         (!filtros.experiencia || (item.experiencias || []).some((e) => rotuloTag(e) === filtros.experiencia)) &&
+        (!filtros.acolhimento || (item.acolhimento || []).includes(ACOLHIMENTO.find((a) => a.rotulo === filtros.acolhimento)?.slug || '')) &&
         (!filtros.nota || ((item.rating_total || 0) > 0 && (item.rating_media || 0) >= (filtros.nota.startsWith('4,5') ? 4.5 : 4))) &&
         (!filtros.selo || item.safe_space);
 
@@ -462,18 +496,33 @@ export default function CategoryListScreen() {
     return () => { vivo = false; };
   }, [categoriaReal]);
   const gruposSub = useMemo(
-    () => (defsSub ? agruparSubcategorias(locais, defsSub).filter((g) => !subDesligadas.has(g.chave) && (g.chave !== '' || g.qtd > 0)) : []),
+    () => (defsSub ? agruparSubcategorias(locais, defsSub).filter((g) => !subDesligadas.has(g.chave) && (g.chave !== '' || (g.qtd > 0 && categoriaReal !== 'lugares'))) : []),
     [locais, defsSub, subDesligadas]
   );
-  const subNode = gruposSub.length > 0 ? (
+  const subVitrine = !!defsSub && selectedSubcat !== null && selectedSubcat !== '';
+  // "Usar os banners da categoria" na subcategoria (Modo equipe): desligado = só o que é da subcategoria.
+  const herdaSub = !subDesligadas.has(`__herdar:${selectedSubcat}`);
+  // Nov/2026 — subcategoria só ganha vitrine (banners + cupons) quando tem "Página própria" ligada no Modo equipe.
+  // Sem página própria: a categoria segue com o banner dela no topo e, abaixo das subcategorias, só os locais (sem cupons).
+  const vitrineSub = subVitrine && paginasSub.has(selectedSubcat as string);
+  const soLocais = subVitrine && !vitrineSub;
+  // Nov/2026 — Bares: "Agenda" é a primeira subcategoria e abre por padrão (programação dos bares + destaques da agenda).
+  // Tocar numa subcategoria mostra os bares (lista de locais).
+  const comAgenda = categoriaReal === 'lugares' && !subFixa && !experienciaSlug;
+  const modoAgenda = comAgenda && selectedSubcat === null && !searchQuery.trim();
+  const AGENDA_DEF = { chave: '__agenda', rotulo: 'Agenda', curto: 'Agenda', icone: 'calendar', palavras: [] as string[] };
+  // Turismo: a navegação é pela aba Trip (Roteiros / Agências); a página de Agências lista todas as casas, sem ícones.
+  const subNode = gruposSub.length > 0 && !subFixa && categoriaReal !== 'turismo' ? (
     <SubcategoriaBanners
-      grupos={gruposSub}
-      defs={defsSub}
-      selecionada={selectedSubcat}
+      grupos={comAgenda ? [{ chave: '__agenda', rotulo: 'Agenda', qtd: 1, foto: null } as any, ...gruposSub] : gruposSub}
+      defs={comAgenda ? [AGENDA_DEF as any, ...(defsSub || [])] : defsSub}
+      selecionada={comAgenda && selectedSubcat === null ? '__agenda' : selectedSubcat}
       cor={categoriaConfig?.color}
       categoriaAviso={slug}
       estado={estadoSub}
-      onAbrir={(chave) => setSelectedSubcat((atual) => (atual === chave ? null : chave))}
+      onAbrir={(chave) => (chave === '__agenda' ? setSelectedSubcat(null) : paginasSub.has(chave)
+        ? router.push({ pathname: '/category/[id]' as any, params: { id: slug, sub: chave } })
+        : router.push({ pathname: '/category/[id]' as any, params: { id: slug, sub: chave } }))}
     />
   ) : undefined;
 
@@ -544,16 +593,25 @@ export default function CategoryListScreen() {
           </View>
         ) : (
           <FlatList
-            data={filteredPlaces}
+            data={modoAgenda ? [] : filteredPlaces}
             keyExtractor={(item) => item.id}
             ListHeaderComponent={
               <>
-                {!searchQuery.trim() && (
+                {!searchQuery.trim() && !(subFixa && (!paginasOk || !vitrineSub)) && (
                   <VitrineCategoria
-                    slug={slug}
+                    // Subcategoria aberta (Bares › Botecos…): vitrine própria — patrocinador e banners da subcategoria.
+                    key={vitrineSub ? `sub-${selectedSubcat}` : 'cat'}
+                    slug={vitrineSub ? `${slug}--${selectedSubcat}` : slug}
                     titulo={decodedTitle}
                     categoriaReal={categoriaReal}
-                    locais={locais}
+                    // Página própria da subcategoria: cupons só das casas dela.
+                    idsLocaisOfertas={subFixa ? locais.filter((l) => chaveDoLocal(l, defsSub) === subFixa).map((l) => l.id) : undefined}
+                    locais={vitrineSub ? locais.filter((l) => chaveDoLocal(l, defsSub) === selectedSubcat) : locais}
+                    slugPai={vitrineSub && herdaSub ? slug : undefined}
+                    locaisPai={vitrineSub && herdaSub ? locais : undefined}
+                    telaBanners={vitrineSub ? `cat:${slug}:${selectedSubcat}` : undefined}
+                    telaPai={vitrineSub && herdaSub ? `cat:${slug}` : undefined}
+                    semOfertas={soLocais}
                     fundadores={slug === 'destaques'}
                     tituloLista={null}
                     aposOfertas={subNode}
@@ -572,16 +630,17 @@ export default function CategoryListScreen() {
                     })}
                   </ScrollView>
                 )}
-                <View style={styles.contagemRow}>
+                {modoAgenda && <AgendaBares categoria="lugares" cor={categoriaConfig?.color} publico={PUBLICOS.find((p) => p.rotulo === filtros.publico)?.slug || null} />}
+                {!modoAgenda && <View style={styles.contagemRow}>
                   <Text style={styles.contagemTxt}>{slug === 'destaques' ? 'Destaques' : 'Locais'}</Text>
                   <Text style={styles.contagemQtd}>{filteredPlaces.length} {filteredPlaces.length === 1 ? 'resultado' : 'resultados'}</Text>
-                </View>
+                </View>}
               </>
             }
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={
-              (
+              modoAgenda ? undefined : (
               <View style={styles.emptyContainer}>
                 <Feather name="compass" size={32} color={COLORS.textMuted} />
                 <Text style={styles.emptyTitle}>
@@ -610,7 +669,7 @@ export default function CategoryListScreen() {
               const fundador = (item.plano_comercial === 'fundador' && (item.plano_comercial_status ?? 'ativo') === 'ativo') || idsSeloFundador.has(item.id);
               const cartao = (
                 <TouchableOpacity
-                  style={[styles.placeCard, premium && styles.placeCardPremium]}
+                  style={[styles.placeCard, premium && !fundador && styles.placeCardPremium]} // Fundador já tem o selo: sem contorno colorido
                   onPress={() => router.push(`/business/${item.id}` as any)}
                   activeOpacity={0.88}
                 >
@@ -703,7 +762,7 @@ const styles = StyleSheet.create({
   // Fundador: a borda de arco-íris (BordaArcoIris) envolve o cartão; aqui some a borda comum e o raio acompanha.
   placeCardFundador: { borderWidth: 0, borderRadius: 16 },
   contagemRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 14, marginBottom: 2 },
-  contagemTxt: { fontSize: 15, fontWeight: '800', color: COLORS.textPrimary },
+  contagemTxt: { ...TITULO_SECAO },
   contagemQtd: { fontSize: 12, color: COLORS.textMuted, fontWeight: '600' },
   placeThumb: { width: 56, height: 56, borderRadius: 14, backgroundColor: '#1A1926', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
   placeThumbImg: { width: 56, height: 56 },

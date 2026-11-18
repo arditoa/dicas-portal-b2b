@@ -114,13 +114,13 @@ export const PLANO_TEXTO: Record<'fundador' | 'premium', { nome: string; cor: st
     'Seu banner roda nos Destaques e na Home do app, com o selo dourado de Membro Fundador.',
     'Nossa equipe de comunicação escreve a frase do seu banner para dar vontade de conhecer. Você pode ajustar quando quiser, aqui mesmo.',
     'Você publica 1 cupom por semana na faixa de cupons da categoria (2 vagas de Fundador por categoria, trocando a cada 10 minutos).',
-    'Se você faz festas: destaque até 4 por mês em “Festas em destaque” (só o flyer), todos os dias até a festa. Ative em Minhas festas › Destacar com o plano.',
+    'Se você faz festas: destaque até 4 por mês em “Em destaque nessa semana”, todos os dias até a festa. Ative em Minhas festas › Destacar com o plano.',
   ] },
   premium: { nome: 'Plano Premium', cor: '#E1306C', itens: [
     'Seu banner roda no topo da sua categoria: são 12 vagas e 4 aparecem por hora, então você é visto o dia todo.',
     'Você escreve a frase do banner e pode trocá-la toda semana: é o jeito mais fácil de manter o banner novo e as pessoas voltando.',
     'Além do banner, você publica 1 cupom por semana na faixa de cupons da categoria (10 vagas Premium por categoria).',
-    'Se você faz festas: destaque até 4 por mês em “Festas em destaque” (só o flyer), todos os dias até a festa. Ative em Minhas festas › Destacar com o plano.',
+    'Se você faz festas: destaque até 4 por mês em “Em destaque nessa semana”, todos os dias até a festa. Ative em Minhas festas › Destacar com o plano.',
   ] },
 };
 
@@ -177,7 +177,9 @@ export async function salvarBannerNoLugar(localId: string, lugar: LugarBanner, b
   const { existe, variantes } = await linhaAtual(localId);
   if (lugar === 'categoria') {
     const novas = { ...variantes };
-    if (opc.fundador && !novas.home?.chamada && opc.homeAtual.chamada.trim()) novas.home = paraVariante(opc.homeAtual);
+    // Um banner só: o da categoria vale também na Home (Fundador). Apaga versões antigas por lugar.
+    delete novas.home;
+    for (const k of Object.keys(novas)) if (k.startsWith('cat:')) delete novas[k];
     const { error } = await (supabase.from('destaque_chamada') as any).upsert({ local_id: localId, ...colunas(b), variantes: novas });
     if (error) throw new Error(traduzirErro(error));
   } else {

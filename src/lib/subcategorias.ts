@@ -6,6 +6,9 @@
 // Chave = categoria REAL do banco (categoria_tipo): Bares & Vida Noturna = 'lugares'. As categorias ainda "Em breve"
 // (festas, saude, beleza, mais18) já têm a lista pronta e passam a aparecer quando ganharem categoriaReal.
 // `curto` = nome enxuto que cabe sob o ícone redondo; `rotulo` = nome completo (cadastro, portal, acessibilidade).
+import { useEffect, useState } from 'react';
+import { supabase } from './supabase';
+
 export type SubDef = { chave: string; rotulo: string; curto: string; icone: string; palavras: string[]; breve?: boolean }; // breve = ainda não abriu (ícone "em breve")
 
 export const normTxt = (s?: string | null) =>
@@ -24,6 +27,15 @@ export const SUBCATEGORIAS: Record<string, SubDef[]> = {
     def('Wine Bar', 'Wine Bar', 'heart', ['wine bars', 'vinho', 'vinhos', 'enoteca', 'adega', 'espumante']),
     def('Gastrobar e Lounges', 'Gastrobar e Lounges', 'sun', ['gastrobares & lounges', 'gastrobar', 'gastrobares', 'lounge', 'lounges', 'rooftop', 'rooftops', 'terraco', 'sky bar', 'skybar']),
     def('Casas Noturnas & Boates', 'Baladas e Boates', 'disc', ['balada', 'baladas', 'baladas e clubes', 'club', 'clube', 'boate', 'boates', 'night', 'nightclub', 'casa noturna', 'dance', 'danceteria', 'drag', 'drag show', 'drag e shows', 'cabare', 'cabaret', 'performance']),
+  ],
+  // Dicas Trip (nov/2026): os ícones da aba Trip. Roteiros abre /roteiros; as demais filtram as casas de viagem.
+  // Editáveis no Modo equipe › Vitrine › Dicas Trip (nome, ícone, ordem, esconder, Em breve e novas).
+  turismo: [
+    def('Roteiros', 'Roteiros', 'map', ['roteiro', 'tour', 'guia']),
+    def('Agências', 'Agências', 'briefcase', ['agencia', 'operadora']),
+    { ...def('Passeios', 'Passeios', 'compass', ['passeio', 'ponto', 'atracao', 'museu']), breve: true },
+    { ...def('Pacotes', 'Pacotes', 'package', ['pacote', 'agencia']), breve: true },
+    { ...def('Hospedagem', 'Hospedagem', 'home', ['hotel', 'pousada', 'hostel', 'hosped']), breve: true },
   ],
   // Festas & Eventos
   festas: [
@@ -150,4 +162,69 @@ export function subcategoriaFixa(defs: SubDef[], texto?: string | null): SubDef 
   if (exato) return exato;
   const partes = t.split(/[^a-z0-9]+/).filter(Boolean);
   return defs.find((d) => d.palavras.some((p) => (p.includes(' ') ? t.includes(p) : partes.includes(p)))) || null;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Nov/2026 — Subcategorias editáveis pelo Modo equipe (migration 148, tabela subcategorias_app).
+// A lista acima é o padrão; a tabela muda nome/ícone/ordem de uma subcategoria (mesma chave) e cria novas.
+// Sem a tabela (ou sem linhas), vale só o padrão.
+type LinhaSubApp = { chave: string; rotulo: string; curto: string | null; icone: string | null; palavras: string[] | null; ordem: number | null; nova: boolean };
+const cacheSub: Record<string, { em: number; defs: SubDef[] }> = {};
+
+export function aplicarSubcategoriasApp(base: SubDef[], linhas: LinhaSubApp[]): SubDef[] {
+  const porChave = new Map(linhas.map((l) => [l.chave, l]));
+  const ordem = new Map<string, number>();
+  const lista: SubDef[] = base.map((d, i) => {
+    const l = porChave.get(d.chave);
+    ordem.set(d.chave, l?.ordem ?? i);
+    if (!l) return d;
+    return { ...d, rotulo: l.rotulo || d.rotulo, curto: l.curto || l.rotulo || d.curto, icone: l.icone || d.icone,
+      palavras: Array.from(new Set([...d.palavras, normTxt(l.rotulo), ...(l.palavras || []).map(normTxt)])) };
+  });
+  for (const l of linhas) {
+    if (base.some((d) => d.chave === l.chave)) continue;
+    lista.push({ chave: l.chave, rotulo: l.rotulo, curto: l.curto || l.rotulo, icone: l.icone || 'tag', palavras: [normTxt(l.rotulo), ...(l.palavras || []).map(normTxt)] });
+    ordem.set(l.chave, l.ordem ?? 100 + lista.length);
+  }
+  return lista.sort((a, b) => (ordem.get(a.chave) ?? 0) - (ordem.get(b.chave) ?? 0));
+}
+
+export async function carregarSubcategorias(categoria: string, semCache = false): Promise<SubDef[]> {
+  const base = SUBCATEGORIAS[categoria] || [];
+  const c = cacheSub[categoria];
+  if (!semCache && c && Date.now() - c.em < 60_000) return c.defs;
+  try {
+    const { data, error } = await (supabase.from('subcategorias_app') as any).select('chave, rotulo, curto, icone, palavras, ordem, nova').eq('categoria', categoria);
+    const defs = error || !data ? base : aplicarSubcategoriasApp(base, data as LinhaSubApp[]);
+    cacheSub[categoria] = { em: Date.now(), defs };
+    return defs;
+  } catch {
+    return base;
+  }
+}
+
+// Hook: começa com o padrão e troca pela lista da equipe quando chega.
+export function useSubcategorias(categoria?: string | null): SubDef[] | undefined {
+  const [defs, setDefs] = useState<SubDef[] | undefined>(categoria ? SUBCATEGORIAS[categoria] : undefined);
+  useEffect(() => {
+    if (!categoria) { setDefs(undefined); return; }
+    let vivo = true;
+    setDefs(SUBCATEGORIAS[categoria]);
+    void carregarSubcategorias(categoria).then((d) => { if (vivo) setDefs(d.length ? d : SUBCATEGORIAS[categoria]); });
+    return () => { vivo = false; };
+  }, [categoria]);
+  return defs;
+}
+
+// Grava a ordem dos ícones (Modo equipe). Cada subcategoria guarda a posição dela em subcategorias_app.
+export async function salvarOrdemSubcategorias(categoria: string, lista: SubDef[]): Promise<string | null> {
+  const padrao = SUBCATEGORIAS[categoria] || [];
+  const linhas = lista.map((d, i) => {
+    const ehPadrao = padrao.some((p) => p.chave === d.chave);
+    return { categoria, chave: d.chave, rotulo: d.rotulo, curto: d.curto, icone: d.icone, ordem: i, nova: !ehPadrao,
+      palavras: ehPadrao ? [] : d.palavras, atualizado_em: new Date().toISOString() };
+  });
+  const { error } = await (supabase.from('subcategorias_app') as any).upsert(linhas);
+  delete cacheSub[categoria];
+  return error ? (String(error.message).includes('subcategorias_app') ? 'Rode a migração 148 para mudar a ordem.' : error.message) : null;
 }
