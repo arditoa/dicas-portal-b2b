@@ -60,3 +60,10 @@ export const NAV_ITEMS = [
   { label: 'Dicas Lab', href: '/dicas-lab' },
   { label: 'Membros Fundadores', href: '/parceiro-fundador' },
 ] as const;
+
+// 24/11 — links das lojas para a página /baixe (QR Code impresso). Enquanto estiverem vazios, os botões
+// "Baixe" levam à Lista Antecipada (avisamos quando o app chegar). Preencher aqui ou nas variáveis
+// NEXT_PUBLIC_URL_APP_STORE / NEXT_PUBLIC_URL_PLAY_STORE na Vercel assim que as lojas aprovarem.
+// Google Play (pacote com.dicaslgbt.app): https://play.google.com/store/apps/details?id=com.dicaslgbt.app
+export const URL_APP_STORE = process.env.NEXT_PUBLIC_URL_APP_STORE || '';
+export const URL_PLAY_STORE = process.env.NEXT_PUBLIC_URL_PLAY_STORE || '';
