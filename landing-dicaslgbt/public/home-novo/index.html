@@ -80,7 +80,8 @@ nav.main a:hover{color:#fff}
 .drawer{display:none;position:absolute;left:0;right:0;top:100%;background:rgba(10,9,16,.97);border-bottom:1px solid var(--line);padding:12px var(--gutter) 22px}
 .drawer.open{display:block}
 .drawer a{display:block;padding:13px 0;border-bottom:1px solid var(--line);text-decoration:none;font-weight:500;color:var(--text)}
-.drawer .btn{margin-top:16px;width:100%}
+.drawer a.btn{display:flex;padding:0 28px;margin-top:16px;width:100%;box-sizing:border-box;border-bottom:2px solid transparent}
+.drawer a.btn-outline{border:2px solid rgba(255,255,255,.4);margin-top:10px}
 @media (max-width:1560px){nav.main{display:none}.burger{display:grid}.hide-md{display:none}}
 @media (max-width:700px){.top-actions .login{display:none}.top-actions .btn-outline{display:none}.logo{height:17px}.top-actions .btn-sm{padding:0 13px;font-size:13px;min-height:38px}}
 @media (max-width:410px){.x{display:none}}
@@ -311,6 +312,7 @@ footer{padding:56px 0 48px;color:var(--dim);font-size:15px;background:var(--bg);
     <a href="#lab">Dicas Lab</a>
     <a href="https://www.dicaslgbt.com.br/parceiro-fundador">Membros Fundadores</a>
     <a href="https://www.dicaslgbt.com.br/entrar">Já sou parceiro</a>
+    <a class="btn btn-primary" href="https://www.dicaslgbt.com.br/baixe">Baixe o app</a>
     <a class="btn btn-outline" href="#lista">Entrar na Lista Antecipada</a>
   </div>
 </header>
