@@ -18,6 +18,9 @@ const nextConfig: NextConfig = {
     return [
       { source: '/cadastro', destination: `${portal}/cadastro/local`, permanent: false },
       { source: '/cadastro-evento', destination: `${portal}/cadastro/evento`, permanent: false },
+      // Evento 26/11: link curto para testar o app na versao web (usuario e parceiro).
+      { source: '/testeagora', destination: process.env.NEXT_PUBLIC_URL_APP_WEB || 'https://dicas-lgbt-app-web.vercel.app', permanent: false },
+      { source: '/teste-agora', destination: '/testeagora', permanent: false },
     ];
   },
   // Página interna do Pipeline comercial (login próprio, só equipe).
